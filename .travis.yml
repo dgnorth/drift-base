@@ -16,6 +16,7 @@ services:
 - redis-server
 install:
 - export PATH=$HOME/.local/bin:$PATH
+- pip install codecov
 - sudo apt-get install -y -q python-dev python-pip
 - sudo apt-get install -y -q libldap2-dev libsasl2-dev
 - sudo apt-get install -y -q python-psycopg2
@@ -33,7 +34,9 @@ before_script:
 - python kitrun.py tier use DEVNORTH
 - cp config/travis-host-config.json ~/.drift/drift-base.json
 script:
-- python kitrun.py runsystest
+- coverage python kitrun.py runsystest
+after_success:
+ - codecov
 notifications:
   on_pull_requests: false
   slack:
