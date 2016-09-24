@@ -1,0 +1,95 @@
+{
+    "name": "drift-base",
+    "PORT": 10080,
+    "apps": [
+        "driftbase.tasks",
+        "driftbase.players",
+        "driftbase.users",
+        "driftbase.clients",
+        "driftbase.events",
+        "driftbase.counters",
+        "driftbase.useridentities",
+        "driftbase.matches",
+        "driftbase.servers",
+        "driftbase.machines",
+        "driftbase.staticdata",
+        "driftbase.runconfigs",
+        "driftbase.machinegroups",
+        "driftbase.matchqueue",
+        "driftbase.messages",
+        "drift.core.apps.schemas",
+        "drift.contrib.apps.servicestatus"
+    ],
+    "extensions": [
+    ],
+    "models": [
+        "driftbase.db.models"
+    ],
+    "default_timeout": 5,
+    "heartbeat_period": 30,
+    "heartbeat_timeout": 300,
+    "redis_connection_info": {
+        "port": 6379,
+        "socket_connect_timeout": 5,
+        "socket_timeout": 5
+    },
+    "redis_server": "localhost",
+    "db_server": "localhost",
+    "systest_db": {
+        "server": "localhost:5432"
+    },
+    "static_data_refs": [],
+    "systest_db": {
+        "server": "localhost:5432"
+    },
+    "CELERYBEAT_SCHEDULERxxx": "drift.core.extensions.celery.SingletonScheduler",
+    "CELERYBEAT_SCHEDULE": {
+        "cleanup_orphaned_matchqueues": {
+            "options": {
+                "expires": 1000
+            },
+            "schedule": 180,
+            "task": "driftbase.matchqueue.cleanup_orphaned_matchqueues"
+        },
+        "counter-flush": {
+            "options": {
+                "expires": 160
+            },
+            "schedule": 80,
+            "task": "driftbase.tasks.flush_counters"
+        },
+        "online-statistics": {
+            "options": {
+                "expires": 120
+            },
+            "schedule": 60,
+            "task": "driftbase.tasks.update_online_statistics"
+        },
+        "request-statistics": {
+            "options": {
+                "expires": 140
+            },
+            "schedule": 70,
+            "task": "driftbase.tasks.flush_request_statistics"
+        },
+        "timeout-clients": {
+            "options": {
+                "expires": 400
+            },
+            "schedule": 200,
+            "task": "driftbase.tasks.timeout_clients"
+        }
+    },
+    "CELERYD_HIJACK_ROOT_LOGGER": true,
+    "CELERYD_LOG_LEVEL": "INFO",
+    "CELERY_ACCEPT_CONTENT": [
+        "json"
+    ],
+    "CELERY_DEFAULT_EXCHANGE": "ck-tasker-default",
+    "CELERY_DEFAULT_QUEUE": "ck-tasker-default",
+    "CELERY_DEFAULT_ROUTING_KEY": "ck-tasker-default",
+    "CELERY_RESULT_SERIALIZER": "json",
+    "CELERY_STORE_ERRORS_EVEN_IF_IGNORED": true,
+    "CELERY_TASK_RESULT_EXPIRES": 3600,
+    "CELERY_TASK_SERIALIZER": "json"
+}
