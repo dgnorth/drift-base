@@ -31,7 +31,7 @@ before_script:
   -U postgres
 - python kitrun.py tier init eu-west-1/directive-tiers.dg-api.com/tiers-config.json
 - python kitrun.py tier use DEVNORTH
-- cp config/travis-host-config.json ~/.drift/cloudkit-base.json
+- cp config/travis-host-config.json ~/.drift/drift-base.json
 script:
 - python kitrun.py runsystest
 notifications:
