@@ -34,7 +34,7 @@ before_script:
 - python kitrun.py tier use DEVNORTH
 - cp config/travis-host-config.json ~/.drift/drift-base.json
 script:
-- coverage run python kitrun.py runsystest
+- coverage run kitrun.py runsystest
 after_success:
  - codecov
 notifications:
