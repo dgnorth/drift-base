@@ -6,7 +6,15 @@ import unittest, responses, mock
 import json, requests
 import datetime
 from mock import patch
-from drift.systesthelper import DriftBaseTestCase, uuid_string
+from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, uuid_string
+
+
+def setUpModule():
+    setup_tenant()
+
+
+def tearDownModule():
+    remove_tenant()
 
 
 class CountersTest(DriftBaseTestCase):
