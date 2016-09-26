@@ -39,7 +39,7 @@ def get_static_data_ids():
 
     # The app config.
     add_ref(current_app.config, "Application config")
-    add_ref(g.ccpenv_objects, "Config specific to tenant '{}'.".format(g.ccpenv["name"]))
+    add_ref(g.driftenv_objects, "Config specific to tenant '{}'.".format(g.driftenv["name"]))
 
     return revs
 
