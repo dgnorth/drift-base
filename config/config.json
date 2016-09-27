@@ -38,10 +38,6 @@
     "systest_db": {
         "server": "localhost:5432"
     },
-    "static_data_refs": [],
-    "systest_db": {
-        "server": "localhost:5432"
-    },
     "CELERYBEAT_SCHEDULERxxx": "drift.core.extensions.celery.SingletonScheduler",
     "CELERYBEAT_SCHEDULE": {
         "cleanup_orphaned_matchqueues": {
