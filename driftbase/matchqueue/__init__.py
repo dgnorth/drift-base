@@ -14,6 +14,7 @@ from drift.core.extensions.celery import celery
 from drift.rediscache import RedisCache
 
 from driftbase.db.models import Match, MatchQueuePlayer, Client, Server, Machine
+import driftbase.tasks
 
 import logging
 log = logging.getLogger(__name__)
@@ -139,11 +140,10 @@ def cleanup_orphaned_matchqueues():
     logger = get_task_logger("cleanup_orphaned_matchqueues")
 
     tier_name = get_tier_name()
-    config = load_config()
-    tenants = config.get("tenants", [])
+    tenants = driftbase.tasks.get_tenants()
     logger.info("Cleaning up match queues for %s tenants...", len(tenants))
     for tenant_config in tenants:
-
+        print tenant_config
         tenant_name = tenant_config["name"]
         if tenant_config.get("name", "*") == "*":
             continue

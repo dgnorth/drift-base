@@ -33,7 +33,6 @@ def get_tenants():
         if config.get("redis_server", None):
             t["redis_server"] = config.get("redis_server")
         tenants.append(t)
-
     return tenants
 
 
@@ -53,7 +52,7 @@ def update_online_statistics():
         with sqlalchemy_session(tenant["conn_string"]) as session:
             sql = """SELECT COUNT(DISTINCT(player_id)) AS cnt
                        FROM ck_clients
-                      WHERE heartbeat > NOW() - INTERVAL '1 minutes'"""
+                      WHERE heartbeat > NOW() at time zone 'utc' - INTERVAL '1 minutes'"""
             try:
                 result = session.execute(sql)
             except Exception as e:
