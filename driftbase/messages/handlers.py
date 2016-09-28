@@ -204,8 +204,8 @@ class MessagesQueueAPI(Resource):
         timestamp = utcnow()
         expires = timestamp + datetime.timedelta(seconds=expire_seconds)
         message = {
-            "timestamp": timestamp,
-            "expires": expires,
+            "timestamp": timestamp.isoformat() + "Z",
+            "expires": expires.isoformat() + "Z",
             "sender_id": current_user["player_id"],
             "message_id": message_id,
             "message_number": message_number,
