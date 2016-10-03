@@ -28,7 +28,7 @@ def get_player_entry(recordset, columns=None):
     client = recordset[2]
     entry = player.as_dict()
     entry["player_url"] = url_player(player.player_id)
-    entry["user_url"] = url_user(player.player_id)
+    entry["user_url"] = url_user(player.user_id)
     entry["counter_url"] = url_for("playercounters.list", player_id=player.player_id,
                                    _external=True)
     entry["countertotals_url"] = url_for("playercounters.totals", player_id=player.player_id,
