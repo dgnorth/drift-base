@@ -11,6 +11,7 @@ from mock import patch
 
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, db_name
 from drift.tenant import get_connection_string
+from drift.utils import get_tier_name
 
 from driftbase.utils.test_utils import BaseCloudkitTest
 import driftbase.matchqueue
@@ -30,7 +31,7 @@ def get_mock_tenants():
          "redis_server": "localhost",
          "heartbeat_timeout": 0,
          }
-    conn_string = get_connection_string(t, None, tier_name="DEVNORTH")
+    conn_string = get_connection_string(t, None, tier_name=get_tier_name())
     t["conn_string"] = conn_string
     return [t]
 
