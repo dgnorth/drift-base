@@ -151,8 +151,3 @@ def authenticate(username, password):
     cache = UserCache()
     cache.set_all(user_id, ret)
     return ret
-
-
-def private_key():
-    # To generate: ssh-keygen -t rsa -b 768 -C "drift-base@dg-api.com"
-    return current_app.config.get("private_key")
