@@ -11,6 +11,7 @@ import gevent
 import uuid
 import copy
 import operator
+import sys
 
 from flask import Blueprint, g, url_for, request, stream_with_context, Response
 from flask_restful import Api, Resource, abort, reqparse
@@ -59,26 +60,31 @@ def incr_message_number(exchange, exchange_id):
 
 def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     messages = []
-    key = "messages:%s-%s:*" % (exchange, exchange_id)
-    redis_match = g.redis.make_key(key)
+    key = "messages:%s-%s" % (exchange, exchange_id)
+    redis_key = g.redis.make_key(key)
     my_player_id = None
     if current_user:
         my_player_id = current_user["player_id"]
-    for key in g.redis.conn.scan_iter(match=redis_match):
-        contents = g.redis.conn.get(key)
+    i = 1
+    curr_message_number = sys.maxint
+    while curr_message_number >= min_message_number:
+        all_contents = g.redis.conn.lrange(redis_key, -i, -i)
+        if not all_contents:
+            break
+        contents = all_contents[0]
         message = json.loads(contents)
-        message_number = message["message_number"]
-        if message_number < min_message_number:
-            continue
-
-        lst = key.split(":")
-        queue = lst[-2]
-        message_id = lst[-1]
-
+        curr_message_number = message["message_number"]
+        i += 1
+        if curr_message_number < min_message_number:
+            break
         messages.append(message)
         log.info("Message %s ('%s') has been retrieved from queue '%s' in "
                  "exchange '%s-%s' by player %s",
-                 message_number, message_id, queue, exchange, exchange_id, my_player_id)
+                 message["message_number"], message["message_id"],
+                 message["queue"], exchange, exchange_id, my_player_id)
+
+        if rows and len(messages) >= rows:
+            break
 
     messages.sort(key=operator.itemgetter("message_number"), reverse=True)
     rows = rows or len(messages)
@@ -217,11 +223,13 @@ class MessagesQueueAPI(Resource):
         if not is_key_legal(exchange) or not is_key_legal(queue):
             abort(httplib.BAD_REQUEST, message="Exchange or Queue name is invalid.")
 
-        key = "messages:%s-%s:%s:%s" % (exchange, exchange_id, queue, message_id)
+        key = "messages:%s-%s" % (exchange, exchange_id)
         val = json.dumps(message, default=json_serial)
 
         with g.redis.lock(lock_key):
-            g.redis.set(key, val, expire=expire_seconds)
+            k = g.redis.make_key(key)
+            g.redis.conn.rpush(k, val)
+            g.redis.conn.expire(k, expire_seconds)
 
         log.info("Message %s ('%s') has been added to queue '%s' in exchange "
                  "'%s-%s' by player %s. It will expire on '%s'",
