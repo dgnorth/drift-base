@@ -68,9 +68,17 @@ class EventsAPI(Resource):
 
         args = request.json
 
-        player_id = current_user["player_id"]
+        # The event log API should enforce the player_id to the current player, unless 
+        # the user has role "service" in which case it should only set the player_id if 
+        # it's not passed in the event.        
+        player_id = current_user['player_id']
+        is_service = 'service' in current_user['roles']
+
         for event in args:
-            event["player_id"] = player_id
+            if is_service:
+                event.setdefault('player_id', player_id)
+            else:
+                event['player_id'] = player_id  # Always override!
             eventlogger.info("eventlog", extra=event)
 
         return "OK", httplib.CREATED
