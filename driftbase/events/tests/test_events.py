@@ -8,8 +8,8 @@ os.environ.setdefault("drift_CONFIG", config_file)
 import httplib
 import unittest, responses, mock
 import json, requests, datetime
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, service_username, service_password, local_password, uuid_string, DriftBaseTestCase, big_number
+from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, user_payload
+from drift.auth.jwtchecker import current_user
 
 
 def setUpModule():
@@ -53,6 +53,36 @@ class EventsTest(DriftBaseTestCase):
         self.headers = {}
         r = self.post(endpoint, data=[{"hello": "world", "event_name": "dummy", "timestamp": ts}],
                       expected_status_code=httplib.UNAUTHORIZED)
+    
+    def test_events_from_server(self):
+        # The event log API should enforce the player_id to the current player, unless 
+        # the user has role "service" in which case it should only set the player_id if 
+        # it's not passed in the event.
+
+        def eventlog(message, extra):
+            expect_player_id = self.expect_player_id or current_user['player_id']
+            self.assertEqual(extra['player_id'], expect_player_id)
+
+        with mock.patch('driftbase.events.handlers.eventlogger.info', eventlog):
+            self.auth()
+            endpoint = self.endpoints["eventlogs"]
+            ts = datetime.datetime.utcnow().isoformat() + "Z"
+            event = {"event_name": "dummy", "timestamp": ts}
+
+            # Ommitting player_id, it should be pulled from current_user
+            self.expect_player_id = None  # Expect value from current_user
+            self.post(endpoint, data=[event], expected_status_code=httplib.CREATED)
+            
+            # Set player_id to 88888, but it should be ignored as we don't have role 'service'.
+            event['player_id'] = 88888
+            self.expect_player_id = None  # Expect value from current_user
+            self.post(endpoint, data=[event], expected_status_code=httplib.CREATED)
+
+            # Set player_id to 88888 and runs with role 'service'.
+            self.auth_service()
+            event['player_id'] = 88888
+            self.expect_player_id = 88888
+            self.post(endpoint, data=[event], expected_status_code=httplib.CREATED)
 
     def test_clientlogs(self):
         self.auth()
