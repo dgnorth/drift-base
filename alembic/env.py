@@ -6,6 +6,7 @@ from sqlalchemy import pool, create_engine
 from logging.config import fileConfig
 import logging
 from drift.flaskfactory import load_config
+from drift.management import get_tiers_config
 from os.path import abspath, join
 import os, sys, socket
 
@@ -54,14 +55,13 @@ def get_engines():
         return engines
     engines = {}
     from drift.tenant import get_connection_string
-    config = load_config()
+    tiers_config = get_tiers_config()
     tenants = []
     pick_tenant = None
     if sys.argv[1] == '-x':
         pick_tenant = sys.argv[2]
         print 'picking tenant %s' % pick_tenant
-    for tier in config["tiers"]:
-        tier_name = tier["name"]
+    for tier_name in tiers_config["tiers"]:
         config = load_config(tier_name)
         tenant_names = []
         for t in config.get("tenants", []):
