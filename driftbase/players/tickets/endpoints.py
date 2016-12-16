@@ -96,6 +96,12 @@ class TicketEndpoint(Resource):
 
     @simple_schema_request({"journal_id": {"type": "number", }})
     def patch(self, player_id, ticket_id):
+        return self._patch(player_id, ticket_id)
+    @simple_schema_request({"journal_id": {"type": "number", }})
+    def put(self, player_id, ticket_id):
+        return self._patch(player_id, ticket_id)
+
+    def _patch(self, player_id, ticket_id):
         """
         Claim a ticket
         """

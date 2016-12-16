@@ -68,8 +68,11 @@ class TicketsTests(BaseCloudkitTest):
         data = {"journal_id": 10}
         r = self.patch(ticket_url, data=data)
 
-        data = {"journal_id": 10}
         r = self.patch(ticket_url, data=data, expected_status_code=httplib.NOT_FOUND)
+        self.assertIn("has already been claimed", r.json()["error"]["description"])
+
+        # try it with a put (should temporarily be the same as patch)
+        r = self.put(ticket_url, data=data, expected_status_code=httplib.NOT_FOUND)
         self.assertIn("has already been claimed", r.json()["error"]["description"])
 
     def test_tickets_claim(self):

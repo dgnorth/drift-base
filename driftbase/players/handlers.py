@@ -121,6 +121,12 @@ class PlayersAPI(Resource):
 
     @simple_schema_request({"name": {"type": "string"}})
     def patch(self, player_id):
+        return self._patch(player_id)
+    @simple_schema_request({"name": {"type": "string"}})
+    def put(self, player_id):
+        return self._patch(player_id)
+
+    def _patch(self, player_id):
         """
         Update player name
         """

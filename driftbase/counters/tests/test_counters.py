@@ -21,6 +21,25 @@ class CountersTest(DriftBaseTestCase):
     """
     Tests for the /counters endpoint
     """
+    def test_counters_put(self):
+        # verify that the temporary put versions of the patch endpoints work
+        self.auth(username=uuid_string())
+        name = "my_put_counter"
+        player_url = self.endpoints["my_player"]
+        r = self.get(player_url)
+        counter_url = r.json()["counter_url"]
+        countertotals_url = r.json()["countertotals_url"]
+        timestamp = datetime.datetime(2016, 1, 1, 10, 2, 2)
+        val = 666
+        data = [{"name": name, "value": val, "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"}]
+        r = self.put(counter_url, data=data)
+        r = self.get(countertotals_url)
+
+        self.assertEquals(len(r.json()), 1)
+        self.assertIn(name, r.json())
+        self.assertEquals(r.json()[name], val)
+
     def test_counters_positions(self):
         name = "my_leaderboard_counter"
         num_players = 5

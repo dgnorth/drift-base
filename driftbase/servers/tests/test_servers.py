@@ -240,6 +240,12 @@ class ServersTest(DriftBaseTestCase):
         self.patch(command_url, {"status": "completed", "details": details})
         self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 0)
 
+        # try switching status with put, should temporarily behave the same as patch
+        self.put(command_url, {"status": "pending"})
+        self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 1)
+        self.put(command_url, {"status": "completed"})
+        self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 0)
+
         resp = self.get(command_url)
         self.assertEquals("completed", resp.json()["status"])
         self.assertIsNotNone(resp.json()["status_date"])

@@ -358,6 +358,16 @@ class ServerCommandAPI(Resource):
         "details": {"type": "object", },
     }, required=["status"])
     def patch(self, server_id, command_id):
+        return self._patch(server_id, command_id)
+    @requires_roles("service")
+    @simple_schema_request({
+        "status": {"type": "string", },
+        "details": {"type": "object", },
+    }, required=["status"])
+    def put(self, server_id, command_id):
+        return self._patch(server_id, command_id)
+
+    def _patch(self, server_id, command_id):
         """
         Add a new command for the daemon to execute
         """

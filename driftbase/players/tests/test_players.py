@@ -101,6 +101,16 @@ class PlayersTest(BaseCloudkitTest):
         self.assertEqual(r.json()["player_name"], new_name)
         self.assertEqual(self.get(player_url).json()["player_name"], new_name)
 
+    def test_change_name_put(self):
+        # verify that the temporary put versions of the patch endpoints work
+        self.auth()
+        player_url = self.endpoints["my_player"]
+        r = self.get(player_url)
+        new_name = "new name %s" % uuid_string()
+        r = self.put(player_url, data={"name": new_name})
+        self.assertEqual(r.json()["player_name"], new_name)
+        self.assertEqual(self.get(player_url).json()["player_name"], new_name)
+
     def test_root_endpoints(self):
         # Verify that my_xxx endpoints are populated after authentication
         r = self.get("/")
