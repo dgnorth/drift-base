@@ -188,6 +188,9 @@ class MatchesAPI(Resource):
                       details=args.get("details"),
                       )
         g.db.add(match)
+        g.db.flush()
+        #! have to set this explicitly after the row is created
+        match.start_date = None
         g.db.commit()
         match_id = match.match_id
 

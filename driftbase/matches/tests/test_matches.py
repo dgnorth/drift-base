@@ -63,6 +63,7 @@ class MatchesTest(BaseMatchTest):
         self.assertEquals(resp.json()["players"], [])
         self.assertEquals(resp.json()["status"], "idle")
         self.assertEquals(resp.json()["server_id"], server_id)
+        self.assertIsNone(resp.json()["start_date"])
 
         # create a match with some predefined teams
         num_teams = 3
@@ -127,6 +128,8 @@ class MatchesTest(BaseMatchTest):
 
         resp = self.get(match_url)
         self.assertEquals(len(resp.json()["teams"]), 1)
+        self.assertIsNotNone(resp.json()["start_date"])
+
         resp = self.get(teams_url)
         team_url = resp.json()[0]["url"]
         resp = self.get(team_url)
