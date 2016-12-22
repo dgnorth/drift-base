@@ -183,6 +183,7 @@ class MatchesAPI(Resource):
                       game_mode=args.get("game_mode"),
                       status=args.get("status"),
                       status_date=utcnow(),
+                      start_date=None,
                       match_statistics=args.get("match_statistics"),
                       details=args.get("details"),
                       )
@@ -507,11 +508,15 @@ class MatchPlayersAPI(Resource):
         # remove the player from the match queue
         g.db.query(MatchQueuePlayer).filter(MatchQueuePlayer.player_id == player_id).delete()
 
-        num_players = g.db.query(MatchPlayer) \
-                          .filter(MatchPlayer.match_id == match_id,
-                                  MatchPlayer.status == "active") \
-                          .count()
-        match.num_players = num_players
+        #num_players = g.db.query(MatchPlayer) \
+        #                  .filter(MatchPlayer.match_id == match_id,
+        #                          MatchPlayer.status == "active") \
+        #                  .count()
+
+        if match.num_players == 0:
+            match.start_date = utcnow()
+
+        match.num_players += 1 #! TODO: Adds to the count but if you rejoin you get counted twice
 
         g.db.commit()
 
@@ -588,11 +593,12 @@ class MatchPlayerAPI(Resource):
         match_player.leave_date = utcnow()
         match_player.seconds += num_seconds
 
-        num_players = g.db.query(MatchPlayer) \
-                          .filter(MatchPlayer.match_id == match_id,
-                                  MatchPlayer.status == "active") \
-                          .count()
-        match.num_players = num_players
+        #! keep num_players as 'all players who have joined' temporarily
+        #num_players = g.db.query(MatchPlayer) \
+        #                  .filter(MatchPlayer.match_id == match_id,
+        #                          MatchPlayer.status == "active") \
+        #                  .count()
+        #match.num_players = num_players
 
         g.db.commit()
 
