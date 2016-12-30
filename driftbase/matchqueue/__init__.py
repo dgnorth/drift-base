@@ -137,8 +137,8 @@ def cleanup_orphaned_matchqueues():
     Find matches who have been reserved by the match queue but not joined
     for 10 minutes and make them available to other players
     """
+    deployable_name = current_app.config['name']
     logger = get_task_logger("cleanup_orphaned_matchqueues")
-
     tier_name = get_tier_name()
     tenants = driftbase.tasks.get_tenants()
     logger.info("Cleaning up match queues for %s tenants...", len(tenants))
@@ -186,5 +186,6 @@ def cleanup_orphaned_matchqueues():
             if orphaned_matches:
                 logger.info("Processing match queue")
                 redis = RedisCache(tenant=tenant_config["name"],
-                                   redis_server=tenant_config['redis_server'])
+                                   service=deployable_name,
+                                   redis_config=tenant_config['redis'])
                 process_match_queue(redis, session)
