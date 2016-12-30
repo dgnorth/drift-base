@@ -192,6 +192,11 @@ class CountersApi(Resource):
         return ret
 
     def patch(self, player_id):
+        return self._patch(player_id)
+    def put(self, player_id):
+        return self._patch(player_id)
+
+    def _patch(self, player_id):
         """
         Expects a list of counters to update in the format:
         [
@@ -333,10 +338,14 @@ class CounterApi(Resource):
 
         return ret
 
-    @simple_schema_request({"timestamp": {"type": "string", },
-                            "value": {"type": "number"},
-                            "context_id": {"type": "number"}})
+    @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
     def patch(self, player_id, counter_id, context_id):
+        return self._patch(player_id, counter_id, context_id)
+    @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
+    def put(self, player_id, counter_id, context_id):
+        return self._patch(player_id, counter_id, context_id)
+
+    def _patch(self, player_id, counter_id, context_id):
         """
         Update a single existing counter
         """
