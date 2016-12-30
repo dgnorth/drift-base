@@ -13,16 +13,20 @@ from driftbase.utils import UserCache
 
 log = logging.getLogger(__name__)
 
+
 def _get_service_user():
     """
     Return tenant specific service user info, if available, else use one that's
     specified for the tier.
     """
-    service_user = g.conf.tier.get('service_user')
-    if not service_user and g.conf.tenant:
-        service_user = g.conf.tenant.get('service_user')
+    try:
+        service_user = g.conf.tier.get('service_user')
+        if not service_user and g.conf.tenant:
+            service_user = g.conf.tenant.get('service_user')
 
-    return service_user
+        return service_user
+    except:
+        return current_app.config.get("service_user")
 
 
 def authenticate(username, password):
