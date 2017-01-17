@@ -24,8 +24,25 @@ CDN_LIST = [
     ['alicloud', 'http://directive-tiers.oss-cn-shanghai.aliyuncs.com/static-data/'],
 ]
 
-
 def get_static_data_ids():
+
+    data = g.conf.tenant.get('static_data_refs_legacy')
+    revs = {}
+    if data:
+        origin = "Tenant config"
+    else:
+        data = [{
+            "repository": "directivegames/the-machines-static-data",
+            "revision": "refs/heads/develop",
+        }]
+        origin = "Hardcoded defaults"
+
+    for ref in data:
+        revs[ref['repository']] = ref, origin
+
+    return revs
+
+def get_static_data_ids_old():
     """Returns a dict of all static data repos and revision identifiers that apply to the
     current caller. Each entry is tagged with which config it originated from.
     Key is repository name, value is [ref, origin] pair.
@@ -81,12 +98,16 @@ class StaticDataAPI(Resource):
 
             # Get the index file from S3 and index it by 'ref'
             index_file_url = "{}{}/index.json".format(INDEX_URL, repository)
+            err = None
             try:
                 index_file = get_from_url(index_file_url)
-            except Exception:
-                log.exception("Can't fetch %s", index_file_url)
+            except Exception as e:
+                err = "Can't fetch %s: %s" % (index_file_url, e)
+                log.exception(err)
+            if err:
+                data["error"] = err
                 continue
-
+            print "ref_entry", ref_entry
             index_file = {ref_entry["ref"]: ref_entry for ref_entry in index_file["index"]}
 
             # Use this ref if it matches

@@ -180,7 +180,7 @@ class MessagesExchangeAPI(Resource):
                         yield " "
                     except Exception as e:
                         log.error("[%s/%s] Exception %s", my_player_id, exchange_full_name, repr(e))
-                        raise
+                        yield json.dumps({})
             return Response(stream_with_context(streamer()), mimetype="application/json")
         else:
             messages = fetch_messages(exchange, exchange_id, min_message_number, rows)
