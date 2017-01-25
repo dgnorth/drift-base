@@ -50,6 +50,18 @@ class MachinesTest(DriftBaseTestCase):
 
         resp = self.get("/machines/9999999", expected_status_code=httplib.NOT_FOUND)
 
+    def test_update_machine(self):
+        self.auth_service()
+
+        data = {"realm": "local", "instance_name": "local"}
+        resp = self.post("/machines", data=data, expected_status_code=httplib.CREATED)
+        url = resp.json()["url"]
+        resp = self.get(url)
+        self.assertEqual(resp.json()["realm"], data["realm"])
+        self.assertEqual(resp.json()["instance_name"], data["instance_name"])
+        machine_id = resp.json()["machine_id"]
+        #! TODO: System tests are currently offline. Will continue this later and add PUT tests
+
     def test_get_awsmachine(self):
         self.auth_service()
         resp = self.get("/machines?realm=aws&instance_name=test&instance_id=1&"
