@@ -6,8 +6,16 @@ from sqlalchemy import pool, create_engine
 from logging.config import fileConfig
 import logging
 from drift.flaskfactory import load_config
+from drift.core.resources.postgres import format_connection_string
 from os.path import abspath, join
 import os, sys, socket
+from driftconfig.config import get_domains
+
+def get_ts():
+    domains = get_domains().values()
+    ts = domains[0]["table_store"] #! assume 1 domain
+    return ts
+
 
 config_file = abspath(join(__file__, "../../config", "config.json"))
 os.environ.setdefault("drift_CONFIG", config_file)
@@ -24,6 +32,9 @@ fileConfig(alembic_cfg.config_file_name)
 db_names = alembic_cfg.get_main_option('databases')
 conn_string = alembic_cfg.get_section_option(db_names, "sqlalchemy.url")
 logger = logging.getLogger('alembic.env')
+
+MASTER_USERNAME = 'postgres'
+MASTER_PASSWORD = 'postgres'
 
 # add your model's MetaData objects here
 # for 'autogenerate' support.  These must be set
@@ -53,43 +64,32 @@ def get_engines():
                    }
         return engines
     engines = {}
-    from drift.tenant import get_connection_string
-    config = load_config()
     tenants = []
+    ts = get_ts()
+    tenants_table = ts.get_table('tenants').find({'deployable_name': 'drift-base'}) #!
     pick_tenant = None
     if sys.argv[1] == '-x':
         pick_tenant = sys.argv[2]
         print 'picking tenant %s' % pick_tenant
-    for tier in config["tiers"]:
-        tier_name = tier["name"]
-        config = load_config(tier_name)
-        tenant_names = []
-        for t in config.get("tenants", []):
-            if not t.get("db_server"):
-                continue
-            name = t["name"]
-            t["tier_name"] = tier_name
-            if not (pick_tenant and name != pick_tenant) and name != "*":
-                tenants.append(t)
-                tenant_names.append(name)
-        logger.info("Gathering tenants for tier %s: %s",
-                    tier_name, (", ".join(tenant_names) or "(none)"))
+
+    for t in tenants_table:
+        if not t.get("postgres"):
+            continue
+        name = t["tenant_name"]
+        if not (pick_tenant and name != pick_tenant) and name != "*":
+            tenants.append(t)
 
     db_servers = set([])
     for tenant_config in tenants:
-        from drift.flaskfactory import TenantNotFoundError
-        try:
-            conn_info = {"user": "postgres", "password": "postgres"}
-            this_conn_string = get_connection_string(tenant_config,
-                                                     conn_info,
-                                                     tier_name=tenant_config["tier_name"])
-        except TenantNotFoundError:
-            logger.info("Tenant '{}' on tier '{}' not found"
-                        .format(tenant_config["name"], tenant_config["tier_name"]))
-            continue
+        conn_info = tenant_config["postgres"]
+        conn_info["username"] = MASTER_USERNAME
+        conn_info["password"] = MASTER_PASSWORD
+        this_conn_string = format_connection_string(conn_info)
+        print this_conn_string
+
         if this_conn_string not in [e["url"] for e in engines.itervalues()]:
             engines["{}.{}".format(tenant_config["tier_name"],
-                                   tenant_config["name"])] = rec = {"url": this_conn_string}
+                                   tenant_config["tenant_name"])] = rec = {"url": this_conn_string}
 
     # quick and dirty connectivity test before trying to upgrade all db's
     print "Checking connectivity..."

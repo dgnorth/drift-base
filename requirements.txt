@@ -1,2 +1,2 @@
-git+https://github.com/dgnorth/drift@develop
+git+https://github.com/dgnorth/drift@feature/drift-config
 git+https://github.com/dgnorth/drift-config@develop
