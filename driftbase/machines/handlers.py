@@ -86,6 +86,7 @@ class MachinesAPI(Resource):
         "private_ip": {"format": "ip-address", },
         "machine_info": {"type": "object", },
         "details": {"type": "object", },
+        "group_name": {"type": "string", },
     }, required=["realm", "instance_name"])
     def post(self):
         args = request.json
@@ -101,6 +102,7 @@ class MachinesAPI(Resource):
                           private_ip=args.get("private_ip"),
                           machine_info=args.get("machine_info"),
                           details=args.get("details"),
+                          group_name=args.get("group_name")
                           )
         g.db.add(machine)
         g.db.commit()
@@ -147,6 +149,7 @@ class MachineAPI(Resource):
         "details": {"type": "object", },
         "config": {"type": "object", },
         "statistics": {"type": "object", },
+        "group_name" : {"type": "string"}
     }, required=[])
     def put(self, machine_id):
         """
@@ -166,6 +169,8 @@ class MachineAPI(Resource):
             row.config = args["config"]
         if args.get("statistics"):
             row.statistics = args["statistics"]
+        if args.get("group_name"):
+            row.group_name = args["group_name"]
 
         g.db.commit()
         return {"last_heartbeat": last_heartbeat}

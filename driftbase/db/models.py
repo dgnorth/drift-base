@@ -212,7 +212,7 @@ class Machine(ModelBase):
     heartbeat_date = Column(DateTime, nullable=True, server_default=utc_now)
     config = Column(JSON, nullable=True)
     statistics = Column(JSON, nullable=True)
-
+    group_name = Column(String(50), nullable=True)
 
 class Server(ModelBase):
     __tablename__ = 'gs_servers'
