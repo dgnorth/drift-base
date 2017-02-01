@@ -9,7 +9,7 @@ from drift.tenant import get_connection_string
 from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
 from drift.rediscache import RedisCache
-from driftconfig.config import get_domains 
+from driftconfig.util import get_domains
 from drift.core.resources.postgres import format_connection_string
 from driftbase.players.counters.endpoints import add_count
 from driftbase.db.models import Counter, Client
