@@ -9,7 +9,7 @@ from drift.flaskfactory import load_config
 from drift.core.resources.postgres import format_connection_string
 from os.path import abspath, join
 import os, sys, socket
-from driftconfig.config import get_domains
+from driftconfig.util import get_domains
 
 def get_ts():
     domains = get_domains().values()

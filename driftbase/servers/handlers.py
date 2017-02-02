@@ -204,6 +204,7 @@ class ServerAPI(Resource):
             match_id = row.match_id
             match = {"match_id": match_id,
                      "url": url_for("matches.entry", match_id=match_id, _external=True),
+                     "num_players": row.num_players,
                      }
             matches.append(match)
         record["matches"] = matches

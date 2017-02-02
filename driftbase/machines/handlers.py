@@ -164,7 +164,7 @@ class MachineAPI(Resource):
         if args.get("status"):
             row.status = args["status"]
         if args.get("details"):
-            row.status = args["details"]
+            row.details = args["details"]
         if args.get("config"):
             row.config = args["config"]
         if args.get("statistics"):
