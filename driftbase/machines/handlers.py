@@ -4,12 +4,13 @@ import logging, httplib, datetime
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
+from dateutil import parser
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.auth.jwtchecker import requires_roles
 
-from driftbase.db.models import Machine
+from driftbase.db.models import Machine, MachineEvent
 
 log = logging.getLogger(__name__)
 bp = Blueprint("machines", __name__)
@@ -149,7 +150,8 @@ class MachineAPI(Resource):
         "details": {"type": "object", },
         "config": {"type": "object", },
         "statistics": {"type": "object", },
-        "group_name" : {"type": "string"}
+        "group_name" : {"type": "string"},
+        "events": {"type": "array"}
     }, required=[])
     def put(self, machine_id):
         """
@@ -171,6 +173,14 @@ class MachineAPI(Resource):
             row.statistics = args["statistics"]
         if args.get("group_name"):
             row.group_name = args["group_name"]
+        if args.get("events"):
+            for event in args["events"]:
+                timestamp = parser.parse(event["timestamp"])
+                event_row = MachineEvent(event_type_name=event["event"],
+                                         machine_id=machine_id,
+                                         details=event,
+                                         create_date=timestamp)
+                g.db.add(event_row)
 
         g.db.commit()
         return {"last_heartbeat": last_heartbeat}
