@@ -21,20 +21,17 @@ def _update_analytics():
         if not client_id:
             log.debug("client_id not found in JWT for user %s. Not updating client stats." % user_id)
 
-    if not g.redis.conn:
-        # No redis to write to
-        return
-
-    # use redis pipeline to minimize roundtrips
-    pipe = g.redis.conn.pipeline()
-    k = g.redis.make_key('stats:numrequests')
-    pipe.incr(k)
-    pipe.expire(k, 3600)
-    if client_id:
-        k = g.redis.make_key('stats:numrequestsclient:{}'.format(client_id))
+    if g.redis and g.redis.conn:
+        # use redis pipeline to minimize roundtrips
+        pipe = g.redis.conn.pipeline()
+        k = g.redis.make_key('stats:numrequests')
         pipe.incr(k)
         pipe.expire(k, 3600)
-    pipe.execute()
+        if client_id:
+            k = g.redis.make_key('stats:numrequestsclient:{}'.format(client_id))
+            pipe.incr(k)
+            pipe.expire(k, 3600)
+        pipe.execute()
 
 
 def before_request(request):
@@ -59,9 +56,9 @@ def before_request(request):
         # we are no longer logged in
         client_status = g.db.query(Client).get(client_id).status
         log.warn("Denying access for user %s on client %s. client status = '%s'", user_id, client_id, client_status)
-        abort(httplib.FORBIDDEN, 
-              code="client_session_terminated", 
-              description="Your client, %s is no longer welcome here. Status is '%s'" % (client_id, client_status), 
+        abort(httplib.FORBIDDEN,
+              code="client_session_terminated",
+              description="Your client, %s is no longer welcome here. Status is '%s'" % (client_id, client_status),
               reason=client_status,
               )
 
