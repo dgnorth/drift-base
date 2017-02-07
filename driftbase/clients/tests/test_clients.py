@@ -158,4 +158,6 @@ class ClientsTest(DriftBaseTestCase):
 
 
 if __name__ == '__main__':
+    import logging
+    logging.basicConfig(level='INFO')
     unittest.main()
