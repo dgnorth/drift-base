@@ -4,7 +4,7 @@ import datetime
 from celery.utils.log import get_task_logger
 
 from drift.utils import get_tier_name
-from drift.flaskfactory import load_config, TenantNotFoundError
+from drift.flaskfactory import load_flask_config, TenantNotFoundError
 from drift.tenant import get_connection_string
 from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
@@ -21,7 +21,7 @@ def update_online_statistics():
     logger = get_task_logger("update_statistics")
 
     tier_name = get_tier_name()
-    config = load_config()
+    config = load_flask_config()
     tenants = config.get("tenants", [])
     logger.info("Updating statistics for %s tenants...", len(tenants))
     num_updated = 0

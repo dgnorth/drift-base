@@ -5,7 +5,6 @@ from alembic import context
 from sqlalchemy import pool, create_engine
 from logging.config import fileConfig
 import logging
-from drift.flaskfactory import load_config
 from drift.core.resources.postgres import format_connection_string
 from os.path import abspath, join
 import os, sys, socket

@@ -4,8 +4,6 @@ import datetime
 from celery.utils.log import get_task_logger
 from flask import current_app
 from drift.utils import get_tier_name
-from drift.flaskfactory import load_config, TenantNotFoundError
-from drift.tenant import get_connection_string
 from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
 from drift.rediscache import RedisCache
