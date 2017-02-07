@@ -4,10 +4,10 @@ import datetime
 import collections
 
 from celery.utils.log import get_task_logger
-from flask import g
+from flask import g, current_app
 
 from drift.utils import get_tier_name
-from drift.flaskfactory import load_config, TenantNotFoundError
+from drift.flaskfactory import TenantNotFoundError
 from drift.tenant import get_connection_string
 from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
@@ -52,7 +52,7 @@ def process_match_queue(redis=None, db_session=None):
         queued_players = db_session.query(MatchQueuePlayer, Client) \
                                    .filter(Client.client_id == MatchQueuePlayer.client_id,
                                            MatchQueuePlayer.status == "waiting",
-                                           MatchQueuePlayer.match_id == None) \
+                                           MatchQueuePlayer.match_id is None) \
                                    .order_by(MatchQueuePlayer.id) \
                                    .all()
 
