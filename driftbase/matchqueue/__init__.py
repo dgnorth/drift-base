@@ -4,15 +4,9 @@ import datetime
 import collections
 
 from celery.utils.log import get_task_logger
-from flask import g, current_app
+from flask import g
 
-from drift.utils import get_tier_name
-from drift.flaskfactory import TenantNotFoundError
-from drift.tenant import get_connection_string
-from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
-from drift.rediscache import RedisCache
-
 from driftbase.db.models import Match, MatchQueuePlayer, Client, Server, Machine
 import driftbase.tasks
 
@@ -137,22 +131,13 @@ def cleanup_orphaned_matchqueues():
     Find matches who have been reserved by the match queue but not joined
     for 10 minutes and make them available to other players
     """
-    deployable_name = current_app.config['name']
     logger = get_task_logger("cleanup_orphaned_matchqueues")
-    tier_name = get_tier_name()
     tenants = driftbase.tasks.get_tenants()
     logger.info("Cleaning up match queues for %s tenants...", len(tenants))
-    for tenant_config in tenants:
-        tenant_name = tenant_config["name"]
-        if tenant_config.get("name", "*") == "*":
-            continue
-        try:
-            this_conn_string = get_connection_string(tenant_config, None, tier_name=tier_name)
+    for tenant in tenants:
+        tenant_name = tenant['tenant_name']
 
-        except TenantNotFoundError:
-            continue
-
-        with sqlalchemy_session(this_conn_string) as session:
+        with driftbase.tasks.get_db_session(tenant) as session:
             sql = """
             SELECT m.* FROM gs_matches m
                 INNER JOIN gs_servers s ON s.server_id = m.server_id
@@ -185,7 +170,5 @@ def cleanup_orphaned_matchqueues():
             # case there are any players waiting
             if orphaned_matches:
                 logger.info("Processing match queue")
-                redis = RedisCache(tenant=tenant_config["name"],
-                                   service=deployable_name,
-                                   redis_config=tenant_config['redis'])
+                redis = driftbase.tasks.get_redis(tenant)
                 process_match_queue(redis, session)

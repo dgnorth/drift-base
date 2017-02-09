@@ -2,7 +2,7 @@
 
 import datetime
 from celery.utils.log import get_task_logger
-from flask import current_app
+from flask import current_app, g
 from drift.utils import get_tier_name
 from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
@@ -12,36 +12,28 @@ from drift.core.resources.postgres import format_connection_string
 from driftbase.players.counters.endpoints import add_count
 from driftbase.db.models import Counter, Client
 
+
 DEFAULT_HEARTBEAT_TIMEOUT = 300
 
 
 def get_redis(tenant):
-    cache = RedisCache(tenant=tenant['name'], service_name=current_app.config['name'], redis_config=tenant['redis'])
+    cache = RedisCache(
+        tenant=tenant['tenant_name'],
+        service_name=current_app.config['name'],
+        redis_config=tenant['redis']
+    )
     return cache
 
+
+def get_db_session(tenant):
+    conn_string = format_connection_string(tenant['postgres'])
+    return sqlalchemy_session(conn_string)
+
+
 def get_tenants():
-    logger = get_task_logger(__name__)
-    deployable_name = current_app.config['name']
-    tier_name = get_tier_name()
-    ts = get_domains().values()[0]["table_store"]
-    tenants_table = ts.get_table('tenants')
-    _tenants = tenants_table.find({'tier_name': tier_name, 'deployable_name': deployable_name})
-    tenants = []
-    for _t in _tenants:
-        tenant_name = _t["tenant_name"]
-        if not _t.get("postgres"):
-            logger.info("Skipping tenant '%s' because it does not have postgres config", _t["tenant_name"])
-            continue
-        t = {
-            "name": tenant_name,
-            "conn_string": format_connection_string(_t.get("postgres")),
-            "heartbeat_timeout" : _t.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT),
-            "redis" : _t.get("redis", {}),
+    """Return tenant configs for the current tier."""
+    return g.conf.tenants
 
-        }
-        tenants.append(t)
-
-    return tenants
 
 @celery.task
 def update_online_statistics():
@@ -51,13 +43,13 @@ def update_online_statistics():
     """
     logger = get_task_logger(__name__)
     logger.info("Updating online statistics")
-    tenants = get_tenants()
-
+    tenants = g.conf.tenants
     logger.info("Updating online statistics for %s tenants...", len(tenants))
+
     try:
         num_updated = 0
-        for tenant in tenants:
-            with sqlalchemy_session(tenant["conn_string"]) as session:
+        for tenant in g.conf.tenants:
+            with get_db_session(tenant) as session:
                 sql = """SELECT COUNT(DISTINCT(player_id)) AS cnt
                            FROM ck_clients
                           WHERE heartbeat > NOW() at time zone 'utc' - INTERVAL '1 minutes'"""
@@ -69,7 +61,7 @@ def update_online_statistics():
                 cnt = result.fetchone()[0]
                 if cnt:
                     num_updated += 1
-                    tenant_name = tenant["name"]
+                    tenant_name = tenant['tenant_name']
                     name = 'backend.numonline'
                     row = session.query(Counter).filter(Counter.name == name).first()
                     if not row:
@@ -87,6 +79,7 @@ def update_online_statistics():
     except Exception as e:
         logger.exception(e)
 
+
 @celery.task
 def flush_request_statistics():
     try:
@@ -95,7 +88,7 @@ def flush_request_statistics():
 
         num_updated = 0
         for tenant in tenants:
-            tenant_name = tenant["name"]
+            tenant_name = tenant['tenant_name']
 
             cache = get_redis(tenant)
             key_name = 'stats:numrequests'
@@ -116,7 +109,7 @@ def flush_request_statistics():
                 clients[client_id] = num
                 cache.conn.incr(client, -num)
 
-            with sqlalchemy_session(tenant["conn_string"]) as session:
+            with get_db_session(tenant) as session:
                 # global num requests counter for tenant
                 counter_name = 'backend.numrequests'
                 row = session.query(Counter).filter(Counter.name == counter_name).first()
@@ -143,6 +136,7 @@ def flush_request_statistics():
     except Exception as e:
         logger.exception(e)
 
+
 @celery.task
 def flush_counters():
     try:
@@ -151,7 +145,6 @@ def flush_counters():
 
         logger.info("Flushing counters to DB for %s tenants...", len(tenants))
         for tenant in tenants:
-            tenant_name = tenant["name"]
             cache = get_redis(tenant)
 
             # key = 'counters:%s:%s:%s:%s:%s' % (name, counter_type, player_id, timestamp, context_id)
@@ -168,10 +161,8 @@ def flush_counters():
 
                 logger.info("Counter %s %s %s %s %s" %
                             (counter_name, counter_type, player_id, timestamp, num))
-                """
-                TODO: Turn this on once we refactor the counter endpoint to use redis
-                with sqlalchemy_session(tenant["conn_string"]) as session:
-                    row = session.query(Counter).filter(Counter.name==counter_name).first()
+                with get_db_session(tenant) as session:
+                    row = session.query(Counter).filter(Counter.name == counter_name).first()
                     if not row:
                         row = Counter(name=counter_name, counter_type="count")
                         session.add(row)
@@ -180,9 +171,9 @@ def flush_counters():
                     add_count(counter_id, 0, timestamp, num, is_absolute=(counter_name == "absolute"),
                               db_session=session)
                 session.commit()
-                """
     except Exception as e:
         logger.exception(e)
+
 
 @celery.task
 def timeout_clients():
@@ -192,8 +183,8 @@ def timeout_clients():
 
         for tenant in tenants:
             num_timeout = 0
-            heartbeat_timeout = int(tenant["heartbeat_timeout"])
-            with sqlalchemy_session(tenant["conn_string"]) as session:
+            heartbeat_timeout = current_app.config["heartbeat_timeout"]
+            with get_db_session(tenant) as session:
                 # find active clients who have exceeded timeout
                 try:
                     min_heartbeat_timestamp = datetime.datetime.utcnow() - \
@@ -223,6 +214,6 @@ def timeout_clients():
                     session.commit()
 
             if num_timeout > 0:
-                logger.info("Timed out %s clients in %s", num_timeout, tenant["name"])
+                logger.info("Timed out %s clients in %s", num_timeout, tenant['tenant_name'])
     except Exception as e:
         logger.exception(e)

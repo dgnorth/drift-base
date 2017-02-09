@@ -10,7 +10,7 @@ NEW_TIER_DEFAULTS = {
     "build_bucket_url": "<PLEASE FILL IN>"
 }
 
-def provision(config, args):
+def provision(config, args, recreate=False):
     params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "gameserver")
 
     # Static data repo is per product

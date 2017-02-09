@@ -1,21 +1,16 @@
 # -*- coding: utf-8 -*-
 
-import os, sys, copy, json, types, datetime
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
-import httplib
+import types
+import datetime
 import unittest
-from mock import patch
 
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, db_name
-from drift.tenant import get_connection_string
-from drift.utils import get_tier_name
+from flask import g
 
+from drift.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
 import driftbase.matchqueue
 import driftbase.tasks
+
 
 def setUpModule():
     setup_tenant()
@@ -25,29 +20,10 @@ def tearDownModule():
     remove_tenant()
 
 
-def get_mock_tenants():
-    t = {"name": os.environ.get("drift_test_database"),
-         "db_server": "localhost",
-         "redis_server": "localhost",
-         "heartbeat_timeout": 0,
-         }
-    conn_string = get_connection_string(t, None, tier_name=get_tier_name())
-    t["conn_string"] = conn_string
-    return [t]
-
-@patch("driftbase.tasks.get_tenants", get_mock_tenants)
 class CeleryBeatTest(BaseCloudkitTest):
     """
     Tests for celery scheduled tasks
     """
-    def test_celery_utility(self):
-        tenants = driftbase.tasks.get_tenants()
-        self.assertTrue(isinstance(tenants, types.ListType))
-        self.assertIn("db_server", tenants[0])
-        self.assertIn("redis_server", tenants[0])
-        self.assertIn("conn_string", tenants[0])
-        self.assertIn("name", tenants[0])
-
     def test_celery_update_online_statistics(self):
         # make a new player and heartbeat once
         self.make_player()

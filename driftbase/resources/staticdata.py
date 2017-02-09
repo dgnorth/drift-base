@@ -19,7 +19,7 @@ NEW_TIER_DEFAULTS = {
     "allow_client_pin": False
 }
 
-def provision(config, args):
+def provision(config, args, recreate=False):
     params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "staticdata")
 
     # Static data repo is per product
