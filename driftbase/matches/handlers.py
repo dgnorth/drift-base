@@ -45,7 +45,7 @@ class ActiveMatchesAPI(Resource):
         query = query.filter(Server.machine_id == Machine.machine_id,
                              Match.server_id == Server.server_id,
                              Match.num_players < Match.max_players,
-                             Server.status.in_(["started", "running", "active"]),
+                             Server.status.in_(["started", "running", "active", "ready"]),
                              Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
                              )
         if args.get("ref"):
@@ -243,7 +243,6 @@ class MatchAPI(Resource):
 
         server = g.db.query(Server).get(match.server_id)
         ret["server"] = None
-        ret["machine"] = None
         ret["server_url"] = None
         ret["machine_url"] = None
         if server:
@@ -253,7 +252,6 @@ class MatchAPI(Resource):
             machine = g.db.query(Machine).get(server.machine_id)
             ret["machine"] = None
             if server:
-                ret["machine"] = machine.as_dict()
                 ret["machine_url"] = url_for("machines.entry",
                                              machine_id=machine.machine_id, _external=True)
 

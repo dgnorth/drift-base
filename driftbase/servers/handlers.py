@@ -194,7 +194,6 @@ class ServerAPI(Resource):
         if machine_id:
             machine = g.db.query(Machine).get(machine_id)
             if machine:
-                record["machine"] = machine.as_dict()
                 record["machine_url"] = url_for("machines.entry", machine_id=machine_id,
                                                 _external=True)
 
