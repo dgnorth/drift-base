@@ -21,7 +21,7 @@ def _update_analytics():
         if not client_id:
             log.debug("client_id not found in JWT for user %s. Not updating client stats." % user_id)
 
-    if g.redis and g.redis.conn:
+    if hasattr(g, 'redis') and g.redis.conn:
         # use redis pipeline to minimize roundtrips
         pipe = g.redis.conn.pipeline()
         k = g.redis.make_key('stats:numrequests')
