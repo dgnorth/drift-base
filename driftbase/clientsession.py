@@ -1,4 +1,3 @@
-
 import logging
 import httplib
 
@@ -12,29 +11,7 @@ from driftbase.db.models import Client
 log = logging.getLogger(__name__)
 
 
-def _update_analytics():
-    client_id = None
-    current_user = query_current_user()
-    if current_user:
-        user_id = current_user["user_id"]
-        client_id = current_user.get("client_id")
-        if not client_id:
-            log.debug("client_id not found in JWT for user %s. Not updating client stats." % user_id)
-
-    if hasattr(g, 'redis') and g.redis and g.redis.conn:
-        # use redis pipeline to minimize roundtrips
-        pipe = g.redis.conn.pipeline()
-        k = g.redis.make_key('stats:numrequests')
-        pipe.incr(k)
-        pipe.expire(k, 3600)
-        if client_id:
-            k = g.redis.make_key('stats:numrequestsclient:{}'.format(client_id))
-            pipe.incr(k)
-            pipe.expire(k, 3600)
-        pipe.execute()
-
-
-def before_request(request):
+def before_request(*args, **kw):
     current_user = query_current_user()
     if not current_user:
         return
@@ -58,10 +35,10 @@ def before_request(request):
         log.warn("Denying access for user %s on client %s. client status = '%s'", user_id, client_id, client_status)
         abort(httplib.FORBIDDEN,
               code="client_session_terminated",
-              description="Your client, %s is no longer welcome here. Status is '%s'" % (client_id, client_status),
+              description="Your client, %s is no longer registered here. Status is '%s'" % (client_id, client_status),
               reason=client_status,
               )
 
-def after_request(response):
-    _update_analytics()
-    return response
+
+def register_extension(app):
+    app.before_request(before_request)

@@ -23,6 +23,8 @@
         "drift.contrib.apps.servicestatus"
     ],
     "extensions": [
+        "driftbase.clientsession",
+        "driftbase.analytics"
     ],
     "resources": [
         "drift.core.resources.postgres",
