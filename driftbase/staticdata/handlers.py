@@ -45,24 +45,6 @@ def get_static_data_ids():
 
     return revs
 
-def get_static_data_ids_old():
-    """Returns a dict of all static data repos and revision identifiers that apply to the
-    current caller. Each entry is tagged with which config it originated from.
-    Key is repository name, value is [ref, origin] pair.
-    """
-    revs = {}  # Key is repo
-
-    def add_ref(config, origin):
-        if "static_data_refs" in config:
-            for ref in config["static_data_refs"]:
-                revs[ref["repository"]] = ref, origin
-
-    # The app config.
-    add_ref(current_app.config, "Application config")
-    add_ref(g.driftenv_objects, "Config specific to tenant '{}'.".format(g.driftenv["name"]))
-
-    return revs
-
 
 class StaticDataAPI(Resource):
 

@@ -4,10 +4,7 @@
 import unittest
 import responses
 import json
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, user_payload, set_config_file
-from flask import current_app
-from drift.appmodule import app
-from driftbase.staticdata.handlers import INDEX_URL, CDN_LIST, DATA_URL
+from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, set_config_file
 
 set_config_file(__file__)
 
@@ -26,6 +23,8 @@ class CfgTest(DriftBaseTestCase):
     """
 
     def test_get_static_data(self):
+        from driftbase.staticdata.handlers import INDEX_URL, CDN_LIST
+        from drift.appmodule import app
         self.auth()
         endpoint = self.endpoints.get('static_data')
         self.assertIsNotNone(endpoint, "'static_data' endpoint not registered.")
@@ -38,17 +37,17 @@ class CfgTest(DriftBaseTestCase):
 
         ref1 = {"commit_id": "abcd", "ref": "refs/heads/developmegood"}
         ref2 = {"commit_id": "c0ffee", "ref": "refs/tags/v0.1.4"}
-        
+
         # Make "S3" respond as such:
         def mock_s3_response():
             responses.add(
-                responses.GET, 
+                responses.GET,
                 '{}borko-games/the-ossomizer/index.json'.format(INDEX_URL),
-                body=json.dumps({"index": [ref1, ref2]}), 
+                body=json.dumps({"index": [ref1, ref2]}),
                 status=200,
                 content_type='application/json'
-            )        
-        
+            )
+
         mock_s3_response()
         resp = self.get(endpoint).json()
         # There should be at least one entry in the static_data_urls pointing to developmegood
