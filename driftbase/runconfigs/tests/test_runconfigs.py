@@ -10,7 +10,6 @@ class RunConfigsTest(DriftBaseTestCase):
     Tests for the /machines service endpoints
     """
     def test_runconfig_create(self):
-        print 'IS APP APP'
         from drift.appmodule import app
         self.auth_service()
         data = {
