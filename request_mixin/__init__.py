@@ -64,3 +64,4 @@ def before_request(request):
 
 def after_request(response):
     _update_analytics()
+    return response
