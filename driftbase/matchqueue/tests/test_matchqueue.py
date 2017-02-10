@@ -1,25 +1,10 @@
 # -*- coding: utf-8 -*-
-
-import os, sys, copy
-from os.path import abspath, join
-import collections, datetime
-
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
+import collections
+import datetime
 import httplib
-import unittest
 from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
+from drift.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseMatchTest
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
 
 
 class MatchQueueTest(BaseMatchTest):
@@ -596,7 +581,3 @@ class MatchQueueTest(BaseMatchTest):
         r = self.get(matchqueueplayer2_url)
         self.assertEquals(r.json()["status"], "matched")
         self.assertEquals(r.json()["match_id"], match["match_id"])
-
-
-if __name__ == '__main__':
-    unittest.main()

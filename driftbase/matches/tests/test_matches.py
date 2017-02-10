@@ -1,24 +1,7 @@
 # -*- coding: utf-8 -*-
-
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest, responses, mock
-import json, requests
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, service_username, service_password, local_password, uuid_string, DriftBaseTestCase, big_number
+from drift.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseMatchTest
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
 
 
 class MatchesTest(BaseMatchTest):
@@ -261,7 +244,3 @@ class MatchesTest(BaseMatchTest):
                 "team_id": team_id
                 }
         resp = self.post(matchplayers_url, data=data, expected_status_code=httplib.BAD_REQUEST)
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -4,9 +4,7 @@
 import unittest
 import responses
 import json
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, set_config_file
-
-set_config_file(__file__)
+from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
 
 
 def setUpModule():

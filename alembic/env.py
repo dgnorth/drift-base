@@ -16,9 +16,6 @@ def get_ts():
     return ts
 
 
-config_file = abspath(join(__file__, "../../config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 USE_TWOPHASE = False
 
 # this is the Alembic Config object, which provides
