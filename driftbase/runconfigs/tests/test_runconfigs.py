@@ -2,7 +2,7 @@
 
 import httplib
 import unittest
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, make_unique
+from drift.systesthelper import DriftBaseTestCase, make_unique
 
 
 class RunConfigsTest(DriftBaseTestCase):
@@ -10,7 +10,6 @@ class RunConfigsTest(DriftBaseTestCase):
     Tests for the /machines service endpoints
     """
     def test_runconfig_create(self):
-        from drift.appmodule import app
         self.auth_service()
         data = {
             "name": make_unique("runconfig name"),
