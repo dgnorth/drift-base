@@ -37,11 +37,11 @@ def get_static_data_ids():
             }
             origin = "Hardcoded defaults"
 
-            repo = data['repository']
-            revs[repo] = data, origin
+        repo = data['repository']
+        revs[repo] = data, origin
     except:
         log.error("Error getting static data. data='%s', origin='%s'" % (repr(data), origin))
-        log.exception()
+        log.exception("Failed to get static data config.")
 
     return revs
 
@@ -92,7 +92,6 @@ class StaticDataAPI(Resource):
             if err:
                 data["error"] = err
                 continue
-            print "ref_entry", ref_entry
             index_file = {ref_entry["ref"]: ref_entry for ref_entry in index_file["index"]}
 
             # Use this ref if it matches
