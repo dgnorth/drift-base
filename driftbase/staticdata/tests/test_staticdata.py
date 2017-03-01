@@ -4,8 +4,9 @@
 import unittest
 import responses
 import json
+import os
+from drift.utils import get_config
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
-
 
 def setUpModule():
     setup_tenant()
@@ -21,17 +22,20 @@ class CfgTest(DriftBaseTestCase):
     """
 
     def test_get_static_data(self):
-        from driftbase.staticdata.handlers import INDEX_URL, CDN_LIST
+        from driftbase.staticdata.handlers import DATA_URL, INDEX_URL, CDN_LIST
         from drift.appmodule import app
         self.auth()
         endpoint = self.endpoints.get('static_data')
         self.assertIsNotNone(endpoint, "'static_data' endpoint not registered.")
 
+        def config():
+            return get_config(os.environ['default_drift_tenant'])
+
         # Fudge the config a bit
-        app.config["static_data_refs"] = [{
+        config().tenant["static_data_refs_legacy"] = {
             "repository": "borko-games/the-ossomizer",
             "revision": "refs/heads/developmegood",
-        }]
+        }
 
         ref1 = {"commit_id": "abcd", "ref": "refs/heads/developmegood"}
         ref2 = {"commit_id": "c0ffee", "ref": "refs/tags/v0.1.4"}
@@ -52,6 +56,8 @@ class CfgTest(DriftBaseTestCase):
         urls = resp.get("static_data_urls")
         self.assertIsNotNone(urls, "The 'static_data_urls' key is missing")
         self.assertTrue(len(urls) > 0, "There should be at least one entry in 'static_data_urls'.")
+        self.assertEqual(urls[0]["data_root_url"], u"{}{}/data/{}/".format(DATA_URL, "borko-games/the-ossomizer", "abcd"))
+        self.assertEqual(urls[0]["origin"], "Tenant config")
         self.assertEqual(urls[0]["commit_id"], ref1["commit_id"], "I should have gotten the default ref.")
 
         # Now we test the pin thing, first without the server set to honor it.
@@ -61,13 +67,15 @@ class CfgTest(DriftBaseTestCase):
         urls = resp.get("static_data_urls")
         self.assertIsNotNone(urls, "The 'static_data_urls' key is missing")
         self.assertTrue(len(urls) > 0, "There should be at least one entry in 'static_data_urls'.")
+        self.assertEqual(urls[0]["origin"], "Tenant config")
         self.assertEqual(urls[0]["commit_id"], ref1["commit_id"], "I should have gotten the default ref.")
 
         # Turn on pin feature
-        app.config["static_data_refs"][0]["allow_client_pin"] = True
+        config().tenant["static_data_refs_legacy"][0]["allow_client_pin"] = True
         mock_s3_response()
         resp = self.get(endpoint + "?static_data_ref=refs/tags/v0.1.4").json()
         urls = resp.get("static_data_urls")
+        self.assertEqual(urls[0]["origin"], "Client pin")
         self.assertEqual(urls[0]["commit_id"], ref2["commit_id"], "I should have gotten the pinned ref.")
 
         # Test cdn list
