@@ -28,11 +28,8 @@ class CfgTest(DriftBaseTestCase):
         endpoint = self.endpoints.get('static_data')
         self.assertIsNotNone(endpoint, "'static_data' endpoint not registered.")
 
-        def config():
-            return get_config(os.environ['default_drift_tenant'])
-
         # Fudge the config a bit
-        config().tenant["static_data_refs_legacy"] = {
+        get_config().tenant["static_data_refs_legacy"] = {
             "repository": "borko-games/the-ossomizer",
             "revision": "refs/heads/developmegood",
         }
@@ -71,7 +68,7 @@ class CfgTest(DriftBaseTestCase):
         self.assertEqual(urls[0]["commit_id"], ref1["commit_id"], "I should have gotten the default ref.")
 
         # Turn on pin feature
-        config().tenant["static_data_refs_legacy"]["allow_client_pin"] = True
+        get_config().tenant["static_data_refs_legacy"]["allow_client_pin"] = True
         mock_s3_response()
         resp = self.get(endpoint + "?static_data_ref=refs/tags/v0.1.4").json()
         urls = resp.get("static_data_urls")
