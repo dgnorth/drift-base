@@ -11,7 +11,7 @@ setup(
     license='MIT',
     author="Directive Games North",
     author_email="info@directivegames.com",
-    description="Base Services for Drift micro-framework.",
+    description="Base Services for Drift.",
     packages=find_packages(
         exclude=["*.tests", "*.tests.*", "tests.*", "tests"]
     ),
@@ -24,4 +24,25 @@ setup(
         for i in parse_requirements('requirements.txt', session=pip.download.PipSession())
         if i.req
     ],
+
+    entry_points='''
+        [drift.plugin]
+        register_deployable=drift.management.commands.register:funky
+        provision=drift.core.resources.postgres:provision
+    ''',
+
+    classifiers=[
+        'Environment :: Web Environment',
+        'Framework :: Drift',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2.7',
+        'Topic :: Internet :: WWW/HTTP',
+        'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
+
 )
