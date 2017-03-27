@@ -124,6 +124,9 @@ def flush_request_statistics():
 
                 for client_id, num in clients.iteritems():
                     client_row = session.query(Client).get(client_id)
+                    if not client_row:
+                        logger.warning("Found no client row for client_id %s", client_id)
+                        continue
                     client_row.num_requests += num
 
                     logger.info("Updated num_requests for client %s to %s. "
