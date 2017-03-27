@@ -32,6 +32,8 @@ setup(
     ''',
 
     classifiers=[
+        'Drift :: Tag :: Core',
+        'Drift :: Tag :: Product',
         'Environment :: Web Environment',
         'Framework :: Drift',
         'Intended Audience :: Developers',
