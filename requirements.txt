@@ -1,2 +1,3 @@
 git+https://github.com/dgnorth/drift@feature/drift-config
 git+https://github.com/dgnorth/drift-config@develop
+gevent
