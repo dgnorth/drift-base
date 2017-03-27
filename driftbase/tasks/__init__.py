@@ -56,7 +56,7 @@ def update_online_statistics():
                 try:
                     result = session.execute(sql)
                 except Exception as e:
-                    logger.error("Error fetching data from '%s': %s", tenant["conn_string"], e)
+                    logger.error("Error fetching data from '%s': %s", format_connection_string(tenant["postgres"]), e)
                     continue
                 cnt = result.fetchone()[0]
                 if cnt:
@@ -124,6 +124,9 @@ def flush_request_statistics():
 
                 for client_id, num in clients.iteritems():
                     client_row = session.query(Client).get(client_id)
+                    if not client_row:
+                        logger.warning("Found no client row for client_id %s", client_id)
+                        continue
                     client_row.num_requests += num
 
                     logger.info("Updated num_requests for client %s to %s. "
@@ -194,7 +197,7 @@ def timeout_clients():
                                              Client.heartbeat < min_heartbeat_timestamp) \
                                      .all()
                 except Exception as e:
-                    logger.error("Error fetching data from '%s': %s", tenant["conn_string"], e)
+                    logger.error("Error fetching data from '%s': %s", format_connection_string(tenant["postgres"]), e)
                     continue
                 if clients:
                     cache = get_redis(tenant)
