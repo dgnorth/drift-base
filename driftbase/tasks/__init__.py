@@ -56,7 +56,7 @@ def update_online_statistics():
                 try:
                     result = session.execute(sql)
                 except Exception as e:
-                    logger.error("Error fetching data from '%s': %s", tenant["conn_string"], e)
+                    logger.error("Error fetching data from '%s': %s", format_connection_string(tenant["postgres"]), e)
                     continue
                 cnt = result.fetchone()[0]
                 if cnt:
@@ -194,7 +194,7 @@ def timeout_clients():
                                              Client.heartbeat < min_heartbeat_timestamp) \
                                      .all()
                 except Exception as e:
-                    logger.error("Error fetching data from '%s': %s", tenant["conn_string"], e)
+                    logger.error("Error fetching data from '%s': %s", format_connection_string(tenant["postgres"]), e)
                     continue
                 if clients:
                     cache = get_redis(tenant)
