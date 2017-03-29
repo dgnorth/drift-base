@@ -3,7 +3,6 @@
 import datetime
 from celery.utils.log import get_task_logger
 from flask import current_app, g
-from drift.utils import get_tier_name
 from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
 from drift.core.resources.redis import RedisCache
