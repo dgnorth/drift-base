@@ -74,7 +74,7 @@ class PlayersTest(BaseCloudkitTest):
         player_url = self.endpoints["my_player"]
         r = self.get(player_url)
         old_name = r.json()["player_name"]
-        self.patch(player_url, data={"name": "ab"}, expected_status_code=httplib.METHOD_NOT_ALLOWED)
+        self.patch(player_url, data={"name": ""}, expected_status_code=httplib.METHOD_NOT_ALLOWED)
         self.patch(player_url, data={"name": "a" * 100},
                    expected_status_code=httplib.METHOD_NOT_ALLOWED)
         self.patch(self.endpoints["players"] + "/9999999", data={"name": "a" * 100},

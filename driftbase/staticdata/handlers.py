@@ -4,7 +4,7 @@ import requests
 import logging
 import json
 
-from flask import Blueprint, g, url_for, current_app
+from flask import Blueprint, g, url_for
 from flask_restful import Api, Resource, reqparse
 
 from drift.urlregistry import register_endpoints
@@ -23,6 +23,7 @@ CDN_LIST = [
     ['cloudfront', DATA_URL],
     ['alicloud', 'http://directive-tiers.oss-cn-shanghai.aliyuncs.com/static-data/'],
 ]
+
 
 def get_static_data_ids():
     revs = {}

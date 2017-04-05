@@ -2,10 +2,10 @@
 
 import logging, httplib, datetime
 
-from flask import Blueprint, request, url_for, g, current_app
+from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
 
-from drift.utils import json_response, url_player, url_client
+from drift.utils import url_player
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.auth.jwtchecker import current_user, requires_roles
