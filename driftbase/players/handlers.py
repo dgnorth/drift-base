@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 bp = Blueprint("players", __name__)
 api = Api(bp)
 
-MIN_NAME_LEN = 3
+MIN_NAME_LEN = 1
 MAX_NAME_LEN = 20
 
 
