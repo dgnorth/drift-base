@@ -26,25 +26,13 @@ CDN_LIST = [
 
 
 def get_static_data_ids():
-    revs = {}
-    try:
-        data = g.conf.tenant.get('static_data_refs_legacy')
-        if data:
-            origin = "Tenant config"
-        else:
-            data = {
-                "repository": "directivegames/the-machines-static-data",
-                "revision": "refs/heads/develop",
-            }
-            origin = "Hardcoded defaults"
-
+    data = g.conf.tenant.get('static_data_refs_legacy')
+    if data:
+        origin = "Tenant config"
         repo = data['repository']
-        revs[repo] = data, origin
-    except:
-        log.error("Error getting static data. data='%s', origin='%s'" % (repr(data), origin))
-        log.exception("Failed to get static data config.")
-
-    return revs
+        return {repo: (data, origin)}
+    else:
+        return {}
 
 
 class StaticDataAPI(Resource):
