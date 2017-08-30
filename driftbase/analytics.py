@@ -2,7 +2,7 @@ import logging
 
 from flask import g
 
-from drift.auth.jwtchecker import query_current_user
+from drift.core.extensions.jwt import query_current_user
 
 
 log = logging.getLogger(__name__)
