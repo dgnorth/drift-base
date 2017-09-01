@@ -10,3 +10,16 @@
         reload rsyslog >/dev/null 2>&1 || true
     endscript
 }
+
+/var/log/uwsgi/*.log
+{
+    rotate 7
+    daily
+    missingok
+    notifempty
+    delaycompress
+    compress
+    postrotate
+        [ ! -f /var/run/uwsgi.pid ] || /bin/kill -HUP `cat /var/run/uwsgi.pid`
+    endscript
+}
