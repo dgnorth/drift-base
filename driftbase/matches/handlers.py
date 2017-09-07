@@ -166,11 +166,11 @@ class MatchesAPI(Resource):
         "num_teams": {"type": "number", },
     }, required=["server_id"])
     def post(self):
-        """Register a new battle on the passed in matcheserver.
-        Each matcheserver should always have a single battle.
-        A matcheserver will have zero matches only when it doesn't start up.
-        Either the celery matcheserver task (in normal EC2 mode) or the
-        matcheserver unreal process (in local development mode) will call
+        """Register a new battle on the passed in match server.
+        Each match server should always have a single battle.
+        A match server will have zero matches only when it doesn't start up.
+        Either the celery match server task (in normal EC2 mode) or the
+        match server unreal process (in local development mode) will call
         this endpoint to create the battle resource.
         """
         args = request.json
