@@ -1,0 +1,15 @@
+[Unit]
+Description=Drift Base Celery App
+After=syslog.target
+
+[Service]
+Type=forking
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/local/bin/celery worker -A drift.celeryboot.celery -B -l info --logfile=/var/log/celery/celery.log
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGQUIT
+User=ubuntu
+
+[Install]
+WantedBy=multiuser.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Drift Base Server
+After=syslog.target
+
+[Service]
+Type=forking
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/local/bin/uwsgi /etc/opt/drift-base/uwsgi.ini
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGQUIT
+User=ubuntu
+
+[Install]
+WantedBy=multiuser.target
