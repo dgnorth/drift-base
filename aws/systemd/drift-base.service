@@ -9,7 +9,7 @@ ExecStart=/usr/local/bin/uwsgi /etc/opt/drift-base/config/uwsgi.ini
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGQUIT
-User=ubuntu
+User=root
 NotifyAccess=all
 
 [Install]
