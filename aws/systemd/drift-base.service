@@ -4,7 +4,7 @@ After=syslog.target
 
 [Service]
 Type=notify
-Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/environment
 ExecStart=/usr/local/bin/uwsgi /etc/opt/drift-base/uwsgi.ini
 Restart=on-failure
 RestartSec=5

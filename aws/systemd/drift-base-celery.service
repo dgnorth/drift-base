@@ -3,8 +3,8 @@ Description=Drift Base Celery App
 After=syslog.target
 
 [Service]
-Type=forking
-Environment=PYTHONDONTWRITEBYTECODE=1
+Type=simple
+EnvironmentFile=/etc/environment
 ExecStart=/usr/local/bin/celery worker -A drift.celeryboot.celery -B -l info --logfile=/var/log/celery/celery.log
 Restart=on-failure
 RestartSec=5
