@@ -5,7 +5,7 @@ After=syslog.target
 [Service]
 Type=notify
 EnvironmentFile=/etc/environment
-ExecStart=/usr/local/bin/uwsgi /etc/opt/drift-base/uwsgi.ini
+ExecStart=/usr/local/bin/uwsgi /etc/opt/drift-base/config/uwsgi.ini
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGQUIT
