@@ -8,12 +8,10 @@ import logging
 from drift.core.resources.postgres import format_connection_string
 from os.path import abspath, join
 import os, sys, socket
-from driftconfig.util import get_domains
+from driftconfig.util import get_default_drift_config
 
 def get_ts():
-    domains = get_domains().values()
-    ts = domains[0]["table_store"] #! assume 1 domain
-    return ts
+    return get_default_drift_config()
 
 
 USE_TWOPHASE = False
@@ -75,7 +73,6 @@ def get_engines():
         if not (pick_tenant and name != pick_tenant) and name != "*":
             tenants.append(t)
 
-    db_servers = set([])
     for tenant_config in tenants:
         conn_info = tenant_config["postgres"]
         conn_info["username"] = MASTER_USERNAME
@@ -95,7 +92,8 @@ def get_engines():
         db_servers.add(server[2].split("@")[1].lower())
     err = False
     for db_server in db_servers:
-        port = 5432
+        parts = db_server.split(":")
+        db_server, port = parts[0], int(parts[1])
         sys.stdout.write(db_server + "... ")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(2)
