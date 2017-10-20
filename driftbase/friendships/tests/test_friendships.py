@@ -17,7 +17,7 @@ class FriendTokensTest(BaseCloudkitTest):
         # Create player for test
         self.auth(username="Number one user")
 
-        result = self.post(self.endpoints["friendship_tokens"], expected_status_code=httplib.CREATED).json()
+        result = self.post(self.endpoints["friend_invites"], expected_status_code=httplib.CREATED).json()
         self.assertIsInstance(result, dict)
 
         pattern = re.compile('^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$', re.IGNORECASE)
@@ -29,13 +29,25 @@ class FriendTokensTest(BaseCloudkitTest):
         self.auth(username="Number one user")
 
         # create a token
-        result = self.post(self.endpoints["friendship_tokens"], expected_status_code=httplib.CREATED).json()
+        result = self.post(self.endpoints["friend_invites"], expected_status_code=httplib.CREATED).json()
 
         # delete the token
         self.delete(result['url'], expected_status_code=httplib.NO_CONTENT)
 
         # delete it again
-        self.delete(result['url'], expected_status_code=httplib.NOT_FOUND)
+        self.delete(result['url'], expected_status_code=httplib.GONE)
+
+    def test_other_player_may_not_delete_token(self):
+        self.auth(username="Number one user")
+
+        # create a token
+        result = self.post(self.endpoints["friend_invites"], expected_status_code=httplib.CREATED).json()
+        invite_url = result['url']
+
+        self.auth(username="Number two user")
+
+        # delete the token
+        self.delete(invite_url, expected_status_code=httplib.FORBIDDEN)
 
 
 class FriendsTest(BaseCloudkitTest):
@@ -49,7 +61,7 @@ class FriendsTest(BaseCloudkitTest):
         self.auth(username="Number three user")
 
         # Should have no friends
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 0)
 
@@ -68,17 +80,17 @@ class FriendsTest(BaseCloudkitTest):
         player_id = self.player_id
 
         # add one friend
-        self.post(self.endpoints["my_friendships"], data={"friend_id":p1, "token":token1}, expected_status_code=httplib.CREATED)
+        self.post(self.endpoints["my_friends"], data={"token":token1}, expected_status_code=httplib.CREATED)
 
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 1)
         self.assertEqual(friends[0]["friend_id"], p1)
 
         # add another friend
-        self.post(self.endpoints["my_friendships"], data={"friend_id": p2, "token":token2}, expected_status_code=httplib.CREATED)
+        self.post(self.endpoints["my_friends"], data={"token":token2}, expected_status_code=httplib.CREATED)
 
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 2)
         self.assertTrue(friends[0]["friend_id"] in [p1, p2])
@@ -87,14 +99,14 @@ class FriendsTest(BaseCloudkitTest):
 
         # check that first player is friends with you
         self.auth(username="Number one user")
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 1)
         self.assertEqual(friends[0]["friend_id"], player_id)
 
         # check that second player is friends with you
         self.auth(username="Number two user")
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 1)
         self.assertEqual(friends[0]["friend_id"], player_id)
@@ -109,20 +121,27 @@ class FriendsTest(BaseCloudkitTest):
         self.auth(username="Number six user")
 
         # add one friend
-        result = self.post(self.endpoints["my_friendships"], data={"friend_id":p1, "token":token}, expected_status_code=httplib.CREATED).json()
+        result = self.post(self.endpoints["my_friends"], data={"token":token}, expected_status_code=httplib.CREATED).json()
 
         # delete friend
-        self.delete(result["url"], expected_status_code=httplib.NO_CONTENT)
+        friendship_url = result["url"]
+        self.delete(friendship_url, expected_status_code=httplib.NO_CONTENT)
 
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        # delete friend again
+        self.delete(friendship_url, expected_status_code=httplib.GONE)
+
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 0)
 
         # other player should not have you as friend anymore
         self.auth(username="Number seven user")
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 0)
+
+        # other player tries to delete the same friendship results in it being GONE
+        self.delete(friendship_url, expected_status_code=httplib.GONE)
 
 
     def test_cannot_add_self_as_friend(self):
@@ -133,24 +152,10 @@ class FriendsTest(BaseCloudkitTest):
         player_id = self.player_id
 
         # add self as friend
-        result = self.post(self.endpoints["my_friendships"], data={"friend_id":player_id, "token":token}, expected_status_code=httplib.METHOD_NOT_ALLOWED)
+        result = self.post(self.endpoints["my_friends"], data={"token":token}, expected_status_code=httplib.FORBIDDEN)
         response = result.json()
         self.assertEqual(response['error']['code'], "user_error")
         self.assertEqual(response['error']['description'], "You cannot befriend yourself!")
-
-
-    def test_cannot_add_player_as_friend_with_mismatching_token(self):
-        # Create players for test
-        self.auth(username="Number one user")
-        token = self.make_token()
-
-        self.auth(username="Number four user")
-
-        # add non exiting player as friend
-        result = self.post(self.endpoints["my_friendships"], data={"friend_id":big_number, "token":token}, expected_status_code=httplib.NOT_FOUND)
-        response = result.json()
-        self.assertEqual(response['error']['code'], "user_error")
-        self.assertEqual(response['error']['description'], "Token doesn't match the friend you're adding!")
 
 
     def test_cannot_add_player_as_friend_with_invalid_token(self):
@@ -163,10 +168,10 @@ class FriendsTest(BaseCloudkitTest):
         token = str(uuid.uuid4())
 
         # add exiting player as friend, but use invalid token
-        result = self.post(self.endpoints["my_friendships"], data={"friend_id":p1, "token":token}, expected_status_code=httplib.NOT_FOUND)
+        result = self.post(self.endpoints["my_friends"], data={"token":token}, expected_status_code=httplib.NOT_FOUND)
         response = result.json()
         self.assertEqual(response['error']['code'], "user_error")
-        self.assertEqual(response['error']['description'], "Token not found!")
+        self.assertEqual(response['error']['description'], "The invite was not found!")
 
 
     def test_adding_same_friend_twice_changes_nothing(self):
@@ -178,15 +183,15 @@ class FriendsTest(BaseCloudkitTest):
         self.auth(username="Number five user")
 
         # add a friend
-        self.post(self.endpoints["my_friendships"], data={"friend_id":p1, "token":token}, expected_status_code=httplib.CREATED)
+        self.post(self.endpoints["my_friends"], data={"token":token}, expected_status_code=httplib.CREATED)
         # add same friend again
-        self.post(self.endpoints["my_friendships"], data={"friend_id":p1, "token":token}, expected_status_code=httplib.OK)
+        self.post(self.endpoints["my_friends"], data={"token":token}, expected_status_code=httplib.OK)
 
-        friends = self.get(self.endpoints["my_friendships"]).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 1)
         self.assertEqual(friends[0]["friend_id"], p1)
 
 
     def make_token(self):
-        return self.post(self.endpoints["friendship_tokens"], expected_status_code=httplib.CREATED).json()["token"]
+        return self.post(self.endpoints["friend_invites"], expected_status_code=httplib.CREATED).json()["token"]

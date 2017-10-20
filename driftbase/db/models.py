@@ -464,8 +464,19 @@ class Friendship(ModelBase):
     id = Column(BigInteger, Sequence('ck_friendships_id_seq'), primary_key=True)
     player1_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
     player2_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="active")
 
     CheckConstraint('player1_id < player2_id')
+
+
+class FriendInvite(ModelBase):
+    __tablename__ = 'ck_friend_invites'
+
+    id = Column(BigInteger, Sequence('ck_friend_invites_id_seq'), primary_key=True)
+    issued_by_player_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
+    token = Column(String(50), nullable=False, index=True)
+    expiry_date = Column(DateTime, nullable=False)
+    deleted = Column(Boolean, nullable=True, default=False)
 
 
 event.listen(

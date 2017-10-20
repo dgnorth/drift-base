@@ -6,14 +6,14 @@ import uuid
 import datetime
 
 from flask import Blueprint, request, g, abort, url_for
-from flask_restful import Api, Resource
+from flask_restful import Api, Resource, reqparse
 
 from drift.urlregistry import register_endpoints
 from drift.auth.jwtchecker import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
-from driftbase.db.models import Friendship, CorePlayer
-from driftbase.players import log_event, can_edit_player
+from driftbase.db.models import Friendship, FriendInvite, CorePlayer
+
 
 log = logging.getLogger(__name__)
 bp = Blueprint("friendships", __name__)
@@ -27,23 +27,24 @@ def get_player(player_id):
 
 class FriendshipsAPI(Resource):
 
-    def get(self):
+    def get(self, player_id):
         """
         List my friends
         """
-        player_id = current_user["player_id"]
+        if player_id != current_user["player_id"]:
+            abort(httplib.FORBIDDEN, description="That is not your player!")
 
-        left = g.db.query(Friendship.id, Friendship.player1_id, Friendship.player2_id).filter_by(player1_id=player_id)
-        right = g.db.query(Friendship.id, Friendship.player2_id, Friendship.player1_id).filter_by(player2_id=player_id)
+        left = g.db.query(Friendship.id, Friendship.player1_id, Friendship.player2_id).filter_by(player1_id=player_id, status="active")
+        right = g.db.query(Friendship.id, Friendship.player2_id, Friendship.player1_id).filter_by(player2_id=player_id, status="active")
         friend_rows = left.union_all(right)
         friends = []
         for row in friend_rows:
+            friendship_id = row[0]
             friend_id = row[2]
             friend = {
                 "friend_id": friend_id,
-                "is_online": False,
-                "url": url_for("friendships.friendship", friend_id=friend_id, _external=True),
-                "messagequeue_url": url_for("messages.exchange", exchange="players", exchange_id=friend_id, _external=True) + "/{queue}",
+                "player_url": url_for("players.player", player_id=friend_id, _external=True),
+                "friendship_url": url_for("friendships.friendship", friendship_id=friendship_id, _external=True)
             }
             friends.append(friend)
 
@@ -52,48 +53,43 @@ class FriendshipsAPI(Resource):
 
     @simple_schema_request({
         "token": {"type": "string", },
-        "friend_id": {"type": "number", },
-    }, required=["token", "friend_id"])
-    def post(self):
+    }, required=["token"])
+    def post(self, player_id):
         """
         New friend
         """
-        player_id = current_user["player_id"]
-        if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, description="That is not your player!")
-
-        if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
+        if player_id != current_user["player_id"]:
+            abort(httplib.FORBIDDEN, description="That is not your player!")
 
         args = request.json
-        friend_id = args.get("friend_id")
+        invite_token=args.get("token")
 
-        redis_key = g.redis.make_key("friendship-token:%s" % (args.get("token")))
-        token_friend_id = g.redis.conn.get(redis_key)
-        if token_friend_id is None:
-            abort(httplib.NOT_FOUND, description="Token not found!")
-        if int(token_friend_id) != friend_id:
-            abort(httplib.NOT_FOUND, description="Token doesn't match the friend you're adding!")
+        invite = g.db.query(FriendInvite).filter_by(token=invite_token).first()
+        if invite is None:
+            abort(httplib.NOT_FOUND, description="The invite was not found!")
 
+        if invite.expiry_date < datetime.datetime.utcnow():
+            abort(httplib.FORBIDDEN, description="The invite has expired!")
+
+        if invite.deleted:
+            abort(httplib.FORBIDDEN, description="The invite has been deleted!")
+
+        friend_id = invite.issued_by_player_id
         left_id = player_id
         right_id = friend_id
 
         if left_id == right_id:
-            abort(httplib.METHOD_NOT_ALLOWED, description="You cannot befriend yourself!")
+            abort(httplib.FORBIDDEN, description="You cannot befriend yourself!")
 
         if left_id > right_id:
             left_id, right_id = right_id, left_id
-        ret = []
 
         existing_friendship = g.db.query(Friendship).filter(
             Friendship.player1_id == left_id,
             Friendship.player2_id == right_id
         ).first()
         if existing_friendship is not None:
-            return ret
-
-        if g.db.query(CorePlayer).filter(CorePlayer.player_id == friend_id).first() is None:
-            abort(httplib.METHOD_NOT_ALLOWED, description="No active player with that ID!")
+            return {}, httplib.OK
 
         friendship = Friendship(player1_id=left_id, player2_id=right_id)
         g.db.add(friendship)
@@ -102,7 +98,7 @@ class FriendshipsAPI(Resource):
         ret = {
             "friend_id": friend_id,
             "is_online": False,
-            "url": url_for("friendships.friendship", friend_id=friend_id, _external=True),
+            "url": url_for("friendships.friendship", friendship_id=friendship.id, _external=True),
             "messagequeue_url": url_for("messages.exchange", exchange="players", exchange_id=friend_id,
                                         _external=True) + "/{queue}",
         }
@@ -111,91 +107,90 @@ class FriendshipsAPI(Resource):
 
 
 class FriendshipAPI(Resource):
-    def delete(self, friend_id):
+
+    def delete(self, friendship_id):
         """
         Remove a friend
         """
         player_id = current_user["player_id"]
-        if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, description="That is not your player!")
 
-        if not get_player(player_id):
+        friendship = g.db.query(Friendship).filter_by(id=friendship_id).first()
+        if friendship is None:
             abort(httplib.NOT_FOUND)
+        elif friendship.player1_id != player_id and friendship.player2_id != player_id:
+            abort(httplib.FORBIDDEN)
+        elif friendship.status == "deleted":
+            return {}, httplib.GONE
 
-        left_id = player_id
-        right_id = friend_id
-
-        if left_id == right_id:
-            abort(httplib.METHOD_NOT_ALLOWED, description="You cannot unfriend yourself!")
-
-        if left_id > right_id:
-            left_id, right_id = right_id, left_id
-
-        friendship = g.db.query(Friendship).filter(Friendship.player1_id == left_id, Friendship.player2_id == right_id).first()
         if friendship:
-            g.db.delete(friendship)
+            friendship.status = "deleted"
             g.db.commit()
 
         return {}, httplib.NO_CONTENT
 
 
-class FriendshipTokensAPI(Resource):
+class FriendInvitesAPI(Resource):
 
     def post(self):
         """
         New Friend token
         """
         player_id = current_user["player_id"]
-        if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, description="That is not your player!")
-
-        if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
 
         token = str(uuid.uuid4())
-        redis_key = g.redis.make_key("friendship-token:%s" % (token))
-        expires_seconds = 60 * 60 * 24
+        # TODO: move expiration time to a per-tenant config
+        expires_seconds = 60 * 60 * 1
         expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_seconds)
-        g.redis.conn.set(redis_key, player_id)
-        g.redis.conn.expire(redis_key, expires_seconds)
+
+        invite = FriendInvite(
+            token=token,
+            issued_by_player_id=player_id,
+            expiry_date=expires
+        )
+
+        g.db.add(invite)
+        g.db.commit()
 
         ret = {
-                  "token":token,
-                  "expires":expires,
-                  "url":url_for("friendships.friendshiptoken", token=token)
-              }, httplib.CREATED
+            "token":token,
+            "expires":expires,
+            "url":url_for("friendships.friendinvite", invite_id=invite.id, _external=True)
+        }, httplib.CREATED
         return ret
 
 
-class FriendshipTokenAPI(Resource):
+class FriendInviteAPI(Resource):
 
-    def delete(self, token):
+    def delete(self, invite_id):
         """
         Delete a friend token
         """
         player_id = current_user["player_id"]
-        if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, description="That is not your player!")
 
-        if not get_player(player_id):
+        invite = g.db.query(FriendInvite).filter_by(id=invite_id).first()
+        if not invite:
             abort(httplib.NOT_FOUND)
+        elif invite.issued_by_player_id != player_id:
+            abort(httplib.FORBIDDEN)
+        elif invite.deleted:
+            return {}, httplib.GONE
 
-        redis_key = g.redis.make_key("friendship-token:%s" % (token))
-        result = g.redis.conn.delete(redis_key)
-        return {}, httplib.NO_CONTENT if result == 1 else httplib.NOT_FOUND
+        invite.deleted = True
+        g.db.commit()
+        return {}, httplib.NO_CONTENT
 
 
-api.add_resource(FriendshipsAPI, "/friendships", endpoint="friendships")
-api.add_resource(FriendshipAPI, "/friendships/<int:friend_id>", endpoint="friendship")
-api.add_resource(FriendshipTokensAPI, "/friendshiptokens", endpoint="friendshiptokens")
-api.add_resource(FriendshipTokenAPI, "/friendshiptokens/<string:token>", endpoint="friendshiptoken")
+api.add_resource(FriendshipsAPI, "/friendships/players/<int:player_id>", endpoint="friendships")
+api.add_resource(FriendshipAPI, "/friendships/<int:friendship_id>", endpoint="friendship")
+api.add_resource(FriendInvitesAPI, "/friendships/invites", endpoint="friendinvites")
+api.add_resource(FriendInviteAPI, "/friendships/invites/<int:invite_id>", endpoint="friendinvite")
 
 
 @register_endpoints
 def endpoint_info(current_user):
     ret = {}
-    ret["my_friendships"] = None
-    ret["friendship_tokens"] = url_for("friendships.friendshiptokens", _external=True)
+    ret["my_friends"] = None
+    ret["friend_invites"] = url_for("friendships.friendinvites", _external=True)
     if current_user:
-        ret["my_friendships"] = url_for("friendships.friendships", _external=True)
+        ret["my_friends"] = url_for("friendships.friendships", player_id=current_user["player_id"], _external=True)
     return ret

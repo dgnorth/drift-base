@@ -27,10 +27,11 @@ def upgrade(engine_name):
     op.create_table(
         'ck_friendships',
         sa.Column('id', sa.BigInteger, sa.Sequence('ck_friendships_id_seq'), primary_key=True, server_default=sa.text("nextval('ck_friendships_id_seq'::regclass)")),
-        sa.Column('player1_id', sa.Integer, sa.ForeignKey('ck_players.player_id'), nullable=False, primary_key=True),
-        sa.Column('player2_id', sa.Integer, sa.ForeignKey('ck_players.player_id'), nullable=False, primary_key=True),
+        sa.Column('player1_id', sa.Integer, sa.ForeignKey('ck_players.player_id'), nullable=False, index=True),
+        sa.Column('player2_id', sa.Integer, sa.ForeignKey('ck_players.player_id'), nullable=False, index=True),
         sa.Column('create_date', sa.DateTime, nullable=False, server_default=utc_now),
         sa.Column('modify_date', sa.DateTime, nullable=False, server_default=utc_now, onupdate=datetime.datetime.utcnow),
+        sa.Column('status', sa.String(20), nullable=False, server_default="active"),
         sa.CheckConstraint('player1_id < player2_id'),
     )
     sql = "GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE ck_friendships to zzp_user;"
