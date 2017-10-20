@@ -97,7 +97,6 @@ class FriendshipsAPI(Resource):
 
         ret = {
             "friend_id": friend_id,
-            "is_online": False,
             "url": url_for("friendships.friendship", friendship_id=friendship.id, _external=True),
             "messagequeue_url": url_for("messages.exchange", exchange="players", exchange_id=friend_id,
                                         _external=True) + "/{queue}",
