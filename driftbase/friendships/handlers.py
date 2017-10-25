@@ -92,10 +92,14 @@ class FriendshipsAPI(Resource):
             Friendship.player2_id == right_id
         ).first()
         if existing_friendship is not None:
-            return {}, httplib.OK
-
-        friendship = Friendship(player1_id=left_id, player2_id=right_id)
-        g.db.add(friendship)
+            friendship = existing_friendship
+            if friendship.status == "deleted":
+                friendship.status = "active"
+            else:
+                return {}, httplib.OK
+        else:
+            friendship = Friendship(player1_id=left_id, player2_id=right_id)
+            g.db.add(friendship)
         g.db.commit()
 
         ret = {

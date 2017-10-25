@@ -143,6 +143,14 @@ class FriendsTest(BaseCloudkitTest):
         # other player tries to delete the same friendship results in it being GONE
         self.delete(friendship_url, expected_status_code=httplib.GONE)
 
+        self.auth(username="Number six user")
+
+        # add friend back again
+        self.post(self.endpoints["my_friends"], data={"token":token}, expected_status_code=httplib.CREATED).json()
+        friends = self.get(self.endpoints["my_friends"]).json()
+        self.assertIsInstance(friends, list)
+        self.assertEqual(len(friends), 1)
+
 
     def test_cannot_add_self_as_friend(self):
 
