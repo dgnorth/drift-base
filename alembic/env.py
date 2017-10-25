@@ -6,6 +6,7 @@ from sqlalchemy import pool, create_engine
 from logging.config import fileConfig
 import logging
 from drift.core.resources.postgres import format_connection_string
+from drift.utils import get_tier_name
 from os.path import abspath, join
 import os, sys, socket
 from driftconfig.util import get_default_drift_config
@@ -60,17 +61,18 @@ def get_engines():
     engines = {}
     tenants = []
     ts = get_ts()
+    tier = get_tier_name()
     tenants_table = ts.get_table('tenants').find({'deployable_name': 'drift-base'}) #!
-    pick_tenant = None
-    if sys.argv[1] == '-x':
-        pick_tenant = sys.argv[2]
+    pick_tenant = context.get_x_argument(as_dictionary=True).get('tenant')
+    if pick_tenant:
         print 'picking tenant %s' % pick_tenant
+    dry_run = context.get_x_argument(as_dictionary=True).get('dry-run')
 
     for t in tenants_table:
         if not t.get("postgres"):
             continue
         name = t["tenant_name"]
-        if not (pick_tenant and name != pick_tenant) and name != "*":
+        if not (pick_tenant and name != pick_tenant) and name != "*" and t["tier_name"] == tier:
             tenants.append(t)
 
     for tenant_config in tenants:
@@ -105,6 +107,10 @@ def get_engines():
             print "OK"
     if err:
         raise Exception("Unable to connect to one or more db servers. Bailing out!")
+
+    if dry_run:
+        print "Dry run, exiting without taking further action"
+        return {}
 
     for key in engines.keys():
         rec = engines[key]
