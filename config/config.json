@@ -8,6 +8,7 @@
         "driftbase.clients",
         "driftbase.events",
         "driftbase.counters",
+        "driftbase.friendships",
         "driftbase.useridentities",
         "driftbase.matches",
         "driftbase.servers",
