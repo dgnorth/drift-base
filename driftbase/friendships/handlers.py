@@ -15,6 +15,9 @@ from drift.core.extensions.schemachecker import simple_schema_request
 from driftbase.db.models import Friendship, FriendInvite, CorePlayer
 
 
+DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
+
+
 log = logging.getLogger(__name__)
 bp = Blueprint("friendships", __name__)
 api = Api(bp)
@@ -137,8 +140,11 @@ class FriendInvitesAPI(Resource):
         player_id = current_user["player_id"]
 
         token = str(uuid.uuid4())
-        # TODO: move expiration time to a per-tenant config
-        expires_seconds = 60 * 60 * 1
+        expires_seconds = DEFAULT_INVITE_EXPIRATION_TIME_SECONDS
+        config = g.conf.tenant.get('friends')
+        if config:
+            expires_seconds = config['invite_expiration_seconds']
+        expires_seconds = expires_seconds
         expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_seconds)
 
         invite = FriendInvite(
