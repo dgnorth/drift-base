@@ -29,7 +29,7 @@ def _get_service_user():
         return current_app.config.get("service_user")
 
 
-def authenticate(username, password):
+def authenticate(username, password, automatic_account_creation = True):
     """basic authentication"""
     identity_type = ""
     create_roles = []
@@ -41,12 +41,6 @@ def authenticate(username, password):
         is_old = False
     else:
         log.info("Old-style authentication for '%s'", username)
-    automatic_account_creation = True
-    if identity_type.lower() == "gamecenter":
-        automatic_account_creation = False
-        username = pbkdf2_hex(username, "staticsalt", iterations=25000)
-        username = "%s:%s" % (identity_type, username)
-        log.info("Hashed gamecenter username: %s", username)
 
     identity_id = 0
 

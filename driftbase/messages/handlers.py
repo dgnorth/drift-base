@@ -25,8 +25,10 @@ api = Api(bp)
 
 log = logging.getLogger(__name__)
 
-# messages expire in a day
+# messages expire in a day by default
 DEFAULT_EXPIRE_SECONDS = 60 * 60 * 24
+# keep the top message around for a month
+TOP_MESSAGE_NUMBER_TTL = 60 * 60 * 24 * 30
 
 
 # for mocking
@@ -52,8 +54,7 @@ def is_key_legal(key):
 
 def incr_message_number(exchange, exchange_id):
     k = "top_message_number:%s:%s" % (exchange, exchange_id)
-    # keep the top message around for a month
-    g.redis.incr(k, expire=86400 * 30)
+    g.redis.incr(k, expire=TOP_MESSAGE_NUMBER_TTL)
     val = g.redis.get(k)
     return int(val)
 
@@ -180,7 +181,7 @@ class MessagesExchangeAPI(Resource):
                         yield " "
                     except Exception as e:
                         log.error("[%s/%s] Exception %s", my_player_id, exchange_full_name, repr(e))
-                        raise
+                        yield json.dumps({})
             return Response(stream_with_context(streamer()), mimetype="application/json")
         else:
             messages = fetch_messages(exchange, exchange_id, min_message_number, rows)

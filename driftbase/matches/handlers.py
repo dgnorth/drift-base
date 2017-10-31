@@ -2,10 +2,10 @@
 
 import logging, httplib, datetime
 
-from flask import Blueprint, request, url_for, g, current_app
+from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
 
-from drift.utils import json_response, url_player, url_client
+from drift.utils import url_player
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.auth.jwtchecker import current_user, requires_roles
@@ -45,7 +45,7 @@ class ActiveMatchesAPI(Resource):
         query = query.filter(Server.machine_id == Machine.machine_id,
                              Match.server_id == Server.server_id,
                              Match.num_players < Match.max_players,
-                             Server.status.in_(["started", "running", "active"]),
+                             Server.status.in_(["started", "running", "active", "ready"]),
                              Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
                              )
         if args.get("ref"):
@@ -166,11 +166,11 @@ class MatchesAPI(Resource):
         "num_teams": {"type": "number", },
     }, required=["server_id"])
     def post(self):
-        """Register a new battle on the passed in matcheserver.
-        Each matcheserver should always have a single battle.
-        A matcheserver will have zero matches only when it doesn't start up.
-        Either the celery matcheserver task (in normal EC2 mode) or the
-        matcheserver unreal process (in local development mode) will call
+        """Register a new battle on the passed in match server.
+        Each match server should always have a single battle.
+        A match server will have zero matches only when it doesn't start up.
+        Either the celery match server task (in normal EC2 mode) or the
+        match server unreal process (in local development mode) will call
         this endpoint to create the battle resource.
         """
         args = request.json
@@ -243,7 +243,6 @@ class MatchAPI(Resource):
 
         server = g.db.query(Server).get(match.server_id)
         ret["server"] = None
-        ret["machine"] = None
         ret["server_url"] = None
         ret["machine_url"] = None
         if server:
@@ -253,7 +252,6 @@ class MatchAPI(Resource):
             machine = g.db.query(Machine).get(server.machine_id)
             ret["machine"] = None
             if server:
-                ret["machine"] = machine.as_dict()
                 ret["machine_url"] = url_for("machines.entry",
                                              machine_id=machine.machine_id, _external=True)
 

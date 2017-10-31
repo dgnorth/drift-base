@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
 
-import logging, httplib
+import logging, httplib, datetime
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
+from dateutil import parser
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.auth.jwtchecker import requires_roles
 
-from driftbase.db.models import Machine
+from driftbase.db.models import Machine, MachineEvent
 
 log = logging.getLogger(__name__)
 bp = Blueprint("machines", __name__)
 api = Api(bp)
 
+def utcnow():
+    return datetime.datetime.utcnow()
 
 class MachinesAPI(Resource):
     """The interface to battleserver machines. Each physical machine
@@ -84,6 +87,7 @@ class MachinesAPI(Resource):
         "private_ip": {"format": "ip-address", },
         "machine_info": {"type": "object", },
         "details": {"type": "object", },
+        "group_name": {"type": "string", },
     }, required=["realm", "instance_name"])
     def post(self):
         args = request.json
@@ -99,6 +103,7 @@ class MachinesAPI(Resource):
                           private_ip=args.get("private_ip"),
                           machine_info=args.get("machine_info"),
                           details=args.get("details"),
+                          group_name=args.get("group_name")
                           )
         g.db.add(machine)
         g.db.commit()
@@ -137,6 +142,48 @@ class MachineAPI(Resource):
         log.debug("Returning info for battleserver machine %s", machine_id)
 
         return record
+
+    @requires_roles("service")
+    @simple_schema_request({
+        "machine_info": {"type": "object", },
+        "status": {"type": "object", },
+        "details": {"type": "object", },
+        "config": {"type": "object", },
+        "statistics": {"type": "object", },
+        "group_name" : {"type": "string"},
+        "events": {"type": "array"}
+    }, required=[])
+    def put(self, machine_id):
+        """
+        Heartbeat and update the machine reference
+        """
+        args = request.json
+        row = g.db.query(Machine).get(machine_id)
+        if not row:
+            abort(httplib.NOT_FOUND, description="Machine not found")
+        last_heartbeat = row.heartbeat_date
+        row.heartbeat_date = utcnow()
+        if args.get("status"):
+            row.status = args["status"]
+        if args.get("details"):
+            row.details = args["details"]
+        if args.get("config"):
+            row.config = args["config"]
+        if args.get("statistics"):
+            row.statistics = args["statistics"]
+        if args.get("group_name"):
+            row.group_name = args["group_name"]
+        if args.get("events"):
+            for event in args["events"]:
+                timestamp = parser.parse(event["timestamp"])
+                event_row = MachineEvent(event_type_name=event["event"],
+                                         machine_id=machine_id,
+                                         details=event,
+                                         create_date=timestamp)
+                g.db.add(event_row)
+
+        g.db.commit()
+        return {"last_heartbeat": last_heartbeat}
 
 
 api.add_resource(MachinesAPI, '/machines', endpoint="list")

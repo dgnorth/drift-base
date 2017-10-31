@@ -1,22 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
+from drift.systesthelper import DriftBaseTestCase
 
 
 class MachineGroupsTest(DriftBaseTestCase):
@@ -61,7 +46,3 @@ class MachineGroupsTest(DriftBaseTestCase):
         # make sure the patch didn't screw up other data
         for k, v in data.iteritems():
             self.assertEquals(v, r.json()[k])
-
-
-if __name__ == '__main__':
-    unittest.main()

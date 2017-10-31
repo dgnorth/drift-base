@@ -87,7 +87,7 @@ class PlayersListAPI(Resource):
         query = g.db.query(CorePlayer, User, Client)
         query = query.join(User, User.user_id == CorePlayer.user_id)
         query = query.outerjoin(Client, User.client_id == Client.client_id)
-        rows = args.rows or 500
+        rows = min(args.rows or 10, 100)
         if args.player_id:
             query = query.filter(CorePlayer.player_id.in_(args.player_id))
         elif args.player_group:

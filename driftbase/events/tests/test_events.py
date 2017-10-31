@@ -1,23 +1,9 @@
 # -*- coding: utf-8 -*-
-
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
+import mock
 import httplib
-import unittest, responses, mock
-import json, requests, datetime
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, user_payload
+import datetime
+from drift.systesthelper import DriftBaseTestCase
 from drift.auth.jwtchecker import current_user
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
 
 
 class EventsTest(DriftBaseTestCase):
@@ -53,10 +39,10 @@ class EventsTest(DriftBaseTestCase):
         self.headers = {}
         r = self.post(endpoint, data=[{"hello": "world", "event_name": "dummy", "timestamp": ts}],
                       expected_status_code=httplib.UNAUTHORIZED)
-    
+
     def test_events_from_server(self):
-        # The event log API should enforce the player_id to the current player, unless 
-        # the user has role "service" in which case it should only set the player_id if 
+        # The event log API should enforce the player_id to the current player, unless
+        # the user has role "service" in which case it should only set the player_id if
         # it's not passed in the event.
 
         def eventlog(message, extra):
@@ -72,7 +58,7 @@ class EventsTest(DriftBaseTestCase):
             # Ommitting player_id, it should be pulled from current_user
             self.expect_player_id = None  # Expect value from current_user
             self.post(endpoint, data=[event], expected_status_code=httplib.CREATED)
-            
+
             # Set player_id to 88888, but it should be ignored as we don't have role 'service'.
             event['player_id'] = 88888
             self.expect_player_id = None  # Expect value from current_user
@@ -101,7 +87,3 @@ class EventsTest(DriftBaseTestCase):
         # but the auth field isn't required
         del self.headers["Authorization"]
         self.post(endpoint, data=[{"hello": "world"}], expected_status_code=httplib.CREATED)
-
-
-if __name__ == '__main__':
-    unittest.main()
