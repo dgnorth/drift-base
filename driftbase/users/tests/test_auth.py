@@ -4,10 +4,27 @@ from mock import patch, MagicMock
 import httplib
 
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
+from driftconfig.util import _sticky_ts
 
 
 def setUpModule():
-    setup_tenant()
+    conf = setup_tenant()
+
+    conf.table_store.get_table('platforms').add({
+        'product_name': conf.product['product_name'],
+        'provider_name': 'oculus',
+        "provider_details": {
+            "access_token": "four",
+            "sekrit": "five"
+        }})
+
+    conf.table_store.get_table('platforms').add({
+        'product_name': conf.product['product_name'],
+        'provider_name': 'steam',
+        "provider_details": {
+            "appid": 12345,
+            "key": "steam key"
+        }})
 
 
 def tearDownModule():
@@ -40,7 +57,7 @@ class AuthTests(DriftBaseTestCase):
         # Oculus normal authentication check
         nonce = "140000003DED3A"
         data = {
-            "provider": "oculus",
+        "provider": "oculus",
             "provider_details": {
                 "nonce": nonce,
                 "user_id": "testuser"
@@ -55,7 +72,7 @@ class AuthTests(DriftBaseTestCase):
             "provider": "steam",
             "provider_details": {
                 "ticket": "tick",
-                "appid": 123,
+                "appid": 12345,
                 "steam_id": "steamdude"
             }
         }
