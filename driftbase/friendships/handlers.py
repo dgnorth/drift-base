@@ -189,6 +189,12 @@ class FriendInviteAPI(Resource):
         return {}, httplib.NO_CONTENT
 
 
+def on_message(queue_name, message):
+    if queue_name == 'clients' and message['event'] == 'created':
+        log.info("Friendship is forevur! This one just connected: %s", message['payload'])
+
+
+
 api.add_resource(FriendshipsAPI, "/friendships/players/<int:player_id>", endpoint="friendships")
 api.add_resource(FriendshipAPI, "/friendships/<int:friendship_id>", endpoint="friendship")
 api.add_resource(FriendInvitesAPI, "/friendships/invites", endpoint="friendinvites")
