@@ -199,48 +199,69 @@ class MessagesQueueAPI(Resource):
     }, required=["message"])
     def post(self, exchange, exchange_id, queue):
         check_can_use_exchange(exchange, exchange_id, read=False)
-        my_player_id = None
-        if current_user:
-            my_player_id = current_user["player_id"]
-        lock_key = "lockmessage_%s_%s" % (exchange, exchange_id)
         args = request.json
-        payload = args["message"]
-        expire_seconds = args.get("expire") or DEFAULT_EXPIRE_SECONDS
-        message_id = str(uuid.uuid4())
-        message_number = incr_message_number(exchange, exchange_id)
-        timestamp = utcnow()
-        expires = timestamp + datetime.timedelta(seconds=expire_seconds)
-        message = {
-            "timestamp": timestamp.isoformat() + "Z",
-            "expires": expires.isoformat() + "Z",
-            "sender_id": current_user["player_id"],
-            "message_id": message_id,
-            "message_number": message_number,
-            "payload": payload,
-            "queue": queue,
-            "exchange": exchange,
-            "exchange_id": exchange_id,
-        }
-        if not is_key_legal(exchange) or not is_key_legal(queue):
-            abort(httplib.BAD_REQUEST, message="Exchange or Queue name is invalid.")
+        expire_seconds=args.get("expire") or DEFAULT_EXPIRE_SECONDS
 
-        key = "messages:%s-%s" % (exchange, exchange_id)
-        val = json.dumps(message, default=json_serial)
+        message = _add_message(
+            exchange=exchange,
+            exchange_id=exchange_id,
+            queue=queue,
+            payload=args["message"],
+            expire_seconds=expire_seconds,
+        )
 
-        with g.redis.lock(lock_key):
-            k = g.redis.make_key(key)
-            g.redis.conn.rpush(k, val)
-            g.redis.conn.expire(k, expire_seconds)
-
-        log.info("Message %s ('%s') has been added to queue '%s' in exchange "
-                 "'%s-%s' by player %s. It will expire on '%s'",
-                 message["message_number"], message["message_id"], queue, exchange,
-                 exchange_id, my_player_id, expires)
+        log.info(
+            "Message %s ('%s') has been added to queue '%s' in exchange "
+            "'%s-%s' by player %s. It will expire on '%s'",
+            message["message_number"], message["message_id"],
+            queue, exchange, exchange_id,
+            current_user["player_id"] if current_user else None,
+            expire_seconds
+        )
 
         ret = copy.copy(message)
-        ret["url"] = url_for("messages.message", exchange=exchange, exchange_id=exchange_id,
-                             queue=queue, message_id=message_id, _external=True)
+        ret["url"] = url_for(
+            "messages.message",
+            exchange=message['exchange'],
+            exchange_id=message['exchange_id'],
+            queue=message['queue'],
+            message_id=message['message_id'],
+            _external=True
+        )
+
         return ret
+
+
+def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
+    expire_seconds = expire_seconds or DEFAULT_EXPIRE_SECONDS
+    message_id = str(uuid.uuid4())
+    message_number = incr_message_number(exchange, exchange_id)
+    timestamp = utcnow()
+    expires = timestamp + datetime.timedelta(seconds=expire_seconds)
+    message = {
+        "timestamp": timestamp.isoformat() + "Z",
+        "expires": expires.isoformat() + "Z",
+        "sender_id": current_user["player_id"],
+        "message_id": message_id,
+        "message_number": message_number,
+        "payload": payload,
+        "queue": queue,
+        "exchange": exchange,
+        "exchange_id": exchange_id,
+    }
+    if not is_key_legal(exchange) or not is_key_legal(queue):
+        abort(httplib.BAD_REQUEST, message="Exchange or Queue name is invalid.")
+
+    key = "messages:%s-%s" % (exchange, exchange_id)
+    val = json.dumps(message, default=json_serial)
+
+    lock_key = "lockmessage_%s_%s" % (exchange, exchange_id)
+    with g.redis.lock(lock_key):
+        k = g.redis.make_key(key)
+        g.redis.conn.rpush(k, val)
+        g.redis.conn.expire(k, expire_seconds)
+
+    return message
 
 
 class MessageQueueAPI(Resource):
