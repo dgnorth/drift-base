@@ -11,7 +11,7 @@ from driftbase.db.models import Client
 log = logging.getLogger(__name__)
 
 
-def before_request(*args, **kw):
+def before_request():
     current_user = query_current_user()
     if not current_user:
         return
