@@ -77,6 +77,7 @@ class ActiveMatchesAPI(Resource):
             record["create_date"] = match.create_date
             record["game_mode"] = match.game_mode
             record["map_name"] = match.map_name
+            record["max_players"] = match.max_players
             record["num_players"] = match.num_players
             record["match_status"] = match.status
             record["server_status"] = server.status
