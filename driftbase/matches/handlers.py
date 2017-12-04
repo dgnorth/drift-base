@@ -23,6 +23,11 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
+def match_lock(redis, match_id):
+    # Moving this into a separate function so systems test can mock it out.
+    return redis.lock("match_%d" % match_id)
+
+
 class ActiveMatchesAPI(Resource):
     """UE4 matches available for matchmaking
     """
@@ -507,20 +512,24 @@ class MatchPlayersAPI(Resource):
         match_player.join_date = utcnow()
         match_player.status = "active"
 
+        # ensure the player count below takes the possibly new player into account
+        g.db.flush()
+
         # remove the player from the match queue
         g.db.query(MatchQueuePlayer).filter(MatchQueuePlayer.player_id == player_id).delete()
 
-        #num_players = g.db.query(MatchPlayer) \
-        #                  .filter(MatchPlayer.match_id == match_id,
-        #                          MatchPlayer.status == "active") \
-        #                  .count()
+        with match_lock(g.redis, match_id):
+            num_players = g.db.query(MatchPlayer) \
+                              .filter(MatchPlayer.match_id == match_id,
+                                      MatchPlayer.status == "active") \
+                              .count()
 
-        if match.num_players == 0:
-            match.start_date = utcnow()
+            if match.num_players == 0 and match.start_date is None:
+                match.start_date = utcnow()
 
-        match.num_players += 1 #! TODO: Adds to the count but if you rejoin you get counted twice
+            match.num_players = num_players
 
-        g.db.commit()
+            g.db.commit()
 
         # prepare the response
         resource_uri = url_for("matches.player",
@@ -595,14 +604,14 @@ class MatchPlayerAPI(Resource):
         match_player.leave_date = utcnow()
         match_player.seconds += num_seconds
 
-        #! keep num_players as 'all players who have joined' temporarily
-        #num_players = g.db.query(MatchPlayer) \
-        #                  .filter(MatchPlayer.match_id == match_id,
-        #                          MatchPlayer.status == "active") \
-        #                  .count()
-        #match.num_players = num_players
+        with match_lock(g.redis, match_id):
+            num_players = g.db.query(MatchPlayer) \
+                              .filter(MatchPlayer.match_id == match_id,
+                                      MatchPlayer.status == "active") \
+                              .count()
+            match.num_players = num_players
 
-        g.db.commit()
+            g.db.commit()
 
         log.info("Player %s has left battle %s", player_id, match_id)
         log_match_event(match_id, player_id,
