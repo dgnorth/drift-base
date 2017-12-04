@@ -64,7 +64,6 @@ class BaseMatchTest(BaseCloudkitTest):
                 "image_name": "image_name",
                 "branch": "develop",
                 "commit_id": "commit_id",
-                "version": "version",
                 "process_info": {"process_info": "yes"},
                 "details": {"details": "yes"},
                 "ref": "test/testing",
