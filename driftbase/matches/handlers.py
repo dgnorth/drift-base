@@ -23,11 +23,6 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-def match_lock(redis, match_id):
-    # Moving this into a separate function so systems test can mock it out.
-    return redis.lock("match_%d" % match_id)
-
-
 class ActiveMatchesAPI(Resource):
     """UE4 matches available for matchmaking
     """
@@ -49,7 +44,6 @@ class ActiveMatchesAPI(Resource):
         query = g.db.query(Match, Server, Machine)
         query = query.filter(Server.machine_id == Machine.machine_id,
                              Match.server_id == Server.server_id,
-                             Match.num_players < Match.max_players,
                              Server.status.in_(["started", "running", "active", "ready"]),
                              Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
                              )
@@ -83,7 +77,6 @@ class ActiveMatchesAPI(Resource):
             record["game_mode"] = match.game_mode
             record["map_name"] = match.map_name
             record["max_players"] = match.max_players
-            record["num_players"] = match.num_players
             record["match_status"] = match.status
             record["server_status"] = server.status
             record["public_ip"] = server.public_ip
@@ -111,18 +104,19 @@ class ActiveMatchesAPI(Resource):
                                                        current_user["player_id"],
                                                        server.token)
             player_array = []
-            if match.num_players:
-                players = g.db.query(MatchPlayer) \
-                              .filter(MatchPlayer.match_id == match.match_id) \
-                              .all()
-                for player in players:
-                    player_array.append({
-                        "player_id": player.player_id,
-                        "player_url": url_player(player.player_id),
-                    })
-                    if player.player_id in player_ids:
-                        include = True
+            players = g.db.query(MatchPlayer) \
+                          .filter(MatchPlayer.match_id == match.match_id,
+                                  MatchPlayer.status.in_(["active"])) \
+                          .all()
+            for player in players:
+                player_array.append({
+                    "player_id": player.player_id,
+                    "player_url": url_player(player.player_id),
+                })
+                if player.player_id in player_ids:
+                    include = True
             record["players"] = player_array
+            record["num_players"] = len(player_array)
 
             if include:
                 ret.append(record)
@@ -282,6 +276,7 @@ class MatchAPI(Resource):
             player["player_url"] = url_player(r.player_id)
             players.append(player)
         ret["players"] = players
+        ret["num_players"] = len(players)
 
         log.debug("Returning info for match %s", match_id)
 
@@ -485,7 +480,11 @@ class MatchPlayersAPI(Resource):
         if match.status == "completed":
             abort(httplib.BAD_REQUEST, description="You cannot add a player to a completed battle")
 
-        if match.num_players >= match.max_players:
+        num_players = g.db.query(MatchPlayer) \
+            .filter(MatchPlayer.match_id == match.match_id,
+                    MatchPlayer.status.in_(["active"])) \
+            .count()
+        if num_players >= match.max_players:
             abort(httplib.BAD_REQUEST, description="Match is full")
 
         if team_id:
@@ -512,24 +511,13 @@ class MatchPlayersAPI(Resource):
         match_player.join_date = utcnow()
         match_player.status = "active"
 
-        # ensure the player count below takes the possibly new player into account
-        g.db.flush()
-
         # remove the player from the match queue
         g.db.query(MatchQueuePlayer).filter(MatchQueuePlayer.player_id == player_id).delete()
 
-        with match_lock(g.redis, match_id):
-            num_players = g.db.query(MatchPlayer) \
-                              .filter(MatchPlayer.match_id == match_id,
-                                      MatchPlayer.status == "active") \
-                              .count()
+        if match.start_date is None:
+            match.start_date = utcnow()
 
-            if match.num_players == 0 and match.start_date is None:
-                match.start_date = utcnow()
-
-            match.num_players = num_players
-
-            g.db.commit()
+        g.db.commit()
 
         # prepare the response
         resource_uri = url_for("matches.player",
@@ -604,14 +592,7 @@ class MatchPlayerAPI(Resource):
         match_player.leave_date = utcnow()
         match_player.seconds += num_seconds
 
-        with match_lock(g.redis, match_id):
-            num_players = g.db.query(MatchPlayer) \
-                              .filter(MatchPlayer.match_id == match_id,
-                                      MatchPlayer.status == "active") \
-                              .count()
-            match.num_players = num_players
-
-            g.db.commit()
+        g.db.commit()
 
         log.info("Player %s has left battle %s", player_id, match_id)
         log_match_event(match_id, player_id,
