@@ -272,7 +272,7 @@ class MatchAPI(Resource):
         for r in rows:
             player = r.as_dict()
             player["matchplayer_url"] = url_for("matches.player", match_id=match_id,
-                                                player_id=r.player_id, external=True)
+                                                player_id=r.player_id, _external=True)
             player["player_url"] = url_player(r.player_id)
             players.append(player)
         ret["players"] = players
