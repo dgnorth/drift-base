@@ -3,7 +3,12 @@ import httplib
 from collections import defaultdict
 
 from drift.systesthelper import uuid_string
+
+
 from driftbase.utils.test_utils import BaseMatchTest
+
+
+
 
 
 class MatchesTest(BaseMatchTest):
@@ -312,3 +317,46 @@ class MatchesTest(BaseMatchTest):
                 "team_id": team_id
                 }
         self.post(matchplayers_url, data=data, expected_status_code=httplib.BAD_REQUEST)
+
+
+class ActiveMatchesMatchStatusTest(BaseMatchTest):
+    """
+    Test active matches endpoint
+    """
+    def test_active_matches_depend_on_match_status(self):
+        self.auth_service()
+
+        match = self._create_match(max_players=4)
+        match_url = match["url"]
+        server_id = match["server_id"]
+
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(resp.json()), 1)
+
+        self.put(match_url, data={"status": "ended"})
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(resp.json()), 0)
+
+        match = self._create_match(max_players=4, server_id=server_id)
+        match_url = match["url"]
+        self.put(match_url, data={"status": "completed"})
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(resp.json()), 0)
+
+
+class ActiveMatchesServerStatusTest(BaseMatchTest):
+    """
+    Test active matches endpoint
+    """
+    def test_active_matches_depend_on_server_status(self):
+        self.auth_service()
+
+        match = self._create_match(max_players=4)
+        server_url = match["server_url"]
+
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(resp.json()), 1)
+
+        self.put(server_url, data={"status": "quit"})
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(resp.json()), 0)

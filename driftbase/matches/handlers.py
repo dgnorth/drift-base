@@ -44,6 +44,7 @@ class ActiveMatchesAPI(Resource):
         query = g.db.query(Match, Server, Machine)
         query = query.filter(Server.machine_id == Machine.machine_id,
                              Match.server_id == Server.server_id,
+                             Match.status.notin_(["ended", "completed"]),
                              Server.status.in_(["started", "running", "active", "ready"]),
                              Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
                              )
