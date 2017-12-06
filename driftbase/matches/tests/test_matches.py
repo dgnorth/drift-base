@@ -315,11 +315,6 @@ class MatchesTest(BaseMatchTest):
                 }
         self.post(matchplayers_url, data=data, expected_status_code=httplib.BAD_REQUEST)
 
-
-class ActiveMatchesMatchStatusTest(BaseMatchTest):
-    """
-    Test active matches endpoint
-    """
     def test_active_matches_depend_on_match_status(self):
         self.auth_service()
 
@@ -341,11 +336,6 @@ class ActiveMatchesMatchStatusTest(BaseMatchTest):
         resp = self.get(self.endpoints["active_matches"])
         self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)
 
-
-class ActiveMatchesServerStatusTest(BaseMatchTest):
-    """
-    Test active matches endpoint
-    """
     def test_active_matches_depend_on_server_status(self):
         self.auth_service()
 
