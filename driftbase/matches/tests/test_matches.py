@@ -8,9 +8,6 @@ from drift.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseMatchTest
 
 
-
-
-
 class MatchesTest(BaseMatchTest):
     """
     Tests for the /matches service endpoints
@@ -328,20 +325,21 @@ class ActiveMatchesMatchStatusTest(BaseMatchTest):
 
         match = self._create_match(max_players=4)
         match_url = match["url"]
+        match_id = match["match_id"]
         server_id = match["server_id"]
 
         resp = self.get(self.endpoints["active_matches"])
-        self.assertEqual(len(resp.json()), 1)
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 1)
 
         self.put(match_url, data={"status": "ended"})
         resp = self.get(self.endpoints["active_matches"])
-        self.assertEqual(len(resp.json()), 0)
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)
 
         match = self._create_match(max_players=4, server_id=server_id)
         match_url = match["url"]
         self.put(match_url, data={"status": "completed"})
         resp = self.get(self.endpoints["active_matches"])
-        self.assertEqual(len(resp.json()), 0)
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)
 
 
 class ActiveMatchesServerStatusTest(BaseMatchTest):
@@ -352,11 +350,12 @@ class ActiveMatchesServerStatusTest(BaseMatchTest):
         self.auth_service()
 
         match = self._create_match(max_players=4)
+        match_id = match["match_id"]
         server_url = match["server_url"]
 
         resp = self.get(self.endpoints["active_matches"])
-        self.assertEqual(len(resp.json()), 1)
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 1)
 
         self.put(server_url, data={"status": "quit"})
         resp = self.get(self.endpoints["active_matches"])
-        self.assertEqual(len(resp.json()), 0)
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)
