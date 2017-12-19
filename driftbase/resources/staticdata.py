@@ -6,6 +6,14 @@ from drift.core.resources import get_parameters
 
 log = logging.getLogger(__file__)
 
+
+TIER_DEFAULTS = {
+    "repository": "<PLEASE FILL IN>",  # Example: directive-tiers.dg-api.com
+    "revision": "<PLEASE FILL IN>",   # Example: static-data,
+    "allow_client_pin": False
+}
+
+
 # defaults when making a new tier
 NEW_TIER_DEFAULTS = {
     "repository": "<PLEASE FILL IN>",  # Example: directive-tiers.dg-api.com
