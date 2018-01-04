@@ -30,9 +30,14 @@
     "resources": [
         "drift.core.resources.postgres",
         "drift.core.resources.redis",
+        "drift.core.resources.apitarget",
+        "drift.core.resources.jwtsession",
         "driftbase.resources.staticdata",
         "driftbase.resources.gameserver"
     ],
+    "resource_attributes": {
+        "drift.core.resources.apitarget": {"api": "drift", "requires_api_key": true}
+    },
     "models": [
         "driftbase.db.models"
     ],
