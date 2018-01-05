@@ -36,7 +36,8 @@
         "driftbase.resources.gameserver"
     ],
     "resource_attributes": {
-        "drift.core.resources.apitarget": {"api": "drift", "requires_api_key": true}
+        "drift.core.resources.apitarget": {"api": "drift", "requires_api_key": true},
+        "drift.core.resources.postgres": {"models": ["driftbase.db.models"]}
     },
     "models": [
         "driftbase.db.models"
