@@ -3,10 +3,9 @@
 import logging, httplib, datetime
 import uuid
 
-from flask import Blueprint, request, url_for, g, current_app
+from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
 
-from drift.utils import url_player
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.auth.jwtchecker import current_user, requires_roles
@@ -65,7 +64,6 @@ class ServersAPI(Resource):
         "instance_name": {"type": "string", },
         "branch": {"type": "string", },
         "commit_id": {"type": "string", },
-        "version": {"type": "string", },
         "process_info": {"type": "object", },
         "details": {"type": "object", },
         "repository": {"type": "string", },
@@ -194,7 +192,6 @@ class ServerAPI(Resource):
         if machine_id:
             machine = g.db.query(Machine).get(machine_id)
             if machine:
-                record["machine"] = machine.as_dict()
                 record["machine_url"] = url_for("machines.entry", machine_id=machine_id,
                                                 _external=True)
 
@@ -204,6 +201,7 @@ class ServerAPI(Resource):
             match_id = row.match_id
             match = {"match_id": match_id,
                      "url": url_for("matches.entry", match_id=match_id, _external=True),
+                     "num_players": row.num_players,
                      }
             matches.append(match)
         record["matches"] = matches
@@ -239,7 +237,6 @@ class ServerAPI(Resource):
         "error": {"type": "string", },
         "branch": {"type": "string", },
         "commit_id": {"type": "string", },
-        "version": {"type": "string", },
         "process_info": {"type": "object", },
         "details": {"type": "object", },
         "repository": {"type": "string", },

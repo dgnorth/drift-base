@@ -47,7 +47,7 @@ def get_or_create_counter_id(name, counter_type, db_session=None):
     row = db_session.query(Counter).filter(Counter.name == name).first()
     if not row:
         db_session.commit()
-        log.error("Creating new counter called %s", name)
+        log.info("Creating new counter called %s", name)
         try:
             row = Counter(name=name, counter_type=counter_type)
             db_session.add(row)

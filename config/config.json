@@ -8,6 +8,7 @@
         "driftbase.clients",
         "driftbase.events",
         "driftbase.counters",
+        "driftbase.friendships",
         "driftbase.useridentities",
         "driftbase.matches",
         "driftbase.servers",
@@ -18,9 +19,19 @@
         "driftbase.matchqueue",
         "driftbase.messages",
         "drift.core.apps.schemas",
+        "drift.core.apps.provision",
+        "drift.core.apps.healthcheck",
         "drift.contrib.apps.servicestatus"
     ],
     "extensions": [
+        "driftbase.clientsession",
+        "driftbase.analytics"
+    ],
+    "resources": [
+        "drift.core.resources.postgres",
+        "drift.core.resources.redis",
+        "driftbase.resources.staticdata",
+        "driftbase.resources.gameserver"
     ],
     "models": [
         "driftbase.db.models"
@@ -28,13 +39,6 @@
     "default_timeout": 5,
     "heartbeat_period": 30,
     "heartbeat_timeout": 300,
-    "redis_connection_info": {
-        "port": 6379,
-        "socket_connect_timeout": 5,
-        "socket_timeout": 5
-    },
-    "redis_server": "localhost",
-    "db_server": "localhost",
     "systest_db": {
         "server": "localhost:5432"
     },

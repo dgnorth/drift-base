@@ -14,6 +14,8 @@ addons:
 services:
 - postgresql
 - redis-server
+before_install:
+  - export BOTO_CONFIG=/dev/null
 install:
 - export PATH=$HOME/.local/bin:$PATH
 - pip install codecov
@@ -30,9 +32,6 @@ install:
 before_script:
 - psql -c "CREATE ROLE zzp_user LOGIN PASSWORD 'zzp_user' VALID UNTIL 'infinity';"
   -U postgres
-- python kitrun.py tier init eu-west-1/directive-tiers.dg-api.com/tiers-config.json
-- python kitrun.py tier use DEVNORTH
-- cp config/travis-host-config.json ~/.drift/drift-base.json
 script:
 - coverage run kitrun.py runsystest
 after_success:

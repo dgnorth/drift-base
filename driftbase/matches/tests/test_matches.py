@@ -1,24 +1,11 @@
 # -*- coding: utf-8 -*-
-
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest, responses, mock
-import json, requests
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, service_username, service_password, local_password, uuid_string, DriftBaseTestCase, big_number
+from collections import defaultdict
+
+from drift.systesthelper import uuid_string
+
+
 from driftbase.utils.test_utils import BaseMatchTest
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
 
 
 class MatchesTest(BaseMatchTest):
@@ -119,7 +106,7 @@ class MatchesTest(BaseMatchTest):
 
         resp = self.post(teams_url, data={}, expected_status_code=httplib.CREATED)
         team_id = resp.json()["team_id"]
-        resp = self.get(teams_url)
+        self.get(teams_url)
 
         data = {"player_id": player_id,
                 "team_id": team_id
@@ -129,10 +116,11 @@ class MatchesTest(BaseMatchTest):
         resp = self.get(match_url)
         self.assertEquals(len(resp.json()["teams"]), 1)
         self.assertIsNotNone(resp.json()["start_date"])
+        self.assertEqual(resp.json()["num_players"], 1)
 
         resp = self.get(teams_url)
         team_url = resp.json()[0]["url"]
-        resp = self.get(team_url)
+        self.get(team_url)
 
         resp = self.get(matchplayers_url)
 
@@ -198,11 +186,18 @@ class MatchesTest(BaseMatchTest):
         players = resp.json()[0]["players"]
         self.assertEquals(players[1]["player_id"], other_player_id)
 
+    def players_by_status(self, players):
+        ret = defaultdict(list)
+        for player in players:
+            ret[player["status"]].append(player)
+        return ret
+
     def test_remove_player_from_match(self):
         self.auth()
         player_id = self.player_id
         self.auth_service()
         match = self._create_match()
+        match_url = match["url"]
         teams_url = match["teams_url"]
 
         matchplayers_url = match["matchplayers_url"]
@@ -213,17 +208,75 @@ class MatchesTest(BaseMatchTest):
                 }
         resp = self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
         matchplayer_url = resp.json()["url"]
+        resp = self.get(match_url)
+        self.assertEqual(resp.json()["num_players"], 1)
 
         self.delete(matchplayer_url)
+        resp = self.get(match_url)
+        self.assertEqual(resp.json()["num_players"], 1)
+        pbs = self.players_by_status(resp.json()["players"])
+        self.assertEqual(len(pbs["active"]), 0)
+        self.assertEqual(len(pbs["quit"]), 1)
 
         # you cannot quit twice
         self.delete(matchplayer_url, expected_status_code=httplib.BAD_REQUEST)
+        resp = self.get(match_url)
+        self.assertEqual(resp.json()["num_players"], 1)
+        pbs = self.players_by_status(resp.json()["players"])
+        self.assertEqual(len(pbs["active"]), 0)
+        self.assertEqual(len(pbs["quit"]), 1)
 
         # join the fight again
-        resp = self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+        self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+        resp = self.get(match_url)
+        self.assertEqual(resp.json()["num_players"], 1)
+        pbs = self.players_by_status(resp.json()["players"])
+        self.assertEqual(len(pbs["active"]), 1)
+        self.assertEqual(len(pbs["quit"]), 0)
 
         # now you can quit again
         self.delete(matchplayer_url)
+
+    def test_match_start_date_is_set_when_first_player_joins(self):
+        self.auth("player_1")
+        player1_id = self.player_id
+        self.auth("player_2")
+        player2_id = self.player_id
+
+        self.auth_service()
+        match = self._create_match()
+        match_url = match["url"]
+        teams_url = match["teams_url"]
+        resp = self.get(match_url)
+        self.assertEqual(resp.json()["start_date"], None)
+
+        matchplayers_url = match["matchplayers_url"]
+        resp = self.post(teams_url, data={}, expected_status_code=httplib.CREATED)
+        team_id = resp.json()["team_id"]
+        data1 = {"player_id": player1_id,
+                "team_id": team_id
+                }
+        resp = self.post(matchplayers_url, data=data1, expected_status_code=httplib.CREATED)
+        matchplayer1_url = resp.json()["url"]
+        resp = self.get(match_url)
+        match_start = resp.json()["start_date"]
+
+        data2 = {"player_id": player2_id,
+                "team_id": team_id
+                }
+        resp = self.post(matchplayers_url, data=data2, expected_status_code=httplib.CREATED)
+        matchplayer2_url = resp.json()["url"]
+        resp = self.get(match_url)
+        self.assertEqual(match_start, resp.json()["start_date"])
+
+        self.delete(matchplayer1_url)
+        self.delete(matchplayer2_url)
+        resp = self.get(match_url)
+        self.assertEqual(match_start, resp.json()["start_date"])
+
+        self.post(matchplayers_url, data=data1, expected_status_code=httplib.CREATED)
+        resp = self.get(match_url)
+        self.assertEqual(match_start, resp.json()["start_date"])
 
     def test_change_match(self):
         self.auth_service()
@@ -260,8 +313,39 @@ class MatchesTest(BaseMatchTest):
         data = {"player_id": player_ids[-1],
                 "team_id": team_id
                 }
-        resp = self.post(matchplayers_url, data=data, expected_status_code=httplib.BAD_REQUEST)
+        self.post(matchplayers_url, data=data, expected_status_code=httplib.BAD_REQUEST)
 
+    def test_active_matches_depend_on_match_status(self):
+        self.auth_service()
 
-if __name__ == '__main__':
-    unittest.main()
+        match = self._create_match(max_players=4)
+        match_url = match["url"]
+        match_id = match["match_id"]
+        server_id = match["server_id"]
+
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 1)
+
+        self.put(match_url, data={"status": "ended"})
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)
+
+        match = self._create_match(max_players=4, server_id=server_id)
+        match_url = match["url"]
+        self.put(match_url, data={"status": "completed"})
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)
+
+    def test_active_matches_depend_on_server_status(self):
+        self.auth_service()
+
+        match = self._create_match(max_players=4)
+        match_id = match["match_id"]
+        server_url = match["server_url"]
+
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 1)
+
+        self.put(server_url, data={"status": "quit"})
+        resp = self.get(self.endpoints["active_matches"])
+        self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)

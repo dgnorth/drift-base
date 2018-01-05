@@ -1,23 +1,7 @@
 # -*- coding: utf-8 -*-
-
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest, responses, mock
-import json, requests
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, big_number
 
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
+from drift.systesthelper import DriftBaseTestCase, big_number
 
 
 class UsersTest(DriftBaseTestCase):
@@ -42,7 +26,3 @@ class UsersTest(DriftBaseTestCase):
         self.assertIn("error", r.json())
         self.assertIn("code", r.json()["error"])
         self.assertIn("Authorization Required", r.json()["error"]["description"])
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -1,24 +1,6 @@
 # -*- coding: utf-8 -*-
-
-import os
-from os.path import abspath, join
-
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
 
 
 class MessagesTest(BaseCloudkitTest):
@@ -237,7 +219,3 @@ class MessagesTest(BaseCloudkitTest):
         self.assertEquals(len(r.json()["testqueue"]), 1)
         self.assertIn("payload", r.json()["testqueue"][0])
         self.assertIn("Hello", r.json()["testqueue"][0]["payload"])
-
-
-if __name__ == '__main__':
-    unittest.main()

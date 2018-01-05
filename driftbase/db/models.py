@@ -3,6 +3,7 @@
 import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime, Unicode, ForeignKey, BigInteger, Float, Boolean
+from sqlalchemy import CheckConstraint
 from sqlalchemy.dialects.postgresql import ENUM, INET, JSON
 from sqlalchemy.schema import Sequence, Index
 from sqlalchemy.orm import relationship, backref
@@ -209,6 +210,10 @@ class Machine(ModelBase):
     details = Column(JSON, nullable=True)
     status = Column(JSON, nullable=True)
 
+    heartbeat_date = Column(DateTime, nullable=True, server_default=utc_now)
+    config = Column(JSON, nullable=True)
+    statistics = Column(JSON, nullable=True)
+    group_name = Column(String(50), nullable=True)
 
 class Server(ModelBase):
     __tablename__ = 'gs_servers'
@@ -451,6 +456,27 @@ class PlayerSummaryHistory(ModelBase):
     player_id = Column(Integer, nullable=False, index=True)
     name = Column(String(50))
     value = Column(Integer, nullable=False)
+
+
+class Friendship(ModelBase):
+    __tablename__ = 'ck_friendships'
+
+    id = Column(BigInteger, Sequence('ck_friendships_id_seq'), primary_key=True)
+    player1_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
+    player2_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="active")
+
+    CheckConstraint('player1_id < player2_id')
+
+
+class FriendInvite(ModelBase):
+    __tablename__ = 'ck_friend_invites'
+
+    id = Column(BigInteger, Sequence('ck_friend_invites_id_seq'), primary_key=True)
+    issued_by_player_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
+    token = Column(String(50), nullable=False, index=True)
+    expiry_date = Column(DateTime, nullable=False)
+    deleted = Column(Boolean, nullable=True, default=False)
 
 
 event.listen(

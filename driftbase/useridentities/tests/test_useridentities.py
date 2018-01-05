@@ -1,22 +1,6 @@
 # -*- coding: utf-8 -*-
-
-import os, sys, copy
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, uuid_string, DriftBaseTestCase
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
+from drift.systesthelper import uuid_string, DriftBaseTestCase
 
 
 class UserIdentitiesTest(DriftBaseTestCase):
@@ -187,7 +171,3 @@ class UserIdentitiesTest(DriftBaseTestCase):
         self.assertEquals(len(r.json()), 1)
         self.assertEquals(r.json()[0]["player_id"], self.player_id)
         self.assertEquals(r.json()[0]["identity_name"], username)
-
-
-if __name__ == '__main__':
-    unittest.main()

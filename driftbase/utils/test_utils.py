@@ -64,7 +64,6 @@ class BaseMatchTest(BaseCloudkitTest):
                 "image_name": "image_name",
                 "branch": "develop",
                 "commit_id": "commit_id",
-                "version": "version",
                 "process_info": {"process_info": "yes"},
                 "details": {"details": "yes"},
                 "ref": "test/testing",
@@ -90,3 +89,6 @@ class BaseMatchTest(BaseCloudkitTest):
         resp = self.post("/matches", data=data, expected_status_code=httplib.CREATED)
         resp = self.get(resp.json()["url"])
         return resp.json()
+
+    def _filter_matches(self, resp, match_ids):
+        return [m for m in resp.json() if m["match_id"] in match_ids]

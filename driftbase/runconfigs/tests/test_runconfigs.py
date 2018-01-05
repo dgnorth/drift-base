@@ -1,23 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest, responses, mock
-import json, requests
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
+import unittest
+from drift.systesthelper import DriftBaseTestCase, make_unique
 
 
 class RunConfigsTest(DriftBaseTestCase):
@@ -27,7 +12,7 @@ class RunConfigsTest(DriftBaseTestCase):
     def test_runconfig_create(self):
         self.auth_service()
         data = {
-            "name": "runconfig name",
+            "name": make_unique("runconfig name"),
             "repository": "Test/Test",
             "ref": "test/test",
             "build": "HEAD"

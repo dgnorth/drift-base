@@ -1,21 +1,7 @@
 # -*- coding: utf-8 -*-
-
-import os, sys, copy
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
+import copy
+from drift.systesthelper import DriftBaseTestCase
 
 
 class ServersTest(DriftBaseTestCase):
@@ -250,7 +236,3 @@ class ServersTest(DriftBaseTestCase):
         self.assertEquals("completed", resp.json()["status"])
         self.assertIsNotNone(resp.json()["status_date"])
         self.assertEquals(details, resp.json()["details"])
-
-
-if __name__ == '__main__':
-    unittest.main()

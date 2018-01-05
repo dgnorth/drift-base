@@ -1,0 +1,13 @@
+/var/log/drift/*.log
+/var/log/uwsgi/*.log
+{
+    rotate 7
+    daily
+    missingok
+    notifempty
+    delaycompress
+    compress
+    postrotate
+        reload rsyslog >/dev/null 2>&1 || true
+    endscript
+}

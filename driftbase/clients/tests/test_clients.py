@@ -1,24 +1,9 @@
 # -*- coding: utf-8 -*-
-
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest, responses, mock
-import json, requests, httplib
+import json
 import datetime
 from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, service_username, service_password, local_password, uuid_string, DriftBaseTestCase
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
+from drift.systesthelper import DriftBaseTestCase
 
 
 class ClientsTest(DriftBaseTestCase):
@@ -155,7 +140,3 @@ class ClientsTest(DriftBaseTestCase):
 
         self.delete(client_url)
         self.get(client_url, expected_status_code=httplib.NOT_FOUND)
-
-
-if __name__ == '__main__':
-    unittest.main()

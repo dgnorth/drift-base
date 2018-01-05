@@ -1,22 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import os
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest
-from mock import patch
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
+from drift.systesthelper import DriftBaseTestCase
 
 
 class MachinesTest(DriftBaseTestCase):
@@ -49,6 +34,18 @@ class MachinesTest(DriftBaseTestCase):
         self.assertIn("missing required", resp.json()["error"]["description"])
 
         resp = self.get("/machines/9999999", expected_status_code=httplib.NOT_FOUND)
+
+    def test_update_machine(self):
+        self.auth_service()
+
+        data = {"realm": "local", "instance_name": "local"}
+        resp = self.post("/machines", data=data, expected_status_code=httplib.CREATED)
+        url = resp.json()["url"]
+        resp = self.get(url)
+        self.assertEqual(resp.json()["realm"], data["realm"])
+        self.assertEqual(resp.json()["instance_name"], data["instance_name"])
+        machine_id = resp.json()["machine_id"]
+        #! TODO: System tests are currently offline. Will continue this later and add PUT tests
 
     def test_get_awsmachine(self):
         self.auth_service()
@@ -102,7 +99,3 @@ class MachinesTest(DriftBaseTestCase):
         resp = self.get(url)
         self.assertTrue(len(resp.json()) > 0)
         self.assertIn(machine_id, [r["machine_id"] for r in resp.json()])
-
-
-if __name__ == '__main__':
-    unittest.main()

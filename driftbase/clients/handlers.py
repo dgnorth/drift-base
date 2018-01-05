@@ -151,16 +151,24 @@ class ClientsAPI(Resource):
                  client_id, user_id, player_id)
         heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
         heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
-        return {"client_id": client_id,
-                "player_id": player_id,
-                "user_id": user_id,
-                "url": resource_url,
-                "server_time": utcnow(),
-                "next_heartbeat_seconds": heartbeat_period,
-                "heartbeat_timeout": utcnow() + datetime.timedelta(seconds=heartbeat_timeout),
-                "jti": jti,
-                "jwt": jwt,
-                }, httplib.CREATED, response_header
+        ret = {
+            "client_id": client_id,
+            "player_id": player_id,
+            "user_id": user_id,
+            "url": resource_url,
+            "server_time": utcnow(),
+            "next_heartbeat_seconds": heartbeat_period,
+            "heartbeat_timeout": utcnow() + datetime.timedelta(seconds=heartbeat_timeout),
+            "jti": jti,
+            "jwt": jwt,
+        }
+
+        current_app.extensions['messagebus'].publish_message(
+            'clients',
+            {'event': 'created', 'payload': payload, 'url': resource_url}
+        )
+
+        return ret, httplib.CREATED, response_header
 
 
 class ClientAPI(Resource):

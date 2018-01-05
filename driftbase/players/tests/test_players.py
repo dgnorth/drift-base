@@ -1,24 +1,10 @@
 # -*- coding: utf-8 -*-
-
-import os, datetime
-from os.path import abspath, join
-config_file = abspath(join(__file__, "..", "..", "..", "config", "config.json"))
-os.environ.setdefault("drift_CONFIG", config_file)
-
 import httplib
-import unittest
+import datetime
 from mock import patch
 
-from drift.systesthelper import setup_tenant, remove_tenant, uuid_string, big_number
+from drift.systesthelper import uuid_string, big_number
 from driftbase.utils.test_utils import BaseCloudkitTest
-
-
-def setUpModule():
-    setup_tenant()
-
-
-def tearDownModule():
-    remove_tenant()
 
 
 class PlayersTest(BaseCloudkitTest):
@@ -88,7 +74,7 @@ class PlayersTest(BaseCloudkitTest):
         player_url = self.endpoints["my_player"]
         r = self.get(player_url)
         old_name = r.json()["player_name"]
-        self.patch(player_url, data={"name": "ab"}, expected_status_code=httplib.METHOD_NOT_ALLOWED)
+        self.patch(player_url, data={"name": ""}, expected_status_code=httplib.METHOD_NOT_ALLOWED)
         self.patch(player_url, data={"name": "a" * 100},
                    expected_status_code=httplib.METHOD_NOT_ALLOWED)
         self.patch(self.endpoints["players"] + "/9999999", data={"name": "a" * 100},
@@ -146,7 +132,3 @@ class PlayersTest(BaseCloudkitTest):
         r = self.get(url)
         self.assertIsNotNone(r.json()[0]["player_id"])
         self.assertIsNotNone(r.json()[0]["player_name"])
-
-
-if __name__ == '__main__':
-    unittest.main()

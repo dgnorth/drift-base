@@ -4,7 +4,7 @@ import requests
 import logging
 import json
 
-from flask import Blueprint, g, url_for, current_app
+from flask import Blueprint, g, url_for
 from flask_restful import Api, Resource, reqparse
 
 from drift.urlregistry import register_endpoints
@@ -26,22 +26,13 @@ CDN_LIST = [
 
 
 def get_static_data_ids():
-    """Returns a dict of all static data repos and revision identifiers that apply to the
-    current caller. Each entry is tagged with which config it originated from.
-    Key is repository name, value is [ref, origin] pair.
-    """
-    revs = {}  # Key is repo
-
-    def add_ref(config, origin):
-        if "static_data_refs" in config:
-            for ref in config["static_data_refs"]:
-                revs[ref["repository"]] = ref, origin
-
-    # The app config.
-    add_ref(current_app.config, "Application config")
-    add_ref(g.driftenv_objects, "Config specific to tenant '{}'.".format(g.driftenv["name"]))
-
-    return revs
+    data = g.conf.tenant.get('static_data_refs_legacy')
+    if data:
+        origin = "Tenant config"
+        repo = data['repository']
+        return {repo: (data, origin)}
+    else:
+        return {}
 
 
 class StaticDataAPI(Resource):
@@ -81,12 +72,15 @@ class StaticDataAPI(Resource):
 
             # Get the index file from S3 and index it by 'ref'
             index_file_url = "{}{}/index.json".format(INDEX_URL, repository)
+            err = None
             try:
                 index_file = get_from_url(index_file_url)
-            except Exception:
-                log.exception("Can't fetch %s", index_file_url)
+            except Exception as e:
+                err = "Can't fetch %s: %s" % (index_file_url, e)
+                log.exception(err)
+            if err:
+                data["error"] = err
                 continue
-
             index_file = {ref_entry["ref"]: ref_entry for ref_entry in index_file["index"]}
 
             # Use this ref if it matches
