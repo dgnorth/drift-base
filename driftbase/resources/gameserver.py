@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
-from drift.core.resources import get_parameters
+from driftconfig.util import get_parameters
 from flask import g
 import logging
 log = logging.getLogger(__name__)

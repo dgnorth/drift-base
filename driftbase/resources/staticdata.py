@@ -2,7 +2,7 @@
 
 import logging
 
-from drift.core.resources import get_parameters
+from driftconfig.util import get_parameters
 
 log = logging.getLogger(__file__)
 

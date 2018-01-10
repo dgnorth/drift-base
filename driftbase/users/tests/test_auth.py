@@ -4,11 +4,13 @@ from mock import patch, MagicMock
 import httplib
 
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
-from driftconfig.util import _sticky_ts
+from drift.utils import get_config
 
 
 def setUpModule():
-    conf = setup_tenant()
+    setup_tenant()
+
+    conf = get_config()
 
     conf.table_store.get_table('platforms').add({
         'product_name': conf.product['product_name'],
@@ -29,12 +31,6 @@ def setUpModule():
 
 def tearDownModule():
     remove_tenant()
-
-
-public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
-    "zW59s2Zc/yZUXt/N33Z7Lstpjk4V6SXPU6vhriPjySV7DWucLjwct9q+Ovz" \
-    "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
-    " unittest@dg-api.com"
 
 
 class AuthTests(DriftBaseTestCase):
