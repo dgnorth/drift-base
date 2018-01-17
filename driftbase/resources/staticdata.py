@@ -14,16 +14,9 @@ TIER_DEFAULTS = {
 }
 
 
-# defaults when making a new tier
-NEW_TIER_DEFAULTS = {
-    "repository": "<PLEASE FILL IN>",  # Example: directive-tiers.dg-api.com
-    "revision": "<PLEASE FILL IN>",   # Example: static-data,
-    "allow_client_pin": False
-}
-
-
+# NOTE THIS IS DEPRECATED AND NEEDS TO BE UPGRADED TO NU STYLE PROVISIONING LOGIC
 def provision(config, args, recreate=False):
-    params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "staticdata")
+    params = get_parameters(config, args, TIER_DEFAULTS.keys(), "staticdata")
 
     # Static data repo is per product
     if 'staticdata_defaults' not in config.product:
