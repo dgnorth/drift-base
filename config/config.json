@@ -2,7 +2,7 @@
     "name": "drift-base",
     "PORT": 10080,
     "apps": [
-        "driftbase.tasks",
+        "driftbase.tasks.tasks",
         "driftbase.players",
         "driftbase.users",
         "driftbase.clients",
@@ -17,6 +17,7 @@
         "driftbase.runconfigs",
         "driftbase.machinegroups",
         "driftbase.matchqueue",
+        "driftbase.matchqueue.tasks",
         "driftbase.messages",
         "drift.core.apps.schemas",
         "drift.core.apps.provision",
@@ -56,35 +57,35 @@
                 "expires": 1000
             },
             "schedule": 180,
-            "task": "driftbase.matchqueue.cleanup_orphaned_matchqueues"
+            "task": "driftbase.matchqueue.tasks.cleanup_orphaned_matchqueues"
         },
         "counter-flush": {
             "options": {
                 "expires": 160
             },
             "schedule": 80,
-            "task": "driftbase.tasks.flush_counters"
+            "task": "driftbase.tasks.tasks.flush_counters"
         },
         "online-statistics": {
             "options": {
                 "expires": 120
             },
             "schedule": 60,
-            "task": "driftbase.tasks.update_online_statistics"
+            "task": "driftbase.tasks.tasks.update_online_statistics"
         },
         "request-statistics": {
             "options": {
                 "expires": 140
             },
             "schedule": 70,
-            "task": "driftbase.tasks.flush_request_statistics"
+            "task": "driftbase.tasks.tasks.flush_request_statistics"
         },
         "timeout-clients": {
             "options": {
                 "expires": 400
             },
             "schedule": 200,
-            "task": "driftbase.tasks.timeout_clients"
+            "task": "driftbase.tasks.tasks.timeout_clients"
         }
     },
     "CELERYD_HIJACK_ROOT_LOGGER": true,

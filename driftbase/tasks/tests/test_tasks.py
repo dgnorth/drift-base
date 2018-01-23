@@ -9,11 +9,15 @@ from flask import g
 from drift.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
 import driftbase.matchqueue
-import driftbase.tasks
 
+
+tasks = None
 
 def setUpModule():
     setup_tenant()
+    from driftbase.tasks import tasks as t
+    global tasks
+    tasks = t
 
 
 def tearDownModule():
@@ -28,16 +32,16 @@ class CeleryBeatTest(BaseCloudkitTest):
         # make a new player and heartbeat once
         self.make_player()
         self.put(self.endpoints["my_client"])
-        driftbase.tasks.update_online_statistics()
+        tasks.update_online_statistics()
         # verify that the counter now exists
         r = self.get(self.endpoints["counters"])
         self.assertIn("backend.numonline", [row["name"] for row in r.json()])
 
     def test_celery_flush_request_statistics(self):
         # call the function before and after adding a new player
-        driftbase.tasks.flush_request_statistics()
+        tasks.flush_request_statistics()
         self.make_player()
-        driftbase.tasks.flush_request_statistics()
+        tasks.flush_request_statistics()
 
     def test_celery_flush_counters(self):
         # Note: flush_counters doesn't currently do anything since counters are
@@ -66,18 +70,20 @@ class CeleryBeatTest(BaseCloudkitTest):
 
         r = self.get(counterstats_url)
 
-        driftbase.tasks.flush_counters()
+        tasks.flush_counters()
 
         r = self.get(counterstats_url)
 
     def test_celery_timeout_clients(self):
         self.make_player()
-        driftbase.tasks.timeout_clients()
+        tasks.timeout_clients()
 
     def test_celery_cleanup_orphaned_matchqueues(self):
         self.make_player()
         # TODO: Need to extend this test with orphaned matchqueues to clean up.
-        driftbase.matchqueue.cleanup_orphaned_matchqueues()
+        from driftbase.matchqueue.tasks import cleanup_orphaned_matchqueues
+        cleanup_orphaned_matchqueues()
+
 
 if __name__ == '__main__':
     unittest.main()

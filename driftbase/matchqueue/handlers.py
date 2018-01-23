@@ -3,7 +3,8 @@
     List of players waiting for a match
 """
 
-import httplib, datetime
+import httplib
+import datetime
 import logging
 
 from flask import Blueprint, g, url_for, request
@@ -21,11 +22,6 @@ bp = Blueprint("matchqueue", __name__)
 api = Api(bp)
 
 log = logging.getLogger(__name__)
-
-
-# for mocking
-def utcnow():
-    return datetime.datetime.utcnow()
 
 
 def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
