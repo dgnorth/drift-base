@@ -9,7 +9,7 @@ from flask import Blueprint, request, g, abort, url_for
 from flask_restful import Api, Resource, reqparse
 
 from drift.urlregistry import register_endpoints
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.db.models import Friendship, FriendInvite, CorePlayer

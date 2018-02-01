@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, request, g, url_for
 from flask_restful import Api, Resource, abort
 
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.db.models import CounterEntry, Counter, CorePlayer, PlayerCounter

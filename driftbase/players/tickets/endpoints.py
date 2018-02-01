@@ -7,7 +7,7 @@ from flask import Blueprint, url_for, request, g
 from flask_restful import Api, Resource, abort
 
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.auth.jwtchecker import requires_roles
+from drift.core.extensions.jwt import requires_roles
 
 from driftbase.players import log_event, can_edit_player
 from driftbase.players.tickets import create_ticket

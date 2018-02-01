@@ -4,7 +4,7 @@ import httplib
 from flask import g
 from flask_restful import abort
 
-from drift.auth.jwtchecker import query_current_user
+from drift.core.extensions.jwt import query_current_user
 
 from driftbase.db.models import Client
 

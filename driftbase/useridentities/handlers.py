@@ -9,7 +9,7 @@ from flask_restful import Api, Resource, reqparse, abort
 
 from drift.urlregistry import register_endpoints
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.auth.jwtchecker import current_user, get_cached_token
+from drift.core.extensions.jwt import current_user, get_cached_token
 
 from driftbase.db.models import User, CorePlayer, UserIdentity
 

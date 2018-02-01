@@ -7,7 +7,7 @@ from dateutil import parser
 from flask import Blueprint, request, url_for
 from flask_restful import Api, Resource, abort
 
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 from drift.urlregistry import register_endpoints
 
 log = logging.getLogger(__name__)
@@ -68,9 +68,9 @@ class EventsAPI(Resource):
 
         args = request.json
 
-        # The event log API should enforce the player_id to the current player, unless 
-        # the user has role "service" in which case it should only set the player_id if 
-        # it's not passed in the event.        
+        # The event log API should enforce the player_id to the current player, unless
+        # the user has role "service" in which case it should only set the player_id if
+        # it's not passed in the event.
         player_id = current_user['player_id']
         is_service = 'service' in current_user['roles']
 

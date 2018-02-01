@@ -2,7 +2,7 @@
     "name": "drift-base",
     "PORT": 10080,
     "apps": [
-        "driftbase.authenticate",
+        "driftbase.auth.authenticate",
         "driftbase.tasks.tasks",
         "driftbase.players",
         "driftbase.users",

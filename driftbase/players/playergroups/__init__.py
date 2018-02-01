@@ -7,7 +7,7 @@ import httplib
 from flask import g
 from flask_restful import abort
 
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 
 PLAYER_GROUP_NAME_REGEX = '^[a-z_]{1,15}?$'
 RETENTION_IN_SEC = 60 * 60 * 24 * 2  # Store each group for 48 hours.

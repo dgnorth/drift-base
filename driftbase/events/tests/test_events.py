@@ -3,7 +3,7 @@ import mock
 import httplib
 import datetime
 from drift.systesthelper import DriftBaseTestCase
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 
 
 class EventsTest(DriftBaseTestCase):

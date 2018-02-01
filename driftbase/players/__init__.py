@@ -5,7 +5,7 @@ import httplib
 from flask import request, g
 from flask_restful import abort
 
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 
 from driftbase.db.models import CorePlayer, PlayerEvent
 

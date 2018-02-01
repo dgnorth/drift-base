@@ -16,19 +16,89 @@ from driftbase.utils import UserCache
 log = logging.getLogger(__name__)
 
 
-def _get_service_user():
+def abort_unauthorized(description):
+    """Raise an Unauthorized exception.
     """
-    Return tenant specific service user info, if available, else use one that's
-    specified for the tier.
-    """
-    try:
-        service_user = g.conf.tier.get('service_user')
-        if not service_user and g.conf.tenant:
-            service_user = g.conf.tenant.get('service_user')
+    print "FUDGE!", description
+    abort(httplib.UNAUTHORIZED, description=description)
 
-        return service_user
-    except:
-        return current_app.config.get("service_user")
+
+def authenticate_with_provider(auth_info):
+
+    provider_details = auth_info.get('provider_details')
+    automatic_account_creation = auth_info.get("automatic_account_creation", True)
+
+    if auth_info['provider'] in ['device_id', 'user+pass', 'uuid', 'unit_test']:
+        # Authenticate using access key, secret key pair
+        # (or username, password pair)
+        identity = authenticate(auth_info['username'],
+                                auth_info['password'],
+                                automatic_account_creation)
+    elif auth_info['provider'] == "gamecenter":
+        from driftbase.auth.gamecenter import validate_gamecenter_token
+        identity_id = validate_gamecenter_token(provider_details)
+        # The GameCenter user_id cannot be stored in plain text, so let's
+        # give it one cycle of hashing.
+        username = "gamecenter:" + pbkdf2_hex(identity_id, "staticsalt",
+                                              iterations=1)
+        identity = authenticate(username, "", automatic_account_creation)
+    elif auth_info['provider'] == "steam":
+        from driftbase.auth.steam import validate_steam_ticket
+        identity_id = validate_steam_ticket()
+        username = "steam:" + identity_id
+        identity = authenticate(username, "", True or automatic_account_creation)
+    elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
+        if len(provider_details['username']) < 1:
+            abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+        username = "oculus:" + provider_details['username']
+        password = provider_details['password']
+        identity = authenticate(username, password, True or automatic_account_creation)
+    elif auth_info['provider'] == "oculus":
+        from driftbase.auth.oculus import validate_oculus_ticket
+        identity_id = validate_oculus_ticket()
+        username = "oculus:" + identity_id
+        identity = authenticate(username, "", True or automatic_account_creation)
+    elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
+        if len(provider_details['username']) < 1:
+            abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+        username = "viveport:" + provider_details['username']
+        password = provider_details['password']
+        identity = authenticate(username, password, True or automatic_account_creation)
+    elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
+        if len(provider_details['username']) < 1:
+            abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+        username = "hypereal:" + provider_details['username']
+        password = provider_details['password']
+        identity = authenticate(username, password, True or automatic_account_creation)
+    elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
+        if len(provider_details['username']) < 1:
+            abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+        username = "googleplay:" + provider_details['username']
+        password = provider_details['password']
+        identity = authenticate(username, password, automatic_account_creation)
+    elif auth_info['provider'] == "googleplay":
+        from driftbase.auth.googleplay import validate_googleplay_token
+        identity_id = validate_googleplay_token()
+        username = "googleplay:" + identity_id
+        identity = authenticate(username, "", automatic_account_creation)
+    elif auth_info['provider'] == "psn":
+        from driftbase.auth.psn import validate_psn_ticket
+        identity_id = validate_psn_ticket()
+        username = "psn:" + identity_id
+        identity = authenticate(username, "", automatic_account_creation)
+    elif auth_info['provider'] == "7663":
+        username = "7663:" + provider_details['username']
+        password = provider_details['password']
+        identity = authenticate(username, password, True or automatic_account_creation)
+    else:
+        abort_unauthorized("Bad Request. Unknown provider '%s'." %
+                           auth_info['provider'])
+
+    return identity
+
+
+# LEGACY STUFF HERE. BAD WAY OF INJECTING
+jwt.authenticate_with_provider = authenticate_with_provider
 
 
 def authenticate(username, password, automatic_account_creation=True):
@@ -50,7 +120,14 @@ def authenticate(username, password, automatic_account_creation=True):
                       .filter(UserIdentity.name == username) \
                       .first()
 
-    service_user = _get_service_user()
+    try:
+        service_user = g.conf.tier.get('service_user')
+        if not service_user and g.conf.tenant:
+            service_user = g.conf.tenant.get('service_user')
+    except Exception:
+        log.exception("Getting service user was difficult")
+        service_user = current_app.config.get("service_user")
+
     if not service_user:
         raise RuntimeError("service_user not found in config!")
 
@@ -163,6 +240,3 @@ def authenticate(username, password, automatic_account_creation=True):
     cache.set_all(user_id, ret)
     return ret
 
-
-# LEGACY STUFF HERE. BAD WAY OF INJECTING
-jwt.authenticate = authenticate

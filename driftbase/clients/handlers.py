@@ -17,7 +17,7 @@ from flask_restful import Api, Resource, reqparse, abort
 from drift.utils import json_response, url_player, url_user, url_client
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
-from drift.auth.jwtchecker import current_user, issue_token
+from drift.core.extensions.jwt import current_user, issue_token
 from driftbase.db.models import User, CorePlayer, Client, UserIdentity
 
 log = logging.getLogger(__name__)

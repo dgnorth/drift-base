@@ -10,7 +10,7 @@ from flask import Blueprint, request, g, url_for
 from flask_restful import Api, Resource, reqparse, abort
 
 from drift.utils import json_response
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 
 from driftbase.db.models import PlayerJournal, GameState
 from driftbase.players.journal import write_journal, JournalError

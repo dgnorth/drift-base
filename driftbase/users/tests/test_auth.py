@@ -43,7 +43,7 @@ class AuthTests(DriftBaseTestCase):
                 "provisional": True, "username": "someuser", "password": "somepass"
             }
         }
-        with patch('drift.auth.oculus.run_ticket_validation', return_value=u'testuser'):
+        with patch('driftbase.auth.oculus.run_ticket_validation', return_value=u'testuser'):
             self.post('/auth', data=data)
 
         # verify error with empty username
@@ -59,7 +59,7 @@ class AuthTests(DriftBaseTestCase):
                 "user_id": "testuser"
             }
         }
-        with patch('drift.auth.oculus.run_ticket_validation', return_value=u'testuser'):
+        with patch('driftbase.auth.oculus.run_ticket_validation', return_value=u'testuser'):
             self.post('/auth', data=data)
 
     def test_steam_authentication(self):
@@ -72,10 +72,10 @@ class AuthTests(DriftBaseTestCase):
                 "steam_id": "steamdude"
             }
         }
-        with patch('drift.auth.steam._call_authenticate_user_ticket') as mock_auth:
+        with patch('driftbase.auth.steam._call_authenticate_user_ticket') as mock_auth:
             mock_auth.return_value.status_code = 200
             mock_auth.return_value.json = MagicMock()
             mock_auth.return_value.json.return_value = {'response': {'params': {'steamid': u'steamtester'}}}
-            with patch('drift.auth.steam._call_check_app_ownership') as mock_own:
+            with patch('driftbase.auth.steam._call_check_app_ownership') as mock_own:
                 mock_own.return_value.status_code = 200
                 self.post('/auth', data=data)

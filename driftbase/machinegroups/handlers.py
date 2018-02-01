@@ -10,7 +10,7 @@ from flask_restful import Api, Resource, reqparse, abort
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
-from drift.auth.jwtchecker import requires_roles
+from drift.core.extensions.jwt import requires_roles
 
 from driftbase.db.models import MachineGroup
 

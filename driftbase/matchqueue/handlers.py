@@ -10,7 +10,7 @@ import logging
 from flask import Blueprint, g, url_for, request
 from flask_restful import Api, Resource, abort, reqparse
 
-from drift.auth.jwtchecker import current_user
+from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.utils import url_player, json_response
