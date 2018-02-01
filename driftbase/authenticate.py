@@ -8,6 +8,8 @@ from werkzeug.security import pbkdf2_hex
 from flask import g, current_app
 from flask_restful import abort
 
+from drift.core.extensions import jwt
+
 from driftbase.db.models import User, CorePlayer, UserIdentity, UserRole
 from driftbase.utils import UserCache
 
@@ -29,7 +31,7 @@ def _get_service_user():
         return current_app.config.get("service_user")
 
 
-def authenticate(username, password, automatic_account_creation = True):
+def authenticate(username, password, automatic_account_creation=True):
     """basic authentication"""
     identity_type = ""
     create_roles = []
@@ -160,3 +162,7 @@ def authenticate(username, password, automatic_account_creation = True):
     cache = UserCache()
     cache.set_all(user_id, ret)
     return ret
+
+
+# LEGACY STUFF HERE. BAD WAY OF INJECTING
+jwt.authenticate = authenticate
