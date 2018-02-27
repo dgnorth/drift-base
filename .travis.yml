@@ -29,11 +29,10 @@ install:
 - pip install alembic
 - pip install psycopg2
 - pip install pycrypto
-before_script:
-- psql -c "CREATE ROLE zzp_user LOGIN PASSWORD 'zzp_user' VALID UNTIL 'infinity';"
-  -U postgres
+- pip install pytest
+- pip install pytest-cov
 script:
-- coverage run kitrun.py runsystest
+- pytest --cov
 after_success:
  - codecov
 notifications:
