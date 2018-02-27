@@ -42,9 +42,6 @@
         "drift.core.resources.apitarget": {"api": "drift", "requires_api_key": true},
         "drift.core.resources.postgres": {"models": ["driftbase.db.models"]}
     },
-    "models": [
-        "driftbase.db.models"
-    ],
     "default_timeout": 5,
     "heartbeat_period": 30,
     "heartbeat_timeout": 300,
