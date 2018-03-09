@@ -11,3 +11,5 @@ include flask_uwsgi.py
 include const.py
 include requirements.txt
 include VERSION
+include Pipfile
+include Pipfile.lock
