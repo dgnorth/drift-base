@@ -20,7 +20,7 @@ install:
 - export PATH=$HOME/.local/bin:$PATH
 - pip install codecov
 - pip install pytest-cov
-- pip install --user pipenv
+- pip install pipenv
 - pipenv install --dev --skip-lock
 script:
 - pytest --cov
