@@ -9,14 +9,15 @@ name = "pypi"
 
 drift = { git = 'https://github.com/dgnorth/drift.git', ref = 'develop'}
 driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
-"e1839a8" = {path = ".", editable = true}
+gevent = "*"
+requests = "*"
+boto3 = "*"  # Due to uneccessary or weird dependency in auth.util.fetch_url()
 
 
 [dev-packages]
 
-drift = { git = 'https://github.com/dgnorth/drift.git', ref = 'develop', editable = true, extras = ["aws", "dev"]}
-driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop', editable = true }
-"e1839a8" = {path = ".", editable = true}
+pytest = "*"
+responses = "*"
 
 
 [requires]
