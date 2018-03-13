@@ -15,19 +15,6 @@ setup(
     ),
     include_package_data=True,
 
-    # the conditional on i.req avoids the error:
-    # distutils.errors.DistutilsError: Could not find suitable distribution for Requirement.parse('None')
-    install_requires=[
-        'gevent',
-        'requests',  # Used by static data handlers?
-    ],
-
-    entry_points='''
-        [drift.plugin]
-        register_deployable=drift.management.commands.register:funky
-        provision=drift.core.resources.postgres:provision
-    ''',
-
     classifiers=[
         'Drift :: Tag :: Core',
         'Drift :: Tag :: Product',
