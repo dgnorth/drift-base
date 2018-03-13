@@ -11,8 +11,7 @@ For developer setup [pipenv](https://docs.pipenv.org/) is used to set up virtual
 
 ```bash
 pip install --user pipenv
-pipenv --two
-pipenv install -d -e "."
+pipenv install --dev
 ```
 
 Note that the local server and CLI should be executed within the virtual environment. You can activate it with `pipenv shell`.
@@ -23,7 +22,7 @@ In dev mode, the *drift* library will not be installed with it's proper extras d
 ## Other drift libraries in develop mode
 Development of the *drift* library makes most sense within the context of a project like drift-base. To set up drift in develop mode:
 
-Make sure the **virtual environment for drift-base is active** and run the following command from the root of the *drift* project folder: `pip install -e ".[aws,dev]" `.
+Make sure the **virtual environment for drift-base is active** and run the following command from the root of the *drift* project folder: `pip install -e ".[aws,test]" `.
 
 The same can be done for the *drift-config* library. From the root of that project folder, run this command: `pip install -e "."`
 
