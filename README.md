@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/dgnorth/drift-base.svg?branch=master)](https://travis-ci.org/dgnorth/drift-base)
-[![codecov](https://codecov.io/gh/dgnorth/drift-base/branch/master/graph/badge.svg)](https://codecov.io/gh/dgnorth/drift-base)
+[![codecov](https://codecov.io/gh/dgnorth/drift-base/branch/develop/graph/badge.svg)](https://codecov.io/gh/dgnorth/drift-base)
 
 
 # drift-base
