@@ -18,17 +18,18 @@
     "default": {
         "boto3": {
             "hashes": [
-                "sha256:15688d60dcc764f6fbd32975696deb48e64dff185db58bba45df02f2230860a8",
-                "sha256:3a74aa62eb9c0a6e1c9eace4ab93b2c3de43ab9f116dbc2e60a8cee584532584"
+                "sha256:54e1af94506232fb5376c3ef63ad59064995c537f22c07e0074533976f0a7ca2",
+                "sha256:9b9f8291995075242be3559ca56523dfc404d048dc42dc5467235e6fb086427c"
             ],
-            "version": "==1.6.7"
+            "index": "pypi",
+            "version": "==1.6.15"
         },
         "botocore": {
             "hashes": [
-                "sha256:0794994bf5a50d1b7df0b43c319d4a2ecd3fe26b55c0313e7427c0910fc977c1",
-                "sha256:bded64bf74314a2ebe9535d2ac151ecf6d1188afc5d1869911080d12c23233dc"
+                "sha256:435c81553af5f5fcb470f0017779d1a1ceab17a08d38c8d05ba779f53edc4275",
+                "sha256:fccbaf8c61780394abda7fb58a9d80b0611d65500e612f7fac9516b4724631df"
             ],
-            "version": "==1.9.7"
+            "version": "==1.9.15"
         },
         "certifi": {
             "hashes": [
@@ -53,12 +54,14 @@
             "version": "==0.14"
         },
         "drift": {
-            "git": "https://github.com/dgnorth/drift.git",
-            "ref": "develop"
+            "editable": true,
+            "git": "https://mattig@github.com/dgnorth/drift.git",
+            "ref": "1edef8afd1699bf88d5da266be7a41769ad4f6bb"
         },
         "driftconfig": {
-            "git": "https://github.com/dgnorth/drift-config.git",
-            "ref": "develop"
+            "editable": true,
+            "git": "https://mattig@github.com/dgnorth/drift-config.git",
+            "ref": "0119dd5676723c5d40115328d9909ea912f7cda1"
         },
         "futures": {
             "hashes": [
@@ -100,6 +103,7 @@
                 "sha256:df52e06a2754c2d905aad75a7dc06a732c804d9edbc87f06f47c8f483ba98bca",
                 "sha256:fce894a64db3911897cdad6c37fbb23dfb18b7bf8b9cb8c00a8ea0a7253651c9"
             ],
+            "index": "pypi",
             "version": "==1.2.2"
         },
         "greenlet": {
@@ -140,16 +144,17 @@
         },
         "python-dateutil": {
             "hashes": [
-                "sha256:07009062406cffd554a9b4135cd2ff167c9bf6b7aac61fe946c93e69fad1bbd8",
-                "sha256:8f95bb7e6edbb2456a51a1fb58c8dca942024b4f5844cae62c90aa88afe6e300"
+                "sha256:891c38b2a02f5bb1be3e4793866c8df49c7d19baabf9c1bad62547e0b4866aca",
+                "sha256:95511bae634d69bc7329ba55e646499a842bc4ec342ad54a8cdb65645a0aad3c"
             ],
-            "version": "==2.7.0"
+            "version": "==2.6.1"
         },
         "requests": {
             "hashes": [
                 "sha256:6a1b267aa90cac58ac3a765d067950e7dbbf75b1da07e895d1f594193a40a38b",
                 "sha256:9c443e7324ba5b85070c4a818ade28bfabedf16ea10206da1132edaa6dda237e"
             ],
+            "index": "pypi",
             "version": "==2.18.4"
         },
         "s3transfer": {
@@ -226,6 +231,14 @@
             "markers": "python_version in '2.6, 2.7, 3.2'",
             "version": "==2.0.0"
         },
+        "more-itertools": {
+            "hashes": [
+                "sha256:0dd8f72eeab0d2c3bd489025bb2f6a1b8342f9b198f6fc37b52d15cfa4531fea",
+                "sha256:11a625025954c20145b37ff6309cd54e39ca94f72f6bb9576d1195db6fa2442e",
+                "sha256:c9ce7eccdcb901a2c75d326ea134e0886abfbea5f93e91cc95de9507c0816c44"
+            ],
+            "version": "==4.1.0"
+        },
         "pbr": {
             "hashes": [
                 "sha256:05f61c71aaefc02d8e37c0a3eeb9815ff526ea28b3b76324769e6158d7f95be1",
@@ -241,23 +254,25 @@
         },
         "py": {
             "hashes": [
-                "sha256:8cca5c229d225f8c1e3085be4fcf306090b00850fefad892f9d96c7b6e2f310f",
-                "sha256:ca18943e28235417756316bfada6cd96b23ce60dd532642690dcfdaba988a76d"
+                "sha256:29c9fab495d7528e80ba1e343b958684f4ace687327e6f789a94bf3d1915f881",
+                "sha256:983f77f3331356039fdd792e9220b7b8ee1aa6bd2b25f567a963ff1de5a64f6a"
             ],
-            "version": "==1.5.2"
+            "version": "==1.5.3"
         },
         "pytest": {
             "hashes": [
-                "sha256:062027955bccbc04d2fcd5d79690947e018ba31abe4c90b2c6721abec734261b",
-                "sha256:117bad36c1a787e1a8a659df35de53ba05f9f3398fb9e4ac17e80ad5903eb8c5"
+                "sha256:6266f87ab64692112e5477eba395cfedda53b1933ccd29478e671e73b420c19c",
+                "sha256:fae491d1874f199537fd5872b5e1f0e74a009b979df9d53d1553fd03da1703e1"
             ],
-            "version": "==3.4.2"
+            "index": "pypi",
+            "version": "==3.5.0"
         },
         "requests": {
             "hashes": [
                 "sha256:6a1b267aa90cac58ac3a765d067950e7dbbf75b1da07e895d1f594193a40a38b",
                 "sha256:9c443e7324ba5b85070c4a818ade28bfabedf16ea10206da1132edaa6dda237e"
             ],
+            "index": "pypi",
             "version": "==2.18.4"
         },
         "responses": {
@@ -265,6 +280,7 @@
                 "sha256:98e1c0eb5a7a03d59e73c8ac774428664f319ef35c6ac59479436bbb9c3499be",
                 "sha256:a64029dbc6bed7133e2c971ee52153f30e779434ad55a5abf40322bcff91d029"
             ],
+            "index": "pypi",
             "version": "==0.8.1"
         },
         "six": {
