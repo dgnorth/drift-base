@@ -36,3 +36,44 @@ flask run
 Try it out here: 
 [http://localhost:5000/](http://localhost:5000/)
 
+
+## Modifying library dependencies
+Python package dependencies are maintained in **Pipfile**. If you make any changes there, update the **Pipfile.lock** file as well using the following command:
+
+```bash
+pipenv --rm && pipenv lock --verbose
+```
+
+## Working with AWS
+
+Note! For any of the following commands to work, make sure the virtualenv is active and the proper configuration database and tier is selected:
+
+```bash
+pipenv shell
+export DRIFT_CONFIG_URL=somecfg && export DRIFT_TIER=SOME_NAME
+```
+
+#### Create an AMI and deploy to AWS:
+
+```bash
+drift-admin ami bake
+drift-admin ami run
+```
+
+#### Fetch logs straight from the EC2
+```bash
+drift-admin logs
+```
+
+#### Deploy local code changes directly to AWS:
+
+```bash
+drift-admin quickdeploy
+```
+
+#### Open SSH to the EC2:
+
+```bash
+drift-admin ssh drift-base
+```
+
