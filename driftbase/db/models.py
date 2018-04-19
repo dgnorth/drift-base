@@ -107,7 +107,7 @@ class Client(ModelBase):
     heartbeat = Column(DateTime, nullable=False, server_default=utc_now)
     num_heartbeats = Column(Integer, default=1)
     platform_version = Column(String(20), nullable=True)
-    ip_address = Column(INET, nullable=True, index=True, index=True)
+    ip_address = Column(INET, nullable=True, index=True)
     num_requests = Column(Integer, nullable=False, server_default="0")
     platform_info = Column(JSON, nullable=True)
 
