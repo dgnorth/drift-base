@@ -88,9 +88,13 @@ def publish(repository, user, region, bucket):
         s3_upload_batch.append(["user-{}/{}".format(user, serialno)])
     else:
         # We need to checkout a few branches. Let's remember which branch is currently active
-        cmd = 'git rev-parse --abbrev-ref HEAD'
+        cmd = 'git symbolic-ref --short HEAD'
         print "Get all tags and branch head revisions for this repo using:", cmd
-        current_branch = subprocess.check_output(cmd.split(' ')).strip()
+        try:
+            current_branch = subprocess.check_output(cmd.split(' '), stderr=subprocess.STDOUT).strip()
+        except subprocess.CalledProcessError as e:
+            print "Failed to detect the current branch for '{}':\n{}".format(origin_url, e.output)
+            raise e
 
         # Get all references
         to_upload = set()  # Commit ID's to upload to S3
@@ -115,6 +119,7 @@ def publish(repository, user, region, bucket):
             print "    {:<50}{}".format(ref, commit_id)
             to_upload.add(commit_id)
             indexes.append({"commit_id": commit_id, "ref": ref})
+
         # List out all subfolders under the repo name to see which commits are already there.
         # Prune the 'to_upload' list accordingly.
         for key in bucket.list(prefix=repo_folder, delimiter="/"):
