@@ -58,7 +58,7 @@ def publish(repository, user, region, bucket):
     conn = connect_to_region(region, calling_format=OrdinaryCallingFormat())
     bucket = conn.get_bucket(bucket)
 
-    origin_url = "git@github.com:directivegames/the-machines-static-data.git"
+    origin_url = None
     if not repository:
         try:
             cmd = 'git config --get remote.origin.url'
