@@ -63,7 +63,7 @@ def publish(repository, user, region, bucket):
         try:
             cmd = 'git config --get remote.origin.url'
             print "No repository specified. Using git to figure it out:", cmd
-            origin_url = subprocess.check_output(cmd.split(' '))
+            origin_url = subprocess.check_output(cmd.split(' ')).strip()
             if origin_url.startswith("http"):
                 repository, _ = os.path.splitext(urlparse(origin_url).path)
             elif origin_url.startswith("git@"):
