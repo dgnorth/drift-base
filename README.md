@@ -29,11 +29,11 @@ This starts a server on port 5000:
 ```bash
 pipenv shell  # Make sure the virtualenv is active
 
-export FLASK_APP=drift.appmodule:app
+export FLASK_APP=drift.devserver:app
 flask run
 ```
 
-Try it out here: 
+Try it out here:
 [http://localhost:5000/](http://localhost:5000/)
 
 

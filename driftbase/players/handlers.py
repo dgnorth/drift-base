@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 bp = Blueprint("players", __name__)
 api = Api(bp)
 
+# TODO: Have this configured on a per product level and use drift config to specify it.
 MIN_NAME_LEN = 1
 MAX_NAME_LEN = 20
 

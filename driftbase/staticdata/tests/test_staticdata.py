@@ -23,7 +23,6 @@ class CfgTest(DriftBaseTestCase):
 
     def test_get_static_data(self):
         from driftbase.staticdata.handlers import DATA_URL, INDEX_URL, CDN_LIST
-        from drift.appmodule import app
         self.auth()
         endpoint = self.endpoints.get('static_data')
         self.assertIsNotNone(endpoint, "'static_data' endpoint not registered.")
