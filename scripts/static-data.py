@@ -11,6 +11,8 @@ import subprocess
 from urlparse import urlparse
 import re
 import copy
+from driftconfig.util import get_default_drift_config
+from drift.utils import get_tier_name
 
 import click
 
@@ -180,12 +182,19 @@ def publish(repository, user, region, bucket):
 
 
 @cli.command()
-def mirror():
+@click.option(
+    '--region',
+    default='eu-west-1',
+    help="AWS region, default is 'eu-west-1'.")
+@click.option(
+    '--bucket',
+    default='directive-tiers.dg-api.com',
+    help="Source bucket name, default is 'directive-tiers.dg-api.com'.")
+def mirror(region, bucket):
     """Mirror static data to other CDNs."""
 
-    # TODO HERE BELOW: Use get_default_drift_config()
-    tiers_config = get_tiers_config(display_title=False)
-    bucket = get_s3_bucket(tiers_config)
+    #ts = get_default_drift_config()
+    bucket = get_s3_bucket(region, bucket)
     keys = set()
     for key in bucket.list(prefix="static-data/", delimiter="/"):
         if key.name == "static-data/":
@@ -202,13 +211,12 @@ def mirror():
     print "ALL DONE!"
 
 
-def get_s3_bucket(tiers_config):
+def get_s3_bucket(region, bucket):
     from boto.s3 import connect_to_region
     from boto.s3.connection import OrdinaryCallingFormat
 
-    conn = connect_to_region(tiers_config["region"], calling_format=OrdinaryCallingFormat())
-    bucket_name = "{}.{}".format(tiers_config["bucket"], tiers_config["domain"])
-    bucket = conn.get_bucket(bucket_name)
+    conn = connect_to_region(region, calling_format=OrdinaryCallingFormat())
+    bucket = conn.get_bucket(bucket)
     return bucket
 
 
