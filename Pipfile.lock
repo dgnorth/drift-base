@@ -18,18 +18,18 @@
     "default": {
         "boto3": {
             "hashes": [
-                "sha256:3bf4cb951faa6908134bc7f9faa300628e58961d329cba9810c65ef5fd99b54e",
-                "sha256:b4fadc62eca3bb2c4f894f807d087058fdf93f074472f8b7db385ed66f1c0136"
+                "sha256:00ddf312a90cf22858a04d3c6244f8edb7ab54d032712887065dc67ef2086c9f",
+                "sha256:320c10fd451c22dcf52123bc93719919ca2632f5d5b26bcf85fc31361a70b55d"
             ],
             "index": "pypi",
-            "version": "==1.7.19"
+            "version": "==1.7.21"
         },
         "botocore": {
             "hashes": [
-                "sha256:184e600f78ddcc4eb508858cc82939ea4fa2b2ab9cc09c9f8642e8734c9528b4",
-                "sha256:e05534810847803e30a86583702eaee0c7f4f390a7af31cca8ee7e08c39ce47c"
+                "sha256:be3e7067912342b4af144afd720d16cf5a0f24d773e202695dffaca96ab11d04",
+                "sha256:c4e4f35d955bacdb98e220a7dcf457f0f32cf42ada36f67fe7e4bb8a639e225e"
             ],
-            "version": "==1.10.19"
+            "version": "==1.10.21"
         },
         "certifi": {
             "hashes": [
@@ -56,12 +56,12 @@
         "drift": {
             "editable": true,
             "git": "https://mattig@github.com/dgnorth/drift.git",
-            "ref": "b14071c647616735b0ac13ca11992eee3c085963"
+            "ref": "3cc76529eba634812031604b2ff46fc695239374"
         },
         "driftconfig": {
             "editable": true,
             "git": "https://mattig@github.com/dgnorth/drift-config.git",
-            "ref": "8f06cf819c9a60cac427288b97dbed715f86c2a3"
+            "ref": "9ccaddffd124b6e10cf4ca7985c4204ae396060b"
         },
         "futures": {
             "hashes": [
@@ -207,7 +207,7 @@
                 "sha256:330cc27ccbf7f1e992e69fef78261dc7c6569012cf397db8d3de0234e6c937ca",
                 "sha256:a7bb0f2cf3a3fd1ab2732cb49eba4252c2af4240442415b4abce3b87022a8f50"
             ],
-            "markers": "python_version < '3.0'",
+            "markers": "python_version < '3.3'",
             "version": "==1.0.2"
         },
         "idna": {
@@ -235,10 +235,10 @@
         },
         "pbr": {
             "hashes": [
-                "sha256:4e8a0ed6a8705a26768f4c3da26026013b157821fe5f95881599556ea9d91c19",
-                "sha256:dae4aaa78eafcad10ce2581fc34d694faa616727837fd8e55c1a00951ad6744f"
+                "sha256:680bf5ba9b28dd56e08eb7c267991a37c7a5f90a92c2e07108829931a50ff80a",
+                "sha256:6874feb22334a1e9a515193cba797664e940b763440c88115009ec323a7f2df5"
             ],
-            "version": "==4.0.2"
+            "version": "==4.0.3"
         },
         "pluggy": {
             "hashes": [
