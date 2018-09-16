@@ -3,6 +3,7 @@ language: python
 cache: pip
 python:
 - '2.7'
+- '3.4'
 env:
   global:
   - AWS_DEFAULT_REGION=eu-west-1
