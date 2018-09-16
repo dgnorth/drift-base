@@ -14,3 +14,4 @@ greenlet = "*"
 [dev-packages]
 pytest = "*"
 responses = "*"
+mock = "*"
