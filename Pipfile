@@ -1,25 +1,16 @@
 [[source]]
-
 url = "https://pypi.python.org/simple"
 verify_ssl = true
 name = "pypi"
 
-
 [packages]
-
 drift = { git = 'https://github.com/dgnorth/drift.git', ref = 'develop'}
 driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
 gevent = "*"
 requests = "*"
 boto3 = "*"  # Due to uneccessary or weird dependency in auth.util.fetch_url()
-
+greenlet = "*"
 
 [dev-packages]
-
 pytest = "*"
 responses = "*"
-
-
-[requires]
-
-python_version = "2.7"
