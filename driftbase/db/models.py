@@ -97,21 +97,22 @@ class Client(ModelBase):
 
     client_id = Column(BigInteger, primary_key=True)
     client_type = Column(String(20))
-    user_id = Column(Integer, ForeignKey('ck_users.user_id'))
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'))
+    user_id = Column(Integer, ForeignKey('ck_users.user_id'), index=True)
+    player_id = Column(Integer, ForeignKey('ck_players.player_id'), index=True)
     create_date = Column(DateTime, nullable=False, server_default=utc_now)
-    build = Column(String(100))
+    build = Column(String(100), index=True)
     platform_type = Column(String(20))
     version = Column(String(20))
     app_guid = Column(String(100))
     heartbeat = Column(DateTime, nullable=False, server_default=utc_now)
     num_heartbeats = Column(Integer, default=1)
     platform_version = Column(String(20), nullable=True)
-    ip_address = Column(INET, nullable=True)
+    ip_address = Column(INET, nullable=True, index=True)
     num_requests = Column(Integer, nullable=False, server_default="0")
     platform_info = Column(JSON, nullable=True)
 
-    identity_id = Column(Integer, ForeignKey('ck_user_identities.identity_id'))
+    identity_id = Column(Integer, ForeignKey('ck_user_identities.identity_id'),
+                         index=True)
 
     status = Column(String(20), nullable=True,
                     server_default="active", index=True)
