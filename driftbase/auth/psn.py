@@ -74,10 +74,10 @@ def run_ticket_validation(user_id, auth_code, issuer, client_id, client_secret):
     Returns a unique ID for this player.
     """
 
-    authorization = urlsafe_b64encode("{}:{}".format(client_id, client_secret))
+    authorization = urlsafe_b64encode("{}:{}".format(client_id, client_secret).encode("ascii"))
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + authorization
+        'Authorization': 'Basic ' + authorization.decode("ascii")
     }
 
     url = psn_issuer_urls.get(issuer, False)
