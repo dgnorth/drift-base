@@ -8,13 +8,15 @@ import logging
 from datetime import datetime
 import mimetypes
 import subprocess
-from urlparse import urlparse
 import re
 import copy
+
+from six.moves.urllib.parse import urlparse
+import click
+
 from driftconfig.util import get_default_drift_config
 from drift.utils import get_tier_name
 
-import click
 
 STATIC_DATA_ROOT_FOLDER = 'static-data'  # Root folder on S3
 

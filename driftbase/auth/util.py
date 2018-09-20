@@ -1,5 +1,6 @@
 import logging
-from urlparse import urlparse
+
+from six.moves.urllib.parse import urlparse
 
 import requests
 import boto3
