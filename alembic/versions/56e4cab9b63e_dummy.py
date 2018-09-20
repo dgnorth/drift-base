@@ -1,7 +1,7 @@
 """dummy
 
 Revision ID: 56e4cab9b63e
-Revises: 
+Revises:
 Create Date: 2016-12-22 11:58:39.412616
 
 """
@@ -17,8 +17,8 @@ import sqlalchemy as sa
 
 
 def upgrade(engine_name):
-    print "Upgrading {}".format(engine_name)
-    
+    print("Upgrading {}".format(engine_name))
+
 
 def downgrade(engine_name):
-    print "Downgrading {}".format(engine_name)
+    print("Downgrading {}".format(engine_name))

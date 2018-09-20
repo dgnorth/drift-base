@@ -21,7 +21,7 @@ utc_now = sa.text("(now() at time zone 'utc')")
 
 
 def upgrade(engine_name):
-    print "Upgrading {}".format(engine_name)
+    print("Upgrading {}".format(engine_name))
     # your upgrade script goes here
     op.execute(sa.schema.CreateSequence(sa.Sequence('ck_friend_invites_id_seq')))
     op.create_table(
@@ -42,7 +42,7 @@ def upgrade(engine_name):
 
 
 def downgrade(engine_name):
-    print "Downgrading {}".format(engine_name)
+    print("Downgrading {}".format(engine_name))
     # your downgrade script goes here
     op.drop_table('ck_friend_invites')
     op.execute(sa.schema.DropSequence(sa.Sequence('ck_friend_invites_id_seq')))

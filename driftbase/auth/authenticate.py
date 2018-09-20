@@ -8,6 +8,7 @@ from werkzeug.security import pbkdf2_hex
 
 from flask import g, current_app
 from flask_restful import abort
+from click import secho
 
 from drift.core.extensions import jwt
 
@@ -20,7 +21,7 @@ log = logging.getLogger(__name__)
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
-    print "FUDGE!", description
+    secho("FUDGE {}".format(description), fg="red")
     abort(http_client.UNAUTHORIZED, description=description)
 
 

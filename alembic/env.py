@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import with_statement
+import os, sys, socket
+from os.path import abspath, join
+import logging
+from logging.config import fileConfig
+
+from click import echo, secho
 from alembic import context
 from sqlalchemy import pool, create_engine
-from logging.config import fileConfig
-import logging
 from drift.core.resources.postgres import format_connection_string
 from drift.utils import get_tier_name
-from os.path import abspath, join
-import os, sys, socket
 from driftconfig.util import get_default_drift_config
 
 def get_ts():
@@ -65,7 +66,7 @@ def get_engines():
     tenants_table = ts.get_table('tenants').find({'deployable_name': 'drift-base'}) #!
     pick_tenant = context.get_x_argument(as_dictionary=True).get('tenant')
     if pick_tenant:
-        print 'picking tenant %s' % pick_tenant
+        echo('picking tenant %s' % pick_tenant)
     dry_run = context.get_x_argument(as_dictionary=True).get('dry-run')
 
     for t in tenants_table:
@@ -80,14 +81,14 @@ def get_engines():
         conn_info["username"] = MASTER_USERNAME
         conn_info["password"] = MASTER_PASSWORD
         this_conn_string = format_connection_string(conn_info)
-        print this_conn_string
+        echo(this_conn_string)
 
         if this_conn_string not in [e["url"] for e in engines.itervalues()]:
             engines["{}.{}".format(tenant_config["tier_name"],
                                    tenant_config["tenant_name"])] = rec = {"url": this_conn_string}
 
     # quick and dirty connectivity test before trying to upgrade all db's
-    print "Checking connectivity..."
+    echo("Checking connectivity...")
     db_servers = set()
     for key, engine in engines.iteritems():
         server = engine["url"].split("/")
@@ -101,15 +102,15 @@ def get_engines():
         sock.settimeout(2)
         result = sock.connect_ex((db_server, port))
         if result != 0:
-            print "Unable to connect to server '%s' on port %s" % (db_server, port)
+            secho("Unable to connect to server '%s' on port %s" % (db_server, port), fg="red")
             err = True
         else:
-            print "OK"
+            secho("OK", fg="green")
     if err:
-        raise Exception("Unable to connect to one or more db servers. Bailing out!")
+        raise RuntimeError("Unable to connect to one or more db servers. Bailing out!")
 
     if dry_run:
-        print "Dry run, exiting without taking further action"
+        secho("Dry run, exiting without taking further action", fg="yellow")
         return {}
 
     for key in engines.keys():
