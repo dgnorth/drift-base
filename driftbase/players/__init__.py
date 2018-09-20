@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import httplib
+from six.moves import http_client
 
 from flask import request, g
 from flask_restful import abort
@@ -18,7 +18,7 @@ def get_check_player(player_id):
     if not player:
         msg = "Player does not exist"
         log.warning(msg)
-        abort(httplib.NOT_FOUND)
+        abort(http_client.NOT_FOUND)
     return player
 
 

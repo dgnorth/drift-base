@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import httplib
 from operator import itemgetter
 from dateutil import parser
 import datetime
 import logging
+
+from six.moves import http_client
 
 from flask import Blueprint, request, g, url_for
 from flask_restful import Api, Resource, reqparse, abort
@@ -54,14 +55,14 @@ class JournalAPI(Resource):
         Add a journal entry
         """
         if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
 
         args_list = request.json
         if not isinstance(args_list, list):
             raise RuntimeError("Arguments should be a list")
         for a in args_list:
             if "journal_id" not in a:
-                abort(httplib.BAD_REQUEST)
+                abort(http_client.BAD_REQUEST)
         ret = []
         now = datetime.datetime.utcnow()
         MAX_DRIFT = 60
@@ -90,7 +91,7 @@ class JournalAPI(Resource):
 
                 elif gamestate.journal_id > to_journal_id:
                     return json_response("Journal has already been persisted into home base!",
-                                         httplib.BAD_REQUEST)
+                                         http_client.BAD_REQUEST)
 
                 entry = get_journal_entry(player_id, to_journal_id)
                 if not entry.first():
@@ -120,14 +121,14 @@ class JournalAPI(Resource):
                 # TODO: We now reject the journal entry and subsequent entries instead of
                 # rolling the entire thing back. Is that what we want?
                 log.warning("Error writing to journal. Rejecting entry. Error was: %s", e)
-                abort(httplib.BAD_REQUEST, description=e.message)
+                abort(http_client.BAD_REQUEST, description=e.message)
 
             ret.append({"journal_id": journal["journal_id"],
                         "url": url_for("journal.entry",
                                        player_id=player_id,
                                        journal_id=journal["journal_id"])
                         })
-        return ret, httplib.CREATED
+        return ret, http_client.CREATED
 
 
 def get_journal_entry(player_id, journal_id):
@@ -154,7 +155,7 @@ class JournalEntryAPI(Resource):
 
         entry = get_journal_entry(player_id, journal_id)
         if not entry.first():
-            return json_response("Journal entry not found", httplib.NOT_FOUND)
+            return json_response("Journal entry not found", http_client.NOT_FOUND)
         ret = entry.first().as_dict()
         return ret
 

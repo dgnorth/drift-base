@@ -3,7 +3,9 @@
     These are endpoints for battleserver run configurations
 """
 
-import logging, httplib
+import logging
+
+from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
@@ -70,7 +72,7 @@ class MachineGroupsAPI(Resource):
 
         return {"machinegroup_id": machinegroup_id,
                 "url": resource_uri
-                }, httplib.CREATED, response_header
+                }, http_client.CREATED, response_header
 
 
 class MachineGroupAPI(Resource):
@@ -86,7 +88,7 @@ class MachineGroupAPI(Resource):
         row = g.db.query(MachineGroup).get(machinegroup_id)
         if not row:
             log.warning("Requested a non-existant machine group %s", machinegroup_id)
-            abort(httplib.NOT_FOUND, description="Machine Group not found")
+            abort(http_client.NOT_FOUND, description="Machine Group not found")
         record = row.as_dict()
         record["url"] = url_for("machinegroups.entry", machinegroup_id=machinegroup_id,
                                 _external=True)

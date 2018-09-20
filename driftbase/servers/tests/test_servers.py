@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import httplib
 import copy
+from six.moves import http_client
 from drift.systesthelper import DriftBaseTestCase
 
 
@@ -10,16 +10,16 @@ class ServersTest(DriftBaseTestCase):
     """
     def test_access(self):
         self.auth()
-        resp = self.get("/servers", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.get("/servers", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.get("/servers/1", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.get("/servers/1", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.post("/servers", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.post("/servers", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.put("/servers/1", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.put("/servers/1", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
     def test_get_list_basic(self):
@@ -29,9 +29,9 @@ class ServersTest(DriftBaseTestCase):
         resp = self.get("/servers?machine_id=1")
         self.assertTrue(isinstance(resp.json(), list))
 
-        resp = self.get("/servers/999999", expected_status_code=httplib.NOT_FOUND)
+        resp = self.get("/servers/999999", expected_status_code=http_client.NOT_FOUND)
         resp = self.put("/servers/999999", data={"status": "bla"},
-                        expected_status_code=httplib.NOT_FOUND)
+                        expected_status_code=http_client.NOT_FOUND)
 
     def test_create_server_local(self):
         """Create a server instance without already having a machine_id.
@@ -39,7 +39,7 @@ class ServersTest(DriftBaseTestCase):
         """
         self.auth_service()
         resp = self.post("/servers", data={"status": "active"},
-                         expected_status_code=httplib.BAD_REQUEST)
+                         expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("instance_name", resp.json()["error"]["description"])
 
         instance_name = "matti@borko"
@@ -48,7 +48,7 @@ class ServersTest(DriftBaseTestCase):
         resp = self.post("/servers", data={"status": "active",
                                            "instance_name": instance_name,
                                            "placement": placement},
-                         expected_status_code=httplib.CREATED)
+                         expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
         machine_id = resp.json()["machine_id"]
@@ -65,7 +65,7 @@ class ServersTest(DriftBaseTestCase):
         resp = self.post("/servers", data={"status": "active",
                                            "instance_name": instance_name,
                                            "placement": placement},
-                         expected_status_code=httplib.CREATED)
+                         expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
         self.assertEquals(resp.json()["machine_id"], machine_id)
@@ -78,7 +78,7 @@ class ServersTest(DriftBaseTestCase):
                 "instance_id": "instance_id",
                 "public_ip": "8.8.8.8",
                 }
-        resp = self.post("/machines", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
         return resp.json()
 
     def _get_server_data(self, machine_id):
@@ -110,7 +110,7 @@ class ServersTest(DriftBaseTestCase):
 
         data = self._get_server_data(machine_id)
 
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_id = resp.json()["server_id"]
         self.assertEquals(machine_id, resp.json()["machine_id"])
         self.assertEquals(machine_url, resp.json()["machine_url"])
@@ -121,7 +121,7 @@ class ServersTest(DriftBaseTestCase):
         self.assertIn(server_id, [s["server_id"] for s in resp.json()])
 
         # create another server and ensure they both show up
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         new_server_id = resp.json()["server_id"]
         self.assertEquals(machine_id, resp.json()["machine_id"])
         resp = self.get("/servers?machine_id=%s" % machine_id)
@@ -133,11 +133,11 @@ class ServersTest(DriftBaseTestCase):
         self.auth_service()
         machine_id = self._create_machine()["machine_id"]
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_id = resp.json()["server_id"]
         self.assertGreater(server_id, 0)
         url = resp.json()["url"]
-        self.put(url, data={"bla": "ble"}, expected_status_code=httplib.BAD_REQUEST)
+        self.put(url, data={"bla": "ble"}, expected_status_code=http_client.BAD_REQUEST)
 
         new_data = copy.copy(data)
         new_data["details"] = {"entirely_new_details": "yes"}
@@ -149,7 +149,7 @@ class ServersTest(DriftBaseTestCase):
         self.auth_service()
         machine_id = self._create_machine()["machine_id"]
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
         self.assertEquals(resp.json()["heartbeat_count"], 0)
@@ -171,7 +171,7 @@ class ServersTest(DriftBaseTestCase):
         machine_id = js["machine_id"]
 
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_id = resp.json()["server_id"]
         self.assertGreater(server_id, 0)
         server_url = resp.json()["url"]
@@ -181,13 +181,13 @@ class ServersTest(DriftBaseTestCase):
         command = "swim_around"
         arguments = {"c": 1, "d": 2}
         resp = self.post(commands_url, data={"command": command, "arguments": arguments},
-                         expected_status_code=httplib.CREATED)
+                         expected_status_code=http_client.CREATED)
         command_url = resp.json()["url"]
 
         command = "dance_the_polka"
         arguments = {"a": 1, "b": 2}
         resp = self.post(commands_url, data={"command": command, "arguments": arguments},
-                         expected_status_code=httplib.CREATED)
+                         expected_status_code=http_client.CREATED)
         command_url = resp.json()["url"]
 
         resp = self.get(command_url)
@@ -211,7 +211,7 @@ class ServersTest(DriftBaseTestCase):
         machine_id = js["machine_id"]
 
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_url = resp.json()["url"]
 
         commands_url = resp.json()["commands_url"]
@@ -219,7 +219,7 @@ class ServersTest(DriftBaseTestCase):
         command = "dance_the_polka"
         arguments = {"a": 1, "b": 2}
         resp = self.post(commands_url, data={"command": command, "arguments": arguments},
-                         expected_status_code=httplib.CREATED)
+                         expected_status_code=http_client.CREATED)
         command_url = resp.json()["url"]
         details = {"important": "stuff"}
         self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 1)

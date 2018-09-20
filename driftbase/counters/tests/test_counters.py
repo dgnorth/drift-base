@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, copy
-import httplib
 import unittest, responses, mock
 import json, requests
 import datetime
+
+from six.moves import http_client
 from mock import patch
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, uuid_string
 
@@ -177,7 +178,7 @@ class CountersTest(DriftBaseTestCase):
 
         # Test player_group
         pg_url = self.endpoints["my_player_groups"].replace('{group_name}', 'second_player')
-        self.put(pg_url, data={'player_ids': [second_player_id]}, expected_status_code=httplib.OK)
+        self.put(pg_url, data={'player_ids': [second_player_id]}, expected_status_code=http_client.OK)
         r = self.get(counter_leaderboard_url + "?player_group=second_player")
         player_ids = [c["player_id"] for c in r.json()]
         self.assertIn(second_player_id, player_ids)

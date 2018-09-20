@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import httplib
+from six.moves import http_client
 from driftbase.utils.test_utils import BaseCloudkitTest
 
 
@@ -25,11 +25,11 @@ class MessagesTest(BaseCloudkitTest):
         self.assertIn("Hello", r.json()["payload"])
 
         # we should not be able to read the message back, only the recipient can do that
-        r = self.get(message_url, expected_status_code=httplib.BAD_REQUEST)
+        r = self.get(message_url, expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("that belongs to you", r.json()["error"]["description"])
 
         # we should not be able to read anything from the exchange either
-        r = self.get(messages_url, expected_status_code=httplib.BAD_REQUEST)
+        r = self.get(messages_url, expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("that belongs to you", r.json()["error"]["description"])
 
     def test_messages_receive(self):

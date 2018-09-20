@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-import httplib
 from collections import defaultdict
 
+from six.moves import http_client
+
 from drift.systesthelper import uuid_string
-
-
 from driftbase.utils.test_utils import BaseMatchTest
 
 
@@ -15,16 +14,16 @@ class MatchesTest(BaseMatchTest):
     def test_access(self):
 
         self.auth()
-        resp = self.get("/matches", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.get("/matches", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.get("/matches/1", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.get("/matches/1", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.post("/matches", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.post("/matches", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.put("/matches/1", expected_status_code=httplib.UNAUTHORIZED)
+        resp = self.put("/matches/1", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
     def test_get_matches(self):
@@ -34,9 +33,9 @@ class MatchesTest(BaseMatchTest):
         resp = self.get("/matches?server_id=1")
         self.assertTrue(isinstance(resp.json(), list))
 
-        resp = self.get("/matches/999999", expected_status_code=httplib.NOT_FOUND)
+        resp = self.get("/matches/999999", expected_status_code=http_client.NOT_FOUND)
         resp = self.put("/matches/999999", data={"status": "bla"},
-                        expected_status_code=httplib.NOT_FOUND)
+                        expected_status_code=http_client.NOT_FOUND)
 
     def test_create_match(self):
         self.auth_service()
@@ -60,7 +59,7 @@ class MatchesTest(BaseMatchTest):
                 "game_mode": "game_mode",
                 "num_teams": num_teams
                 }
-        resp = self.post("/matches", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
         resp = self.get(resp.json()["url"])
         self.assertEquals(len(resp.json()["teams"]), num_teams)
 
@@ -72,19 +71,19 @@ class MatchesTest(BaseMatchTest):
         resp = self.get(teams_url)
         self.assertTrue(isinstance(resp.json(), list))
 
-        resp = self.post(teams_url, data={}, expected_status_code=httplib.CREATED)
+        resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
         team_url = resp.json()["url"]
 
         resp = self.get(team_url)
         self.assertTrue(isinstance(resp.json()["players"], list))
         self.assertEquals(len(resp.json()["players"]), 0)
         resp = self.get("/matches/%s/teams/99999" % match_id,
-                        expected_status_code=httplib.NOT_FOUND)
+                        expected_status_code=http_client.NOT_FOUND)
 
         new_name = "new name"
 
         resp = self.put("/matches/%s/teams/99999" % match_id, data={"name": new_name},
-                        expected_status_code=httplib.NOT_FOUND)
+                        expected_status_code=http_client.NOT_FOUND)
 
         resp = self.put(team_url, data={"name": new_name})
         resp = self.get(team_url)
@@ -104,14 +103,14 @@ class MatchesTest(BaseMatchTest):
 
         matchplayers_url = resp.json()["matchplayers_url"]
 
-        resp = self.post(teams_url, data={}, expected_status_code=httplib.CREATED)
+        resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
         team_id = resp.json()["team_id"]
         self.get(teams_url)
 
         data = {"player_id": player_id,
                 "team_id": team_id
                 }
-        self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+        self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
 
         resp = self.get(match_url)
         self.assertEquals(len(resp.json()["teams"]), 1)
@@ -127,7 +126,7 @@ class MatchesTest(BaseMatchTest):
         matchplayer_url = resp.json()[0]["matchplayer_url"]
         self.get(matchplayer_url)
 
-        self.get("/matches/%s/players/9999999" % match_id, expected_status_code=httplib.NOT_FOUND)
+        self.get("/matches/%s/players/9999999" % match_id, expected_status_code=http_client.NOT_FOUND)
 
     def test_active_matches(self):
         self.auth(username=uuid_string())
@@ -147,19 +146,19 @@ class MatchesTest(BaseMatchTest):
 
         matchplayers_url = resp.json()["matchplayers_url"]
 
-        resp = self.post(teams_url, data={}, expected_status_code=httplib.CREATED)
+        resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
         team_id = resp.json()["team_id"]
         resp = self.get(teams_url)
 
         data = {"player_id": player_id,
                 "team_id": team_id
                 }
-        self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+        self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
 
         data = {"player_id": other_player_id,
                 "team_id": team_id
                 }
-        self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+        self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
 
         resp = self.get(match_url)
         self.assertEquals(len(resp.json()["teams"]), 1)
@@ -201,12 +200,12 @@ class MatchesTest(BaseMatchTest):
         teams_url = match["teams_url"]
 
         matchplayers_url = match["matchplayers_url"]
-        resp = self.post(teams_url, data={}, expected_status_code=httplib.CREATED)
+        resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
         team_id = resp.json()["team_id"]
         data = {"player_id": player_id,
                 "team_id": team_id
                 }
-        resp = self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+        resp = self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
         matchplayer_url = resp.json()["url"]
         resp = self.get(match_url)
         self.assertEqual(resp.json()["num_players"], 1)
@@ -219,7 +218,7 @@ class MatchesTest(BaseMatchTest):
         self.assertEqual(len(pbs["quit"]), 1)
 
         # you cannot quit twice
-        self.delete(matchplayer_url, expected_status_code=httplib.BAD_REQUEST)
+        self.delete(matchplayer_url, expected_status_code=http_client.BAD_REQUEST)
         resp = self.get(match_url)
         self.assertEqual(resp.json()["num_players"], 1)
         pbs = self.players_by_status(resp.json()["players"])
@@ -227,7 +226,7 @@ class MatchesTest(BaseMatchTest):
         self.assertEqual(len(pbs["quit"]), 1)
 
         # join the fight again
-        self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+        self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
         resp = self.get(match_url)
         self.assertEqual(resp.json()["num_players"], 1)
         pbs = self.players_by_status(resp.json()["players"])
@@ -251,12 +250,12 @@ class MatchesTest(BaseMatchTest):
         self.assertEqual(resp.json()["start_date"], None)
 
         matchplayers_url = match["matchplayers_url"]
-        resp = self.post(teams_url, data={}, expected_status_code=httplib.CREATED)
+        resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
         team_id = resp.json()["team_id"]
         data1 = {"player_id": player1_id,
                 "team_id": team_id
                 }
-        resp = self.post(matchplayers_url, data=data1, expected_status_code=httplib.CREATED)
+        resp = self.post(matchplayers_url, data=data1, expected_status_code=http_client.CREATED)
         matchplayer1_url = resp.json()["url"]
         resp = self.get(match_url)
         match_start = resp.json()["start_date"]
@@ -264,7 +263,7 @@ class MatchesTest(BaseMatchTest):
         data2 = {"player_id": player2_id,
                 "team_id": team_id
                 }
-        resp = self.post(matchplayers_url, data=data2, expected_status_code=httplib.CREATED)
+        resp = self.post(matchplayers_url, data=data2, expected_status_code=http_client.CREATED)
         matchplayer2_url = resp.json()["url"]
         resp = self.get(match_url)
         self.assertEqual(match_start, resp.json()["start_date"])
@@ -274,7 +273,7 @@ class MatchesTest(BaseMatchTest):
         resp = self.get(match_url)
         self.assertEqual(match_start, resp.json()["start_date"])
 
-        self.post(matchplayers_url, data=data1, expected_status_code=httplib.CREATED)
+        self.post(matchplayers_url, data=data1, expected_status_code=http_client.CREATED)
         resp = self.get(match_url)
         self.assertEqual(match_start, resp.json()["start_date"])
 
@@ -288,7 +287,7 @@ class MatchesTest(BaseMatchTest):
 
         self.put(match_url, data={"status": "completed"})
         resp = self.put(match_url, data={"status": "active"},
-                        expected_status_code=httplib.BAD_REQUEST)
+                        expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("already been completed", resp.json()["error"]["description"])
 
     def test_max_players(self):
@@ -308,12 +307,12 @@ class MatchesTest(BaseMatchTest):
             data = {"player_id": player_id,
                     "team_id": team_id
                     }
-            resp = self.post(matchplayers_url, data=data, expected_status_code=httplib.CREATED)
+            resp = self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
 
         data = {"player_id": player_ids[-1],
                 "team_id": team_id
                 }
-        self.post(matchplayers_url, data=data, expected_status_code=httplib.BAD_REQUEST)
+        self.post(matchplayers_url, data=data, expected_status_code=http_client.BAD_REQUEST)
 
     def test_active_matches_depend_on_match_status(self):
         self.auth_service()

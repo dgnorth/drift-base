@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import httplib
 import logging
+
+from six.moves import http_client
 
 from flask import Blueprint, request, g, abort, url_for
 from flask_restful import Api, Resource
@@ -28,7 +29,7 @@ class Summary(Resource):
         """
         can_edit_player(player_id)
         if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id)
         ret = {}
         for row in summary:
@@ -42,10 +43,10 @@ class Summary(Resource):
         Full update of summary fields, deletes fields from db that are not included
         """
         if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
 
         if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         old_summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id).all()
 
@@ -98,10 +99,10 @@ class Summary(Resource):
         Partial update of summary fields.
         """
         if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
 
         if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         old_summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id).all()
         old_summary_txt = ""
         for row in old_summary:

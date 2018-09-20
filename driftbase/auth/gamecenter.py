@@ -1,7 +1,8 @@
 import OpenSSL
 import struct
 import base64
-import httplib
+
+from six.moves import http_client
 
 from flask_restful import abort
 
@@ -47,7 +48,7 @@ def validate_gamecenter_token(gc_token):
 
     gamecenter_config = get_provider_config('gamecenter')
     if not gamecenter_config:
-        abort(httplib.SERVICE_UNAVAILABLE, description="Game Center authentication not configured for current tenant")
+        abort(http_client.SERVICE_UNAVAILABLE, description="Game Center authentication not configured for current tenant")
 
     app_bundles = gamecenter_config.get("bundle_ids", None)
     return run_gamecenter_token_validation(gc_token=gc_token, app_bundles=app_bundles)

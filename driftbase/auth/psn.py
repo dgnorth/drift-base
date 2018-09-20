@@ -1,6 +1,6 @@
 
 import logging
-import httplib
+from six.moves import http_client
 
 import requests
 from werkzeug.exceptions import Unauthorized
@@ -53,7 +53,7 @@ def validate_psn_ticket():
     psn_config = get_provider_config('psn')
 
     if not psn_config:
-        abort(httplib.SERVICE_UNAVAILABLE, description="PSN authentication not configured for current tenant")
+        abort(http_client.SERVICE_UNAVAILABLE, description="PSN authentication not configured for current tenant")
 
     # Call validation and authenticate if ticket is good
     identity_id = run_ticket_validation(

@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import logging, httplib, datetime
+import logging
+import datetime
+
+from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
@@ -45,7 +48,7 @@ class MachinesAPI(Resource):
         num_rows = args.get("rows") or 100
         query = g.db.query(Machine)
         if args.get("realm", None) not in ("aws", "local"):
-            abort(httplib.BAD_REQUEST, description="realm must be 'aws' or 'local'")
+            abort(http_client.BAD_REQUEST, description="realm must be 'aws' or 'local'")
 
         if args["realm"] == "local":
             query = query.filter(Machine.realm == "local",
@@ -56,7 +59,7 @@ class MachinesAPI(Resource):
                 if not args[param]:
                     missing.append(param)
             if missing:
-                abort(httplib.BAD_REQUEST,
+                abort(http_client.BAD_REQUEST,
                       description="missing required parameters: %s" % ", ".join(missing))
             query = query.filter(Machine.realm == args["realm"],
                                  Machine.instance_name == args["instance_name"],
@@ -117,7 +120,7 @@ class MachinesAPI(Resource):
 
         return {"machine_id": machine_id,
                 "url": resource_uri
-                }, httplib.CREATED, response_header
+                }, http_client.CREATED, response_header
 
 
 class MachineAPI(Resource):
@@ -133,7 +136,7 @@ class MachineAPI(Resource):
         row = g.db.query(Machine).get(machine_id)
         if not row:
             log.warning("Requested a non-existant machine: %s", machine_id)
-            abort(httplib.NOT_FOUND, description="Machine not found")
+            abort(http_client.NOT_FOUND, description="Machine not found")
         record = row.as_dict()
         record["url"] = url_for("machines.entry", machine_id=machine_id, _external=True)
         record["servers_url"] = url_for("servers.list", machine_id=machine_id, _external=True)
@@ -160,7 +163,7 @@ class MachineAPI(Resource):
         args = request.json
         row = g.db.query(Machine).get(machine_id)
         if not row:
-            abort(httplib.NOT_FOUND, description="Machine not found")
+            abort(http_client.NOT_FOUND, description="Machine not found")
         last_heartbeat = row.heartbeat_date
         row.heartbeat_date = utcnow()
         if args.get("status"):

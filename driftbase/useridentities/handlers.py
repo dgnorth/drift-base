@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
+from six.moves import http_client
 
 from flask import Blueprint, url_for, g, request
 from flask import make_response, jsonify
@@ -32,10 +32,10 @@ class UserIdentitiesAPI(Resource):
         player_ids = args.get("player_id")
         names = args.get("name")
         if player_ids and names:
-            abort(httplib.BAD_REQUEST,
+            abort(http_client.BAD_REQUEST,
                   message="You cannot ask for 'name' and 'player_id'. Pick one.")
         if not any([player_ids, names]):
-            abort(httplib.BAD_REQUEST,
+            abort(http_client.BAD_REQUEST,
                   message="Endpoint expects 'name' or 'player_id'.")
 
         ret = []
@@ -81,17 +81,17 @@ class UserIdentitiesAPI(Resource):
             log.warn("User identity %s is already linked with user_id %s in the JWT. "
                      "Rejecting the switch",
                      my_identity_id, link_with_user_id)
-            abort(httplib.BAD_REQUEST, message="Identity is already associated with user %s" %
+            abort(http_client.BAD_REQUEST, message="Identity is already associated with user %s" %
                   link_with_user_id)
 
         # my_user_id is 0 if I am a game center guy without a user
 
         link_with_user = g.db.query(User).get(link_with_user_id)
         if not link_with_user:
-            abort(httplib.NOT_FOUND, message="User %s not found" % link_with_user_id)
+            abort(http_client.NOT_FOUND, message="User %s not found" % link_with_user_id)
 
         if link_with_user.status != "active":
-            abort(httplib.NOT_FOUND, message="User %s is not active" % link_with_user_id)
+            abort(http_client.NOT_FOUND, message="User %s is not active" % link_with_user_id)
 
         # Verify that link_with_user_id matches user_id in link_with_user_jti
         link_with_user_jti_payload = get_cached_token(link_with_user_jti)
@@ -99,17 +99,17 @@ class UserIdentitiesAPI(Resource):
             log.warn("Request for a user identity switch with user_id %s which does not "
                      "match user_id %s from JWT",
                      link_with_user_id, link_with_user_jti_payload["user_id"])
-            abort(httplib.BAD_REQUEST, message="User does not match JWT user")
+            abort(http_client.BAD_REQUEST, message="User does not match JWT user")
 
         link_with_player = g.db.query(CorePlayer) \
                                .filter(CorePlayer.user_id == link_with_user_id) \
                                .first()
 
         if not link_with_player:
-            abort(httplib.NOT_FOUND, message="Player for user %s not found" % link_with_user_id)
+            abort(http_client.NOT_FOUND, message="Player for user %s not found" % link_with_user_id)
 
         if link_with_player.status != "active":
-            abort(httplib.NOT_FOUND, message="Player for user %s is not active" % link_with_user_id)
+            abort(http_client.NOT_FOUND, message="Player for user %s is not active" % link_with_user_id)
 
         link_with_player_id = link_with_player.player_id
 
@@ -120,7 +120,7 @@ class UserIdentitiesAPI(Resource):
                 log.warn("User identity %s is already linked with user_id %s in the db. "
                          "Looks like the caller is trying to make an association again",
                          my_identity_id, link_with_user_id)
-                abort(httplib.BAD_REQUEST, message="Identity is already associated with user %s" %
+                abort(http_client.BAD_REQUEST, message="Identity is already associated with user %s" %
                       link_with_user_id)
 
             log.warn("Caller with identity %s already has a user_id %s associated with the "
@@ -144,7 +144,7 @@ class UserIdentitiesAPI(Resource):
                          my_identity_id, my_identity.identity_type, link_with_user_id,
                          other_identities[0].identity_id)
                 # Note: Temporary workaround for 0.7.x clients
-                status = httplib.FORBIDDEN
+                status = http_client.FORBIDDEN
                 ret = {
                     "code": "linked_account_already_claimed",
                     "message": "An identity of the same type is already associated with this user",
@@ -159,7 +159,7 @@ class UserIdentitiesAPI(Resource):
                 return make_response(jsonify(ret), status)
                 # !Temp hack done
 
-                abort(httplib.FORBIDDEN,
+                abort(http_client.FORBIDDEN,
                       code='linked_account_already_claimed',
                       description="An identity of the same type is "
                                   "already associated with this user"

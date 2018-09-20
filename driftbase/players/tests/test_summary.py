@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import httplib
 import copy
 
+from six.moves import http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
@@ -36,7 +36,7 @@ class SummaryTests(BaseCloudkitTest):
         self.assertEqual(r.json(), new_summary)
 
         # check that we get a 404 if the player doesn't exist
-        r = self.get("/players/999999/summary", expected_status_code=httplib.NOT_FOUND)
+        r = self.get("/players/999999/summary", expected_status_code=http_client.NOT_FOUND)
 
     def test_summary_put(self):
         self.make_player()

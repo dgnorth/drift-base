@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import httplib
+from six.moves import http_client
 from drift.systesthelper import DriftBaseTestCase
 
 
@@ -15,7 +15,7 @@ class MachineGroupsTest(DriftBaseTestCase):
             "description": "This is a description"
         }
         r = self.post(self.endpoints["machinegroups"], data=data,
-                      expected_status_code=httplib.CREATED)
+                      expected_status_code=http_client.CREATED)
         # ensure that the data made it in ok
         machinegroup_url = r.json()["url"]
         machinegroup_id = r.json()["machinegroup_id"]
@@ -34,7 +34,7 @@ class MachineGroupsTest(DriftBaseTestCase):
             "description": "This is a description"
         }
         r = self.post(self.endpoints["machinegroups"], data=data,
-                      expected_status_code=httplib.CREATED)
+                      expected_status_code=http_client.CREATED)
         # ensure that the data made it in ok
         machinegroup_url = r.json()["url"]
         runconfig_id = 1

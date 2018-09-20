@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import httplib
 import logging
 import uuid
 import datetime
+
+from six.moves import http_client
 
 from flask import Blueprint, request, g, abort, url_for
 from flask_restful import Api, Resource, reqparse
@@ -35,7 +36,7 @@ class FriendshipsAPI(Resource):
         List my friends
         """
         if player_id != current_user["player_id"]:
-            abort(httplib.FORBIDDEN, description="That is not your player!")
+            abort(http_client.FORBIDDEN, description="That is not your player!")
 
         left = g.db.query(Friendship.id, Friendship.player1_id, Friendship.player2_id).filter_by(player1_id=player_id, status="active")
         right = g.db.query(Friendship.id, Friendship.player2_id, Friendship.player1_id).filter_by(player2_id=player_id, status="active")
@@ -62,27 +63,27 @@ class FriendshipsAPI(Resource):
         New friend
         """
         if player_id != current_user["player_id"]:
-            abort(httplib.FORBIDDEN, description="That is not your player!")
+            abort(http_client.FORBIDDEN, description="That is not your player!")
 
         args = request.json
         invite_token=args.get("token")
 
         invite = g.db.query(FriendInvite).filter_by(token=invite_token).first()
         if invite is None:
-            abort(httplib.NOT_FOUND, description="The invite was not found!")
+            abort(http_client.NOT_FOUND, description="The invite was not found!")
 
         if invite.expiry_date < datetime.datetime.utcnow():
-            abort(httplib.FORBIDDEN, description="The invite has expired!")
+            abort(http_client.FORBIDDEN, description="The invite has expired!")
 
         if invite.deleted:
-            abort(httplib.FORBIDDEN, description="The invite has been deleted!")
+            abort(http_client.FORBIDDEN, description="The invite has been deleted!")
 
         friend_id = invite.issued_by_player_id
         left_id = player_id
         right_id = friend_id
 
         if left_id == right_id:
-            abort(httplib.FORBIDDEN, description="You cannot befriend yourself!")
+            abort(http_client.FORBIDDEN, description="You cannot befriend yourself!")
 
         if left_id > right_id:
             left_id, right_id = right_id, left_id
@@ -96,7 +97,7 @@ class FriendshipsAPI(Resource):
             if friendship.status == "deleted":
                 friendship.status = "active"
             else:
-                return {}, httplib.OK
+                return {}, http_client.OK
         else:
             friendship = Friendship(player1_id=left_id, player2_id=right_id)
             g.db.add(friendship)
@@ -109,7 +110,7 @@ class FriendshipsAPI(Resource):
                                         _external=True) + "/{queue}",
         }
 
-        return ret, httplib.CREATED
+        return ret, http_client.CREATED
 
 
 class FriendshipAPI(Resource):
@@ -122,17 +123,17 @@ class FriendshipAPI(Resource):
 
         friendship = g.db.query(Friendship).filter_by(id=friendship_id).first()
         if friendship is None:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         elif friendship.player1_id != player_id and friendship.player2_id != player_id:
-            abort(httplib.FORBIDDEN)
+            abort(http_client.FORBIDDEN)
         elif friendship.status == "deleted":
-            return {}, httplib.GONE
+            return {}, http_client.GONE
 
         if friendship:
             friendship.status = "deleted"
             g.db.commit()
 
-        return {}, httplib.NO_CONTENT
+        return {}, http_client.NO_CONTENT
 
 
 class FriendInvitesAPI(Resource):
@@ -164,7 +165,7 @@ class FriendInvitesAPI(Resource):
             "token":token,
             "expires":expires,
             "url":url_for("friendships.friendinvite", invite_id=invite.id, _external=True)
-        }, httplib.CREATED
+        }, http_client.CREATED
         return ret
 
 
@@ -178,15 +179,15 @@ class FriendInviteAPI(Resource):
 
         invite = g.db.query(FriendInvite).filter_by(id=invite_id).first()
         if not invite:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         elif invite.issued_by_player_id != player_id:
-            abort(httplib.FORBIDDEN)
+            abort(http_client.FORBIDDEN)
         elif invite.deleted:
-            return {}, httplib.GONE
+            return {}, http_client.GONE
 
         invite.deleted = True
         g.db.commit()
-        return {}, httplib.NO_CONTENT
+        return {}, http_client.NO_CONTENT
 
 
 def on_message(queue_name, message):

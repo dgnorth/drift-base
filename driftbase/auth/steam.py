@@ -1,6 +1,7 @@
 
 import logging
-import httplib
+
+from six.moves import http_client
 
 import requests
 from werkzeug.exceptions import Unauthorized
@@ -53,19 +54,19 @@ def validate_steam_ticket():
     # Get Steam authentication config
     steam_config = get_provider_config('steam')
     if not steam_config:
-        abort(httplib.SERVICE_UNAVAILABLE, description="Steam authentication not configured for current tenant")
+        abort(http_client.SERVICE_UNAVAILABLE, description="Steam authentication not configured for current tenant")
 
     # Find configuration for the requested Steam app id.
     appid = int(provider_details.get('appid'))
     if steam_config['appid'] != appid:
-        abort(httplib.SERVICE_UNAVAILABLE, description="Steam authentication not configured for app %s." % appid)
+        abort(http_client.SERVICE_UNAVAILABLE, description="Steam authentication not configured for app %s." % appid)
 
     # Look up our secret key or key url
     key_url = steam_config.get('key_url')
     key = steam_config.get('key')
     if not key_url and not key:
         log.error("Steam tickets cannot be validated. AUTH_STEAM_KEY_URL or AUTH_STEAM_KEY missing from config.")
-        abort(httplib.SERVICE_UNAVAILABLE, description="Steam tickets cannot be validated at the moment.")
+        abort(http_client.SERVICE_UNAVAILABLE, description="Steam tickets cannot be validated at the moment.")
 
     # Call validation and authenticate if ticket is good
     identity_id = run_ticket_validation(provider_details, key_url=key_url, key=key, appid=appid)

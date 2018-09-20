@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import collections
 import datetime
-import httplib
+from six.moves import http_client
 from mock import patch
 from drift.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseMatchTest
@@ -39,11 +39,11 @@ class MatchQueueTest(BaseMatchTest):
         matchqueue_url = self.endpoints["matchqueue"]
 
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         r = self.get(matchqueue_url)
         self.assertEquals(len(r.json()), 2)
@@ -56,7 +56,7 @@ class MatchQueueTest(BaseMatchTest):
         matchqueue_url = self.endpoints["matchqueue"]
 
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         resp = r.json()
         self.assertIn("match_id", resp)
         self.assertIn("match_url", resp)
@@ -68,13 +68,13 @@ class MatchQueueTest(BaseMatchTest):
         self.make_player()
         matchqueue_url = self.endpoints["matchqueue"]
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         resp = r.json()
         matchqueueplayer_url = resp["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url)
 
         self.delete(matchqueueplayer_url)
-        self.get(matchqueueplayer_url, expected_status_code=httplib.NOT_FOUND)
+        self.get(matchqueueplayer_url, expected_status_code=http_client.NOT_FOUND)
 
     def test_matchqueue_remove_matched(self):
         self.auth_service()
@@ -85,21 +85,21 @@ class MatchQueueTest(BaseMatchTest):
 
         matchqueue_url = self.endpoints["matchqueue"]
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         resp = r.json()
         other_matchqueueplayer_url = resp["matchqueueplayer_url"]
 
         self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         resp = r.json()
         matchqueueplayer_url = resp["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url)
         self.assertIsNotNone(r.json()["match_id"])
 
-        r = self.delete(matchqueueplayer_url, expected_status_code=httplib.BAD_REQUEST)
+        r = self.delete(matchqueueplayer_url, expected_status_code=http_client.BAD_REQUEST)
         self.assertEquals(r.json()["error"]["code"], "player_already_matched")
 
         # make sure the resource didn't get deleted anyway
@@ -120,7 +120,7 @@ class MatchQueueTest(BaseMatchTest):
         matchqueue_url = self.endpoints["matchqueue"]
 
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer1_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer1_url)
         self.assertEquals(r.json()["status"], "waiting")
@@ -129,7 +129,7 @@ class MatchQueueTest(BaseMatchTest):
 
         self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer2_url = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueue_url + "?status=matched")
@@ -160,7 +160,7 @@ class MatchQueueTest(BaseMatchTest):
             for j in xrange(2):
                 self.make_player()
                 data = {"player_id": self.player_id}
-                r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+                r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         r = self.get(matchqueue_url)
         # make sure everyone found a match and that no match has more than 2 people in it
@@ -181,7 +181,7 @@ class MatchQueueTest(BaseMatchTest):
         matchqueue_url = self.endpoints["matchqueue"]
 
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url = r.json()["matchqueueplayer_url"]
         # make the player go offline
 
@@ -191,13 +191,13 @@ class MatchQueueTest(BaseMatchTest):
             mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
 
             data = {"player_id": self.player_id}
-            r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+            r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
             # Both players should be removed from the match queue
             r = self.get(matchqueue_url)
             self.assertEquals(len(r.json()), 0)
 
-            r = self.get(matchqueueplayer_url, expected_status_code=httplib.NOT_FOUND)
+            r = self.get(matchqueueplayer_url, expected_status_code=http_client.NOT_FOUND)
 
     def test_matchqueue_lock_conflict(self):
         # create a match
@@ -212,12 +212,12 @@ class MatchQueueTest(BaseMatchTest):
 
         # now we mock out the mutex so that it reports that a locking conflict exists
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         with patch("driftbase.matchqueue.lock", side_effect=Exception('cannot lock')):
             self.make_player()
             data = {"player_id": self.player_id}
 
-            r = self.post(matchqueue_url, data=data, expected_status_code=httplib.BAD_REQUEST)
+            r = self.post(matchqueue_url, data=data, expected_status_code=http_client.BAD_REQUEST)
 
             # we should get a 400 error back and the only guy in the match queue should
             # be the first one
@@ -252,7 +252,7 @@ class MatchQueueTest(BaseMatchTest):
         # add two players to the queue
         player_a = self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url)
         self.assertEquals(r.json()["status"], "waiting")
@@ -261,7 +261,7 @@ class MatchQueueTest(BaseMatchTest):
 
         player_b = self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         # A and B are now matched
@@ -277,7 +277,7 @@ class MatchQueueTest(BaseMatchTest):
         # Add player C to the queue who is matched with no one
         player_c = self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url_c)
         self.assertEquals(r.json()["status"], "waiting")
@@ -286,7 +286,7 @@ class MatchQueueTest(BaseMatchTest):
         # Now A screws everything up by joining again
         self.make_player(player_a)
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url)
         self.assertEquals(r.json()["status"], "waiting")
@@ -296,7 +296,7 @@ class MatchQueueTest(BaseMatchTest):
         # Make sure B is no longer waiting or matched in any match
         self.make_player(player_b)
         matchqueue_url = self.endpoints["matchqueue"]
-        r = self.get(matchqueueplayer_url_b, expected_status_code=httplib.NOT_FOUND)
+        r = self.get(matchqueueplayer_url_b, expected_status_code=http_client.NOT_FOUND)
 
         # Make sure C is unaffected
         r = self.get(matchqueueplayer_url_c)
@@ -306,7 +306,7 @@ class MatchQueueTest(BaseMatchTest):
         # Add player D to the queue who is matched with no one because he has a different ref
         self.make_player()
         data = {"player_id": self.player_id, "ref": "something/else"}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_d = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url_c)
         self.assertEquals(r.json()["status"], "waiting")
@@ -315,7 +315,7 @@ class MatchQueueTest(BaseMatchTest):
         # Player C rejoins and is usurped but other players should be unaffected
         self.make_player(player_c)
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         r = self.get(matchqueueplayer_url_d)
         self.assertEquals(r.json()["status"], "waiting")
@@ -331,12 +331,12 @@ class MatchQueueTest(BaseMatchTest):
         # add two players, not caring about placement
         self.make_player()
         data = {"player_id": self.player_id, "placement": ""}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_a = r.json()["matchqueueplayer_url"]
 
         self.make_player()
         data = {"player_id": self.player_id, "placement": ""}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
@@ -356,12 +356,12 @@ class MatchQueueTest(BaseMatchTest):
         # the other one wanting another placement
         self.make_player()
         data = {"player_id": self.player_id, "placement": ""}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_a = r.json()["matchqueueplayer_url"]
 
         self.make_player()
         data = {"player_id": self.player_id, "placement": "somethingelse"}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
@@ -374,7 +374,7 @@ class MatchQueueTest(BaseMatchTest):
         # matched up with player_a but player_b is still waiting
         self.make_player()
         data = {"player_id": self.player_id, "placement": "placement"}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
@@ -398,12 +398,12 @@ class MatchQueueTest(BaseMatchTest):
         # add two players, one not caring about ref but the other one wanting another ref
         self.make_player()
         data = {"player_id": self.player_id, "ref": ""}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_a = r.json()["matchqueueplayer_url"]
 
         self.make_player()
         data = {"player_id": self.player_id, "ref": "somethingelse"}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
@@ -416,7 +416,7 @@ class MatchQueueTest(BaseMatchTest):
         # player_a but player_b is still waiting
         self.make_player()
         data = {"player_id": self.player_id, "ref": "test/testing"}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
@@ -440,12 +440,12 @@ class MatchQueueTest(BaseMatchTest):
         # add two players, one not caring about ref but the other one wanting another ref
         self.make_player()
         data = {"player_id": self.player_id, "ref": "", "placement": ""}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_a = r.json()["matchqueueplayer_url"]
 
         self.make_player()
         data = {"player_id": self.player_id, "ref": "somethingelse", "placement": ""}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
@@ -458,7 +458,7 @@ class MatchQueueTest(BaseMatchTest):
         # but player_b is still waiting
         self.make_player()
         data = {"player_id": self.player_id, "ref": "test/testing", "placement": "placement"}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
@@ -485,7 +485,7 @@ class MatchQueueTest(BaseMatchTest):
         token = uuid_string()
 
         data = {"player_id": self.player_id, "token": token}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer1_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer1_url)
         self.assertEquals(r.json()["status"], "waiting")
@@ -495,18 +495,18 @@ class MatchQueueTest(BaseMatchTest):
         # add a new player who is using a different token
         self.make_player()
         data = {"player_id": self.player_id, "token": uuid_string()}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_anothertoken_url = r.json()["matchqueueplayer_url"]
 
         # add a new player who is using no token
         self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_notoken_url = r.json()["matchqueueplayer_url"]
 
         self.make_player()
         data = {"player_id": self.player_id, "token": token}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer2_url = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueue_url + "?status=matched")
@@ -544,7 +544,7 @@ class MatchQueueTest(BaseMatchTest):
         matchqueue_url = self.endpoints["matchqueue"]
 
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer1_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer1_url)
         self.assertEquals(r.json()["status"], "waiting")
@@ -553,7 +553,7 @@ class MatchQueueTest(BaseMatchTest):
 
         self.make_player()
         data = {"player_id": self.player_id}
-        r = self.post(matchqueue_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer2_url = r.json()["matchqueueplayer_url"]
 
         # before we create the match both players should be 'waiting'

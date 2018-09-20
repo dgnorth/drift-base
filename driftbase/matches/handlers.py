@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import logging, httplib, datetime
+import datetime
+
+from six iport http_client
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
@@ -221,7 +223,7 @@ class MatchesAPI(Resource):
         return {"match_id": match_id,
                 "url": resource_uri,
                 "players_url": players_resource_uri,
-                }, httplib.CREATED, response_header
+                }, http_client.CREATED, response_header
 
 
 class MatchAPI(Resource):
@@ -237,7 +239,7 @@ class MatchAPI(Resource):
         """
         match = g.db.query(Match).get(match_id)
         if not match:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         ret = match.as_dict()
         ret["url"] = url_for("matches.entry", match_id=match_id, _external=True)
@@ -304,11 +306,11 @@ class MatchAPI(Resource):
         args = request.json
         match = g.db.query(Match).get(match_id)
         if not match:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         new_status = args.get("status")
         if match.status == "completed":
             log.warning("Trying to update a completed battle %d. Ignoring update", match_id)
-            abort(httplib.BAD_REQUEST, description="Battle has already been completed.")
+            abort(http_client.BAD_REQUEST, description="Battle has already been completed.")
 
         if match.status != new_status:
             log.info("Changing status of match %s from '%s' to '%s'",
@@ -334,7 +336,7 @@ class MatchAPI(Resource):
 
         log.info("Match %s has been updated.", match_id)
 
-        return ret, httplib.OK, response_header
+        return ret, http_client.OK, response_header
 
 
 class MatchTeamsAPI(Resource):
@@ -384,7 +386,7 @@ class MatchTeamsAPI(Resource):
 
         return {"team_id": team_id,
                 "url": resource_uri,
-                }, httplib.CREATED, response_header
+                }, http_client.CREATED, response_header
 
 
 class MatchTeamAPI(Resource):
@@ -398,7 +400,7 @@ class MatchTeamAPI(Resource):
                              MatchTeam.team_id == team_id)
         row = query.first()
         if not row:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         ret = row.as_dict()
         ret["url"] = url_for("matches.team", match_id=match_id, team_id=row.team_id, _external=True)
@@ -429,7 +431,7 @@ class MatchTeamAPI(Resource):
         args = request.json
         team = g.db.query(MatchTeam).get(team_id)
         if not team:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         for arg in args:
             setattr(team, arg, args[arg])
         g.db.commit()
@@ -476,24 +478,24 @@ class MatchPlayersAPI(Resource):
 
         match = g.db.query(Match).get(match_id)
         if not match:
-            abort(httplib.NOT_FOUND, description="Match not found")
+            abort(http_client.NOT_FOUND, description="Match not found")
 
         if match.status == "completed":
-            abort(httplib.BAD_REQUEST, description="You cannot add a player to a completed battle")
+            abort(http_client.BAD_REQUEST, description="You cannot add a player to a completed battle")
 
         num_players = g.db.query(MatchPlayer) \
             .filter(MatchPlayer.match_id == match.match_id,
                     MatchPlayer.status.in_(["active"])) \
             .count()
         if num_players >= match.max_players:
-            abort(httplib.BAD_REQUEST, description="Match is full")
+            abort(http_client.BAD_REQUEST, description="Match is full")
 
         if team_id:
             team = g.db.query(MatchTeam).get(team_id)
             if not team:
-                abort(httplib.NOT_FOUND, description="Team not found")
+                abort(http_client.NOT_FOUND, description="Team not found")
             if team.match_id != match_id:
-                abort(httplib.BAD_REQUEST,
+                abort(http_client.BAD_REQUEST,
                       description="Team %s is not in match %s" % (team_id, match_id))
 
         match_player = g.db.query(MatchPlayer) \
@@ -535,7 +537,7 @@ class MatchPlayersAPI(Resource):
                 "player_id": player_id,
                 "team_id": team_id,
                 "url": resource_uri,
-                }, httplib.CREATED, response_header
+                }, http_client.CREATED, response_header
 
 
 class MatchPlayerAPI(Resource):
@@ -550,7 +552,7 @@ class MatchPlayerAPI(Resource):
                      .filter(MatchPlayer.match_id == match_id, MatchPlayer.player_id == player_id) \
                      .first()
         if not player:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         ret = player.as_dict()
         ret["team_url"] = None
@@ -570,20 +572,20 @@ class MatchPlayerAPI(Resource):
                                    MatchPlayer.player_id == player_id) \
                            .first()
         if not match_player:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         if match_player.status != "active":
-            abort(httplib.BAD_REQUEST, description="Player status must be active, not '%s'" %
+            abort(http_client.BAD_REQUEST, description="Player status must be active, not '%s'" %
                   match_player.status)
 
         match = g.db.query(Match).get(match_id)
         if not match:
-            abort(httplib.NOT_FOUND, description="Match not found")
+            abort(http_client.NOT_FOUND, description="Match not found")
 
         if match.status == "completed":
             log.warning("Attempting to remove player %s from battle %s which has already completed",
                         player_id, match_id)
-            abort(httplib.BAD_REQUEST,
+            abort(http_client.BAD_REQUEST,
                   description="You cannot remove a player from a completed match")
 
         team_id = match_player.team_id

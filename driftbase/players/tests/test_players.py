@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import httplib
 import datetime
+from six.moves import http_client
 from mock import patch
 
 from drift.systesthelper import uuid_string, big_number
@@ -67,18 +67,18 @@ class PlayersTest(BaseCloudkitTest):
 
         # Let's not find a particular player
         self.get(self.endpoints["players"] + "/{}".format(big_number),
-                 expected_status_code=httplib.NOT_FOUND)
+                 expected_status_code=http_client.NOT_FOUND)
 
     def test_change_name(self):
         self.auth()
         player_url = self.endpoints["my_player"]
         r = self.get(player_url)
         old_name = r.json()["player_name"]
-        self.patch(player_url, data={"name": ""}, expected_status_code=httplib.METHOD_NOT_ALLOWED)
+        self.patch(player_url, data={"name": ""}, expected_status_code=http_client.METHOD_NOT_ALLOWED)
         self.patch(player_url, data={"name": "a" * 100},
-                   expected_status_code=httplib.METHOD_NOT_ALLOWED)
+                   expected_status_code=http_client.METHOD_NOT_ALLOWED)
         self.patch(self.endpoints["players"] + "/9999999", data={"name": "a" * 100},
-                   expected_status_code=httplib.METHOD_NOT_ALLOWED)
+                   expected_status_code=http_client.METHOD_NOT_ALLOWED)
 
         self.assertEqual(self.get(player_url).json()["player_name"], old_name)
 

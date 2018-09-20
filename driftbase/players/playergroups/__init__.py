@@ -2,7 +2,7 @@
 
 import json
 import re
-import httplib
+from six.moves import http_client
 
 from flask import g
 from flask_restful import abort
@@ -24,7 +24,7 @@ def get_playergroup(group_name, player_id=None):
     if pg:
         return json.loads(pg)
     else:
-        abort(httplib.NOT_FOUND,
+        abort(http_client.NOT_FOUND,
               message="No player group named '%s' exists for player %s." % (group_name, player_id))
 
 
@@ -51,7 +51,7 @@ def _get_playergroup_key(group_name, player_id):
     """Returns redis key for player group. Throw exception if group name is invalid."""
     # Verify group name
     if not re.match(PLAYER_GROUP_NAME_REGEX, group_name):
-        abort(httplib.BAD_REQUEST,
+        abort(http_client.BAD_REQUEST,
               message="'group_name' must match regex '{}'".format(PLAYER_GROUP_NAME_REGEX))
 
     key = "playergroup:{}.{}".format(player_id, group_name)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
+from six.moves import http_client
 
 from flask import Blueprint, url_for, request, g
 from flask_restful import Api, Resource, abort
@@ -62,7 +62,7 @@ class GameStateAPI(Resource):
         if gamestates.count() == 0:
             msg = "Gamestate '%s' for player %s not found" % (namespace, player_id)
             log.info(msg)
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         elif gamestates.count() > 1:
             raise RuntimeError("Player %s has %s game states with namespace '%s'" %
@@ -103,7 +103,7 @@ class GameStateAPI(Resource):
                 # are acked before sending up the new state
                 msg = "Journal entry %s for player %s not found!" % (journal_id, player_id)
                 log.warning(msg)
-                return json_response(msg, httplib.BAD_REQUEST)
+                return json_response(msg, http_client.BAD_REQUEST)
 
         gamestate = g.db.query(GameState)\
             .filter(GameState.player_id == player_id, GameState.namespace == namespace) \
@@ -168,7 +168,7 @@ class GameStateHistoryListAPI(Resource):
                            GameStateHistory.namespace == namespace) \
                    .order_by(-GameStateHistory.gamestatehistory_id)
         if not rows:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         ret = []
         for row in rows:
             entry = {
@@ -194,7 +194,7 @@ class GameStateHistoryEntryAPI(Resource):
                                     GameStateHistory.gamestatehistory_id == gamestatehistory_id) \
                             .first()
         if not row_gamestate:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         ret = row_gamestate.as_dict()
         return ret
 

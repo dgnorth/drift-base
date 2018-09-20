@@ -2,7 +2,7 @@
 """
     Utilities functions assisting the system tests
 """
-import httplib
+from six.moves import http_client
 from drift.systesthelper import uuid_string, DriftBaseTestCase
 
 
@@ -25,7 +25,7 @@ class BaseCloudkitTest(DriftBaseTestCase):
             "app_guid": "app_guid",
             "version": "version"
         }
-        r = self.post(clients_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_url, data=data, expected_status_code=http_client.CREATED)
         new_jti = r.json()["jti"]
         self.headers["Authorization"] = "JTI %s" % new_jti
         r = self.get("/")
@@ -45,7 +45,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "instance_id": "instance_id",
                 "public_ip": "8.8.8.8",
                 }
-        resp = self.post("/machines", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
         return resp.json()
@@ -68,7 +68,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "details": {"details": "yes"},
                 "ref": "test/testing",
                 }
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         return resp.json()
 
     def _create_match(self, server_id=None, **kwargs):
@@ -86,7 +86,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "max_players": 2,
                 }
         data.update(**kwargs)
-        resp = self.post("/matches", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
         resp = self.get(resp.json()["url"])
         return resp.json()
 

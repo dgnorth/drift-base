@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-import httplib
 import json
 import datetime
+
+from six.moves import http_client
 from mock import patch
+
 from drift.systesthelper import DriftBaseTestCase
 
 
@@ -26,7 +28,7 @@ class ClientsTest(DriftBaseTestCase):
             "app_guid": "app_guid",
             "version": "version"
         }
-        r = self.post(clients_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_url, data=data, expected_status_code=http_client.CREATED)
         client_id = r.json()["client_id"]
         self.headers["Authorization"] = "JTI %s" % r.json()["jti"]
 
@@ -47,7 +49,7 @@ class ClientsTest(DriftBaseTestCase):
             "version": "version"
 
         }
-        r = self.post(clients_uri, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_uri, data=data, expected_status_code=http_client.CREATED)
         client_uri = r.json()["url"]
         r = self.get(client_uri)
         self.assertEqual(r.json()["num_heartbeats"], 1)
@@ -56,7 +58,7 @@ class ClientsTest(DriftBaseTestCase):
 
         with patch("driftbase.clients.handlers.utcnow") as mock_date:
             mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
-            r = self.put(client_uri, expected_status_code=httplib.NOT_FOUND)
+            r = self.put(client_uri, expected_status_code=http_client.NOT_FOUND)
 
     def test_platform(self):
         self.auth()
@@ -72,7 +74,7 @@ class ClientsTest(DriftBaseTestCase):
             "platform_version": platform_version,
             "platform_info": platform_info,
         }
-        r = self.post(clients_uri, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_uri, data=data, expected_status_code=http_client.CREATED)
         client_url = r.json()["url"]
         r = self.get(client_url)
         self.assertEqual(r.json()["platform_info"]["memory"], "stuff")
@@ -92,7 +94,7 @@ class ClientsTest(DriftBaseTestCase):
             "platform_version": platform_version,
             "platform_info": json.dumps(platform_info),
         }
-        r = self.post(clients_uri, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_uri, data=data, expected_status_code=http_client.CREATED)
         # update our authorization to a client session
         jti = r.json()["jti"]
         self.headers["Authorization"] = "JTI %s" % jti
@@ -101,18 +103,18 @@ class ClientsTest(DriftBaseTestCase):
         r = self.get(self.endpoints["players"])
 
         # Register a new client session but do not update the auth headers
-        r = self.post(clients_uri, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_uri, data=data, expected_status_code=http_client.CREATED)
         new_jti = r.json()["jti"]
 
         # Our old session no longer has access to the players endpoint
-        r = self.get(self.endpoints["players"], expected_status_code=httplib.FORBIDDEN)
+        r = self.get(self.endpoints["players"], expected_status_code=http_client.FORBIDDEN)
         self.assertIn("error", r.json())
         self.assertIn("client_session_terminated", r.json()["error"]["code"])
         self.assertIn("usurped", r.json()["error"]["reason"])
 
         # Our new session has access to the endpoint
         self.headers["Authorization"] = "JTI %s" % new_jti
-        r = self.get(self.endpoints["players"], expected_status_code=httplib.OK)
+        r = self.get(self.endpoints["players"], expected_status_code=http_client.OK)
 
     def test_clients_delete(self):
         self.auth()
@@ -128,7 +130,7 @@ class ClientsTest(DriftBaseTestCase):
             "platform_version": platform_version,
             "platform_info": json.dumps(platform_info),
         }
-        r = self.post(clients_uri, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_uri, data=data, expected_status_code=http_client.CREATED)
         client_url = r.json()["url"]
 
         # update our authorization to a client session
@@ -139,4 +141,4 @@ class ClientsTest(DriftBaseTestCase):
         self.assertEquals(client_url, r.json()["endpoints"]["my_client"])
 
         self.delete(client_url)
-        self.get(client_url, expected_status_code=httplib.NOT_FOUND)
+        self.get(client_url, expected_status_code=http_client.NOT_FOUND)

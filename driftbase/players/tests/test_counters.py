@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import httplib
 import unittest
 import datetime
+
+from six.moves import http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant, service_username, service_password, local_password, uuid_string, DriftBaseTestCase, big_number
 
@@ -55,7 +56,7 @@ class CountersTests(DriftBaseTestCase):
 
         # First fail with no service role
         self.auth(username=uuid_string())
-        r = self.patch(counter_url, data=data, expected_status_code=httplib.UNAUTHORIZED)
+        r = self.patch(counter_url, data=data, expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("Role 'service' is required for updating other players counters",
                       r.json()["error"]["description"])
         # Log on as a service and retry

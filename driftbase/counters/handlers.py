@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
 import collections
 import time
+
+from six.moves import http_client
 
 from flask import Blueprint, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
@@ -40,7 +41,7 @@ class CountersApi(Resource):
                 "url": url_for("counters.entry", counter_id=s.counter_id, _external=True)
             })
 
-        resp = api.make_response(ret, httplib.OK)
+        resp = api.make_response(ret, http_client.OK)
         resp.cache_control.max_age = 60
         return resp
 
@@ -145,7 +146,7 @@ class CounterApi(Resource):
             }
             ret.append(entry)
 
-        resp = api.make_response(ret, httplib.OK)
+        resp = api.make_response(ret, http_client.OK)
         resp.cache_control.max_age = 60
         log.info("Returning counters in %.2fsec", time.time() - start_time)
 

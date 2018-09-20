@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import datetime, httplib
+import datetime
+
+from six.moves import http_client
 
 from flask import Blueprint, url_for, request, g
 from flask_restful import Api, Resource, abort
@@ -68,7 +70,7 @@ class TicketsEndpoint(Resource):
             "Location": ticket_url,
         }
 
-        return ret, httplib.CREATED, response_header
+        return ret, http_client.CREATED, response_header
 
 
 def get_ticket(player_id, ticket_id):
@@ -87,7 +89,7 @@ class TicketEndpoint(Resource):
         the current player against the other player
         """
         if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
 
         ticket = get_ticket(player_id, ticket_id)
         if not ticket:
@@ -109,7 +111,7 @@ class TicketEndpoint(Resource):
         journal_id = args.get("journal_id")
 
         if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
 
         ticket = get_ticket(player_id, ticket_id)
         if not ticket:
