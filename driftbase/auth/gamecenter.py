@@ -95,7 +95,7 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
 
     # Check signature
     salt_decoded = base64.b64decode(gc_token["salt"])
-    payload = ""
+    payload = b""
     payload += gc_token["player_id"].encode('UTF-8')
     payload += gc_token["app_bundle_id"].encode('UTF-8')
     payload += struct.pack('>Q', int(gc_token["timestamp"]))
