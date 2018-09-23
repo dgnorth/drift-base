@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import datetime
+import logging
 
-from six iport http_client
+from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort

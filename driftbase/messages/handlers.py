@@ -14,7 +14,7 @@ import copy
 import operator
 import sys
 
-from six import http_cient
+from six.moves import http_client
 
 from flask import Blueprint, g, url_for, request, stream_with_context, Response
 from flask_restful import Api, Resource, abort, reqparse
