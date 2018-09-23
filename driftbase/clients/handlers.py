@@ -11,6 +11,7 @@
 
 import logging, datetime, json
 
+import six
 from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g, current_app
@@ -38,7 +39,7 @@ def utcnow():
 class ClientsAPI(Resource):
     # GET args
     get_args = reqparse.RequestParser()
-    get_args.add_argument("name", type=unicode)
+    get_args.add_argument("name", type=six.text_type)
     get_args.add_argument("player_id", type=int)
 
     def get(self):

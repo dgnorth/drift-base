@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
+
+import six
 from six.moves import http_client
 
 from flask import Blueprint, url_for, g, request
@@ -21,7 +23,7 @@ api = Api(bp)
 class UserIdentitiesAPI(Resource):
 
     get_args = reqparse.RequestParser()
-    get_args.add_argument("name", type=unicode, action='append')
+    get_args.add_argument("name", type=six.text_type, action='append')
     get_args.add_argument("player_id", type=int, action='append')
 
     def get(self):
