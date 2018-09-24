@@ -292,7 +292,7 @@ class MatchesTest(BaseMatchTest):
 
     def test_max_players(self):
         player_ids = []
-        for i in xrange(3):
+        for i in range(3):
             self.auth(username="user_%s" % i)
             player_ids.append(self.player_id)
 

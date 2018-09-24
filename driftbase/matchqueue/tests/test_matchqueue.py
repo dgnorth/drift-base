@@ -153,11 +153,11 @@ class MatchQueueTest(BaseMatchTest):
         self.clear_queue()
         matchqueue_url = self.endpoints["matchqueue"]
 
-        for i in xrange(3):
+        for i in range(3):
             self.auth_service()
             self._create_match()
             # make 2 players for each match
-            for j in xrange(2):
+            for j in range(2):
                 self.make_player()
                 data = {"player_id": self.player_id}
                 r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)

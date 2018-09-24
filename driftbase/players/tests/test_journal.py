@@ -138,7 +138,7 @@ class JournalTests(DriftBaseTestCase):
         # a GET to /journals except if asked for
         journal_id = rollback_entry["journal_id"]
         rollback_to_journal_id = journal_id
-        for i in xrange(10):
+        for i in range(10):
             data = [self.get_journal_entry(journal_id=journal_id + 1)]
             r = self.post(self.journal_url, data, expected_status_code=http_client.CREATED)
             journal_id = r.json()[0]["journal_id"]
@@ -204,7 +204,7 @@ class JournalTests(DriftBaseTestCase):
 
         # write multiple journal entries in the same call
         data = []
-        for i in xrange(1, NUM_ENTRIES + 1):
+        for i in range(1, NUM_ENTRIES + 1):
             data.append(self.get_journal_entry("multitest.%s" % i, i))
 
         r = self.post(self.journal_url, data,

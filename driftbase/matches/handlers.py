@@ -199,7 +199,7 @@ class MatchesAPI(Resource):
         match_id = match.match_id
 
         if args.get("num_teams"):
-            for i in xrange(args.get("num_teams")):
+            for i in range(args.get("num_teams")):
                 team = MatchTeam(match_id=match_id,
                                  name="Team %s" % (i + 1)
                                  )

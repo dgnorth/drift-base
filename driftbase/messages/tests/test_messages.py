@@ -175,9 +175,9 @@ class MessagesTest(BaseCloudkitTest):
         player_sender = self.make_player()
         num_queues = 5
         num_messages_per_queue = 3
-        for i in xrange(num_queues):
+        for i in range(num_queues):
             messagequeue_url = messagequeue_url_template.format(queue="testqueue-%s" % i)
-            for j in xrange(num_messages_per_queue):
+            for j in range(num_messages_per_queue):
                 data = {"message": {"Hello": "World", "queuenumber": i, "messagenumber": j}}
                 r = self.post(messagequeue_url, data=data)
                 self.assertIn("payload", r.json())

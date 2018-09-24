@@ -45,7 +45,7 @@ class CountersTest(DriftBaseTestCase):
         name = "my_leaderboard_counter"
         num_players = 5
         players = []
-        for i in xrange(num_players):
+        for i in range(num_players):
             self.auth(username=uuid_string())
             player_url = self.endpoints["my_player"]
             self.patch(player_url, {"name": "Player %s" % i})
