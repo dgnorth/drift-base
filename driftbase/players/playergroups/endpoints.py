@@ -95,7 +95,7 @@ class PlayerGroupsAPI(Resource):
             }
             for user_row, player_row in rows
         }
-        player_group = player_group.values()
+        player_group = list(player_group.values())
         payload = {
             "group_name": group_name,
             "player_id": player_id,
