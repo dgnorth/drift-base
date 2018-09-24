@@ -98,7 +98,7 @@ def get_date_time_for_period(period, timestamp):
         date_time = date_time.replace(second=0)
     elif period == 'second':
         # Note: second is wrongly named and should be 10seconds
-        date_time = date_time.replace(second=10 * (date_time.second / 10))
+        date_time = date_time.replace(second=10 * int(date_time.second / 10))
     return date_time
 
 
