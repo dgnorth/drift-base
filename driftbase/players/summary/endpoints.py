@@ -52,7 +52,7 @@ class Summary(Resource):
 
         new_summary = []
         updated_ids = set()
-        for name, val in request.json.iteritems():
+        for name, val in request.json.items():
             for row in old_summary:
                 if row.name == name:
                     updated_ids.add(row.id)
@@ -77,7 +77,7 @@ class Summary(Resource):
         new_summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id).all()
 
         request_txt = ""
-        for k, v in request.json.iteritems():
+        for k, v in request.json.items():
             request_txt += "%s = %s, " % (k, v)
         if request_txt:
             request_txt = request_txt[:-2]
@@ -109,7 +109,7 @@ class Summary(Resource):
             old_summary_txt += "%s = %s, " % (row.name, row.value)
 
         changes = {}
-        for name, val in request.json.iteritems():
+        for name, val in request.json.items():
             for row in old_summary:
                 if row.name == name:
                     if val != row.value:
@@ -133,7 +133,7 @@ class Summary(Resource):
 
         log_event(player_id, "event.player.summarychanged", changes)
         request_txt = ""
-        for k, v in request.json.iteritems():
+        for k, v in request.json.items():
             request_txt += "%s = %s, " % (k, v)
         if request_txt:
             request_txt = request_txt[:-2]

@@ -191,7 +191,7 @@ class MessagesTest(BaseCloudkitTest):
         r = self.get(messages_url)
 
         self.assertEqual(len(r.json()), num_queues)
-        for queue, messages in r.json().iteritems():
+        for queue, messages in r.json().items():
             self.assertEqual(len(messages), num_messages_per_queue)
 
     def test_messages_longpoll(self):

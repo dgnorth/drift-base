@@ -274,7 +274,7 @@ class CountersApi(Resource):
                 g.redis.incr(key, value, expire=ex)
             log.info("Added %s to redis in %.2fsec", name, time.time() - redis_start_time)
 
-        for counter_name, counter_info in counters.iteritems():
+        for counter_name, counter_info in counters.items():
             counter_id = get_or_create_counter_id(counter_name, counter_info["counter_type"])
             player_counter = get_or_create_player_counter(counter_id, player_id)
             counter_info["player_counter"] = player_counter

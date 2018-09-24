@@ -83,14 +83,14 @@ def get_engines():
         this_conn_string = format_connection_string(conn_info)
         echo(this_conn_string)
 
-        if this_conn_string not in [e["url"] for e in engines.itervalues()]:
+        if this_conn_string not in [e["url"] for e in engines.values()]:
             engines["{}.{}".format(tenant_config["tier_name"],
                                    tenant_config["tenant_name"])] = rec = {"url": this_conn_string}
 
     # quick and dirty connectivity test before trying to upgrade all db's
     echo("Checking connectivity...")
     db_servers = set()
-    for key, engine in engines.iteritems():
+    for key, engine in engines.items():
         server = engine["url"].split("/")
         db_servers.add(server[2].split("@")[1].lower())
     err = False

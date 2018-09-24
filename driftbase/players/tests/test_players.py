@@ -101,14 +101,14 @@ class PlayersTest(BaseCloudkitTest):
         # Verify that my_xxx endpoints are populated after authentication
         r = self.get("/")
         endpoints = r.json()["endpoints"]
-        for name, endpoint in endpoints.iteritems():
+        for name, endpoint in endpoints.items():
             if name.startswith("my_"):
                 self.assertIsNone(endpoint)
 
         self.auth()
         r = self.get("/")
         endpoints = r.json()["endpoints"]
-        for name, endpoint in endpoints.iteritems():
+        for name, endpoint in endpoints.items():
             if name.startswith("my_") and name != "my_client":
                 self.assertIsNotNone(endpoint)
 

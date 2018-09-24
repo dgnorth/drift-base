@@ -21,7 +21,7 @@ class RunConfigsTest(DriftBaseTestCase):
         # ensure that the data made it in ok
         runconfig_url = r.json()["url"]
         r = self.get(runconfig_url)
-        for k, v in data.iteritems():
+        for k, v in data.items():
             self.assertEqual(v, r.json()[k])
 
         # you should not be able to create another run config with the same name

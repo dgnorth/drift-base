@@ -35,7 +35,7 @@ class CountersTests(DriftBaseTestCase):
         # verify that we have one value per period
         period_urls = r.json()[0]["periods"]
         value_per_period = {}
-        for period, url in period_urls.iteritems():
+        for period, url in period_urls.items():
             if period == "all":
                 continue
             r = self.get(url)
@@ -84,7 +84,7 @@ class CountersTests(DriftBaseTestCase):
         # verify that we have one value per period
         period_urls = r.json()[0]["periods"]
         value_per_period = {}
-        for period, url in period_urls.iteritems():
+        for period, url in period_urls.items():
             if period == "all":
                 continue
             r = self.get(url)
@@ -94,7 +94,7 @@ class CountersTests(DriftBaseTestCase):
         # Send in the same data again and verify that things have not changed
         # r = self.patch(counter_url, data=data)
 
-        # for period, url in period_urls.iteritems():
+        # for period, url in period_urls.items():
         #     if period == "all": continue
         #     r = self.get(url)
         #     self.assertTrue(len(r.json().values()) == 1)

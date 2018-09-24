@@ -93,7 +93,7 @@ class MachinesTest(DriftBaseTestCase):
         machine_id = resp.json()["machine_id"]
 
         qry = ""
-        for k, v in data.iteritems():
+        for k, v in data.items():
             qry += "%s=%s&" % (k, v)
         url = "/machines?%s" % qry
         resp = self.get(url)
