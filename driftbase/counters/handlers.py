@@ -4,6 +4,7 @@ import logging
 import collections
 import time
 
+import six
 from six.moves import http_client
 
 from flask import Blueprint, url_for, g
@@ -110,8 +111,8 @@ class CounterApi(Resource):
                 # find the name of this counter. We cache this locally for performance
                 try:
                     counter_name = counter_names[this_counter_id]
-                except:
-                    c = all_counters.get(unicode(this_counter_id), {})
+                except KeyError:
+                    c = all_counters.get(six.text_type(this_counter_id), {})
                     name = c.get("name", this_counter_id)
                     counter_names[this_counter_id] = name
                     counter_name = name
