@@ -21,7 +21,7 @@ class MachineGroupsTest(DriftBaseTestCase):
         machinegroup_id = r.json()["machinegroup_id"]
         r = self.get(machinegroup_url)
         for k, v in data.iteritems():
-            self.assertEquals(v, r.json()[k])
+            self.assertEqual(v, r.json()[k])
 
         r = self.get(self.endpoints["machinegroups"])
         self.assertTrue(len(r.json()) >= 1)
@@ -42,7 +42,7 @@ class MachineGroupsTest(DriftBaseTestCase):
         r = self.patch(machinegroup_url, data)
 
         r = self.get(machinegroup_url)
-        self.assertEquals(r.json()["runconfig_id"], runconfig_id)
+        self.assertEqual(r.json()["runconfig_id"], runconfig_id)
         # make sure the patch didn't screw up other data
         for k, v in data.iteritems():
-            self.assertEquals(v, r.json()[k])
+            self.assertEqual(v, r.json()[k])

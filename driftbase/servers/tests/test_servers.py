@@ -57,9 +57,9 @@ class ServersTest(DriftBaseTestCase):
         self.assertTrue(resp.json()["machine_id"] >= 200000001)
 
         resp = self.get(resp.json()["machine_url"])
-        self.assertEquals(resp.json()["realm"], "local")
-        self.assertEquals(resp.json()["instance_name"], instance_name)
-        self.assertEquals(resp.json()["placement"], placement)
+        self.assertEqual(resp.json()["realm"], "local")
+        self.assertEqual(resp.json()["instance_name"], instance_name)
+        self.assertEqual(resp.json()["placement"], placement)
 
         # create another server and ensure it ends up on the same machine
         resp = self.post("/servers", data={"status": "active",
@@ -68,7 +68,7 @@ class ServersTest(DriftBaseTestCase):
                          expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
-        self.assertEquals(resp.json()["machine_id"], machine_id)
+        self.assertEqual(resp.json()["machine_id"], machine_id)
 
     def _create_machine(self):
         data = {"realm": "aws",
@@ -112,8 +112,8 @@ class ServersTest(DriftBaseTestCase):
 
         resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_id = resp.json()["server_id"]
-        self.assertEquals(machine_id, resp.json()["machine_id"])
-        self.assertEquals(machine_url, resp.json()["machine_url"])
+        self.assertEqual(machine_id, resp.json()["machine_id"])
+        self.assertEqual(machine_url, resp.json()["machine_url"])
 
         # the new server should get returned
         resp = self.get("/servers?machine_id=%s" % machine_id)
@@ -123,7 +123,7 @@ class ServersTest(DriftBaseTestCase):
         # create another server and ensure they both show up
         resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         new_server_id = resp.json()["server_id"]
-        self.assertEquals(machine_id, resp.json()["machine_id"])
+        self.assertEqual(machine_id, resp.json()["machine_id"])
         resp = self.get("/servers?machine_id=%s" % machine_id)
         self.assertTrue(len(resp.json()) >= 2)
         self.assertIn(server_id, [s["server_id"] for s in resp.json()])
@@ -143,7 +143,7 @@ class ServersTest(DriftBaseTestCase):
         new_data["details"] = {"entirely_new_details": "yes"}
         self.put(url, data=new_data)
         resp = self.get(url)
-        self.assertEquals(resp.json()["details"].keys(), new_data["details"].keys())
+        self.assertEqual(resp.json()["details"].keys(), new_data["details"].keys())
 
     def test_server_heartbeat(self):
         self.auth_service()
@@ -152,14 +152,14 @@ class ServersTest(DriftBaseTestCase):
         resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
-        self.assertEquals(resp.json()["heartbeat_count"], 0)
+        self.assertEqual(resp.json()["heartbeat_count"], 0)
         heartbeat_date = resp.json()["heartbeat_date"]
         heartbeat_url = self.get(url).json()["heartbeat_url"]
         resp = self.put(heartbeat_url)
         self.assertIn("next_heartbeat_seconds", resp.json())
 
         resp = self.get(url)
-        self.assertEquals(resp.json()["heartbeat_count"], 1)
+        self.assertEqual(resp.json()["heartbeat_count"], 1)
         self.assertTrue(resp.json()["heartbeat_date"] > heartbeat_date)
 
     def test_newdaemoncommand(self):
@@ -191,16 +191,16 @@ class ServersTest(DriftBaseTestCase):
         command_url = resp.json()["url"]
 
         resp = self.get(command_url)
-        self.assertEquals(command, resp.json()["command"])
-        self.assertEquals(arguments, resp.json()["arguments"])
-        self.assertEquals("pending", resp.json()["status"])
+        self.assertEqual(command, resp.json()["command"])
+        self.assertEqual(arguments, resp.json()["arguments"])
+        self.assertEqual("pending", resp.json()["status"])
         self.assertIsNone(resp.json()["status_date"])
 
         resp = self.get(commands_url)
-        self.assertEquals(len(resp.json()), 2)
+        self.assertEqual(len(resp.json()), 2)
 
         resp = self.get(server_url)
-        self.assertEquals(len(resp.json()["pending_commands"]), 2)
+        self.assertEqual(len(resp.json()["pending_commands"]), 2)
 
     def test_setdaemoncommandstatus(self):
         """
@@ -222,17 +222,17 @@ class ServersTest(DriftBaseTestCase):
                          expected_status_code=http_client.CREATED)
         command_url = resp.json()["url"]
         details = {"important": "stuff"}
-        self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 1)
+        self.assertEqual(len(self.get(server_url).json()["pending_commands"]), 1)
         self.patch(command_url, {"status": "completed", "details": details})
-        self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 0)
+        self.assertEqual(len(self.get(server_url).json()["pending_commands"]), 0)
 
         # try switching status with put, should temporarily behave the same as patch
         self.put(command_url, {"status": "pending"})
-        self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 1)
+        self.assertEqual(len(self.get(server_url).json()["pending_commands"]), 1)
         self.put(command_url, {"status": "completed"})
-        self.assertEquals(len(self.get(server_url).json()["pending_commands"]), 0)
+        self.assertEqual(len(self.get(server_url).json()["pending_commands"]), 0)
 
         resp = self.get(command_url)
-        self.assertEquals("completed", resp.json()["status"])
+        self.assertEqual("completed", resp.json()["status"])
         self.assertIsNotNone(resp.json()["status_date"])
-        self.assertEquals(details, resp.json()["details"])
+        self.assertEqual(details, resp.json()["details"])

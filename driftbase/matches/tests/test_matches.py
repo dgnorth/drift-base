@@ -44,11 +44,11 @@ class MatchesTest(BaseMatchTest):
         server_id = match["server_id"]
 
         resp = self.get(match_url)
-        self.assertEquals(resp.json()["num_players"], 0)
-        self.assertEquals(resp.json()["teams"], [])
-        self.assertEquals(resp.json()["players"], [])
-        self.assertEquals(resp.json()["status"], "idle")
-        self.assertEquals(resp.json()["server_id"], server_id)
+        self.assertEqual(resp.json()["num_players"], 0)
+        self.assertEqual(resp.json()["teams"], [])
+        self.assertEqual(resp.json()["players"], [])
+        self.assertEqual(resp.json()["status"], "idle")
+        self.assertEqual(resp.json()["server_id"], server_id)
         self.assertIsNone(resp.json()["start_date"])
 
         # create a match with some predefined teams
@@ -61,7 +61,7 @@ class MatchesTest(BaseMatchTest):
                 }
         resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
         resp = self.get(resp.json()["url"])
-        self.assertEquals(len(resp.json()["teams"]), num_teams)
+        self.assertEqual(len(resp.json()["teams"]), num_teams)
 
     def test_create_team(self):
         self.auth_service()
@@ -76,7 +76,7 @@ class MatchesTest(BaseMatchTest):
 
         resp = self.get(team_url)
         self.assertTrue(isinstance(resp.json()["players"], list))
-        self.assertEquals(len(resp.json()["players"]), 0)
+        self.assertEqual(len(resp.json()["players"]), 0)
         resp = self.get("/matches/%s/teams/99999" % match_id,
                         expected_status_code=http_client.NOT_FOUND)
 
@@ -87,7 +87,7 @@ class MatchesTest(BaseMatchTest):
 
         resp = self.put(team_url, data={"name": new_name})
         resp = self.get(team_url)
-        self.assertEquals(resp.json()["name"], new_name)
+        self.assertEqual(resp.json()["name"], new_name)
 
     def test_add_player_to_match(self):
         self.auth()
@@ -113,7 +113,7 @@ class MatchesTest(BaseMatchTest):
         self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
 
         resp = self.get(match_url)
-        self.assertEquals(len(resp.json()["teams"]), 1)
+        self.assertEqual(len(resp.json()["teams"]), 1)
         self.assertIsNotNone(resp.json()["start_date"])
         self.assertEqual(resp.json()["num_players"], 1)
 
@@ -161,7 +161,7 @@ class MatchesTest(BaseMatchTest):
         self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
 
         resp = self.get(match_url)
-        self.assertEquals(len(resp.json()["teams"]), 1)
+        self.assertEqual(len(resp.json()["teams"]), 1)
         resp = self.get(teams_url)
         team_url = resp.json()[0]["url"]
         resp = self.get(team_url)
@@ -173,17 +173,17 @@ class MatchesTest(BaseMatchTest):
 
         resp = self.get(self.endpoints["active_matches"])
         players = resp.json()[0]["players"]
-        self.assertEquals(len(players), 2)
-        self.assertEquals(players[0]["player_id"], player_id)
+        self.assertEqual(len(players), 2)
+        self.assertEqual(players[0]["player_id"], player_id)
 
         resp = self.get(self.endpoints["active_matches"] + "?player_id=9999999&player_id=9999998")
-        self.assertEquals(len(resp.json()), 0)
+        self.assertEqual(len(resp.json()), 0)
 
         resp = self.get(self.endpoints["active_matches"] + "?player_id=9999999&player_id=%s" %
                         other_player_id)
-        self.assertEquals(len(resp.json()), 1)
+        self.assertEqual(len(resp.json()), 1)
         players = resp.json()[0]["players"]
-        self.assertEquals(players[1]["player_id"], other_player_id)
+        self.assertEqual(players[1]["player_id"], other_player_id)
 
     def players_by_status(self, players):
         ret = defaultdict(list)

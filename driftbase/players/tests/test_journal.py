@@ -150,13 +150,13 @@ class JournalTests(DriftBaseTestCase):
 
         # if we don't specify a condition the GET should ignore the deleted entries
         r = self.get(self.journal_url + "?rows=2")
-        self.assertEquals(r.json()[0]["journal_id"], rollback_entry["journal_id"])
-        self.assertEquals(r.json()[1]["journal_id"], rollback_entry["rollback_to_journal_id"])
+        self.assertEqual(r.json()[0]["journal_id"], rollback_entry["journal_id"])
+        self.assertEqual(r.json()[1]["journal_id"], rollback_entry["rollback_to_journal_id"])
 
         # we get back deleted entries if asking for them
         r = self.get(self.journal_url + "?rows=2&include_deleted=1")
-        self.assertEquals(r.json()[0]["journal_id"], rollback_entry["journal_id"])
-        self.assertEquals(r.json()[1]["journal_id"], rollback_entry["journal_id"] - 1)
+        self.assertEqual(r.json()[0]["journal_id"], rollback_entry["journal_id"])
+        self.assertEqual(r.json()[1]["journal_id"], rollback_entry["journal_id"] - 1)
 
     def test_journal_details(self):
         self.init_player()

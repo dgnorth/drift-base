@@ -46,7 +46,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         r = self.get(matchqueue_url)
-        self.assertEquals(len(r.json()), 2)
+        self.assertEqual(len(r.json()), 2)
         self.assertIsNone(r.json()[0]["match_id"])
         self.assertIsNone(r.json()[1]["match_id"])
 
@@ -100,7 +100,7 @@ class MatchQueueTest(BaseMatchTest):
         self.assertIsNotNone(r.json()["match_id"])
 
         r = self.delete(matchqueueplayer_url, expected_status_code=http_client.BAD_REQUEST)
-        self.assertEquals(r.json()["error"]["code"], "player_already_matched")
+        self.assertEqual(r.json()["error"]["code"], "player_already_matched")
 
         # make sure the resource didn't get deleted anyway
         r = self.get(matchqueueplayer_url)
@@ -123,7 +123,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer1_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer1_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
         self.assertIn('match_url', r.json())
 
@@ -133,13 +133,13 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer2_url = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueue_url + "?status=matched")
-        self.assertEquals(len(r.json()), 2)
-        self.assertEquals(r.json()[0]["match_id"], match["match_id"])
-        self.assertEquals(r.json()[1]["match_id"], match["match_id"])
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(r.json()[0]["match_id"], match["match_id"])
+        self.assertEqual(r.json()[1]["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer2_url)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
         self.assertIsNotNone(r.json()["ue4_connection_url"])
         self.assertIn("player_id=%s" % self.player_id, r.json()["ue4_connection_url"])
 
@@ -168,7 +168,7 @@ class MatchQueueTest(BaseMatchTest):
         for entry in r.json():
             self.assertIsNotNone(entry["match_id"])
             num_players_in_match[entry["match_id"]] += 1
-        self.assertEquals(sum(num_players_in_match.values()), len(num_players_in_match) * 2)
+        self.assertEqual(sum(num_players_in_match.values()), len(num_players_in_match) * 2)
 
     def test_matchqueue_playeroffline(self):
         # create a match
@@ -195,7 +195,7 @@ class MatchQueueTest(BaseMatchTest):
 
             # Both players should be removed from the match queue
             r = self.get(matchqueue_url)
-            self.assertEquals(len(r.json()), 0)
+            self.assertEqual(len(r.json()), 0)
 
             r = self.get(matchqueueplayer_url, expected_status_code=http_client.NOT_FOUND)
 
@@ -224,7 +224,7 @@ class MatchQueueTest(BaseMatchTest):
             self.assertIn("error processing the match queue", r.json()["error"]["description"])
             r = self.get(matchqueue_url)
             js = r.json()
-            self.assertEquals(len(js), 1)
+            self.assertEqual(len(js), 1)
             self.assertNotIn(self.player_id, [d["player_id"] for d in js])
             self.assertIn(other_player_id, [d["player_id"] for d in js])
 
@@ -255,7 +255,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
         self.assertIn('match_url', r.json())
 
@@ -266,13 +266,13 @@ class MatchQueueTest(BaseMatchTest):
 
         # A and B are now matched
         r = self.get(matchqueue_url + "?status=matched")
-        self.assertEquals(len(r.json()), 2)
-        self.assertEquals(r.json()[0]["match_id"], match["match_id"])
-        self.assertEquals(r.json()[1]["match_id"], match["match_id"])
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(r.json()[0]["match_id"], match["match_id"])
+        self.assertEqual(r.json()[1]["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer_url)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
         # Add player C to the queue who is matched with no one
         player_c = self.make_player()
@@ -280,7 +280,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url_c)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
 
         # Now A screws everything up by joining again
@@ -289,7 +289,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
         self.assertIn('match_url', r.json())
 
@@ -300,7 +300,7 @@ class MatchQueueTest(BaseMatchTest):
 
         # Make sure C is unaffected
         r = self.get(matchqueueplayer_url_c)
-        self.assertEquals(r.json()['status'], 'waiting')
+        self.assertEqual(r.json()['status'], 'waiting')
         self.assertIsNone(r.json()["match_id"])
 
         # Add player D to the queue who is matched with no one because he has a different ref
@@ -309,7 +309,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer_url_d = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer_url_c)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
 
         # Player C rejoins and is usurped but other players should be unaffected
@@ -318,7 +318,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
 
         r = self.get(matchqueueplayer_url_d)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
 
     def test_matchqueue_placement_emptystring(self):
@@ -340,10 +340,10 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
-        self.assertEquals(r.json()["status"], "matched")
+        self.assertEqual(r.json()["status"], "matched")
 
         r = self.get(matchqueueplayer_url_b)
-        self.assertEquals(r.json()["status"], "matched")
+        self.assertEqual(r.json()["status"], "matched")
 
     def test_matchqueue_placement_notfound(self):
         self.auth_service()
@@ -365,10 +365,10 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         r = self.get(matchqueueplayer_url_b)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         # add a third player choosing placement 'placement' and it should be
         # matched up with player_a but player_b is still waiting
@@ -378,15 +378,15 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer_url_b)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         r = self.get(matchqueueplayer_url_c)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
     def test_matchqueue_ref(self):
         self.auth_service()
@@ -407,10 +407,10 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         r = self.get(matchqueueplayer_url_b)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         # add a third player choosing ref 'ref' and it should be matched up with
         # player_a but player_b is still waiting
@@ -420,15 +420,15 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer_url_b)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         r = self.get(matchqueueplayer_url_c)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
     def test_matchqueue_ref_and_placement(self):
         self.auth_service()
@@ -449,10 +449,10 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer_url_b = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         r = self.get(matchqueueplayer_url_b)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         # add a third player choosing ref 'ref' and it should be matched up with player_a
         # but player_b is still waiting
@@ -462,15 +462,15 @@ class MatchQueueTest(BaseMatchTest):
         matchqueueplayer_url_c = r.json()["matchqueueplayer_url"]
 
         r = self.get(matchqueueplayer_url_a)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer_url_b)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
 
         r = self.get(matchqueueplayer_url_c)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
     def test_matchqueue_challenge(self):
         # create a match
@@ -488,7 +488,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer1_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer1_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
         self.assertIn('match_url', r.json())
 
@@ -511,25 +511,25 @@ class MatchQueueTest(BaseMatchTest):
 
         r = self.get(matchqueue_url + "?status=matched")
 
-        self.assertEquals(len(r.json()), 2)
-        self.assertEquals(r.json()[0]["match_id"], match["match_id"])
-        self.assertEquals(r.json()[1]["match_id"], match["match_id"])
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(r.json()[0]["match_id"], match["match_id"])
+        self.assertEqual(r.json()[1]["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer_anothertoken_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
 
         r = self.get(matchqueueplayer_notoken_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
 
         r = self.get(matchqueueplayer1_url)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer2_url)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])
 
     def test_matchqueue_matchafterqueue(self):
         # Two people join the queue and don't find a match.
@@ -547,7 +547,7 @@ class MatchQueueTest(BaseMatchTest):
         r = self.post(matchqueue_url, data=data, expected_status_code=http_client.CREATED)
         matchqueueplayer1_url = r.json()["matchqueueplayer_url"]
         r = self.get(matchqueueplayer1_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
         self.assertIn('match_url', r.json())
 
@@ -558,14 +558,14 @@ class MatchQueueTest(BaseMatchTest):
 
         # before we create the match both players should be 'waiting'
         r = self.get(matchqueue_url + "?status=waiting")
-        self.assertEquals(len(r.json()), 2)
+        self.assertEqual(len(r.json()), 2)
 
         r = self.get(matchqueueplayer1_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
 
         r = self.get(matchqueueplayer2_url)
-        self.assertEquals(r.json()["status"], "waiting")
+        self.assertEqual(r.json()["status"], "waiting")
         self.assertIsNone(r.json()["match_id"])
 
         # now create a match and ensure the players are matched into it
@@ -573,11 +573,11 @@ class MatchQueueTest(BaseMatchTest):
         match = self._create_match()
 
         r = self.get(matchqueue_url + "?status=matched")
-        self.assertEquals(len(r.json()), 2)
+        self.assertEqual(len(r.json()), 2)
 
-        self.assertEquals(r.json()[0]["match_id"], match["match_id"])
-        self.assertEquals(r.json()[1]["match_id"], match["match_id"])
+        self.assertEqual(r.json()[0]["match_id"], match["match_id"])
+        self.assertEqual(r.json()[1]["match_id"], match["match_id"])
 
         r = self.get(matchqueueplayer2_url)
-        self.assertEquals(r.json()["status"], "matched")
-        self.assertEquals(r.json()["match_id"], match["match_id"])
+        self.assertEqual(r.json()["status"], "matched")
+        self.assertEqual(r.json()["match_id"], match["match_id"])

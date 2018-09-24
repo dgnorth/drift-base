@@ -138,7 +138,7 @@ class ClientsTest(DriftBaseTestCase):
         self.headers["Authorization"] = "JTI %s" % jti
 
         r = self.get("/")
-        self.assertEquals(client_url, r.json()["endpoints"]["my_client"])
+        self.assertEqual(client_url, r.json()["endpoints"]["my_client"])
 
         self.delete(client_url)
         self.get(client_url, expected_status_code=http_client.NOT_FOUND)

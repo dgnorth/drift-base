@@ -151,7 +151,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
         other_gamecenter_jti = r["current_user"]["jti"]
 
         r = self.post(user_identities_url, data=data, expected_status_code=http_client.FORBIDDEN)
-        self.assertEquals(r.json()['error']["code"], "linked_account_already_claimed")
+        self.assertEqual(r.json()['error']["code"], "linked_account_already_claimed")
 
     def test_identities_get(self):
         # authenticate with gamecenter
@@ -160,14 +160,14 @@ class UserIdentitiesTest(DriftBaseTestCase):
         user_identities_url = self.endpoints["user_identities"]
 
         r = self.get(user_identities_url + "?name=bla")
-        self.assertEquals(len(r.json()), 0)
+        self.assertEqual(len(r.json()), 0)
         r = self.get(user_identities_url + "?name=%s" % username)
-        self.assertEquals(len(r.json()), 1)
-        self.assertEquals(r.json()[0]["player_id"], self.player_id)
+        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(r.json()[0]["player_id"], self.player_id)
 
         r = self.get(user_identities_url + "?player_id=9999999")
-        self.assertEquals(len(r.json()), 0)
+        self.assertEqual(len(r.json()), 0)
         r = self.get(user_identities_url + "?player_id=%s" % self.player_id)
-        self.assertEquals(len(r.json()), 1)
-        self.assertEquals(r.json()[0]["player_id"], self.player_id)
-        self.assertEquals(r.json()[0]["identity_name"], username)
+        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(r.json()[0]["player_id"], self.player_id)
+        self.assertEqual(r.json()[0]["identity_name"], username)

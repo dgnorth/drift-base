@@ -120,7 +120,7 @@ class PlayersTest(BaseCloudkitTest):
         r = self.get(url)
         self.assertIn("player_id", r.json()[0])
         self.assertIn("is_online", r.json()[0])
-        self.assertEquals(len(r.json()[0]), 2)
+        self.assertEqual(len(r.json()[0]), 2)
 
         # if the key is not found it will be returned as None
         url = self.endpoints["players"] + "?key=player_id&key=is_online&key=invalid"

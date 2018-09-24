@@ -27,7 +27,7 @@ class TicketsTests(BaseCloudkitTest):
 
         self.auth_service()
         r = self.post(player["tickets_url"], data=data, expected_status_code=http_client.CREATED)
-        self.assertEquals(r.json()["ticket_url"], r.headers["location"])
+        self.assertEqual(r.json()["ticket_url"], r.headers["location"])
         r = self.get(r.json()["ticket_url"])
         self.assertIsNone(r.json()["used_date"])
 

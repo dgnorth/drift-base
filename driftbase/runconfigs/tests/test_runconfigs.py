@@ -22,7 +22,7 @@ class RunConfigsTest(DriftBaseTestCase):
         runconfig_url = r.json()["url"]
         r = self.get(runconfig_url)
         for k, v in data.iteritems():
-            self.assertEquals(v, r.json()[k])
+            self.assertEqual(v, r.json()[k])
 
         # you should not be able to create another run config with the same name
         self.post(self.endpoints["runconfigs"], data=data, expected_status_code=http_client.BAD_REQUEST)

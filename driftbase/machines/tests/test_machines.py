@@ -52,13 +52,13 @@ class MachinesTest(DriftBaseTestCase):
         resp = self.get("/machines?realm=aws&instance_name=test&instance_id=1&"
                         "instance_type=2&placement=3&public_ip=8.8.8.8")
         self.assertTrue(isinstance(resp.json(), list))
-        self.assertEquals(len(resp.json()), 0)
+        self.assertEqual(len(resp.json()), 0)
 
     def test_get_localmachine(self):
         self.auth_service()
         resp = self.get("/machines?realm=local&instance_name=dummy")
         self.assertTrue(isinstance(resp.json(), list))
-        self.assertEquals(len(resp.json()), 0)
+        self.assertEqual(len(resp.json()), 0)
 
     def test_create_localmachine(self):
         self.auth_service()

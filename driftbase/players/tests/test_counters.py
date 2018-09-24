@@ -175,9 +175,9 @@ class CountersTests(DriftBaseTestCase):
         r = self.patch(counter_url, data=data)
         r = self.get(countertotals_url)
 
-        self.assertEquals(len(r.json()), 1)
+        self.assertEqual(len(r.json()), 1)
         self.assertIn(name, r.json())
-        self.assertEquals(r.json()[name], val)
+        self.assertEqual(r.json()[name], val)
 
     def test_counters_multiple(self):
         # test writing to the same counter more than once. The total count should upgade
@@ -217,6 +217,6 @@ class CountersTests(DriftBaseTestCase):
         r = self.patch(counter_url, data=data)
 
         r = self.get(countertotals_url)
-        self.assertEquals(len(r.json()), 2)
-        self.assertEquals(r.json()[name], val + second_val)
-        self.assertEquals(r.json()[absolute_name], absolute_val)
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(r.json()[name], val + second_val)
+        self.assertEqual(r.json()[absolute_name], absolute_val)

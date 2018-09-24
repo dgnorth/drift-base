@@ -37,9 +37,9 @@ class CountersTest(DriftBaseTestCase):
         r = self.put(counter_url, data=data)
         r = self.get(countertotals_url)
 
-        self.assertEquals(len(r.json()), 1)
+        self.assertEqual(len(r.json()), 1)
         self.assertIn(name, r.json())
-        self.assertEquals(r.json()[name], val)
+        self.assertEqual(r.json()[name], val)
 
     def test_counters_positions(self):
         name = "my_leaderboard_counter"
@@ -60,9 +60,9 @@ class CountersTest(DriftBaseTestCase):
             r = self.patch(counter_url, data=data)
             r = self.get(countertotals_url)
 
-            self.assertEquals(len(r.json()), 1)
+            self.assertEqual(len(r.json()), 1)
             self.assertIn(name, r.json())
-            self.assertEquals(r.json()[name], val)
+            self.assertEqual(r.json()[name], val)
 
             players.append((self.player_id, player_url, val))
 
@@ -80,9 +80,9 @@ class CountersTest(DriftBaseTestCase):
         # player with the highest score at the top
         for i, pl in enumerate(reversed(players)):
             player_id, player_url, val = pl
-            self.assertEquals(r.json()[i]["position"], i + 1)
-            self.assertEquals(r.json()[i]["total"], val)
-            self.assertEquals(r.json()[i]["player_id"], player_id)
+            self.assertEqual(r.json()[i]["position"], i + 1)
+            self.assertEqual(r.json()[i]["total"], val)
+            self.assertEqual(r.json()[i]["player_id"], player_id)
 
     def test_counters_include(self):
         # create some counters
@@ -169,7 +169,7 @@ class CountersTest(DriftBaseTestCase):
 
         r = self.get(counter_leaderboard_url + "?player_id=9999999")
         player_ids = [c["player_id"] for c in r.json()]
-        self.assertEquals(r.json(), [])
+        self.assertEqual(r.json(), [])
 
         r = self.get(counter_leaderboard_url + "?player_id=%s" % second_player_id)
         player_ids = [c["player_id"] for c in r.json()]
@@ -221,9 +221,9 @@ class CountersTest(DriftBaseTestCase):
                 counter_leaderboard_url = c["url"]
 
         r = self.get(counter_leaderboard_url)
-        self.assertEquals(len(r.json()), 2)
+        self.assertEqual(len(r.json()), 2)
         self.assertTrue(r.json()[0]["total"] > r.json()[1]["total"])
 
         r = self.get(counter_leaderboard_url + "?reverse=true")
-        self.assertEquals(len(r.json()), 2)
+        self.assertEqual(len(r.json()), 2)
         self.assertTrue(r.json()[0]["total"] < r.json()[1]["total"])
