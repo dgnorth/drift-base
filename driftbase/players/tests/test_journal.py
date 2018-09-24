@@ -216,7 +216,7 @@ class JournalTests(DriftBaseTestCase):
         r = self.get(self.journal_url + "?rows=1")
         journal_id = r.json()[0]["journal_id"] + 1
         data = []
-        lst = range(journal_id, journal_id + NUM_ENTRIES)
+        lst = list(range(journal_id, journal_id + NUM_ENTRIES))
         random.shuffle(lst)
         for i in lst:
             data.append(self.get_journal_entry("multitest.randomorder.%s" % i, i))
