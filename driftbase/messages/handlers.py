@@ -70,7 +70,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     if current_user:
         my_player_id = current_user["player_id"]
     i = 1
-    curr_message_number = sys.maxint
+    curr_message_number = sys.maxsize
     while curr_message_number >= min_message_number:
         all_contents = g.redis.conn.lrange(redis_key, -i, -i)
         if not all_contents:
