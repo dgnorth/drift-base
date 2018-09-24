@@ -75,7 +75,7 @@ def process_match_queue(redis=None, db_session=None):
         for machine, server, match in idle_matches:
             possibly_matched_players = []
             # start by processing player challenges
-            for token, players in challenge_players.items():
+            for token, players in list(challenge_players.items()):
                 if len(players) < match.max_players:
                     continue
 
