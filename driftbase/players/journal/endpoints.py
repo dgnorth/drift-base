@@ -121,7 +121,7 @@ class JournalAPI(Resource):
                 # TODO: We now reject the journal entry and subsequent entries instead of
                 # rolling the entire thing back. Is that what we want?
                 log.warning("Error writing to journal. Rejecting entry. Error was: %s", e)
-                abort(http_client.BAD_REQUEST, description=e.message)
+                abort(http_client.BAD_REQUEST, description=str(e))
 
             ret.append({"journal_id": journal["journal_id"],
                         "url": url_for("journal.entry",
