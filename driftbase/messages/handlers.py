@@ -3,7 +3,8 @@
     Message box, mostly meant for client-to-client communication
 """
 
-import requests, httplib, datetime
+import requests
+import datetime
 import logging
 import json
 import collections
@@ -12,6 +13,8 @@ import uuid
 import copy
 import operator
 import sys
+
+from six.moves import http_client
 
 from flask import Blueprint, g, url_for, request, stream_with_context, Response
 from flask_restful import Api, Resource, abort, reqparse
@@ -67,7 +70,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     if current_user:
         my_player_id = current_user["player_id"]
     i = 1
-    curr_message_number = sys.maxint
+    curr_message_number = sys.maxsize
     while curr_message_number >= min_message_number:
         all_contents = g.redis.conn.lrange(redis_key, -i, -i)
         if not all_contents:
@@ -109,12 +112,12 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
 
     # players can only use player exchanges
     if exchange != "players":
-        abort(httplib.BAD_REQUEST, message="Only service users can use exchange '%s'" % exchange)
+        abort(http_client.BAD_REQUEST, message="Only service users can use exchange '%s'" % exchange)
 
     # players can only read from their own exchanges but can write to others
     if read:
         if not current_user or current_user["player_id"] != exchange_id:
-            abort(httplib.BAD_REQUEST,
+            abort(http_client.BAD_REQUEST,
                   message="You can only read from an exchange that belongs to you!")
 
 
@@ -146,7 +149,7 @@ class MessagesExchangeAPI(Resource):
 
         # players can only use player exchanges
         if exchange != "players" and not is_service():
-            abort(httplib.BAD_REQUEST,
+            abort(http_client.BAD_REQUEST,
                   message="Only service users can use exchange '%s'" % exchange)
 
         exchange_full_name = "{}-{}".format(exchange, exchange_id)
@@ -250,7 +253,7 @@ def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
         "exchange_id": exchange_id,
     }
     if not is_key_legal(exchange) or not is_key_legal(queue):
-        abort(httplib.BAD_REQUEST, message="Exchange or Queue name is invalid.")
+        abort(http_client.BAD_REQUEST, message="Exchange or Queue name is invalid.")
 
     key = "messages:%s-%s" % (exchange, exchange_id)
     val = json.dumps(message, default=json_serial)
@@ -279,7 +282,7 @@ class MessageQueueAPI(Resource):
             message = json.loads(val)
             return message
         else:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
 
 api.add_resource(MessagesExchangeAPI, "/messages/<string:exchange>/<int:exchange_id>",

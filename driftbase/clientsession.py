@@ -1,5 +1,6 @@
 import logging
-import httplib
+
+from six.moves import http_client
 
 from flask import g
 from flask_restful import abort
@@ -32,8 +33,8 @@ def before_request():
     if current_client_id != client_id:
         # we are no longer logged in
         client_status = g.db.query(Client).get(client_id).status
-        log.warn("Denying access for user %s on client %s. client status = '%s'", user_id, client_id, client_status)
-        abort(httplib.FORBIDDEN,
+        log.warning("Denying access for user %s on client %s. client status = '%s'", user_id, client_id, client_status)
+        abort(http_client.FORBIDDEN,
               code="client_session_terminated",
               description="Your client, %s is no longer registered here. Status is '%s'" % (client_id, client_status),
               reason=client_status,

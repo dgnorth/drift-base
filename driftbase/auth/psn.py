@@ -1,6 +1,6 @@
 
 import logging
-import httplib
+from six.moves import http_client
 
 import requests
 from werkzeug.exceptions import Unauthorized
@@ -53,7 +53,7 @@ def validate_psn_ticket():
     psn_config = get_provider_config('psn')
 
     if not psn_config:
-        abort(httplib.SERVICE_UNAVAILABLE, description="PSN authentication not configured for current tenant")
+        abort(http_client.SERVICE_UNAVAILABLE, description="PSN authentication not configured for current tenant")
 
     # Call validation and authenticate if ticket is good
     identity_id = run_ticket_validation(
@@ -74,10 +74,10 @@ def run_ticket_validation(user_id, auth_code, issuer, client_id, client_secret):
     Returns a unique ID for this player.
     """
 
-    authorization = urlsafe_b64encode("{}:{}".format(client_id, client_secret))
+    authorization = urlsafe_b64encode("{}:{}".format(client_id, client_secret).encode("ascii"))
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + authorization
+        'Authorization': 'Basic ' + authorization.decode("ascii")
     }
 
     url = psn_issuer_urls.get(issuer, False)

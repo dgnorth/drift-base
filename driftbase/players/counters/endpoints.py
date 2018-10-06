@@ -3,12 +3,13 @@
     Update summary and stats for the player
 """
 
-import httplib
 import datetime, time
 import logging
 from dateutil import parser
 import copy
 import collections
+
+from six.moves import http_client
 
 from sqlalchemy.exc import IntegrityError
 
@@ -97,7 +98,7 @@ def get_date_time_for_period(period, timestamp):
         date_time = date_time.replace(second=0)
     elif period == 'second':
         # Note: second is wrongly named and should be 10seconds
-        date_time = date_time.replace(second=10 * (date_time.second / 10))
+        date_time = date_time.replace(second=10 * int(date_time.second / 10))
     return date_time
 
 
@@ -214,7 +215,7 @@ class CountersApi(Resource):
             message = "Player %s is not %s. Role 'service' is required for updating other" \
                       " players counters. Your role set is %s."
             message = message % (current_user["player_id"], player_id, current_user['roles'])
-            abort(httplib.UNAUTHORIZED, message=message)
+            abort(http_client.UNAUTHORIZED, message=message)
 
         start_time = time.time()
         DEFAULT_COUNTER_TYPE = "count"
@@ -222,7 +223,7 @@ class CountersApi(Resource):
         args = request.json
 
         if not isinstance(args, list):
-            abort(httplib.METHOD_NOT_ALLOWED,
+            abort(http_client.METHOD_NOT_ALLOWED,
                   message="This endpoint expects a list of counters to update. got %s" % args)
 
         log.info("patch for player %s with %s counters...", player_id, len(args))
@@ -273,7 +274,7 @@ class CountersApi(Resource):
                 g.redis.incr(key, value, expire=ex)
             log.info("Added %s to redis in %.2fsec", name, time.time() - redis_start_time)
 
-        for counter_name, counter_info in counters.iteritems():
+        for counter_name, counter_info in counters.items():
             counter_id = get_or_create_counter_id(counter_name, counter_info["counter_type"])
             player_counter = get_or_create_player_counter(counter_id, player_id)
             counter_info["player_counter"] = player_counter

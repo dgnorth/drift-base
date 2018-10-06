@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
 from dateutil import parser
+
+from six.moves import http_client
 
 from flask import Blueprint, request, url_for
 from flask_restful import Api, Resource, abort
@@ -21,20 +22,20 @@ eventlogger = logging.getLogger("eventlog")
 def verify_log_request(request, required_keys=None):
     args = request.json
     if not isinstance(args, list):
-        abort(httplib.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
+        abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
     if not args:
         log.warning("Invalid log request. No loglines.")
-        abort(httplib.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
+        abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
     for event in args:
         if not isinstance(event, dict):
             log.warning("Invalid log request. Entry not dict: %s", event)
-            abort(httplib.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
+            abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
         if required_keys:
             for key in required_keys:
                 if key not in event:
                     log.warning("Invalid log request. Missing required key '%s' from %s",
                                 key, event)
-                    abort(httplib.METHOD_NOT_ALLOWED,
+                    abort(http_client.METHOD_NOT_ALLOWED,
                           message="Required key, '%s' missing from event" % key)
         if "timestamp" in event:
             try:
@@ -42,7 +43,7 @@ def verify_log_request(request, required_keys=None):
             except ValueError:
                 log.warning("Invalid log request. Timestamp %s could not be parsed for %s",
                             event["timestamp"], event)
-                abort(httplib.METHOD_NOT_ALLOWED, message="Invalid timestamp, '%s' in event '%s'" %
+                abort(http_client.METHOD_NOT_ALLOWED, message="Invalid timestamp, '%s' in event '%s'" %
                       (event["timestamp"], event["event_name"]))
 
 
@@ -81,7 +82,7 @@ class EventsAPI(Resource):
                 event['player_id'] = player_id  # Always override!
             eventlogger.info("eventlog", extra=event)
 
-        return "OK", httplib.CREATED
+        return "OK", http_client.CREATED
 
 
 class ClientLogsAPI(Resource):
@@ -115,7 +116,7 @@ class ClientLogsAPI(Resource):
             event["player_id"] = player_id
             clientlogger.info("clientlog", extra=event)
 
-        return "OK", httplib.CREATED
+        return "OK", http_client.CREATED
 
 
 api.add_resource(EventsAPI, '/events', endpoint="events")

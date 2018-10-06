@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import handlers
-from counters import endpoints
-from gamestate import endpoints as gs
-from journal import endpoints as j
-from playergroups import endpoints as pg
-from summary import endpoints as summary
-from tickets import endpoints as tickets
+from . import handlers
+from .counters import endpoints
+from .gamestate import endpoints as gs
+from .journal import endpoints as j
+from .playergroups import endpoints as pg
+from .summary import endpoints as summary
+from .tickets import endpoints as tickets
 
 
 def register_blueprints(app):

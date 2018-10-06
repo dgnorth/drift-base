@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import logging, httplib, datetime
+import logging
+import datetime
 import uuid
+
+from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
@@ -92,7 +95,7 @@ class ServersAPI(Resource):
             instance_name = args.get("instance_name")
             placement = args.get("placement") or "<unknown placement>"
             if not instance_name:
-                abort(httplib.BAD_REQUEST, description="You need to supply an instance_name")
+                abort(http_client.BAD_REQUEST, description="You need to supply an instance_name")
 
             machine = g.db.query(Machine).filter(Machine.realm == realm,
                                                  Machine.instance_name == instance_name,
@@ -111,7 +114,7 @@ class ServersAPI(Resource):
         else:
             machine = g.db.query(Machine).get(machine_id)
             if not machine:
-                abort(httplib.NOT_FOUND, description="Machine %s was not found" % machine_id)
+                abort(http_client.NOT_FOUND, description="Machine %s was not found" % machine_id)
 
         token = str(uuid.uuid4()).replace("-", "")[:20]
 
@@ -159,7 +162,7 @@ class ServersAPI(Resource):
                 "heartbeat_url": heartbeat_url,
                 "commands_url": commands_url,
                 "token": token,
-                }, httplib.CREATED, response_header
+                }, http_client.CREATED, response_header
 
 
 class ServerAPI(Resource):
@@ -180,7 +183,7 @@ class ServerAPI(Resource):
 
         if not server:
             log.warning("Requested a non-existant battleserver: %s", server_id)
-            abort(httplib.NOT_FOUND, description="Server not found")
+            abort(http_client.NOT_FOUND, description="Server not found")
 
         machine_id = server.machine_id
         record = server.as_dict()
@@ -255,7 +258,7 @@ class ServerAPI(Resource):
         log.info("Updating battleserver %s", server_id)
         server = g.db.query(Server).get(server_id)
         if not server:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         if args.get("status"):
             log.info("Changing status of server %s from '%s' to '%s'",
                      server_id, server.status, args["status"])
@@ -274,7 +277,7 @@ class ServerAPI(Resource):
                 "machine_url": machine_url,
                 "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
                 "next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT,
-                }, httplib.OK, None
+                }, http_client.OK, None
 
 
 class ServerHeartbeatAPI(Resource):
@@ -293,7 +296,7 @@ class ServerHeartbeatAPI(Resource):
         server.heartbeat_date = utcnow()
         g.db.commit()
 
-        return {"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }, httplib.OK, None
+        return {"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }, http_client.OK, None
 
 
 class ServerCommandsAPI(Resource):
@@ -312,7 +315,7 @@ class ServerCommandsAPI(Resource):
         """
         server = g.db.query(Server).get(server_id)
         if not server:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         args = request.json
         status = "pending"
@@ -330,7 +333,7 @@ class ServerCommandsAPI(Resource):
         return {"command_id": command.command_id,
                 "url": resource_url,
                 "status": status,
-                }, httplib.CREATED, None
+                }, http_client.CREATED, None
 
     @requires_roles("service")
     def get(self, server_id):
@@ -370,7 +373,7 @@ class ServerCommandAPI(Resource):
         """
         server = g.db.query(Server).get(server_id)
         if not server:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         args = request.json
         row = g.db.query(ServerDaemonCommand).get(command_id)

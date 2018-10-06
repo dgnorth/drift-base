@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
+from six.moves import http_client
 
 from flask import Blueprint, url_for, g, request
 from flask_restful import Api, Resource, abort, reqparse
@@ -63,11 +63,11 @@ def get_player_entry(recordset, columns=None):
 
 def validate_player_name(name):
     if len(name) < MIN_NAME_LEN:
-        abort(httplib.METHOD_NOT_ALLOWED,
+        abort(http_client.METHOD_NOT_ALLOWED,
               message="Player name is too short. It needs to be at least %s characters" %
               MIN_NAME_LEN)
     if len(name) > MAX_NAME_LEN:
-        abort(httplib.METHOD_NOT_ALLOWED,
+        abort(http_client.METHOD_NOT_ALLOWED,
               message="Player name is too long. It cannot exceed %s characters" % MAX_NAME_LEN)
     # TODO: More validation
 
@@ -116,7 +116,7 @@ class PlayersAPI(Resource):
         recordset = query.first()
 
         if not recordset:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         return get_player_entry(recordset)
 
@@ -133,11 +133,11 @@ class PlayersAPI(Resource):
         """
         new_name = request.json["name"]
         if player_id != current_user["player_id"]:
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
         validate_player_name(new_name)
         my_player = g.db.query(CorePlayer).get(player_id)
         if not my_player:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         old_name = my_player.player_name
         my_player.player_name = new_name
         g.db.commit()

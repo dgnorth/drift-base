@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import httplib
 import logging
+
+from six.moves import http_client
 
 from flask import Blueprint, request, g, abort, url_for
 from flask_restful import Api, Resource
@@ -28,7 +29,7 @@ class Summary(Resource):
         """
         can_edit_player(player_id)
         if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id)
         ret = {}
         for row in summary:
@@ -42,16 +43,16 @@ class Summary(Resource):
         Full update of summary fields, deletes fields from db that are not included
         """
         if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
 
         if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         old_summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id).all()
 
         new_summary = []
         updated_ids = set()
-        for name, val in request.json.iteritems():
+        for name, val in request.json.items():
             for row in old_summary:
                 if row.name == name:
                     updated_ids.add(row.id)
@@ -76,7 +77,7 @@ class Summary(Resource):
         new_summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id).all()
 
         request_txt = ""
-        for k, v in request.json.iteritems():
+        for k, v in request.json.items():
             request_txt += "%s = %s, " % (k, v)
         if request_txt:
             request_txt = request_txt[:-2]
@@ -98,17 +99,17 @@ class Summary(Resource):
         Partial update of summary fields.
         """
         if not can_edit_player(player_id):
-            abort(httplib.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
 
         if not get_player(player_id):
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         old_summary = g.db.query(PlayerSummary).filter(PlayerSummary.player_id == player_id).all()
         old_summary_txt = ""
         for row in old_summary:
             old_summary_txt += "%s = %s, " % (row.name, row.value)
 
         changes = {}
-        for name, val in request.json.iteritems():
+        for name, val in request.json.items():
             for row in old_summary:
                 if row.name == name:
                     if val != row.value:
@@ -132,7 +133,7 @@ class Summary(Resource):
 
         log_event(player_id, "event.player.summarychanged", changes)
         request_txt = ""
-        for k, v in request.json.iteritems():
+        for k, v in request.json.items():
             request_txt += "%s = %s, " % (k, v)
         if request_txt:
             request_txt = request_txt[:-2]

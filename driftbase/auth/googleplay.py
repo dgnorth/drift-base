@@ -1,6 +1,7 @@
 
 import logging
-import httplib
+
+from six.moves import http_client
 
 import requests
 from werkzeug.exceptions import Unauthorized
@@ -43,7 +44,7 @@ def validate_googleplay_token():
     gp_config = get_provider_config('googleplay')
 
     if not gp_config:
-        abort(httplib.SERVICE_UNAVAILABLE, description="Google Play authentication not configured for current tenant")
+        abort(http_client.SERVICE_UNAVAILABLE, description="Google Play authentication not configured for current tenant")
 
     app_client_ids = gp_config.get("client_ids", None)
 

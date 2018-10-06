@@ -8,13 +8,16 @@ import logging
 from datetime import datetime
 import mimetypes
 import subprocess
-from urlparse import urlparse
 import re
 import copy
+
+import six
+from six.moves.urllib.parse import urlparse
+import click
+
 from driftconfig.util import get_default_drift_config
 from drift.utils import get_tier_name
 
-import click
 
 STATIC_DATA_ROOT_FOLDER = 'static-data'  # Root folder on S3
 
@@ -52,7 +55,7 @@ def publish(repository, user, region, bucket):
     Publish static data files by uploading to S3 and update the index file. All referencable
     versions will be published (i.e. all ).
     """
-    print "=========== STATIC DATA COMPRESSION ENABLED ==========="
+    click.echo("=========== STATIC DATA COMPRESSION ENABLED ===========")
     from boto.s3 import connect_to_region
     from boto.s3.connection import OrdinaryCallingFormat
     from boto.s3.key import Key
@@ -64,7 +67,7 @@ def publish(repository, user, region, bucket):
     if not repository:
         try:
             cmd = 'git config --get remote.origin.url'
-            print "No repository specified. Using git to figure it out:", cmd
+            click.echo("No repository specified. Using git to figure it out: {!r}".format(cmd))
             origin_url = subprocess.check_output(cmd.split(' ')).strip()
             if origin_url.startswith("http"):
                 repository, _ = os.path.splitext(urlparse(origin_url).path)
@@ -74,31 +77,31 @@ def publish(repository, user, region, bucket):
                 raise Exception("Unknown origin url format")
         except Exception as e:
             logging.exception(e)
-            print "Unable to find repository from origin url '{}'".format(origin_url)
+            click.secho("Unable to find repository from origin url '{}'".format(origin_url), fg="red")
             raise e
-        print "Found repository '{}' from '{}'".format(repository, origin_url)
+        click.echo("Found repository '{}' from '{}'".format(repository, origin_url))
     else:
-        print u"Using repository: {}".format(repository)
+        click.echo(six.u("Using repository: {}").format(repository))
 
     s3_upload_batch = []  # List of [filename, data] pairs to upload to bucket.
     repo_folder = "{}{}/data/".format(STATIC_DATA_ROOT_FOLDER, repository)
 
     if user:
-        print "User defined reference ..."
+        click.echo("User defined reference ...")
         to_upload = set()
         # TODO: This will crash. No serialno??
         s3_upload_batch.append(["user-{}/{}".format(user, serialno)])
     else:
         # We need to checkout a few branches. Let's remember which branch is currently active
         cmd = 'git rev-parse --abbrev-ref HEAD'
-        print "Get all tags and branch head revisions for this repo using:", cmd
+        click.echo("Get all tags and branch head revisions for this repo using: {}".format(cmd))
         current_branch = subprocess.check_output(cmd.split(' ')).strip()
 
         # Get all references
         to_upload = set()  # Commit ID's to upload to S3
         indexes = []  # Full list of git references to write to index.json
 
-        print "Index file:"
+        click.echo() "Index file:"
         ls_remote = subprocess.check_output('git ls-remote --quiet'.split(' ')).strip()
         now = datetime.utcnow()
         for refline in ls_remote.split('\n'):
@@ -114,7 +117,7 @@ def publish(repository, user, region, bucket):
             # Prune any "dereference" markers from the ref string.
             ref = ref.replace("^{}", "")
 
-            print "    {:<50}{}".format(ref, commit_id)
+            click.echo("    {:<50}{}".format(ref, commit_id))
             to_upload.add(commit_id)
             indexes.append({"commit_id": commit_id, "ref": ref})
 
@@ -128,11 +131,11 @@ def publish(repository, user, region, bucket):
                 to_upload.discard(commit_id)
 
         # For any referenced commit on git, upload it to S3 if it is not already there.
-        print "\nNumber of commits to upload: {}".format(len(to_upload))
+        click.echo("\nNumber of commits to upload: {}".format(len(to_upload)))
         for commit_id in to_upload:
             cmd = "git checkout {}".format(commit_id)
-            print "Running git command:", cmd
-            print subprocess.check_output(cmd.split(' ')).strip()
+            click.echo("Running git command: {!r}".format(cmd))
+            six.print_(subprocess.check_output(cmd.split(' ')).strip())
             try:
                 types_str = json.dumps(load_types())
                 schemas_str = json.dumps(load_schemas())
@@ -140,12 +143,12 @@ def publish(repository, user, region, bucket):
                 s3_upload_batch.append(["{}/schemas.json".format(commit_id), schemas_str])
             except Exception as e:
                 logging.exception(e)
-                print "Not uploading {}: {}".format(commit_id, e)
+                click.echo("Not uploading {}: {}".format(commit_id, e))
                 raise e
 
         cmd = "git checkout {}".format(current_branch)
-        print "Reverting HEAD to original state: "
-        print subprocess.check_output(cmd.split(' ')).strip()
+        click.echo("Reverting HEAD to original state: ")
+        six.print_(subprocess.check_output(cmd.split(' ')).strip())
 
     # Upload to S3
     for key_name, data in s3_upload_batch:
@@ -157,7 +160,7 @@ def publish(repository, user, region, bucket):
             key.set_metadata('Content-Type', mimetype)
         key.set_metadata('Cache-Control', "max-age=1000000")
         key.key = "{}{}".format(repo_folder, key_name)
-        print "Uploading: {}".format(key.key)
+        click.echo("Uploading: {}".format(key.key))
         key.set_contents_from_string(data)
         key.set_acl('public-read')
 
@@ -170,11 +173,11 @@ def publish(repository, user, region, bucket):
     key.set_metadata('Content-Type', "application/json")
     key.set_metadata('Cache-Control', "max-age=0, no-cache, no-store")
     key.key = "{}{}/index.json".format(STATIC_DATA_ROOT_FOLDER, repository)
-    print "Uploading: {}".format(key.key)
+    cick.echo("Uploading: {}".format(key.key))
     key.set_contents_from_string(json.dumps(refs_index))
     key.set_acl('public-read')
 
-    print "All done!"
+    click.echo("All done!")
 
 
 @cli.command()
@@ -200,11 +203,11 @@ def mirror(region, bucket):
         for key2 in bucket.list(prefix=key.name, delimiter=""):
             keys.add(key2.name)
 
-    print "{} s3 objects loaded".format(len(keys))
+    cick.echo("{} s3 objects loaded".format(len(keys)))
 
     mirror_alicloud(copy.copy(keys), bucket)
 
-    print "ALL DONE!"
+    click.echo("ALL DONE!")
 
 
 def get_s3_bucket(region, bucket):
@@ -221,7 +224,7 @@ ALICLOUD_BUCKETNAME = "directive-tiers"
 
 
 def mirror_alicloud(keys, s3_bucket):
-    print "mirroring to alicloud..."
+    click.echo("mirroring to alicloud...")
     access_key = os.environ.get("OSS_ACCESS_KEY_ID", "")
     if not access_key:
         raise RuntimeError("Missing environment variable 'OSS_ACCESS_KEY_ID' "
@@ -235,8 +238,8 @@ def mirror_alicloud(keys, s3_bucket):
     try:
         import oss2
     except ImportError as e:
-        print e
-        print "You need to install it using `pip install oss2`."
+        click.secho(e, fg="red")
+        click.echo("You need to install it using 'pip install oss2'.")
         return
 
     auth = oss2.Auth(access_key, access_secret)
@@ -277,7 +280,7 @@ def mirror_alicloud(keys, s3_bucket):
         content = source.get_contents_as_string()
         bucket.put_object(key, content, headers=headers)
         index += 1
-        print "[{}/{}] copying {}".format(index, len(keys), key)
+        click.echo("[{}/{}] copying {}".format(index, len(keys), key))
 
 
 # This code lifted straight from /the-machines-static-data/tools/publish.py and path_helper.py
@@ -308,7 +311,7 @@ def load_types():
                 published = info.get("published", True)
                 typeID = info["typeID"]
                 if not published:
-                    print "Type {} is not published".format(typeID)
+                    click.echo("Type {} is not published".format(typeID))
                     continue
                 if typeID in types:
                     raise RuntimeError(

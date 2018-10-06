@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import httplib
+from six.moves import http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant
 
@@ -39,21 +39,21 @@ class PlayerGroupsTest(BaseCloudkitTest):
         # Just in case: Make sure we are logged on as a different user
         self.assertTrue(group_owner_id != self.user_id)
         # Without secret, expect FORBIDDEN
-        r = self.get(public_url, expected_status_code=httplib.FORBIDDEN)
+        r = self.get(public_url, expected_status_code=http_client.FORBIDDEN)
         self.assertIn("'player_id' does not match current user.", r.json()['error']["description"])
-        r = self.get(public_url + '?secret={}'.format(secret), expected_status_code=httplib.OK)
+        r = self.get(public_url + '?secret={}'.format(secret), expected_status_code=http_client.OK)
         self.auth_service()
         # No secret required if I am a service
-        r = self.get(public_url, expected_status_code=httplib.OK)
+        r = self.get(public_url, expected_status_code=http_client.OK)
 
         self.auth(username='normal_user')
 
         # Group name must be correctly formatted
-        r = self.get(pg_url('bad%20format'), expected_status_code=httplib.BAD_REQUEST)
+        r = self.get(pg_url('bad%20format'), expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("'group_name' must match regex", r.json()['error']["description"])
 
         # Properly formatted query but no record
-        r = self.get(pg_url('not_found'), expected_status_code=httplib.NOT_FOUND)
+        r = self.get(pg_url('not_found'), expected_status_code=http_client.NOT_FOUND)
         self.assertIn("No player group named 'not_found' exists for player",
                       r.json()['error']["description"])
 
@@ -67,7 +67,7 @@ class PlayerGroupsTest(BaseCloudkitTest):
             'identity_names': ['user_no_1'],
             'player_ids': [self.player_id],
         }
-        r = self.put(pg_url('my_friends'), data=data, expected_status_code=httplib.OK)
+        r = self.put(pg_url('my_friends'), data=data, expected_status_code=http_client.OK)
         pg = r.json()
         self.assertEqual(len(pg['players']), 2)
 
@@ -85,7 +85,7 @@ class PlayerGroupsTest(BaseCloudkitTest):
             'identity_names': ['user_no_3'],
             'player_ids': [self.player_id],
         }
-        r = self.put(pg_url('no_duplicates'), data=data, expected_status_code=httplib.OK)
+        r = self.put(pg_url('no_duplicates'), data=data, expected_status_code=http_client.OK)
         pg = r.json()
         self.assertEqual(len(pg['players']), 1)
 
@@ -106,7 +106,7 @@ class PlayerGroupsTest(BaseCloudkitTest):
 
         # Filter on player group. Create a group with player one and two
         pg_url = self.endpoints["my_player_groups"].replace('{group_name}', 'my_friends')
-        self.put(pg_url, data={'player_ids': [p1, p2]}, expected_status_code=httplib.OK)
+        self.put(pg_url, data={'player_ids': [p1, p2]}, expected_status_code=http_client.OK)
         players = self.get(self.endpoints["players"] + "?player_group=my_friends").json()
         self.assertTrue(len(players) == 2)
         self.assertIn(players[0]['player_id'], [p1, p2])
@@ -116,10 +116,10 @@ class PlayerGroupsTest(BaseCloudkitTest):
 
         # Make sure unknown player group returns 404
         players = self.get("/players?player_group=no_such_group",
-                           expected_status_code=httplib.NOT_FOUND)
+                           expected_status_code=http_client.NOT_FOUND)
 
         # Make sure filtering on empty player group returns an empty list
         pg_url = self.endpoints["my_player_groups"].replace('{group_name}', 'empty_group')
-        self.put(pg_url, data={'player_ids': [123456]}, expected_status_code=httplib.OK)
+        self.put(pg_url, data={'player_ids': [123456]}, expected_status_code=http_client.OK)
         players = self.get(self.endpoints["players"] + "?player_group=empty_group").json()
         self.assertEqual(len(players), 0)

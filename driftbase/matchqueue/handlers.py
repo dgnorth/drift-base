@@ -3,9 +3,10 @@
     List of players waiting for a match
 """
 
-import httplib
 import datetime
 import logging
+
+from six.moves import http_client
 
 from flask import Blueprint, g, url_for, request
 from flask_restful import Api, Resource, abort, reqparse
@@ -75,7 +76,7 @@ class MatchQueueAPI(Resource):
         player_id = args.get("player_id")
         if player_id != current_user["player_id"]:
             log.error("Trying to add another player, %s to the match queue", player_id)
-            abort(httplib.METHOD_NOT_ALLOWED, message="This is not your player")
+            abort(http_client.METHOD_NOT_ALLOWED, message="This is not your player")
         client_id = current_user["client_id"]
 
         my_player = g.db.query(CorePlayer).filter(CorePlayer.player_id == player_id).first()
@@ -126,7 +127,7 @@ class MatchQueueAPI(Resource):
                 g.db.commit()
 
             # This is hiding the error. Systems tests don't get any feedback
-            abort(httplib.BAD_REQUEST,
+            abort(http_client.BAD_REQUEST,
                   message="There was an error processing the match queue. Please try again.")
 
         if my_matchqueueplayer.match_id:
@@ -140,7 +141,7 @@ class MatchQueueAPI(Resource):
         response_header = {
             "Location": ret["matchqueueplayer_url"],
         }
-        return ret, httplib.CREATED, response_header
+        return ret, http_client.CREATED, response_header
 
     get_args = reqparse.RequestParser()
     get_args.add_argument("status", type=str, required=False, action='append')
@@ -182,7 +183,7 @@ class MatchQueueEntryAPI(Resource):
             .order_by(-MatchQueuePlayer.id).first()
 
         if not result:
-            abort(httplib.NOT_FOUND, message="Player is not in the match queue")
+            abort(http_client.NOT_FOUND, message="Player is not in the match queue")
 
         server = None
         my_matchqueueplayer, my_player = result
@@ -201,7 +202,7 @@ class MatchQueueEntryAPI(Resource):
 
     def delete(self, player_id):
         if player_id != current_user["player_id"] and "service" not in current_user["roles"]:
-            abort(httplib.BAD_REQUEST, message="This is not your player")
+            abort(http_client.BAD_REQUEST, message="This is not your player")
 
         args = self.delete_args.parse_args()
         force = args.force
@@ -213,17 +214,17 @@ class MatchQueueEntryAPI(Resource):
             .order_by(-MatchQueuePlayer.id).first()
 
         if not my_matchqueueplayer:
-            abort(httplib.NOT_FOUND, message="Player is not in the queue",
+            abort(http_client.NOT_FOUND, message="Player is not in the queue",
                   code="player_not_in_queue")
 
         if my_matchqueueplayer.status == "matched" and not force:
-            abort(httplib.BAD_REQUEST, message="Player has already been matched",
+            abort(http_client.BAD_REQUEST, message="Player has already been matched",
                   code="player_already_matched")
 
         g.db.delete(my_matchqueueplayer)
         g.db.commit()
 
-        return json_response("Player is no longer in the match queue", httplib.OK)
+        return json_response("Player is no longer in the match queue", http_client.OK)
 
 
 api.add_resource(MatchQueueAPI, "/matchqueue", endpoint="list")

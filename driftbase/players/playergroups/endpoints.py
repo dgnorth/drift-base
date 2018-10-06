@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
 import uuid
+
+from six.moves import http_client
 
 from flask import Blueprint, url_for, g, request
 from flask_restful import Api, Resource, reqparse, abort
@@ -43,7 +44,7 @@ class PlayerGroupsAPI(Resource):
             if not secret_ok and not is_service:
                 message = "'player_id' does not match current user. " \
                     "A proper 'secret' or role 'service' is required to use arbitrary 'player_id'."
-                abort(httplib.FORBIDDEN, message=message)
+                abort(http_client.FORBIDDEN, message=message)
 
         return pg
 
@@ -60,12 +61,12 @@ class PlayerGroupsAPI(Resource):
         """
         args = request.json
         if not args:
-            abort(httplib.BAD_REQUEST, message="JSON body missing.")
+            abort(http_client.BAD_REQUEST, message="JSON body missing.")
 
         my_player_id = current_user['player_id']
 
         if 'service' not in current_user['roles'] and player_id != my_player_id:
-            abort(httplib.BAD_REQUEST,
+            abort(http_client.BAD_REQUEST,
                   message="Role 'service' is required to use arbitrary 'player_id'.")
 
         # Map identity names to player ids
@@ -94,7 +95,7 @@ class PlayerGroupsAPI(Resource):
             }
             for user_row, player_row in rows
         }
-        player_group = player_group.values()
+        player_group = list(player_group.values())
         payload = {
             "group_name": group_name,
             "player_id": player_id,
@@ -108,7 +109,7 @@ class PlayerGroupsAPI(Resource):
         response_header = {"Location": resource_uri}
         log.info("Created user group %s for player %s", group_name, player_id)
 
-        return payload, httplib.OK, response_header
+        return payload, http_client.OK, response_header
 
 
 api.add_resource(PlayerGroupsAPI, '/players/<int:player_id>/player-groups/<string:group_name>',

@@ -9,7 +9,10 @@
     deregistered automatically (by a timestamp check in sql returning clients).
 """
 
-import logging, httplib, datetime, json
+import logging, datetime, json
+
+import six
+from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g, current_app
 from flask_restful import Api, Resource, reqparse, abort
@@ -36,7 +39,7 @@ def utcnow():
 class ClientsAPI(Resource):
     # GET args
     get_args = reqparse.RequestParser()
-    get_args.add_argument("name", type=unicode)
+    get_args.add_argument("name", type=six.text_type)
     get_args.add_argument("player_id", type=int)
 
     def get(self):
@@ -168,7 +171,7 @@ class ClientsAPI(Resource):
             {'event': 'created', 'payload': payload, 'url': resource_url}
         )
 
-        return ret, httplib.CREATED, response_header
+        return ret, http_client.CREATED, response_header
 
 
 class ClientAPI(Resource):
@@ -187,12 +190,12 @@ class ClientAPI(Resource):
         if not client:
             log.warning("User attempted to retrieve a client that is not registered: %s" %
                         player_id)
-            abort(httplib.NOT_FOUND, description="This client is not registered",)
+            abort(http_client.NOT_FOUND, description="This client is not registered",)
         if client.player_id != player_id:
             log.error("User attempted to update/delete a client that is "
                       "registered to another player, %s vs %s",
                       player_id, client.player_id)
-            abort(httplib.NOT_FOUND, description="This is not your client",)
+            abort(http_client.NOT_FOUND, description="This is not your client",)
 
         return None
 
@@ -206,7 +209,7 @@ class ClientAPI(Resource):
 
         client = g.db.query(Client).get(client_id)
         if not client or client.status == "deleted":
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         ret = client.as_dict()
         ret["url"] = url_client(client_id)
         ret["player_url"] = url_player(client.player_id)
@@ -233,7 +236,7 @@ class ClientAPI(Resource):
             msg = "Heartbeat timeout. Last heartbeat was at {} and now we are at {}" \
                   .format(last_heartbeat, now)
             log.info(msg)
-            abort(httplib.NOT_FOUND, message=msg)
+            abort(http_client.NOT_FOUND, message=msg)
 
         client.heartbeat = now
         client.num_heartbeats += 1
@@ -261,7 +264,7 @@ class ClientAPI(Resource):
             return ret
         client = g.db.query(Client).get(client_id)
         if not client or client.status == "deleted":
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
         client.heartbeat = utcnow()
         client.num_heartbeats += 1
         client.status = "deleted"
@@ -271,7 +274,7 @@ class ClientAPI(Resource):
                  client_id, current_user["player_id"])
 
         return json_response("Client has been closed. Please terminate the client.",
-                             httplib.OK)
+                             http_client.OK)
 
 
 api.add_resource(ClientsAPI, '/clients', endpoint="clients")

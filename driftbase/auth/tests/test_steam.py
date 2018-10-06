@@ -78,7 +78,10 @@ class SteamCase(unittest.TestCase):
         # a single field, we should only be notified of that one missing.
         with self.assertRaises(Unauthorized) as context:
             run_ticket_validation({})
-        self.assertIn("The token is missing required fields: ticket, appid.", context.exception.description)
+        # The order of missing fields isn't fixed
+        self.assertIn("The token is missing required fields:", context.exception.description)
+        self.assertIn("ticket", context.exception.description)
+        self.assertIn("appid", context.exception.description)
 
     def test_broken_url(self):
         # Verify that broken key url is caught

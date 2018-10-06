@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import json
-
-from flask import g
-from driftbase.db.models import Counter, MatchEvent
 import logging
+
+import six
+from flask import g
+
+from driftbase.db.models import Counter, MatchEvent
 log = logging.getLogger(__name__)
 
 EXPIRE_SECONDS = 86400
@@ -39,7 +41,7 @@ def get_all_counters(force=False):
 def get_counter(counter_key):
     counters = get_all_counters()
     try:
-        return counters[unicode(counter_key)]
+        return counters[six.text_type(counter_key)]
     except KeyError:
         log.info("Counter '%s' not found in cache. Fetching from db", counter_key)
         log.info("Counter cache contains: %s" % (counters.keys()))

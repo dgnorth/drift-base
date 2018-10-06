@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from mock import patch, MagicMock
-import httplib
+from six.moves import http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
 from drift.utils import get_config
@@ -48,7 +48,7 @@ class AuthTests(DriftBaseTestCase):
 
         # verify error with empty username
         data['provider_details']['username'] = ""
-        self.post('/auth', data=data, expected_status_code=httplib.UNAUTHORIZED)
+        self.post('/auth', data=data, expected_status_code=http_client.UNAUTHORIZED)
 
         # Oculus normal authentication check
         nonce = "140000003DED3A"

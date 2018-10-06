@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
+from six.moves import http_client
 from flask import Blueprint, url_for, g
 from flask_restful import Api, Resource, abort
 from drift.utils import url_user, url_player
@@ -42,7 +42,7 @@ class UsersAPI(Resource):
         """
         user = g.db.query(User).filter(User.user_id == user_id).first()
         if not user:
-            abort(httplib.NOT_FOUND)
+            abort(http_client.NOT_FOUND)
 
         data = user.as_dict()
         data["client_url"] = None

@@ -4,7 +4,9 @@
     Note: This is still not used and is work in progress
 """
 
-import logging, httplib
+import logging
+
+from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
@@ -60,7 +62,7 @@ class RunConfigsAPI(Resource):
 
         rows = g.db.query(RunConfig).filter(RunConfig.name.ilike(args["name"])).all()
         if rows:
-            abort(httplib.BAD_REQUEST, message="Run Config '%s' already exists" % args["name"])
+            abort(http_client.BAD_REQUEST, message="Run Config '%s' already exists" % args["name"])
 
         runconfig = RunConfig(name=args.get("name"),
                               repository=args.get("repository"),
@@ -82,7 +84,7 @@ class RunConfigsAPI(Resource):
 
         return {"runconfig_id": runconfig_id,
                 "url": resource_uri
-                }, httplib.CREATED, response_header
+                }, http_client.CREATED, response_header
 
 
 class RunConfigAPI(Resource):
@@ -98,7 +100,7 @@ class RunConfigAPI(Resource):
         row = g.db.query(RunConfig).get(runconfig_id)
         if not row:
             log.warning("Requested a non-existant run config: %s", runconfig_id)
-            abort(httplib.NOT_FOUND, description="Run Config not found")
+            abort(http_client.NOT_FOUND, description="Run Config not found")
         record = row.as_dict()
         record["url"] = url_for("runconfigs.entry", runconfig_id=runconfig_id, _external=True)
 

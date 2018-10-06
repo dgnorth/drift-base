@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, copy
-import httplib
 import unittest, responses, mock
 import json, requests
 import datetime
+
+from six.moves import http_client
 from mock import patch
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, uuid_string
 
@@ -36,15 +37,15 @@ class CountersTest(DriftBaseTestCase):
         r = self.put(counter_url, data=data)
         r = self.get(countertotals_url)
 
-        self.assertEquals(len(r.json()), 1)
+        self.assertEqual(len(r.json()), 1)
         self.assertIn(name, r.json())
-        self.assertEquals(r.json()[name], val)
+        self.assertEqual(r.json()[name], val)
 
     def test_counters_positions(self):
         name = "my_leaderboard_counter"
         num_players = 5
         players = []
-        for i in xrange(num_players):
+        for i in range(num_players):
             self.auth(username=uuid_string())
             player_url = self.endpoints["my_player"]
             self.patch(player_url, {"name": "Player %s" % i})
@@ -59,9 +60,9 @@ class CountersTest(DriftBaseTestCase):
             r = self.patch(counter_url, data=data)
             r = self.get(countertotals_url)
 
-            self.assertEquals(len(r.json()), 1)
+            self.assertEqual(len(r.json()), 1)
             self.assertIn(name, r.json())
-            self.assertEquals(r.json()[name], val)
+            self.assertEqual(r.json()[name], val)
 
             players.append((self.player_id, player_url, val))
 
@@ -79,9 +80,9 @@ class CountersTest(DriftBaseTestCase):
         # player with the highest score at the top
         for i, pl in enumerate(reversed(players)):
             player_id, player_url, val = pl
-            self.assertEquals(r.json()[i]["position"], i + 1)
-            self.assertEquals(r.json()[i]["total"], val)
-            self.assertEquals(r.json()[i]["player_id"], player_id)
+            self.assertEqual(r.json()[i]["position"], i + 1)
+            self.assertEqual(r.json()[i]["total"], val)
+            self.assertEqual(r.json()[i]["player_id"], player_id)
 
     def test_counters_include(self):
         # create some counters
@@ -168,7 +169,7 @@ class CountersTest(DriftBaseTestCase):
 
         r = self.get(counter_leaderboard_url + "?player_id=9999999")
         player_ids = [c["player_id"] for c in r.json()]
-        self.assertEquals(r.json(), [])
+        self.assertEqual(r.json(), [])
 
         r = self.get(counter_leaderboard_url + "?player_id=%s" % second_player_id)
         player_ids = [c["player_id"] for c in r.json()]
@@ -177,7 +178,7 @@ class CountersTest(DriftBaseTestCase):
 
         # Test player_group
         pg_url = self.endpoints["my_player_groups"].replace('{group_name}', 'second_player')
-        self.put(pg_url, data={'player_ids': [second_player_id]}, expected_status_code=httplib.OK)
+        self.put(pg_url, data={'player_ids': [second_player_id]}, expected_status_code=http_client.OK)
         r = self.get(counter_leaderboard_url + "?player_group=second_player")
         player_ids = [c["player_id"] for c in r.json()]
         self.assertIn(second_player_id, player_ids)
@@ -220,9 +221,9 @@ class CountersTest(DriftBaseTestCase):
                 counter_leaderboard_url = c["url"]
 
         r = self.get(counter_leaderboard_url)
-        self.assertEquals(len(r.json()), 2)
+        self.assertEqual(len(r.json()), 2)
         self.assertTrue(r.json()[0]["total"] > r.json()[1]["total"])
 
         r = self.get(counter_leaderboard_url + "?reverse=true")
-        self.assertEquals(len(r.json()), 2)
+        self.assertEqual(len(r.json()), 2)
         self.assertTrue(r.json()[0]["total"] < r.json()[1]["total"])

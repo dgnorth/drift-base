@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import httplib
+from six.moves import http_client
 from drift.systesthelper import uuid_string, DriftBaseTestCase
 
 
@@ -28,7 +28,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
             "link_with_user_id" : -1,
             "link_with_user_jti" : device_jti
         }
-        self.post(user_identities_url, data=data, expected_status_code=httplib.NOT_FOUND)
+        self.post(user_identities_url, data=data, expected_status_code=http_client.NOT_FOUND)
 
     def test_identities_wrong_user(self):
         # authenticate with gamecenter
@@ -60,7 +60,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
             "link_with_user_id" : other_user_id,
             "link_with_user_jti" : device_jti
         }
-        r = self.post(user_identities_url, data=data, expected_status_code=httplib.BAD_REQUEST)
+        r = self.post(user_identities_url, data=data, expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("User does not match JWT user", r.json()['error']["description"])
 
     def test_identities_add_gamecenter(self):
@@ -106,7 +106,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
         self.post(user_identities_url, data=data)
 
         # I should not be able to associate the same user again
-        self.post(user_identities_url, data=data, expected_status_code=httplib.BAD_REQUEST)
+        self.post(user_identities_url, data=data, expected_status_code=http_client.BAD_REQUEST)
 
         # reauthenticate and ensure the user is associated with the gamecenter account
         self.auth(username=username_gamecenter)
@@ -115,7 +115,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
         self.assertEqual(new_gamecenter_user_id, device_user_id)
 
         # I should not be able to associate the same user again (now with a proper jwt)
-        self.post(user_identities_url, data=data, expected_status_code=httplib.BAD_REQUEST)
+        self.post(user_identities_url, data=data, expected_status_code=http_client.BAD_REQUEST)
 
     def test_identities_already_claimed(self):
         # authenticate with gamecenter
@@ -150,8 +150,8 @@ class UserIdentitiesTest(DriftBaseTestCase):
         other_gamecenter_user_id = r["current_user"]["user_id"]
         other_gamecenter_jti = r["current_user"]["jti"]
 
-        r = self.post(user_identities_url, data=data, expected_status_code=httplib.FORBIDDEN)
-        self.assertEquals(r.json()['error']["code"], "linked_account_already_claimed")
+        r = self.post(user_identities_url, data=data, expected_status_code=http_client.FORBIDDEN)
+        self.assertEqual(r.json()['error']["code"], "linked_account_already_claimed")
 
     def test_identities_get(self):
         # authenticate with gamecenter
@@ -160,14 +160,14 @@ class UserIdentitiesTest(DriftBaseTestCase):
         user_identities_url = self.endpoints["user_identities"]
 
         r = self.get(user_identities_url + "?name=bla")
-        self.assertEquals(len(r.json()), 0)
+        self.assertEqual(len(r.json()), 0)
         r = self.get(user_identities_url + "?name=%s" % username)
-        self.assertEquals(len(r.json()), 1)
-        self.assertEquals(r.json()[0]["player_id"], self.player_id)
+        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(r.json()[0]["player_id"], self.player_id)
 
         r = self.get(user_identities_url + "?player_id=9999999")
-        self.assertEquals(len(r.json()), 0)
+        self.assertEqual(len(r.json()), 0)
         r = self.get(user_identities_url + "?player_id=%s" % self.player_id)
-        self.assertEquals(len(r.json()), 1)
-        self.assertEquals(r.json()[0]["player_id"], self.player_id)
-        self.assertEquals(r.json()[0]["identity_name"], username)
+        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(r.json()[0]["player_id"], self.player_id)
+        self.assertEqual(r.json()[0]["identity_name"], username)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import handlers
+from . import handlers
 
 
 def register_blueprints(app):

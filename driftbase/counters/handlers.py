@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
 import collections
 import time
+
+import six
+from six.moves import http_client
 
 from flask import Blueprint, url_for, g
 from flask_restful import Api, Resource, reqparse, abort
@@ -40,7 +42,7 @@ class CountersApi(Resource):
                 "url": url_for("counters.entry", counter_id=s.counter_id, _external=True)
             })
 
-        resp = api.make_response(ret, httplib.OK)
+        resp = api.make_response(ret, http_client.OK)
         resp.cache_control.max_age = 60
         return resp
 
@@ -109,8 +111,8 @@ class CounterApi(Resource):
                 # find the name of this counter. We cache this locally for performance
                 try:
                     counter_name = counter_names[this_counter_id]
-                except:
-                    c = all_counters.get(unicode(this_counter_id), {})
+                except KeyError:
+                    c = all_counters.get(six.text_type(this_counter_id), {})
                     name = c.get("name", this_counter_id)
                     counter_names[this_counter_id] = name
                     counter_name = name
@@ -145,7 +147,7 @@ class CounterApi(Resource):
             }
             ret.append(entry)
 
-        resp = api.make_response(ret, httplib.OK)
+        resp = api.make_response(ret, http_client.OK)
         resp.cache_control.max_age = 60
         log.info("Returning counters in %.2fsec", time.time() - start_time)
 

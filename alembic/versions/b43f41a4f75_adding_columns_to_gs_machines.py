@@ -18,13 +18,13 @@ from sqlalchemy.dialects.postgresql import ENUM, INET, JSON
 from drift.orm import ModelBase, utc_now, Base
 
 def upgrade(engine_name):
-    print "Upgrading {}".format(engine_name)
+    print("Upgrading {}".format(engine_name))
     op.add_column('gs_machines', sa.Column('heartbeat_date', sa.DateTime, server_default=utc_now))
     op.add_column('gs_machines', sa.Column('config', JSON, nullable=True))
     op.add_column('gs_machines', sa.Column('statistics', JSON, nullable=True))
 
 def downgrade(engine_name):
-    print "Downgrading {}".format(engine_name)
+    print("Downgrading {}".format(engine_name))
     op.drop_column('gs_machines', 'heartbeat_date')
     op.drop_column('gs_machines', 'config')
     op.drop_column('gs_machines', 'statistics')

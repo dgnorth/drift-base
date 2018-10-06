@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import httplib
 import unittest
 import datetime
 import json
+
+from six.moves import http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant, uuid_string, DriftBaseTestCase
 
@@ -18,10 +19,10 @@ def tearDownModule():
 
 def _generate_dummy_gamestate(numkeys=100):
     ret = {}
-    for i in xrange(numkeys):
+    for i in range(numkeys):
         key = uuid_string()
         ret[key] = []
-        for i in xrange(numkeys):
+        for i in range(numkeys):
             ret[key].append({uuid_string(): uuid_string()})
     string = json.dumps(ret)
     return string
@@ -62,7 +63,7 @@ class GameStateTests(DriftBaseTestCase):
         return the journal_id of the new entry"""
         # TODO: Possibly move to the gamestate test class
         entry = self.get_journal_entry(journal_url, action, journal_id, timestamp, details, steps)
-        r = self.post(journal_url, [entry], expected_status_code=httplib.CREATED)
+        r = self.post(journal_url, [entry], expected_status_code=http_client.CREATED)
         return r.json()[0]["journal_id"]
 
     def test_gamestate_basic(self):
@@ -147,7 +148,7 @@ class GameStateTests(DriftBaseTestCase):
         resp = self.get(player_url)
         gamestates_url = resp.json()["gamestates_url"]
         num = 5
-        for i in xrange(num):
+        for i in range(num):
             gamestate_data = {"hello": "world", "number": i}
             data = {
                 "gamestate": gamestate_data,

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import httplib
+
+from six.moves import http_client
 
 from werkzeug.security import pbkdf2_hex
 
 from flask import g, current_app
 from flask_restful import abort
+from click import secho
 
 from drift.core.extensions import jwt
 
@@ -19,8 +21,8 @@ log = logging.getLogger(__name__)
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
-    print "FUDGE!", description
-    abort(httplib.UNAUTHORIZED, description=description)
+    secho("FUDGE {}".format(description), fg="red")
+    abort(http_client.UNAUTHORIZED, description=description)
 
 
 def authenticate_with_provider(auth_info):
@@ -139,7 +141,7 @@ def authenticate(username, password, automatic_account_creation=True):
             if password != service_user["password"]:
                 log.error("Attempting to log in as service "
                           "user without correct password!")
-                abort(httplib.METHOD_NOT_ALLOWED,
+                abort(http_client.METHOD_NOT_ALLOWED,
                       message="Incorrect password for service user")
             else:
                 create_roles.append("service")
@@ -160,7 +162,7 @@ def authenticate(username, password, automatic_account_creation=True):
                  username, my_identity.identity_id)
     else:
         if not my_identity.check_password(password):
-            abort(httplib.METHOD_NOT_ALLOWED, message="Incorrect password")
+            abort(http_client.METHOD_NOT_ALLOWED, message="Incorrect password")
             return
 
     if my_identity:

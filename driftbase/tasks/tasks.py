@@ -120,7 +120,7 @@ def flush_request_statistics():
                 session.commit()
                 logger.info("Tenant %s has flushed %s requests to db", tenant_name, cnt)
 
-                for client_id, num in clients.iteritems():
+                for client_id, num in clients.items():
                     client_row = session.query(Client).get(client_id)
                     if not client_row:
                         logger.warning("Found no client row for client_id %s", client_id)
