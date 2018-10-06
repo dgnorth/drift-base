@@ -10,8 +10,12 @@ gevent = "*"
 requests = "*"
 boto3 = "*"  # Due to uneccessary or weird dependency in auth.util.fetch_url()
 greenlet = "*"
+flask-restplus = "*"
 
 [dev-packages]
 pytest = "*"
 responses = "*"
 mock = "*"
+
+[requires]
+python_version = "3.7"
