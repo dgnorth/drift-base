@@ -47,7 +47,7 @@ class UsersAPI(Resource):
         data = user.as_dict()
         data["client_url"] = None
         if user.client_id:
-            data["client_url"] = url_for("clients.client", client_id=user.client_id, _external=True)
+            data["client_url"] = url_for("client", client_id=user.client_id, _external=True)
         players = g.db.query(CorePlayer).filter(CorePlayer.user_id == user_id)
         data["players"] = []
         for player in players:

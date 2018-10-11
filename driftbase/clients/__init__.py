@@ -15,7 +15,7 @@ import six
 from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g, current_app
-from flask_restful import Api, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.utils import json_response, url_player, url_user, url_client
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -26,8 +26,7 @@ from driftbase.db.models import User, CorePlayer, Client, UserIdentity
 from drift.restful import Api
 
 log = logging.getLogger(__name__)
-bp = Blueprint("clients", __name__)
-api = Api(bp)
+api = namespace = Namespace("clients")
 endpoints = Endpoints()
 
 DEFAULT_HEARTBEAT_PERIOD = 30
@@ -35,7 +34,7 @@ DEFAULT_HEARTBEAT_TIMEOUT = 300
 
 
 def drift_init_extension(app, api, **kwargs):
-    app.register_blueprint(bp)
+    api.add_namespace(namespace)
     endpoints.init_app(app)
 
 
@@ -285,15 +284,15 @@ class ClientAPI(Resource):
                              http_client.OK)
 
 
-api.add_resource(ClientsAPI, '/clients', endpoint="clients")
+api.add_resource(ClientsAPI, '/', endpoint="clients")
 api.add_resource(ClientAPI, '/clients/<int:client_id>', endpoint="client")
 
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"clients": url_for("clients.clients", _external=True)}
+    ret = {"clients": url_for("clients", _external=True)}
     ret["my_client"] = None
     if current_user and current_user.get("client_id"):
-        ret["my_client"] = url_for("clients.client", client_id=current_user.get("client_id"),
+        ret["my_client"] = url_for("client", client_id=current_user.get("client_id"),
                                    _external=True)
     return ret
