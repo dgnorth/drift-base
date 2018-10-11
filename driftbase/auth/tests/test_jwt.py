@@ -3,7 +3,7 @@
 import unittest
 
 from flask import Flask, Blueprint, jsonify
-from flask_restful import Api, Resource
+from flask_restplus import Api, Resource
 from flask import g
 
 from drift.tests import DriftTestCase
