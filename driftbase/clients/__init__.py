@@ -14,19 +14,17 @@ import logging, datetime, json
 import six
 from six.moves import http_client
 
-from flask import Blueprint, request, url_for, g, current_app
+from flask import request, url_for, g, current_app
 from flask_restplus import Namespace, Resource, reqparse, abort
 
-from drift.utils import json_response, url_player, url_user, url_client
-from drift.core.extensions.schemachecker import simple_schema_request
-from drift.urlregistry import register_endpoints
+from drift.utils import json_response, url_client
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user, issue_token
 from driftbase.db.models import User, CorePlayer, Client, UserIdentity
-from drift.restful import Api
+from flask_restplus import fields, marshal
 
 log = logging.getLogger(__name__)
-api = namespace = Namespace("clients")
+namespace = Namespace("clients", "Client registration")
 endpoints = Endpoints()
 
 DEFAULT_HEARTBEAT_PERIOD = 30
@@ -43,46 +41,114 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
+descriptions = {
+    'client_type': "Type of client as reported by the client itself. Example: UE4",
+    'build': "Build/version information about the client executable",
+    'version': "Version information about the client executable",
+    'platform_type': "Name of the platform (e.g. Windows, IpadPro, etc)",
+    'platform_version': "Version of the platform (e.g. Windows 10, etc)",
+    'app_guid': "Globally nique name of the application",
+    'platform_info': "Information about the platform in JSON format",
+    'num_heartbeats' : "Number of times a heartbeat has been sent on this session",
+}
+client_statuses = ['active', 'deleted', 'timeout', 'usurped']
+client_model = namespace.model('Client', {
+    'client_id': fields.Integer(description="Unique ID of the client connection"),
+    'client_type': fields.String(description=descriptions['client_type']),
+    'user_id': fields.Integer(description="Unique ID of the user who owns this session (> 100000000)"),
+    'player_id': fields.Integer(description="Unique ID of the player who owns this session"),
+    'create_date': fields.DateTime(description="Timestamp when this session was created"),
+    'modify_date': fields.DateTime(description="Timestamp when this session object was last modified"),
+    'build': fields.String(description=descriptions['build']),
+    'version': fields.String(description=descriptions['version']),
+    'platform_type': fields.String(description=descriptions['platform_type']),
+    'platform_version': fields.String(description=descriptions['platform_version']),
+    'app_guid': fields.String(description=descriptions['app_guid']),
+    'heartbeat': fields.DateTime(description="Last time the client sent a heartbeat on this session"),
+    'num_heartbeats': fields.Integer(description=descriptions['num_heartbeats']),
+    'ip_address': fields.String(description="IPv4 address of the client"),
+    'num_requests': fields.Integer(description="Number of requests that have been sent to the drift-base app in this session"),
+    'platform_info': fields.Raw(description=descriptions['platform_info']),
+    'identity_id': fields.Integer(description="Unique ID of the identity associated with this connection"),
+    'status': fields.String(enum=client_statuses, description="Current status of this client session"),
+    'details': fields.Raw(description="Information about the status of the client session in JSON format"),
+    'client_url': fields.Url('client', absolute=True,
+                             description="Fully qualified url of the client resource"),
+    'user_url': fields.Url('users.user', absolute=True,
+                           description="Fully qualified url of the user resource"),
+    'player_url': fields.Url('players.player', absolute=True,
+                             description="Fully qualified url of the player resource")
+})
+
+client_registration_model = namespace.model('ClientRegistration', {
+    'client_id': fields.Integer(description="Unique ID of the client connection"),
+    'user_id': fields.Integer(description="Unique ID of the user who owns this session (> 100000000)"),
+    'player_id': fields.Integer(description="Unique ID of the player who owns this session"),
+    'url': fields.Url('client', absolute=True,
+                             description="Fully qualified url of the client resource"),
+    'server_time': fields.DateTime(description="Current Server time UTC"),
+    'next_heartbeat_seconds': fields.Integer(description="Number of seconds recommended for the client to heartbeat."),
+    'heartbeat_timeout': fields.DateTime(description="Timestamp when the client will be removed if heartbeat has not been received"),
+    'jti': fields.String(description="JTI lookup key of new JWT"),
+    'jwt': fields.String(description="New JWT token that includes client information"),
+})
+
+client_heartbeat_model = namespace.model('ClientHeartbeat', {
+    "num_heartbeats": fields.Integer(description=descriptions['num_heartbeats']),
+    "last_heartbeat": fields.DateTime(description="Timestamp of the previous heartbeat"),
+    "this_heartbeat": fields.DateTime(description="Timestamp of this heartbeat"),
+    "next_heartbeat": fields.DateTime(description="Timestamp when the next heartbeat is expected"),
+    "next_heartbeat_seconds": fields.Integer(description="Number of seconds until the next heartbeat is expected"),
+    "heartbeat_timeout": fields.DateTime(description="Timestamp when the client times out if no heartbeat is received"),
+    "heartbeat_timeout_seconds": fields.Integer(description="Number of seconds until the client times out if no heartbeat is received"),
+})
+
+
+@namespace.route('/', endpoint='clients')
 class ClientsAPI(Resource):
     # GET args
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("name", type=six.text_type)
-    get_args.add_argument("player_id", type=int)
+    get_parser = reqparse.RequestParser()
+    get_parser.add_argument('player_id', type=int,
+                          help="Optional ID of a player to return sessions for")
 
+    @namespace.expect(get_parser)
+    @namespace.marshal_with(client_model, as_list=True)
     def get(self):
         """
         Retrieves all active clients. If a client has not heartbeat
         for 5 minutes it is considered disconnected and is not returned by
         this endpoint
         """
-        args = self.get_args.parse_args()
+        args = self.get_parser.parse_args()
 
-        ret = []
         heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
         min_heartbeat_time = utcnow() - datetime.timedelta(seconds=heartbeat_timeout)
-        filters = [Client.heartbeat >= min_heartbeat_time]
+        query = g.db.query(Client).filter(Client.heartbeat >= min_heartbeat_time)
         if args["player_id"]:
-            filters.append(Client.player_id == args["player_id"])
-        rows = g.db.query(Client).filter(*filters)
-        for row in rows:
-            data = row.as_dict()
-            data["client_url"] = url_client(row.client_id)
-            data["player_url"] = url_player(row.player_id)
-            ret.append(data)
-        return ret
+            query = query.filter(Client.player_id == args["player_id"])
+        rows = query.all()
+        return rows
 
-    @simple_schema_request({
-        "client_type": {"type": "string", },
-        "build": {"type": "string", },
-        "platform_type": {"type": "string", },
-        "app_guid": {"type": "string", },
-        "version": {"type": "string", },
-        "platform_version": {"type": "string", },
-        "platform_info": {"type": ["string", "object"], },
-    }, required=["client_type", "build", "platform_type", "app_guid", "version"])
+    post_parser = reqparse.RequestParser(bundle_errors=True)
+    post_parser.add_argument('client_type', type=str, required=True,
+                             help=descriptions['client_type'])
+    post_parser.add_argument('build', type=str, required=True,
+                             help=descriptions['build'])
+    post_parser.add_argument('platform_type', type=str, required=True,
+                             help=descriptions['platform_type'])
+    post_parser.add_argument('app_guid', type=str, required=True,
+                             help=descriptions['app_guid'])
+    post_parser.add_argument('version', type=str, required=True,
+                             help=descriptions['version'])
+    post_parser.add_argument('platform_version', type=str,
+                             help=descriptions['platform_version'])
+    post_parser.add_argument('platform_info', type=str,
+                             help=descriptions['platform_info'])
+    @namespace.expect(post_parser)
+    @namespace.marshal_with(client_registration_model, code=http_client.CREATED)
     def post(self):
         """
-        Register a new connected client
+        Register a new connected client.
         """
         now = utcnow()
 
@@ -113,7 +179,7 @@ class ClientsAPI(Resource):
         g.db.commit()
         client_id = client.client_id
 
-        user = g.db.query(User).filter(User.user_id == user_id).first()
+        user = g.db.query(User).get(user_id)
         user.logon_date = now
         user.num_logons += 1
         user.client_id = client_id
@@ -123,7 +189,7 @@ class ClientsAPI(Resource):
         my_identity.num_logons += 1
         my_identity.last_ip_address = request.remote_addr
 
-        player = g.db.query(CorePlayer).filter(CorePlayer.player_id == player_id).first()
+        player = g.db.query(CorePlayer).get(player_id)
         player.logon_date = now
         player.num_logons += 1
 
@@ -148,10 +214,10 @@ class ClientsAPI(Resource):
 
         payload = dict(current_user)
         payload["client_id"] = client_id
-        ret = issue_token(payload)
+        new_token = issue_token(payload)
 
-        jwt = ret["token"]
-        jti = ret["jti"]
+        jwt = new_token["token"]
+        jti = new_token["jti"]
 
         resource_url = url_client(client_id)
         response_header = {
@@ -181,63 +247,55 @@ class ClientsAPI(Resource):
         return ret, http_client.CREATED, response_header
 
 
+def get_client(client_id):
+    """
+    Check whether the caller has access to this client and return a
+    response if he does not. Otherwise return None
+    """
+    player_id = current_user["player_id"]
+    client = g.db.query(Client).get(client_id)
+    if not client:
+        log.warning("User attempted to retrieve a client that is not registered: %s" %
+                    player_id)
+        abort(http_client.NOT_FOUND, description="This client is not registered",)
+    if client.player_id != player_id:
+        log.error("User attempted to update/delete a client that is "
+                  "registered to another player, %s vs %s",
+                  player_id, client.player_id)
+        abort(http_client.NOT_FOUND, description="This is not your client",)
+
+    return client
+
+
+@namespace.route('/<int:client_id>', endpoint='client')
 class ClientAPI(Resource):
     """
     Client API. This is used by the game clients to
     register themselves as connected-to-the-backend and to heartbeat
     to let the backend know that they are still connected.
     """
-    def validate_call(self, client_id):
-        """
-        Check whether the caller has access to this client and return a
-        response if he does not. Otherwise return None
-        """
-        player_id = current_user["player_id"]
-        client = g.db.query(Client).filter(Client.client_id == client_id).first()
-        if not client:
-            log.warning("User attempted to retrieve a client that is not registered: %s" %
-                        player_id)
-            abort(http_client.NOT_FOUND, description="This client is not registered",)
-        if client.player_id != player_id:
-            log.error("User attempted to update/delete a client that is "
-                      "registered to another player, %s vs %s",
-                      player_id, client.player_id)
-            abort(http_client.NOT_FOUND, description="This is not your client",)
-
-        return None
-
+    @namespace.marshal_with(client_model)
     def get(self, client_id):
         """
         Get information about a single client. Just dumps out the DB row as json
         """
-        ret = self.validate_call(client_id)
-        if ret:
-            return ret
-
-        client = g.db.query(Client).get(client_id)
-        if not client or client.status == "deleted":
+        client = get_client(client_id)
+        if client.status == "deleted":
             abort(http_client.NOT_FOUND)
-        ret = client.as_dict()
-        ret["url"] = url_client(client_id)
-        ret["player_url"] = url_player(client.player_id)
-        ret["user_url"] = url_user(client.user_id)
 
-        log.debug("Returning info for client %s", client_id)
-        return ret
+        return client
 
+    @namespace.marshal_with(client_heartbeat_model)
     def put(self, client_id):
         """
-        Heartbeat for client registration
+        Heartbeat for client registration.
         """
-        ret = self.validate_call(client_id)
-        if ret:
-            return ret
+        client = get_client(client_id)
 
         now = utcnow()
         heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
         heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
 
-        client = g.db.query(Client).get(client_id)
         last_heartbeat = client.heartbeat
         if last_heartbeat + datetime.timedelta(seconds=heartbeat_timeout) < now:
             msg = "Heartbeat timeout. Last heartbeat was at {} and now we are at {}" \
@@ -248,14 +306,15 @@ class ClientAPI(Resource):
         client.heartbeat = now
         client.num_heartbeats += 1
         g.db.commit()
-        ret = {"num_heartbeats": client.num_heartbeats,
-               "last_heartbeat": last_heartbeat,
-               "this_heartbeat": client.heartbeat,
-               "next_heartbeat": client.heartbeat + datetime.timedelta(seconds=heartbeat_period),
-               "next_heartbeat_seconds": heartbeat_period,
-               "heartbeat_timeout": utcnow() + datetime.timedelta(seconds=heartbeat_timeout),
-               "heartbeat_timeout_seconds": heartbeat_timeout,
-               }
+        ret = {
+            "num_heartbeats": client.num_heartbeats,
+            "last_heartbeat": last_heartbeat,
+            "this_heartbeat": client.heartbeat,
+            "next_heartbeat": client.heartbeat + datetime.timedelta(seconds=heartbeat_period),
+            "next_heartbeat_seconds": heartbeat_period,
+            "heartbeat_timeout": utcnow() + datetime.timedelta(seconds=heartbeat_timeout),
+            "heartbeat_timeout_seconds": heartbeat_timeout,
+            }
 
         log.debug("player %s has updated heartbeat for client %s. Heartbeat count is %s",
                   current_user["player_id"], client_id, client.num_heartbeats)
@@ -266,12 +325,10 @@ class ClientAPI(Resource):
         """
         Deregister an already registered client. Should return status 200 if successful.
         """
-        ret = self.validate_call(client_id)
-        if ret:
-            return ret
-        client = g.db.query(Client).get(client_id)
-        if not client or client.status == "deleted":
+        client = get_client(client_id)
+        if client.status == "deleted":
             abort(http_client.NOT_FOUND)
+
         client.heartbeat = utcnow()
         client.num_heartbeats += 1
         client.status = "deleted"
@@ -282,10 +339,6 @@ class ClientAPI(Resource):
 
         return json_response("Client has been closed. Please terminate the client.",
                              http_client.OK)
-
-
-api.add_resource(ClientsAPI, '/', endpoint="clients")
-api.add_resource(ClientAPI, '/clients/<int:client_id>', endpoint="client")
 
 
 @endpoints.register
