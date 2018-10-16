@@ -16,13 +16,15 @@ class EventsTest(DriftBaseTestCase):
         self.auth()
         self.assertIn("eventlogs", self.endpoints)
         endpoint = self.endpoints["eventlogs"]
+        r = self.post(endpoint, data=[{"hello": "world"}],
+                      expected_status_code=http_client.METHOD_NOT_ALLOWED)
+        print(r.json())
+        self.assertIn("'event_name'", r.json()["error"]["description"])
+
         self.post(endpoint, expected_status_code=http_client.METHOD_NOT_ALLOWED)
         self.post(endpoint, data=[], expected_status_code=http_client.METHOD_NOT_ALLOWED)
         self.post(endpoint, data=["test"], expected_status_code=http_client.METHOD_NOT_ALLOWED)
 
-        r = self.post(endpoint, data=[{"hello": "world"}],
-                      expected_status_code=http_client.METHOD_NOT_ALLOWED)
-        self.assertIn("'event_name'", r.json()["error"]["description"])
 
         r = self.post(endpoint, data=[{"hello": "world", "event_name": "dummy"}],
                       expected_status_code=http_client.METHOD_NOT_ALLOWED)
@@ -51,7 +53,7 @@ class EventsTest(DriftBaseTestCase):
             expect_player_id = self.expect_player_id or current_user['player_id']
             self.assertEqual(extra['player_id'], expect_player_id)
 
-        with mock.patch('driftbase.events.handlers.eventlogger.info', eventlog):
+        with mock.patch('driftbase.api.events.eventlogger.info', eventlog):
             self.auth()
             endpoint = self.endpoints["eventlogs"]
             ts = datetime.datetime.utcnow().isoformat() + "Z"

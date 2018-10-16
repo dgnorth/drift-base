@@ -56,7 +56,7 @@ class ClientsTest(DriftBaseTestCase):
         r = self.put(client_uri)
         self.assertEqual(r.json()["num_heartbeats"], 2)
 
-        with patch("driftbase.clients.utcnow") as mock_date:
+        with patch("driftbase.api.clients.utcnow") as mock_date:
             mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
             r = self.put(client_uri, expected_status_code=http_client.NOT_FOUND)
 

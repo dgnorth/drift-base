@@ -106,6 +106,7 @@ client_heartbeat_model = namespace.model('ClientHeartbeat', {
 
 @namespace.route('/', endpoint='clients')
 class ClientsAPI(Resource):
+    no_jwt_check = ['GET']
     # GET args
     get_parser = reqparse.RequestParser()
     get_parser.add_argument('player_id', type=int,

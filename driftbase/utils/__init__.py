@@ -2,9 +2,13 @@
 
 import json
 import logging
+from dateutil import parser
 
 import six
+from six.moves import http_client
+
 from flask import g
+from flask_restplus import abort
 
 from driftbase.db.models import Counter, MatchEvent
 log = logging.getLogger(__name__)
@@ -104,3 +108,31 @@ class UserCache(object):
 
     def delete(self, user_id):
         return self.cache.delete(self._key(user_id))
+
+
+def verify_log_request(request, required_keys=None):
+    args = request.json
+    if not isinstance(args, list):
+        abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
+    if not args:
+        log.warning("Invalid log request. No loglines.")
+        abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
+    for event in args:
+        if not isinstance(event, dict):
+            log.warning("Invalid log request. Entry not dict: %s", event)
+            abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
+        if required_keys:
+            for key in required_keys:
+                if key not in event:
+                    log.warning("Invalid log request. Missing required key '%s' from %s",
+                                key, event)
+                    abort(http_client.METHOD_NOT_ALLOWED,
+                          message="Required key, '%s' missing from event" % key)
+        if "timestamp" in event:
+            try:
+                parser.parse(event["timestamp"])
+            except ValueError:
+                log.warning("Invalid log request. Timestamp %s could not be parsed for %s",
+                            event["timestamp"], event)
+                abort(http_client.METHOD_NOT_ALLOWED, message="Invalid timestamp, '%s' in event '%s'" %
+                      (event["timestamp"], event["event_name"]))
