@@ -7,7 +7,8 @@ import datetime
 from six.moves import http_client
 
 from flask import Blueprint, request, g, abort, url_for
-from flask_restful import Api, Resource, reqparse
+from flask_restplus import Namespace, Resource, reqparse
+from drift.core.extensions.urlregistry import Endpoints
 
 from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import current_user
@@ -20,8 +21,15 @@ DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
 
 log = logging.getLogger(__name__)
-bp = Blueprint("friendships", __name__)
-api = Api(bp)
+
+
+namespace = Namespace("friendships", "Player to player relationships")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
 
 
 def get_player(player_id):
@@ -29,6 +37,7 @@ def get_player(player_id):
     return player
 
 
+@namespace.route('/players/<int:player_id>', endpoint='friendships')
 class FriendshipsAPI(Resource):
 
     def get(self, player_id):
@@ -48,7 +57,7 @@ class FriendshipsAPI(Resource):
             friend = {
                 "friend_id": friend_id,
                 "player_url": url_for("players.player", player_id=friend_id, _external=True),
-                "friendship_url": url_for("friendships.friendship", friendship_id=friendship_id, _external=True)
+                "friendship_url": url_for("friendship", friendship_id=friendship_id, _external=True)
             }
             friends.append(friend)
 
@@ -105,7 +114,7 @@ class FriendshipsAPI(Resource):
 
         ret = {
             "friend_id": friend_id,
-            "url": url_for("friendships.friendship", friendship_id=friendship.id, _external=True),
+            "url": url_for("friendship", friendship_id=friendship.id, _external=True),
             "messagequeue_url": url_for("messages.exchange", exchange="players", exchange_id=friend_id,
                                         _external=True) + "/{queue}",
         }
@@ -113,6 +122,7 @@ class FriendshipsAPI(Resource):
         return ret, http_client.CREATED
 
 
+@namespace.route('/<int:friendship_id>', endpoint='friendship')
 class FriendshipAPI(Resource):
 
     def delete(self, friendship_id):
@@ -136,6 +146,7 @@ class FriendshipAPI(Resource):
         return {}, http_client.NO_CONTENT
 
 
+@namespace.route('/invites', endpoint='friendinvites')
 class FriendInvitesAPI(Resource):
 
     def post(self):
@@ -162,13 +173,14 @@ class FriendInvitesAPI(Resource):
         g.db.commit()
 
         ret = {
-            "token":token,
-            "expires":expires,
-            "url":url_for("friendships.friendinvite", invite_id=invite.id, _external=True)
+            "token": token,
+            "expires": expires,
+            "url": url_for("friendinvite", invite_id=invite.id, _external=True)
         }, http_client.CREATED
         return ret
 
 
+@namespace.route('/invites/<int:invite_id>', endpoint='friendinvite')
 class FriendInviteAPI(Resource):
 
     def delete(self, invite_id):
@@ -195,18 +207,11 @@ def on_message(queue_name, message):
         log.info("Friendship is forevur! This one just connected: %s", message['payload'])
 
 
-
-api.add_resource(FriendshipsAPI, "/friendships/players/<int:player_id>", endpoint="friendships")
-api.add_resource(FriendshipAPI, "/friendships/<int:friendship_id>", endpoint="friendship")
-api.add_resource(FriendInvitesAPI, "/friendships/invites", endpoint="friendinvites")
-api.add_resource(FriendInviteAPI, "/friendships/invites/<int:invite_id>", endpoint="friendinvite")
-
-
-@register_endpoints
-def endpoint_info(current_user):
+@endpoints.register
+def endpoint_info(*args):
     ret = {}
     ret["my_friends"] = None
-    ret["friend_invites"] = url_for("friendships.friendinvites", _external=True)
+    ret["friend_invites"] = url_for("friendinvites", _external=True)
     if current_user:
-        ret["my_friends"] = url_for("friendships.friendships", player_id=current_user["player_id"], _external=True)
+        ret["my_friends"] = url_for("friendships", player_id=current_user["player_id"], _external=True)
     return ret

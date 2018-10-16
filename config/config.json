@@ -11,7 +11,7 @@
         "driftbase.api.clientlogs",
         "driftbase.api.events",
         "driftbase.api.counters",
-        "driftbase.friendships",
+        "driftbase.api.friendships",
         "driftbase.useridentities",
         "driftbase.matches",
         "driftbase.servers",
