@@ -13,7 +13,7 @@ from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import current_user, requires_roles
 
-from driftbase.db.models import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
+from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
 from driftbase.utils import log_match_event
 from driftbase.matchqueue import process_match_queue
 

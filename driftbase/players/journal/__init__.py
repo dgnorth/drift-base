@@ -5,7 +5,7 @@ import logging
 
 from flask import g
 
-from driftbase.db.models import PlayerJournal
+from driftbase.models.db import PlayerJournal
 
 log = logging.getLogger(__name__)
 

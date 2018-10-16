@@ -13,9 +13,7 @@ from flask import Blueprint, url_for, g
 from flask_restplus import Namespace, Resource, reqparse, abort
 from drift.core.extensions.urlregistry import Endpoints
 
-from drift.urlregistry import register_endpoints
-
-from driftbase.db.models import CorePlayer, Counter, CounterEntry
+from driftbase.models.db import CorePlayer, Counter, CounterEntry
 from driftbase.utils import get_all_counters, get_counter
 from driftbase.players.playergroups import get_playergroup_ids
 
@@ -32,6 +30,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
+@namespace.route('/', endpoint='counters')
 class CountersApi(Resource):
 
     get_args = reqparse.RequestParser()
@@ -48,14 +47,13 @@ class CountersApi(Resource):
                 "name": s.name,
                 "label": s.label,
                 "counter_id": s.counter_id,
-                "url": url_for("entry", counter_id=s.counter_id, _external=True)
+                "url": url_for("counter", counter_id=s.counter_id, _external=True)
             })
 
-        #resp = api.make_response(ret, http_client.OK)
-        #resp.cache_control.max_age = 60
         return ret, http_client.OK, {'Cache-Control': "max_age=60"}
 
 
+@namespace.route('/<int:counter_id>', endpoint='counter')
 class CounterApi(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("num", type=int, default=NUM_RESULTS)
@@ -65,6 +63,7 @@ class CounterApi(Resource):
     get_args.add_argument("player_group", type=str)
     get_args.add_argument("reverse", type=bool)
 
+    @namespace.expect(get_args)
     def get(self, counter_id):
         start_time = time.time()
         args = self.get_args.parse_args()
@@ -156,19 +155,13 @@ class CounterApi(Resource):
             }
             ret.append(entry)
 
-        #resp = api.make_response(ret, http_client.OK)
-        #resp.cache_control.max_age = 60
         log.info("Returning counters in %.2fsec", time.time() - start_time)
 
         return ret, http_client.OK, {'Cache-Control': "max_age=60"}
 
 
-api.add_resource(CountersApi, "/", endpoint="list")
-api.add_resource(CounterApi, "/<int:counter_id>", endpoint="entry")
-
-
 @endpoints.register
 def endpoint_info(current_user):
     ret = {}
-    ret["counters"] = url_for("list", _external=True)
+    ret["counters"] = url_for("counters", _external=True)
     return ret

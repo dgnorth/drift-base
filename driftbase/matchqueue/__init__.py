@@ -5,7 +5,7 @@ import collections
 
 from flask import g
 
-from driftbase.db.models import Match, MatchQueuePlayer, Client, Server, Machine
+from driftbase.models.db import Match, MatchQueuePlayer, Client, Server, Machine
 
 import logging
 log = logging.getLogger(__name__)

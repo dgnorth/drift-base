@@ -12,7 +12,7 @@ from drift.urlregistry import register_endpoints
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user
 
-from driftbase.db.models import CorePlayer, UserIdentity
+from driftbase.models.db import CorePlayer, UserIdentity
 from driftbase.players.playergroups import get_playergroup, set_playergroup
 
 log = logging.getLogger(__name__)

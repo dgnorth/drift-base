@@ -12,7 +12,7 @@ from click import secho
 
 from drift.core.extensions import jwt
 
-from driftbase.db.models import User, CorePlayer, UserIdentity, UserRole
+from driftbase.models.db import User, CorePlayer, UserIdentity, UserRole
 from driftbase.utils import UserCache
 
 log = logging.getLogger(__name__)

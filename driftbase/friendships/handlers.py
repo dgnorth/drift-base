@@ -13,7 +13,7 @@ from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
-from driftbase.db.models import Friendship, FriendInvite, CorePlayer
+from driftbase.models.db import Friendship, FriendInvite, CorePlayer
 
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1

@@ -2,7 +2,7 @@
 
 from flask import g
 
-from driftbase.db.models import Ticket
+from driftbase.models.db import Ticket
 
 import logging
 log = logging.getLogger(__name__)

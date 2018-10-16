@@ -11,7 +11,7 @@ from drift.urlregistry import register_endpoints
 from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.players import can_edit_player
-from driftbase.db.models import GameState, GameStateHistory, PlayerJournal
+from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
 
 log = logging.getLogger(__name__)
 bp = Blueprint("gamestate", __name__)

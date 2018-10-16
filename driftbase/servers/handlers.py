@@ -13,7 +13,7 @@ from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import current_user, requires_roles
 
-from driftbase.db.models import Machine, Server, Match, ServerDaemonCommand
+from driftbase.models.db import Machine, Server, Match, ServerDaemonCommand
 
 log = logging.getLogger(__name__)
 bp = Blueprint("servers", __name__)

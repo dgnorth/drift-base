@@ -13,7 +13,7 @@ from drift.urlregistry import register_endpoints
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user, get_cached_token
 
-from driftbase.db.models import User, CorePlayer, UserIdentity
+from driftbase.models.db import User, CorePlayer, UserIdentity
 
 log = logging.getLogger(__name__)
 bp = Blueprint("useridentities", __name__)

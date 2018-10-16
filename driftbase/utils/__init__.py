@@ -10,7 +10,7 @@ from six.moves import http_client
 from flask import g
 from flask_restplus import abort
 
-from driftbase.db.models import Counter, MatchEvent
+from driftbase.models.db import Counter, MatchEvent
 log = logging.getLogger(__name__)
 
 EXPIRE_SECONDS = 86400

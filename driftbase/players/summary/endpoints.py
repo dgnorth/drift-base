@@ -9,7 +9,7 @@ from flask_restful import Api, Resource
 
 from drift.urlregistry import register_endpoints
 
-from driftbase.db.models import PlayerSummary, PlayerSummaryHistory, CorePlayer
+from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
 from driftbase.players import log_event, can_edit_player
 
 log = logging.getLogger(__name__)

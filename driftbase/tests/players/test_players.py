@@ -18,7 +18,7 @@ class PlayersTest(BaseCloudkitTest):
         self.assertTrue(r.json()["is_online"])
 
         # mock out the utcnow call so that we can put the players 'offline'
-        with patch("driftbase.db.models.utcnow") as mock_date:
+        with patch("driftbase.models.db.utcnow") as mock_date:
             mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
             r = self.get(self.endpoints["my_player"])
             self.assertFalse(r.json()["is_online"])

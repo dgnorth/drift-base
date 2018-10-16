@@ -13,7 +13,7 @@ from flask_restful import Api, Resource, reqparse, abort
 from drift.utils import json_response
 from drift.core.extensions.jwt import current_user
 
-from driftbase.db.models import PlayerJournal, GameState
+from driftbase.models.db import PlayerJournal, GameState
 from driftbase.players.journal import write_journal, JournalError
 from driftbase.players import can_edit_player
 

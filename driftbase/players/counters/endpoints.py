@@ -19,7 +19,7 @@ from flask_restful import Api, Resource, abort
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
-from driftbase.db.models import CounterEntry, Counter, CorePlayer, PlayerCounter
+from driftbase.models.db import CounterEntry, Counter, CorePlayer, PlayerCounter
 from driftbase.utils import clear_counter_cache, get_counter
 
 log = logging.getLogger(__name__)

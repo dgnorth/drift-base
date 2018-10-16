@@ -10,7 +10,7 @@
         "driftbase.api.clients",
         "driftbase.api.clientlogs",
         "driftbase.api.events",
-        "driftbase.counters",
+        "driftbase.api.counters",
         "driftbase.friendships",
         "driftbase.useridentities",
         "driftbase.matches",
@@ -42,7 +42,7 @@
     ],
     "resource_attributes": {
         "drift.core.resources.apitarget": {"api": "drift", "requires_api_key": true},
-        "drift.core.resources.postgres": {"models": ["driftbase.db.models"]}
+        "drift.core.resources.postgres": {"models": ["driftbase.models.db"]}
     },
     "default_timeout": 5,
     "heartbeat_period": 30,

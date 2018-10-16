@@ -13,7 +13,7 @@ from drift.core.extensions.jwt import requires_roles
 
 from driftbase.players import log_event, can_edit_player
 from driftbase.players.tickets import create_ticket
-from driftbase.db.models import Ticket
+from driftbase.models.db import Ticket
 
 log = logging.getLogger(__name__)
 bp = Blueprint("tickets", __name__)

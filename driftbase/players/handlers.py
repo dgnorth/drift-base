@@ -11,7 +11,7 @@ from drift.urlregistry import register_endpoints
 from drift.utils import url_player, url_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
-from driftbase.db.models import CorePlayer, Client, User
+from driftbase.models.db import CorePlayer, Client, User
 from driftbase.players.playergroups import get_playergroup_ids
 
 log = logging.getLogger(__name__)

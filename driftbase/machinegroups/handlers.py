@@ -14,7 +14,7 @@ from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import requires_roles
 
-from driftbase.db.models import MachineGroup
+from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
 bp = Blueprint("machinegroups", __name__)

@@ -7,7 +7,7 @@ from flask_restplus import abort
 
 from drift.core.extensions.jwt import query_current_user
 
-from driftbase.db.models import Client
+from driftbase.models.db import Client
 
 log = logging.getLogger(__name__)
 

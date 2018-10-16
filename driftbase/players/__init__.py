@@ -7,7 +7,7 @@ from flask_restful import abort
 
 from drift.core.extensions.jwt import current_user
 
-from driftbase.db.models import CorePlayer, PlayerEvent
+from driftbase.models.db import CorePlayer, PlayerEvent
 
 import logging
 log = logging.getLogger(__name__)

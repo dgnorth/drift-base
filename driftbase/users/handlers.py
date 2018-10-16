@@ -5,7 +5,7 @@ from six.moves import http_client
 from flask import Blueprint, url_for, g
 from flask_restful import Api, Resource, abort
 from drift.utils import url_user, url_player
-from driftbase.db.models import User, CorePlayer, UserIdentity
+from driftbase.models.db import User, CorePlayer, UserIdentity
 from drift.urlregistry import register_endpoints
 
 log = logging.getLogger(__name__)

@@ -16,7 +16,7 @@ from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
 from drift.utils import url_player, json_response
 
-from driftbase.db.models import CorePlayer, MatchQueuePlayer, Match, Client, Server
+from driftbase.models.db import CorePlayer, MatchQueuePlayer, Match, Client, Server
 from driftbase.matchqueue import process_match_queue
 
 bp = Blueprint("matchqueue", __name__)

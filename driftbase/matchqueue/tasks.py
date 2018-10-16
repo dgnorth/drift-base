@@ -9,7 +9,7 @@ from celery.utils.log import get_task_logger
 from drift.core.extensions.celery import celery
 
 from driftbase.tasks import tasks
-from driftbase.db.models import MatchQueuePlayer, Match
+from driftbase.models.db import MatchQueuePlayer, Match
 from driftbase.matchqueue import process_match_queue
 
 
