@@ -114,7 +114,7 @@ class PsnCase(unittest.TestCase):
     def test_unknown_issuer(self):
         with self.assertRaises(Unauthorized) as context:
             run_ticket_validation(user_id=123, auth_code='abcdef', issuer='foo', client_id='', client_secret='')
-        self.assertIn("Unknown issuer", context.exception.description)
+            self.assertIn("Unknown issuer", context.exception.description)
 
     def test_success(self):
         psn_id = run_ticket_validation(user_id=123, auth_code='abcdef', issuer='dev', client_id='', client_secret='')
@@ -124,20 +124,20 @@ class PsnCase(unittest.TestCase):
         with self.assertRaises(Unauthorized) as context:
             psn_id = run_ticket_validation(user_id=123, auth_code='invalid', issuer='dev', client_id='',
                                            client_secret='')
-        self.assertIn("User 123 not authenticated on PSN platform.", context.exception.description)
+            self.assertIn("User 123 not authenticated on PSN platform.", context.exception.description)
 
     def test_wrong_user(self):
         with self.assertRaises(Unauthorized) as context:
             psn_id = run_ticket_validation(user_id=123, auth_code='test_wrong_user', issuer='dev', client_id='',
                                            client_secret='')
-        self.assertIn("User ID 123 doesn't match", context.exception.description)
+            self.assertIn("User ID 123 doesn't match", context.exception.description)
 
 
     def test_validation_fail(self):
         with self.assertRaises(Unauthorized) as context:
             psn_id = run_ticket_validation(user_id=123, auth_code='test_validation_fail', issuer='dev', client_id='',
                                        client_secret='')
-        self.assertIn("User 123 not validated on PSN platform.", context.exception.description)
+            self.assertIn("User 123 not validated on PSN platform.", context.exception.description)
 
 
 if __name__ == "__main__":
