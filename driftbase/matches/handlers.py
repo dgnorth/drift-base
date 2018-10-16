@@ -96,10 +96,10 @@ class ActiveMatchesAPI(Resource):
             record["match_url"] = url_for("matches.entry",
                                           match_id=match.match_id,
                                           _external=True)
-            record["server_url"] = url_for("servers.entry",
+            record["server_url"] = url_for("server",
                                            server_id=server.server_id,
                                            _external=True)
-            record["machine_url"] = url_for("machines.entry",
+            record["machine_url"] = url_for("machine",
                                             machine_id=server.machine_id,
                                             _external=True)
             conn_url = "%s:%s?player_id=%s?token=%s"
@@ -251,12 +251,12 @@ class MatchAPI(Resource):
         ret["machine_url"] = None
         if server:
             ret["server"] = server.as_dict()
-            ret["server_url"] = url_for("servers.entry", server_id=server.server_id, _external=True)
+            ret["server_url"] = url_for("server", server_id=server.server_id, _external=True)
 
             machine = g.db.query(Machine).get(server.machine_id)
             ret["machine"] = None
             if server:
-                ret["machine_url"] = url_for("machines.entry",
+                ret["machine_url"] = url_for("machine",
                                              machine_id=machine.machine_id, _external=True)
 
         teams = []

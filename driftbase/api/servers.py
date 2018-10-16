@@ -7,17 +7,25 @@ import uuid
 from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
-from flask_restful import Api, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
+from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import current_user, requires_roles
 
 from driftbase.models.db import Machine, Server, Match, ServerDaemonCommand
 
 log = logging.getLogger(__name__)
-bp = Blueprint("servers", __name__)
-api = Api(bp)
+
+
+namespace = Namespace("servers", "Battleserver processes")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
+
 
 SECONDS_BETWEEN_HEARTBEAT = 30
 
@@ -26,6 +34,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
+@namespace.route('/', endpoint='servers')
 class ServersAPI(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("machine_id", type=int, required=False)
@@ -49,7 +58,7 @@ class ServersAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("servers.entry", server_id=row.server_id, _external=True)
+            record["url"] = url_for("server", server_id=row.server_id, _external=True)
             ret.append(record)
         return ret
 
@@ -147,10 +156,10 @@ class ServersAPI(Resource):
 
         server_id = server.server_id
 
-        resource_url = url_for("servers.entry", server_id=server_id, _external=True)
-        machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
-        heartbeat_url = url_for("servers.heartbeat", server_id=server_id, _external=True)
-        commands_url = url_for("servers.commands", server_id=server_id, _external=True)
+        resource_url = url_for("server", server_id=server_id, _external=True)
+        machine_url = url_for("machine", machine_id=machine_id, _external=True)
+        heartbeat_url = url_for("server_heartbeat", server_id=server_id, _external=True)
+        commands_url = url_for("server_commands", server_id=server_id, _external=True)
         response_header = {
             "Location": resource_url,
         }
@@ -165,6 +174,7 @@ class ServersAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
+@namespace.route('/<int:server_id>', endpoint='server')
 class ServerAPI(Resource):
     """
     Interface to battle servers instances. A battleserver instance is
@@ -187,15 +197,15 @@ class ServerAPI(Resource):
 
         machine_id = server.machine_id
         record = server.as_dict()
-        record["url"] = url_for("servers.entry", server_id=server_id, _external=True)
-        record["heartbeat_url"] = url_for("servers.heartbeat", server_id=server_id, _external=True)
-        record["commands_url"] = url_for("servers.commands", server_id=server_id, _external=True)
+        record["url"] = url_for("servers", server_id=server_id, _external=True)
+        record["heartbeat_url"] = url_for("server_heartbeat", server_id=server_id, _external=True)
+        record["commands_url"] = url_for("server_commands", server_id=server_id, _external=True)
 
         record["machine_url"] = None
         if machine_id:
             machine = g.db.query(Machine).get(machine_id)
             if machine:
-                record["machine_url"] = url_for("machines.entry", machine_id=machine_id,
+                record["machine_url"] = url_for("machine", machine_id=machine_id,
                                                 _external=True)
 
         matches = []
@@ -217,7 +227,7 @@ class ServerAPI(Resource):
                        "command": row.command,
                        "arguments": row.arguments,
                        "create_date": row.create_date,
-                       "url": url_for("servers.command", server_id=server_id,
+                       "url": url_for("server_command", server_id=server_id,
                                       command_id=row.command_id, _external=True)
                        }
             commands.append(command)
@@ -269,17 +279,18 @@ class ServerAPI(Resource):
         machine_id = server.machine_id
         machine_url = None
         if machine_id:
-            machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
+            machine_url = url_for("machine", machine_id=machine_id, _external=True)
 
         return {"server_id": server_id,
-                "url": url_for("servers.entry", server_id=server_id, _external=True),
+                "url": url_for("server", server_id=server_id, _external=True),
                 "machine_id": machine_id,
                 "machine_url": machine_url,
-                "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
+                "heartbeat_url": url_for("server_heartbeat", server_id=server_id, _external=True),
                 "next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT,
                 }, http_client.OK, None
 
 
+@namespace.route('/<int:server_id>/heartbeat', endpoint='server_heartbeat')
 class ServerHeartbeatAPI(Resource):
     """
     Thin heartbeat API
@@ -299,6 +310,7 @@ class ServerHeartbeatAPI(Resource):
         return {"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }, http_client.OK, None
 
 
+@namespace.route('/<int:server_id>/commands', endpoint='server_commands')
 class ServerCommandsAPI(Resource):
     """
     Commands for the battleserver daemon
@@ -328,7 +340,7 @@ class ServerCommandsAPI(Resource):
         g.db.add(command)
         g.db.commit()
 
-        resource_url = url_for("servers.command", server_id=server_id,
+        resource_url = url_for("server_command", server_id=server_id,
                                command_id=command.command_id, _external=True)
         return {"command_id": command.command_id,
                 "url": resource_url,
@@ -343,7 +355,7 @@ class ServerCommandsAPI(Resource):
         ret = []
         for r in rows:
             command = r.as_dict()
-            command["url"] = url_for("servers.command",
+            command["url"] = url_for("server_command",
                                      server_id=server_id,
                                      command_id=r.command_id,
                                      _external=True)
@@ -351,6 +363,7 @@ class ServerCommandsAPI(Resource):
         return ret
 
 
+@namespace.route('/<int:server_id>/commands/<int:command_id>', endpoint='server_command')
 class ServerCommandAPI(Resource):
     @requires_roles("service")
     @simple_schema_request({
@@ -384,7 +397,7 @@ class ServerCommandAPI(Resource):
         g.db.commit()
 
         ret = row.as_dict()
-        ret["url"] = url_for("servers.command", server_id=server_id, command_id=row.command_id,
+        ret["url"] = url_for("server_command", server_id=server_id, command_id=row.command_id,
                              _external=True)
         return ret
 
@@ -392,20 +405,12 @@ class ServerCommandAPI(Resource):
     def get(self, server_id, command_id):
         row = g.db.query(ServerDaemonCommand).get(command_id)
         ret = row.as_dict()
-        ret["url"] = url_for("servers.command", server_id=server_id, command_id=row.command_id,
+        ret["url"] = url_for("server_command", server_id=server_id, command_id=row.command_id,
                              _external=True)
         return ret
 
 
-api.add_resource(ServersAPI, '/servers', endpoint="list")
-api.add_resource(ServerAPI, '/servers/<int:server_id>', endpoint="entry")
-api.add_resource(ServerHeartbeatAPI, '/servers/<int:server_id>/heartbeat', endpoint="heartbeat")
-api.add_resource(ServerCommandsAPI, '/servers/<int:server_id>/commands', endpoint="commands")
-api.add_resource(ServerCommandAPI, '/servers/<int:server_id>/commands/<int:command_id>',
-                 endpoint="command")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(*args):
-    ret = {"servers": url_for("servers.list", _external=True), }
+    ret = {"servers": url_for("servers", _external=True), }
     return ret

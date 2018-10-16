@@ -6,22 +6,32 @@ import datetime
 from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
-from flask_restful import Api, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
+from drift.core.extensions.urlregistry import Endpoints
 from dateutil import parser
 
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import requires_roles
 
 from driftbase.models.db import Machine, MachineEvent
 
 log = logging.getLogger(__name__)
-bp = Blueprint("machines", __name__)
-api = Api(bp)
+
+
+namespace = Namespace("machines", "Battleserver machine instances")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
+
 
 def utcnow():
     return datetime.datetime.utcnow()
 
+
+@namespace.route('/', endpoint='machines')
 class MachinesAPI(Resource):
     """The interface to battleserver machines. Each physical machine
     (for example ec2 instance) has a machine resource here. Each
@@ -43,6 +53,7 @@ class MachinesAPI(Resource):
     get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
+    @namespace.expect(get_args)
     def get(self):
         args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
@@ -74,7 +85,7 @@ class MachinesAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("machines.entry", machine_id=row.machine_id, _external=True)
+            record["url"] = url_for("machines", machine_id=row.machine_id, _external=True)
             ret.append(record)
 
         return ret
@@ -111,7 +122,7 @@ class MachinesAPI(Resource):
         g.db.add(machine)
         g.db.commit()
         machine_id = machine.machine_id
-        resource_uri = url_for("machines.entry", machine_id=machine_id, _external=True)
+        resource_uri = url_for("machine", machine_id=machine_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
@@ -123,6 +134,7 @@ class MachinesAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
+@namespace.route('/<int:machine_id>', endpoint='machine')
 class MachineAPI(Resource):
     """
     Information about specific machines
@@ -138,8 +150,8 @@ class MachineAPI(Resource):
             log.warning("Requested a non-existant machine: %s", machine_id)
             abort(http_client.NOT_FOUND, description="Machine not found")
         record = row.as_dict()
-        record["url"] = url_for("machines.entry", machine_id=machine_id, _external=True)
-        record["servers_url"] = url_for("servers.list", machine_id=machine_id, _external=True)
+        record["url"] = url_for("machine", machine_id=machine_id, _external=True)
+        record["servers_url"] = url_for("servers", machine_id=machine_id, _external=True)
         record["matches_url"] = url_for("matches.list", machine_id=machine_id, _external=True)
 
         log.debug("Returning info for battleserver machine %s", machine_id)
@@ -189,11 +201,7 @@ class MachineAPI(Resource):
         return {"last_heartbeat": last_heartbeat}
 
 
-api.add_resource(MachinesAPI, '/machines', endpoint="list")
-api.add_resource(MachineAPI, '/machines/<int:machine_id>', endpoint="entry")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(*args):
-    ret = {"machines": url_for("machines.list", _external=True)}
+    ret = {"machines": url_for("machines", _external=True)}
     return ret

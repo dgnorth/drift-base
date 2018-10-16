@@ -8,7 +8,8 @@ import logging
 from six.moves import http_client
 
 from flask import Blueprint, request, url_for, g
-from flask_restful import Api, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
+from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.urlregistry import register_endpoints
@@ -17,10 +18,17 @@ from drift.core.extensions.jwt import requires_roles
 from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
-bp = Blueprint("machinegroups", __name__)
-api = Api(bp)
+
+namespace = Namespace("machinegroups", "Battleserver machine instance groups")
+endpoints = Endpoints()
 
 
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
+
+
+@namespace.route('/', endpoint='machinegroups')
 class MachineGroupsAPI(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
@@ -39,7 +47,7 @@ class MachineGroupsAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("machinegroups.entry",
+            record["url"] = url_for("machinegroups",
                                     machinegroup_id=row.machinegroup_id, _external=True)
             ret.append(record)
 
@@ -62,7 +70,7 @@ class MachineGroupsAPI(Resource):
         g.db.add(machinegroup)
         g.db.commit()
         machinegroup_id = machinegroup.machinegroup_id
-        resource_uri = url_for("machinegroups.entry", machinegroup_id=machinegroup_id,
+        resource_uri = url_for("machinegroup", machinegroup_id=machinegroup_id,
                                _external=True)
         response_header = {
             "Location": resource_uri,
@@ -75,6 +83,7 @@ class MachineGroupsAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
+@namespace.route('/<int:machinegroup_id>', endpoint='machinegroup')
 class MachineGroupAPI(Resource):
     """
     Information about specific machines
@@ -90,7 +99,7 @@ class MachineGroupAPI(Resource):
             log.warning("Requested a non-existant machine group %s", machinegroup_id)
             abort(http_client.NOT_FOUND, description="Machine Group not found")
         record = row.as_dict()
-        record["url"] = url_for("machinegroups.entry", machinegroup_id=machinegroup_id,
+        record["url"] = url_for("machinegroup", machinegroup_id=machinegroup_id,
                                 _external=True)
 
         log.info("Returning info for run config %s", machinegroup_id)
@@ -117,13 +126,9 @@ class MachineGroupAPI(Resource):
         return "OK"
 
 
-api.add_resource(MachineGroupsAPI, '/machinegroups', endpoint="list")
-api.add_resource(MachineGroupAPI, '/machinegroups/<int:machinegroup_id>', endpoint="entry")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(*args):
     ret = {
-        "machinegroups": url_for("machinegroups.list", _external=True),
+        "machinegroups": url_for("machinegroups", _external=True),
     }
     return ret

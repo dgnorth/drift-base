@@ -10,7 +10,6 @@ from flask import Blueprint, request, g, abort, url_for
 from flask_restplus import Namespace, Resource, reqparse
 from drift.core.extensions.urlregistry import Endpoints
 
-from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
