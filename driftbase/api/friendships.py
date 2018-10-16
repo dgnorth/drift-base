@@ -27,9 +27,15 @@ namespace = Namespace("friendships", "Player to player relationships")
 endpoints = Endpoints()
 
 
+def on_message(queue_name, message):
+    if queue_name == 'clients' and message['event'] == 'created':
+        log.info("Friendship is forevur! This one just connected: %s", message['payload'])
+
+
 def drift_init_extension(app, api, **kwargs):
     api.add_namespace(namespace)
     endpoints.init_app(app)
+    app.messagebus.register_consumer(on_message, 'clients')
 
 
 def get_player(player_id):
@@ -200,11 +206,6 @@ class FriendInviteAPI(Resource):
         invite.deleted = True
         g.db.commit()
         return {}, http_client.NO_CONTENT
-
-
-def on_message(queue_name, message):
-    if queue_name == 'clients' and message['event'] == 'created':
-        log.info("Friendship is forevur! This one just connected: %s", message['payload'])
 
 
 @endpoints.register
