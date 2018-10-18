@@ -152,7 +152,7 @@ class MachineAPI(Resource):
         record = row.as_dict()
         record["url"] = url_for("machine", machine_id=machine_id, _external=True)
         record["servers_url"] = url_for("servers", machine_id=machine_id, _external=True)
-        record["matches_url"] = url_for("matches.list", machine_id=machine_id, _external=True)
+        record["matches_url"] = url_for("matches", machine_id=machine_id, _external=True)
 
         log.debug("Returning info for battleserver machine %s", machine_id)
 

@@ -86,7 +86,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "max_players": 2,
                 }
         data.update(**kwargs)
-        resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/matches/", data=data, expected_status_code=http_client.CREATED)
         resp = self.get(resp.json()["url"])
         return resp.json()
 

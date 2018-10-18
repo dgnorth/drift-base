@@ -8,21 +8,26 @@ import logging
 
 from six.moves import http_client
 
-from flask import Blueprint, g, url_for, request
-from flask_restful import Api, Resource, abort, reqparse
+from flask import g, url_for, request
+from flask_restplus import Namespace, Resource, reqparse, abort
 
+from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.urlregistry import register_endpoints
 from drift.utils import url_player, json_response
 
 from driftbase.models.db import CorePlayer, MatchQueuePlayer, Match, Client, Server
 from driftbase.matchqueue import process_match_queue
 
-bp = Blueprint("matchqueue", __name__)
-api = Api(bp)
-
 log = logging.getLogger(__name__)
+
+namespace = Namespace("matchqueue", "Queuing mechanism for matches")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
 
 
 def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
@@ -35,12 +40,12 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
         "match_url": None,
         "ue4_connection_url": None,
         "status": matchqueue_entry.status,
-        "matchqueueplayer_url": url_for("matchqueue.player", player_id=player_id, _external=True),
+        "matchqueueplayer_url": url_for("matchqueue_player", player_id=player_id, _external=True),
         "create_date": matchqueue_entry.create_date,
         "criteria": matchqueue_entry.criteria,
     }
     if matchqueue_entry.match_id:
-        ret["match_url"] = url_for("matches.entry", match_id=matchqueue_entry.match_id,
+        ret["match_url"] = url_for("match", match_id=matchqueue_entry.match_id,
                                    _external=True)
     if server:
         ret["ue4_connection_url"] = "%s:%s?player_id=%s?token=%s" % (server.public_ip,
@@ -50,12 +55,11 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
     return ret
 
 
+@namespace.route('/', endpoint='matchqueue')
 class MatchQueueAPI(Resource):
 
     no_jwt_check = ["GET"]
 
-    def __init__(self):
-        pass
 
     @simple_schema_request({
         "player_id": {"type": "number", },
@@ -170,6 +174,7 @@ class MatchQueueAPI(Resource):
         return ret
 
 
+@namespace.route('/<int:player_id>', endpoint='matchqueue_player')
 class MatchQueueEntryAPI(Resource):
 
     no_jwt_check = ["GET"]
@@ -227,10 +232,6 @@ class MatchQueueEntryAPI(Resource):
         return json_response("Player is no longer in the match queue", http_client.OK)
 
 
-api.add_resource(MatchQueueAPI, "/matchqueue", endpoint="list")
-api.add_resource(MatchQueueEntryAPI, "/matchqueue/<int:player_id>", endpoint="player")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(*args):
-    return {"matchqueue": url_for("matchqueue.list", _external=True)}
+    return {"matchqueue": url_for("matchqueue", _external=True)}
