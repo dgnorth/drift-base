@@ -8,20 +8,27 @@ import logging
 
 from six.moves import http_client
 
-from flask import Blueprint, request, url_for, g
-from flask_restful import Api, Resource, reqparse, abort
+from flask import request, url_for, g
+from flask_restplus import Namespace, Resource, reqparse, abort
+from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import requires_roles
 
 from driftbase.models.db import RunConfig
 
 log = logging.getLogger(__name__)
-bp = Blueprint("runconfigs", __name__)
-api = Api(bp)
+
+namespace = Namespace("staticdata", "Static Data Management")
+endpoints = Endpoints()
 
 
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
+
+
+@namespace.route('', endpoint='runconfigs')
 class RunConfigsAPI(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
@@ -40,7 +47,7 @@ class RunConfigsAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("runconfigs.entry", runconfig_id=row.runconfig_id,
+            record["url"] = url_for("runconfig", runconfig_id=row.runconfig_id,
                                     _external=True)
             ret.append(record)
 
@@ -75,7 +82,7 @@ class RunConfigsAPI(Resource):
         g.db.add(runconfig)
         g.db.commit()
         runconfig_id = runconfig.runconfig_id
-        resource_uri = url_for("runconfigs.entry", runconfig_id=runconfig_id, _external=True)
+        resource_uri = url_for("runconfig", runconfig_id=runconfig_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
@@ -87,6 +94,7 @@ class RunConfigsAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
+@namespace.route('/<int:runconfig_id>', endpoint='runconfig')
 class RunConfigAPI(Resource):
     """
     Information about specific machines
@@ -102,18 +110,14 @@ class RunConfigAPI(Resource):
             log.warning("Requested a non-existant run config: %s", runconfig_id)
             abort(http_client.NOT_FOUND, description="Run Config not found")
         record = row.as_dict()
-        record["url"] = url_for("runconfigs.entry", runconfig_id=runconfig_id, _external=True)
+        record["url"] = url_for("runconfig", runconfig_id=runconfig_id, _external=True)
 
         log.info("Returning info for run config %s", runconfig_id)
 
         return record
 
 
-api.add_resource(RunConfigsAPI, '/runconfigs', endpoint="list")
-api.add_resource(RunConfigAPI, '/runconfigs/<int:runconfig_id>', endpoint="entry")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(*args):
-    ret = {"runconfigs": url_for("runconfigs.list", _external=True)}
+    ret = {"runconfigs": url_for("runconfigs", _external=True)}
     return ret

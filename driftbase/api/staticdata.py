@@ -4,15 +4,22 @@ import requests
 import logging
 import json
 
-from flask import Blueprint, g, url_for
-from flask_restful import Api, Resource, reqparse
+from flask import g, url_for
+from flask_restplus import Namespace, Resource, reqparse
+from drift.core.extensions.urlregistry import Endpoints
 
 from drift.urlregistry import register_endpoints
 
-bp = Blueprint("staticdata", __name__)
-api = Api(bp)
-
 log = logging.getLogger(__file__)
+
+
+namespace = Namespace("staticdata", "Static Data Management")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
 
 
 # Assumption: The static data CDN is here:
@@ -35,6 +42,7 @@ def get_static_data_ids():
         return {}
 
 
+@namespace.route('', endpoint='staticdata')
 class StaticDataAPI(Resource):
 
     no_jwt_check = ['GET']
@@ -115,11 +123,8 @@ class StaticDataAPI(Resource):
         return data
 
 
-api.add_resource(StaticDataAPI, "/static-data", endpoint="staticdata")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(current_users):
     return {
-        "static_data": url_for("staticdata.staticdata", _external=True),
+        "static_data": url_for("staticdata", _external=True),
     }
