@@ -137,7 +137,7 @@ class ActiveMatchesAPI(Resource):
         return ret
 
 
-@namespace.route('/', endpoint='matches')
+@namespace.route('', endpoint='matches')
 class MatchesAPI(Resource):
     """UE4 match
     """

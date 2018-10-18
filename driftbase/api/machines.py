@@ -31,7 +31,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('/', endpoint='machines')
+@namespace.route('', endpoint='machines')
 class MachinesAPI(Resource):
     """The interface to battleserver machines. Each physical machine
     (for example ec2 instance) has a machine resource here. Each

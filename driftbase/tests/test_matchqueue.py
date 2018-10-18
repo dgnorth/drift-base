@@ -96,6 +96,7 @@ class MatchQueueTest(BaseMatchTest):
 
         resp = r.json()
         matchqueueplayer_url = resp["matchqueueplayer_url"]
+        print(matchqueueplayer_url)
         r = self.get(matchqueueplayer_url)
         self.assertIsNotNone(r.json()["match_id"])
 

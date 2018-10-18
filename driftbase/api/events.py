@@ -25,7 +25,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-@namespace.route('/', endpoint='events')
+@namespace.route('', endpoint='events')
 class EventsAPI(Resource):
 
     def post(self):

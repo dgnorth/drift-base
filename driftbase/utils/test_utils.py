@@ -45,7 +45,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "instance_id": "instance_id",
                 "public_ip": "8.8.8.8",
                 }
-        resp = self.post("/machines/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
         return resp.json()
@@ -68,7 +68,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "details": {"details": "yes"},
                 "ref": "test/testing",
                 }
-        resp = self.post("/servers/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         return resp.json()
 
     def _create_match(self, server_id=None, **kwargs):
@@ -86,7 +86,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "max_players": 2,
                 }
         data.update(**kwargs)
-        resp = self.post("/matches/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
         resp = self.get(resp.json()["url"])
         return resp.json()
 

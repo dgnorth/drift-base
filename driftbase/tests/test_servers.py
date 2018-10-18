@@ -10,13 +10,13 @@ class ServersTest(DriftBaseTestCase):
     """
     def test_access(self):
         self.auth()
-        resp = self.get("/servers/", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.get("/servers", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
         resp = self.get("/servers/1", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.post("/servers/", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.post("/servers", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
         resp = self.put("/servers/1", expected_status_code=http_client.UNAUTHORIZED)
@@ -38,14 +38,14 @@ class ServersTest(DriftBaseTestCase):
         This is a scenario for local servers without a daemon running.
         """
         self.auth_service()
-        resp = self.post("/servers/", data={"status": "active"},
+        resp = self.post("/servers", data={"status": "active"},
                          expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("instance_name", resp.json()["error"]["description"])
 
         instance_name = "matti@borko"
         placement = "LAN 10.2"
 
-        resp = self.post("/servers/", data={"status": "active",
+        resp = self.post("/servers", data={"status": "active",
                                            "instance_name": instance_name,
                                            "placement": placement},
                          expected_status_code=http_client.CREATED)
@@ -62,7 +62,7 @@ class ServersTest(DriftBaseTestCase):
         self.assertEqual(resp.json()["placement"], placement)
 
         # create another server and ensure it ends up on the same machine
-        resp = self.post("/servers/", data={"status": "active",
+        resp = self.post("/servers", data={"status": "active",
                                            "instance_name": instance_name,
                                            "placement": placement},
                          expected_status_code=http_client.CREATED)
@@ -78,7 +78,7 @@ class ServersTest(DriftBaseTestCase):
                 "instance_id": "instance_id",
                 "public_ip": "8.8.8.8",
                 }
-        resp = self.post("/machines/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
         return resp.json()
 
     def _get_server_data(self, machine_id):
@@ -110,7 +110,7 @@ class ServersTest(DriftBaseTestCase):
 
         data = self._get_server_data(machine_id)
 
-        resp = self.post("/servers/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_id = resp.json()["server_id"]
         self.assertEqual(machine_id, resp.json()["machine_id"])
         self.assertEqual(machine_url, resp.json()["machine_url"])
@@ -121,7 +121,7 @@ class ServersTest(DriftBaseTestCase):
         self.assertIn(server_id, [s["server_id"] for s in resp.json()])
 
         # create another server and ensure they both show up
-        resp = self.post("/servers/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         new_server_id = resp.json()["server_id"]
         self.assertEqual(machine_id, resp.json()["machine_id"])
         resp = self.get("/servers?machine_id=%s" % machine_id)
@@ -133,7 +133,7 @@ class ServersTest(DriftBaseTestCase):
         self.auth_service()
         machine_id = self._create_machine()["machine_id"]
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_id = resp.json()["server_id"]
         self.assertGreater(server_id, 0)
         url = resp.json()["url"]
@@ -149,7 +149,7 @@ class ServersTest(DriftBaseTestCase):
         self.auth_service()
         machine_id = self._create_machine()["machine_id"]
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
         self.assertEqual(resp.json()["heartbeat_count"], 0)
@@ -171,7 +171,7 @@ class ServersTest(DriftBaseTestCase):
         machine_id = js["machine_id"]
 
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_id = resp.json()["server_id"]
         self.assertGreater(server_id, 0)
         server_url = resp.json()["url"]
@@ -211,7 +211,7 @@ class ServersTest(DriftBaseTestCase):
         machine_id = js["machine_id"]
 
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         server_url = resp.json()["url"]
 
         commands_url = resp.json()["commands_url"]

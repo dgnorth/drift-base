@@ -55,11 +55,10 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
     return ret
 
 
-@namespace.route('/', endpoint='matchqueue')
+@namespace.route('', endpoint='matchqueue')
 class MatchQueueAPI(Resource):
 
     no_jwt_check = ["GET"]
-
 
     @simple_schema_request({
         "player_id": {"type": "number", },
@@ -179,9 +178,6 @@ class MatchQueueEntryAPI(Resource):
 
     no_jwt_check = ["GET"]
 
-    def __init__(self):
-        pass
-
     def get(self, player_id):
         result = g.db.query(MatchQueuePlayer, CorePlayer) \
             .filter(MatchQueuePlayer.player_id == player_id, CorePlayer.player_id == player_id) \
@@ -220,11 +216,11 @@ class MatchQueueEntryAPI(Resource):
 
         if not my_matchqueueplayer:
             abort(http_client.NOT_FOUND, message="Player is not in the queue",
-                  code="player_not_in_queue")
+                  error_code="player_not_in_queue")
 
         if my_matchqueueplayer.status == "matched" and not force:
             abort(http_client.BAD_REQUEST, message="Player has already been matched",
-                  code="player_already_matched")
+                  error_code="player_already_matched")
 
         g.db.delete(my_matchqueueplayer)
         g.db.commit()

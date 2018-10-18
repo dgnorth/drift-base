@@ -34,7 +34,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('/', endpoint='servers')
+@namespace.route('', endpoint='servers')
 class ServersAPI(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("machine_id", type=int, required=False)

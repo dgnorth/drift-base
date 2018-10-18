@@ -81,7 +81,7 @@ class CeleryBeatTest(BaseCloudkitTest):
     def test_celery_cleanup_orphaned_matchqueues(self):
         self.make_player()
         # TODO: Need to extend this test with orphaned matchqueues to clean up.
-        from driftbase.matchqueue.tasks import cleanup_orphaned_matchqueues
+        from driftbase.tasks.matchqueue import cleanup_orphaned_matchqueues
         cleanup_orphaned_matchqueues()
 
 

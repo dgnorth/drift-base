@@ -14,13 +14,13 @@ class MatchesTest(BaseMatchTest):
     def test_access(self):
 
         self.auth()
-        resp = self.get("/matches/", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.get("/matches", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
         resp = self.get("/matches/1", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.post("/matches/", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.post("/matches", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
         resp = self.put("/matches/1", expected_status_code=http_client.UNAUTHORIZED)
@@ -28,9 +28,9 @@ class MatchesTest(BaseMatchTest):
 
     def test_get_matches(self):
         self.auth_service()
-        resp = self.get("/matches/")
+        resp = self.get("/matches")
         self.assertTrue(isinstance(resp.json(), list))
-        resp = self.get("/matches/?server_id=1")
+        resp = self.get("/matches?server_id=1")
         self.assertTrue(isinstance(resp.json(), list))
 
         resp = self.get("/matches/999999", expected_status_code=http_client.NOT_FOUND)
@@ -59,7 +59,7 @@ class MatchesTest(BaseMatchTest):
                 "game_mode": "game_mode",
                 "num_teams": num_teams
                 }
-        resp = self.post("/matches/", data=data, expected_status_code=http_client.CREATED)
+        resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
         resp = self.get(resp.json()["url"])
         self.assertEqual(len(resp.json()["teams"]), num_teams)
 
