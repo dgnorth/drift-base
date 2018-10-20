@@ -7,7 +7,7 @@ from six.moves import http_client
 from werkzeug.security import pbkdf2_hex
 
 from flask import g, current_app
-from flask_restful import abort
+from flask_restplus import abort
 from click import secho
 
 from drift.core.extensions import jwt
