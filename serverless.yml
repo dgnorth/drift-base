@@ -16,34 +16,48 @@ custom:
     usePipenv: true
     dockerizePip: true
     dockerFile: Dockerfile
+    #dockerImage: drift-base:latest
+
+
 
 provider:
   name: aws
   runtime: python3.6
-  stage: dev
-  region: eu-west-1
+  stage: main                     # TEMPLATIZED
+  stackName: DEVNORTH-drift-base-lambda      # TEMPLATIZED
+  region: eu-west-1                   # TEMPLATIZED
+  timeout: 10  # The default is 6 seconds. Note: API Gateway current maximum is 30 seconds
+  deploymentBucket:
+    name: serverless-devnorth # TEMPLATIZED
   vpc:
     securityGroupIds:
-      - sg-ce4849ab
+      - sg-ce4849ab                   # TEMPLATIZED
     subnetIds:
-      - subnet-aef280cb
-      - subnet-8544def2
+      - subnet-aef280cb               # TEMPLATIZED
+      - subnet-8544def2               # TEMPLATIZED
 
   environment: # Service wide environment variables
-    DRIFT_TIER: DEVNORTH
-    DRIFT_CONFIG_URL: redis://redis.devnorth.dg-api.com:6379/0?prefix=dgnorth
-    #FLASK_ENV: development
-    #FLASK_DEBUG: true
+    DRIFT_TIER: DEVNORTH                                                        # TEMPLATIZED
+    DRIFT_CONFIG_URL: redis://redis.devnorth.dg-api.com:6379/0?prefix=dgnorth   # TEMPLATIZED
 
-  tags:
+  tags:                               # TEMPLATIZED
       tier: DEVNORTH
       service-name: drift-base
-      service-type: web
-      Name: DEVNORTH-drift-base
+      service-type: web-app
+      Name: DEVNORTH-drift-base-api
+
+  # API Gateway
+  apiName: DEVNORTH-drift-base-api # TEMPLATIZED
+  endpointType: edge
+
+
 
 functions:
   app:
     handler: wsgi.handler
     events:
-      - http: ANY /
-      - http: 'ANY {proxy+}'
+      - http:
+          path: /
+          method: any
+      #- http: ANY /
+      #- http: 'ANY {proxy+}'
