@@ -6,10 +6,10 @@ from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.urlregistry import register_endpoints
-from drift.utils import url_player, url_user
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.urlregistry import Endpoints
 
+from driftbase.utils import url_player, url_user
 from driftbase.models.db import CorePlayer, Client, User
 from driftbase.players import get_playergroup_ids
 from driftbase.api.players import counters, gamestate, journal, playergroups, summary, tickets

@@ -14,8 +14,9 @@ from flask_restplus import Namespace, Resource, reqparse, abort
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.utils import url_player, json_response
+from drift.utils import json_response
 
+from driftbase.utils import url_player
 from driftbase.models.db import CorePlayer, MatchQueuePlayer, Match, Client, Server
 from driftbase.matchqueue import process_match_queue
 

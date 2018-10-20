@@ -7,7 +7,7 @@ from dateutil import parser
 import six
 from six.moves import http_client
 
-from flask import g
+from flask import g, url_for
 from flask_restplus import abort
 
 from driftbase.models.db import Counter, MatchEvent
@@ -136,3 +136,16 @@ def verify_log_request(request, required_keys=None):
                             event["timestamp"], event)
                 abort(http_client.METHOD_NOT_ALLOWED, message="Invalid timestamp, '%s' in event '%s'" %
                       (event["timestamp"], event["event_name"]))
+
+
+def url_user(user_id):
+    return url_for("user", user_id=user_id, _external=True)
+
+
+def url_player(player_id):
+    return url_for("player", player_id=player_id, _external=True)
+
+
+def url_client(client_id):
+    return url_for("client", client_id=client_id, _external=True)
+
