@@ -2,17 +2,27 @@
 
 import logging
 from six.moves import http_client
+
 from flask import Blueprint, url_for, g
-from flask_restful import Api, Resource, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
+
+from drift.core.extensions.urlregistry import Endpoints
 from drift.utils import url_user, url_player
 from driftbase.models.db import User, CorePlayer, UserIdentity
-from drift.urlregistry import register_endpoints
 
 log = logging.getLogger(__name__)
-bp = Blueprint("users", __name__)
-api = Api(bp)
 
 
+namespace = Namespace("users", "User management")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
+
+
+@namespace.route('', endpoint='users')
 class UsersListAPI(Resource):
     """
     list users
@@ -32,6 +42,7 @@ class UsersListAPI(Resource):
         return ret
 
 
+@namespace.route('/<int:user_id>', endpoint='user')
 class UsersAPI(Resource):
     """
 
@@ -68,14 +79,10 @@ class UsersAPI(Resource):
         return data
 
 
-api.add_resource(UsersListAPI, "/users", endpoint="users")
-api.add_resource(UsersAPI, '/users/<int:user_id>', endpoint="user")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(current_user):
-    ret = {"users": url_for("users.users", _external=True), }
+    ret = {"users": url_for("users", _external=True), }
     ret["my_user"] = None
     if current_user:
-        ret["my_user"] = url_for("users.user", user_id=current_user["user_id"], _external=True)
+        ret["my_user"] = url_for("user", user_id=current_user["user_id"], _external=True)
     return ret

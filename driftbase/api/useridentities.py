@@ -7,19 +7,29 @@ from six.moves import http_client
 
 from flask import Blueprint, url_for, g, request
 from flask import make_response, jsonify
-from flask_restful import Api, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, reqparse
+from drift.core.extensions.urlregistry import Endpoints
 
-from drift.urlregistry import register_endpoints
+from flask_restplus import Namespace, Resource, reqparse, abort
+from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user, get_cached_token
 
 from driftbase.models.db import User, CorePlayer, UserIdentity
 
 log = logging.getLogger(__name__)
-bp = Blueprint("useridentities", __name__)
-api = Api(bp)
 
 
+namespace = Namespace("user-identities", "User Identity management")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
+
+
+@namespace.route('', endpoint="useridentities")
 class UserIdentitiesAPI(Resource):
 
     get_args = reqparse.RequestParser()
@@ -179,15 +189,12 @@ class UserIdentitiesAPI(Resource):
         return "OK"
 
 
-api.add_resource(UserIdentitiesAPI, '/user-identities', endpoint="useridentities")
-
-
 # TODO: Remove legacy name "user-identities" once all clients has been patched to use the new name
 
-@register_endpoints
+@endpoints.register
 def endpoint_info(current_user):
     ret = {
-        "user_identities": url_for("useridentities.useridentities", _external=True),
-        "user-identities": url_for("useridentities.useridentities", _external=True),
+        "user_identities": url_for("useridentities", _external=True),
+        "user-identities": url_for("useridentities", _external=True),
     }
     return ret
