@@ -17,9 +17,10 @@ from six.moves import http_client
 from flask import request, url_for, g, current_app
 from flask_restplus import Namespace, Resource, reqparse, abort
 
-from drift.utils import json_response, url_client
+from drift.utils import json_response
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user, issue_token
+from driftbase.utils import url_client
 from driftbase.models.db import User, CorePlayer, Client, UserIdentity
 from driftbase.models.responses import client_descriptions, client_model, client_registration_model, \
                                        client_heartbeat_model
