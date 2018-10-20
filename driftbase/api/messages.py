@@ -17,16 +17,21 @@ import sys
 from six.moves import http_client
 
 from flask import Blueprint, g, url_for, request, stream_with_context, Response
-from flask_restful import Api, Resource, abort, reqparse
+from flask_restplus import Namespace, Resource, reqparse, abort
 
+from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.urlregistry import register_endpoints
-
-bp = Blueprint("messages", __name__)
-api = Api(bp)
 
 log = logging.getLogger(__name__)
+
+namespace = Namespace("messages", "Message box, mostly meant for client-to-client communication")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
 
 # messages expire in a day by default
 DEFAULT_EXPIRE_SECONDS = 60 * 60 * 24
@@ -121,12 +126,10 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
                   message="You can only read from an exchange that belongs to you!")
 
 
+@namespace.route('/messages/<string:exchange>/<int:exchange_id>', endpoint='messages_exchange')
 class MessagesExchangeAPI(Resource):
 
     no_jwt_check = ["GET"]
-
-    def __init__(self):
-        pass
 
     get_args = reqparse.RequestParser()
     get_args.add_argument("timeout", type=int)
@@ -191,10 +194,8 @@ class MessagesExchangeAPI(Resource):
             return messages
 
 
+@namespace.route('/messages/<string:exchange>/<int:exchange_id>/<string:queue>', 'messages_queue')
 class MessagesQueueAPI(Resource):
-
-    def __init__(self):
-        pass
 
     @simple_schema_request({
         "message": {"type": "object", },
@@ -224,7 +225,7 @@ class MessagesQueueAPI(Resource):
 
         ret = copy.copy(message)
         ret["url"] = url_for(
-            "messages.message",
+            "message",
             exchange=message['exchange'],
             exchange_id=message['exchange_id'],
             queue=message['queue'],
@@ -267,10 +268,8 @@ def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
     return message
 
 
+@namespace.route('/<string:exchange>/<int:exchange_id>/<string:queue>/<string:message_id>', endpoint='message')
 class MessageQueueAPI(Resource):
-
-    def __init__(self):
-        pass
 
     def get(self, exchange, exchange_id, queue, message_id):
         check_can_use_exchange(exchange, exchange_id, read=True)
@@ -285,19 +284,11 @@ class MessageQueueAPI(Resource):
             abort(http_client.NOT_FOUND)
 
 
-api.add_resource(MessagesExchangeAPI, "/messages/<string:exchange>/<int:exchange_id>",
-                 endpoint="exchange")
-api.add_resource(MessagesQueueAPI, "/messages/<string:exchange>/<int:exchange_id>/<string:queue>",
-                 endpoint="queue")
-api.add_resource(MessageQueueAPI, "/messages/<string:exchange>/<int:exchange_id>/<string:queue>/<string:message_id>",
-                 endpoint="message")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(*args):
     ret = {}
     ret["my_messages"] = None
     if current_user:
-        ret["my_messages"] = url_for("messages.exchange", exchange="players",
+        ret["my_messages"] = url_for("messages_exchange", exchange="players",
                                      exchange_id=current_user["player_id"], _external=True)
     return ret

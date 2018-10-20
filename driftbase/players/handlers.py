@@ -38,9 +38,9 @@ def get_player_entry(recordset, columns=None):
                                       _external=True)
     entry["journal_url"] = url_for("journal.list", player_id=player.player_id,
                                    _external=True)
-    entry["messages_url"] = url_for("messages.exchange", exchange="players",
+    entry["messages_url"] = url_for("messages_exchange", exchange="players",
                                     exchange_id=player.player_id, _external=True)
-    entry["messagequeue_url"] = url_for("messages.exchange", exchange="players",
+    entry["messagequeue_url"] = url_for("messages_exchange", exchange="players",
                                         exchange_id=player.player_id, _external=True) + "/{queue}"
     entry["summary_url"] = url_for("summary.summary", player_id=player.player_id, _external=True)
     entry["tickets_url"] = url_for("tickets.list", player_id=player.player_id, _external=True)
