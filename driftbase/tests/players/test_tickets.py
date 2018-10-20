@@ -92,8 +92,9 @@ class TicketsTests(BaseCloudkitTest):
 
         # switch to the player
         self.headers = old_headers
-
+        print(r.json())
         r = self.get(r.json()["ticket_url"])
 
         data = {"journal_id": 10}
+        print(ticket_url)
         r = self.patch(ticket_url, data=data)

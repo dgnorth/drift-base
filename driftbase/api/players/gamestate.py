@@ -4,7 +4,7 @@ import logging
 from six.moves import http_client
 
 from flask import Blueprint, url_for, request, g
-from flask_restful import Api, Resource, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.utils import json_response
 from drift.urlregistry import register_endpoints
@@ -14,14 +14,15 @@ from driftbase.players import can_edit_player
 from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
 
 log = logging.getLogger(__name__)
-bp = Blueprint("gamestate", __name__)
-api = Api(bp)
+
+namespace = Namespace("players_gamestate", "Player Gamestate Management")
 
 MAX_DATA_LEN = 1024 * 1024  # 1MB
 
 TASK_VALIDATED = "validated"
 
 
+@namespace.route("/players/<int:player_id>/gamestates", endpoint="players_gamestates")
 class GameStatesAPI(Resource):
 
     def get(self, player_id):
@@ -39,7 +40,7 @@ class GameStatesAPI(Resource):
             entry = {
                 "namespace": gamestate.namespace,
                 "gamestate_id": gamestate.gamestate_id,
-                "gamestate_url": url_for("gamestate.gamestate", player_id=player_id,
+                "gamestate_url": url_for("players_gamestate", player_id=player_id,
                                          namespace=gamestate.namespace, _external=True)
             }
             ret.append(entry)
@@ -47,6 +48,7 @@ class GameStatesAPI(Resource):
         return ret
 
 
+@namespace.route("/players/<int:player_id>/gamestates/<string:namespace>", endpoint="players_gamestate")
 class GameStateAPI(Resource):
 
     def get(self, player_id, namespace):
@@ -70,7 +72,7 @@ class GameStateAPI(Resource):
 
         gamestate = gamestates.first()
         ret = gamestate.as_dict()
-        ret["gamestatehistory_url"] = url_for("gamestate.gamestatehistorylist",
+        ret["gamestatehistory_url"] = url_for("players_gamestate_historylist",
                                               player_id=player_id, namespace=namespace,
                                               _external=True)
         return ret
@@ -158,6 +160,7 @@ class GameStateAPI(Resource):
         return "OK"
 
 
+@namespace.route("/players/<int:player_id>/gamestates/<string:namespace>/history", endpoint="players_gamestate_historylist")
 class GameStateHistoryListAPI(Resource):
 
     def get(self, player_id, namespace):
@@ -173,7 +176,7 @@ class GameStateHistoryListAPI(Resource):
         for row in rows:
             entry = {
                 "gamestatehistory_id": row.gamestatehistory_id,
-                "gamestatehistoryentry_url": url_for("gamestate.gamestatehistoryentry",
+                "gamestatehistoryentry_url": url_for("players_gamestate_historyentry",
                                                      player_id=player_id,
                                                      namespace=namespace,
                                                      gamestatehistory_id=row.gamestatehistory_id,
@@ -184,6 +187,8 @@ class GameStateHistoryListAPI(Resource):
         return ret
 
 
+@namespace.route("/players/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
+                 endpoint="players_gamestate_historyentry")
 class GameStateHistoryEntryAPI(Resource):
 
     def get(self, player_id, namespace, gamestatehistory_id):
@@ -197,27 +202,3 @@ class GameStateHistoryEntryAPI(Resource):
             abort(http_client.NOT_FOUND)
         ret = row_gamestate.as_dict()
         return ret
-
-
-api.add_resource(GameStatesAPI, "/players/<int:player_id>/gamestates",
-                 endpoint="gamestates")
-api.add_resource(GameStateAPI, "/players/<int:player_id>/gamestates/<string:namespace>",
-                 endpoint="gamestate")
-api.add_resource(GameStateHistoryListAPI, "/players/<int:player_id>/gamestates/<string:namespace>/history",
-                 endpoint="gamestatehistorylist")
-api.add_resource(GameStateHistoryEntryAPI, "/players/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
-                 endpoint="gamestatehistoryentry")
-
-
-@register_endpoints
-def endpoint_info(current_user):
-    ret = {}
-    ret["my_gamestates"] = None
-    if current_user:
-        ret["my_gamestates"] = url_for("gamestate.gamestates",
-                                       player_id=current_user["player_id"],
-                                       _external=True)
-        ret["my_gamestate"] = url_for("gamestate.gamestates",
-                                      player_id=current_user["player_id"],
-                                      _external=True) + "/{namespace}"
-    return ret

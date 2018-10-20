@@ -5,7 +5,7 @@ import logging
 from six.moves import http_client
 
 from flask import Blueprint, request, g, abort, url_for
-from flask_restful import Api, Resource
+from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.urlregistry import register_endpoints
 
@@ -13,8 +13,8 @@ from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
 from driftbase.players import log_event, can_edit_player
 
 log = logging.getLogger(__name__)
-bp = Blueprint("summary", __name__)
-api = Api(bp)
+
+namespace = Namespace("players_summary", "Player Summary Management")
 
 
 def get_player(player_id):
@@ -22,6 +22,7 @@ def get_player(player_id):
     return player
 
 
+@namespace.route("/players/<int:player_id>/summary", endpoint="players_summary")
 class Summary(Resource):
 
     def get(self, player_id):
@@ -149,17 +150,3 @@ class Summary(Resource):
                  request_txt, old_summary_txt, new_summary_txt)
 
         return [r.as_dict() for r in new_summary]
-
-
-api.add_resource(Summary, "/players/<int:player_id>/summary", endpoint="summary")
-
-
-@register_endpoints
-def endpoint_info(current_user):
-    ret = {}
-    ret["my_summary"] = None
-    if current_user:
-        ret["my_summary"] = url_for("summary.summary",
-                                    player_id=current_user["player_id"],
-                                    _external=True)
-    return ret

@@ -14,7 +14,7 @@ from six.moves import http_client
 from sqlalchemy.exc import IntegrityError
 
 from flask import Blueprint, request, g, url_for
-from flask_restful import Api, Resource, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -23,8 +23,9 @@ from driftbase.models.db import CounterEntry, Counter, CorePlayer, PlayerCounter
 from driftbase.utils import clear_counter_cache, get_counter
 
 log = logging.getLogger(__name__)
-bp = Blueprint("playercounters", __name__)
-api = Api(bp)
+
+namespace = Namespace("players_counters", "Player Counter Management")
+
 TOTAL_TIMESTAMP = datetime.datetime.strptime("2000-01-01", "%Y-%m-%d")
 COUNTER_PERIODS = ['total', 'month', 'day', 'hour', 'minute', 'second']
 
@@ -153,6 +154,7 @@ def check_and_update_player_counter(player_counter, timestamp):
     return True
 
 
+@namespace.route("/players/<int:player_id>/counters", endpoint="players_counters")
 class CountersApi(Resource):
 
     def get(self, player_id):
@@ -172,13 +174,13 @@ class CountersApi(Resource):
                 "first_update": row.create_date,
                 "last_update": row.modify_date,
                 "num_updates": row.num_updates,
-                "url": url_for("playercounters.lookup", player_id=player_id,
+                "url": url_for("players_counter", player_id=player_id,
                                counter_id=counter_id, _external=True),
                 "name": counter["name"],
                 "periods": {}
             }
             for period in COUNTER_PERIODS + ["all"]:
-                entry["periods"][period] = url_for("playercounters.period", player_id=player_id,
+                entry["periods"][period] = url_for("players_counter_period", player_id=player_id,
                                                    counter_id=counter_id, period=period,
                                                    _external=True)
             total = g.db.query(CounterEntry.value).filter(CounterEntry.player_id == player_id,
@@ -317,6 +319,8 @@ class CountersApi(Resource):
         return result
 
 
+@namespace.route("/players/<int:player_id>/counters/<int:counter_id>",
+                 endpoint="players_counter")
 class CounterApi(Resource):
     def get(self, player_id, counter_id):
         counter = get_counter(counter_id)
@@ -334,7 +338,7 @@ class CounterApi(Resource):
             "periods": {}
         }
         for period in COUNTER_PERIODS + ["all"]:
-            ret["periods"][period] = url_for("playercounters.period", player_id=player_id,
+            ret["periods"][period] = url_for("players_counter_period", player_id=player_id,
                                              counter_id=counter_id, period=period, _external=True)
 
         return ret
@@ -365,6 +369,8 @@ class CounterApi(Resource):
         return "OK"
 
 
+@namespace.route("/players/<int:player_id>/counters/<int:counter_id>/<string:period>",
+                 endpoint="players_counter_period")
 class CounterPeriodApi(Resource):
     def get(self, player_id, counter_id, period):
         counter = get_counter(counter_id)
@@ -390,6 +396,7 @@ class CounterPeriodApi(Resource):
         return ret
 
 
+@namespace.route("/players/<int:player_id>/countertotals", endpoint="players_countertotals")
 class CounterTotalsApi(Resource):
     def get(self, player_id):
         counter_entries = g.db.query(CounterEntry) \
@@ -401,13 +408,3 @@ class CounterTotalsApi(Resource):
             ret[counter["name"]] = row.value
 
         return ret
-
-
-api.add_resource(CountersApi, "/players/<int:player_id>/counters",
-                 endpoint="list")
-api.add_resource(CounterApi, "/players/<int:player_id>/counters/<int:counter_id>",
-                 endpoint="lookup")
-api.add_resource(CounterPeriodApi, "/players/<int:player_id>/counters/<int:counter_id>/<string:period>",
-                 endpoint="period")
-api.add_resource(CounterTotalsApi, "/players/<int:player_id>/countertotals",
-                  endpoint="totals")

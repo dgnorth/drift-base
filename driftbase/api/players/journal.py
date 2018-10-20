@@ -8,21 +8,21 @@ import logging
 from six.moves import http_client
 
 from flask import Blueprint, request, g, url_for
-from flask_restful import Api, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.utils import json_response
 from drift.core.extensions.jwt import current_user
 
 from driftbase.models.db import PlayerJournal, GameState
-from driftbase.players.journal import write_journal, JournalError
+from driftbase.players import write_journal, JournalError
 from driftbase.players import can_edit_player
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("journal", __name__)
-api = Api(bp)
+namespace = Namespace("players_journal", "Player Journal Management")
 
 
+@namespace.route("/players/<int:player_id>/journal", endpoint="players_journal")
 class JournalAPI(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("rows", type=int)
@@ -124,7 +124,7 @@ class JournalAPI(Resource):
                 abort(http_client.BAD_REQUEST, description=str(e))
 
             ret.append({"journal_id": journal["journal_id"],
-                        "url": url_for("journal.entry",
+                        "url": url_for("players_journal_entry",
                                        player_id=player_id,
                                        journal_id=journal["journal_id"])
                         })
@@ -146,6 +146,7 @@ def get_player_gamestate(player_id):
     return gamestate
 
 
+@namespace.route("/players/<int:player_id>/journal/<int:journal_id>", endpoint="players_journal_entry")
 class JournalEntryAPI(Resource):
     def get(self, player_id, journal_id):
         """
@@ -158,9 +159,3 @@ class JournalEntryAPI(Resource):
             return json_response("Journal entry not found", http_client.NOT_FOUND)
         ret = entry.first().as_dict()
         return ret
-
-
-api.add_resource(JournalAPI, "/players/<int:player_id>/journal",
-                 endpoint="list")
-api.add_resource(JournalEntryAPI, "/players/<int:player_id>/journal/<int:journal_id>",
-                 endpoint="entry")

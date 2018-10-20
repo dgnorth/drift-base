@@ -35,7 +35,7 @@ client_model = Model('Client', {
                              description="Fully qualified url of the client resource"),
     'user_url': fields.Url('user', absolute=True,
                            description="Fully qualified url of the user resource"),
-    'player_url': fields.Url('players.player', absolute=True,
+    'player_url': fields.Url('player', absolute=True,
                              description="Fully qualified url of the player resource")
 })
 

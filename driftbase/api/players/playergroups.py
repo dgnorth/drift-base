@@ -6,20 +6,21 @@ import uuid
 from six.moves import http_client
 
 from flask import Blueprint, url_for, g, request
-from flask_restful import Api, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.urlregistry import register_endpoints
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user
 
 from driftbase.models.db import CorePlayer, UserIdentity
-from driftbase.players.playergroups import get_playergroup, set_playergroup
+from driftbase.players import get_playergroup, set_playergroup
 
 log = logging.getLogger(__name__)
-bp = Blueprint("playergroups", __name__)
-api = Api(bp)
+
+namespace = Namespace("playergroups", "Player Group Management")
 
 
+@namespace.route("/players/<int:player_id>/player-groups/<string:group_name>", endpoint="players_playergroups")
 class PlayerGroupsAPI(Resource):
     """
     Manage groups of players. Can be used as friends list and such.
@@ -87,7 +88,7 @@ class PlayerGroupsAPI(Resource):
         player_group = {
             player_row.player_id: {
                 "player_id": player_row.player_id,
-                "player_url": url_for("players.player",
+                "player_url": url_for("player",
                                       player_id=player_row.player_id,
                                       _external=True),
                 "player_name": player_row.player_name,
@@ -104,30 +105,9 @@ class PlayerGroupsAPI(Resource):
         }
 
         set_playergroup(group_name, player_id, payload)
-        resource_uri = url_for("playergroups.playergroups", group_name=group_name,
+        resource_uri = url_for("players_playergroups", group_name=group_name,
                                player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Created user group %s for player %s", group_name, player_id)
 
         return payload, http_client.OK, response_header
-
-
-api.add_resource(PlayerGroupsAPI, '/players/<int:player_id>/player-groups/<string:group_name>',
-                 endpoint="playergroups")
-
-
-@register_endpoints
-def endpoint_info(current_user):
-    ret = {
-        "my_player_groups": None,
-    }
-    if current_user:
-        url = url_for(
-            "playergroups.playergroups",
-            player_id=current_user["player_id"],
-            group_name='group_name',
-            _external=True,
-        )
-        url = url.replace('group_name', '{group_name}')
-        ret["my_player_groups"] = url
-    return ret

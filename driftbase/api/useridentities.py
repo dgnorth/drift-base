@@ -65,7 +65,7 @@ class UserIdentitiesAPI(Resource):
         for r in rows:
             d = {
                 "player_id": r[1].player_id,
-                "player_url": url_for("players.player", player_id=r[1].player_id, _external=True),
+                "player_url": url_for("player", player_id=r[1].player_id, _external=True),
                 "player_name": r[1].player_name,
                 "identity_name": r[0].name,
             }

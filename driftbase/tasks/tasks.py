@@ -7,7 +7,7 @@ from drift.orm import sqlalchemy_session
 from drift.core.extensions.celery import celery
 from drift.core.resources.redis import RedisCache
 from drift.core.resources.postgres import format_connection_string
-from driftbase.players.counters.endpoints import add_count
+from driftbase.api.players.counters import add_count
 from driftbase.models.db import Counter, Client
 
 

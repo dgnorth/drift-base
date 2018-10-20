@@ -5,7 +5,7 @@
     "apps": [
         "driftbase.auth.authenticate",
         "driftbase.tasks.tasks",
-        "driftbase.players",
+        "driftbase.api.players",
         "driftbase.api.users",
         "driftbase.api.clients",
         "driftbase.api.clientlogs",

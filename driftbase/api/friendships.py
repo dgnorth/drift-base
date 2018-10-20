@@ -61,7 +61,7 @@ class FriendshipsAPI(Resource):
             friend_id = row[2]
             friend = {
                 "friend_id": friend_id,
-                "player_url": url_for("players.player", player_id=friend_id, _external=True),
+                "player_url": url_for("player", player_id=friend_id, _external=True),
                 "friendship_url": url_for("friendship", friendship_id=friendship_id, _external=True)
             }
             friends.append(friend)

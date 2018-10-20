@@ -1,22 +1,34 @@
-# -*- coding: utf-8 -*-
-
 import logging
 from six.moves import http_client
 
 from flask import Blueprint, url_for, g, request
-from flask_restful import Api, Resource, abort, reqparse
+from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.urlregistry import register_endpoints
 from drift.utils import url_player, url_user
 from drift.core.extensions.schemachecker import simple_schema_request
+from drift.core.extensions.urlregistry import Endpoints
 
 from driftbase.models.db import CorePlayer, Client, User
-from driftbase.players.playergroups import get_playergroup_ids
+from driftbase.players import get_playergroup_ids
+from driftbase.api.players import counters, gamestate, journal, playergroups, summary, tickets
 
 log = logging.getLogger(__name__)
-bp = Blueprint("players", __name__)
-api = Api(bp)
+
+namespace = Namespace("players", "Player Management")
+endpoints = Endpoints()
+
+
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    endpoints.init_app(app)
+    api.add_namespace(counters.namespace)
+    api.add_namespace(gamestate.namespace)
+    api.add_namespace(journal.namespace)
+    api.add_namespace(playergroups.namespace)
+    api.add_namespace(summary.namespace)
+    api.add_namespace(tickets.namespace)
 
 # TODO: Have this configured on a per product level and use drift config to specify it.
 MIN_NAME_LEN = 1
@@ -30,20 +42,20 @@ def get_player_entry(recordset, columns=None):
     entry = player.as_dict()
     entry["player_url"] = url_player(player.player_id)
     entry["user_url"] = url_user(player.user_id)
-    entry["counter_url"] = url_for("playercounters.list", player_id=player.player_id,
+    entry["counter_url"] = url_for("players_counters", player_id=player.player_id,
                                    _external=True)
-    entry["countertotals_url"] = url_for("playercounters.totals", player_id=player.player_id,
+    entry["countertotals_url"] = url_for("players_countertotals", player_id=player.player_id,
                                          _external=True)
-    entry["gamestates_url"] = url_for("gamestate.gamestates", player_id=player.player_id,
+    entry["gamestates_url"] = url_for("players_gamestates", player_id=player.player_id,
                                       _external=True)
-    entry["journal_url"] = url_for("journal.list", player_id=player.player_id,
+    entry["journal_url"] = url_for("players_journal", player_id=player.player_id,
                                    _external=True)
     entry["messages_url"] = url_for("messages_exchange", exchange="players",
                                     exchange_id=player.player_id, _external=True)
     entry["messagequeue_url"] = url_for("messages_exchange", exchange="players",
                                         exchange_id=player.player_id, _external=True) + "/{queue}"
-    entry["summary_url"] = url_for("summary.summary", player_id=player.player_id, _external=True)
-    entry["tickets_url"] = url_for("tickets.list", player_id=player.player_id, _external=True)
+    entry["summary_url"] = url_for("players_summary", player_id=player.player_id, _external=True)
+    entry["tickets_url"] = url_for("players_tickets", player_id=player.player_id, _external=True)
     is_online = False
     if client:
         is_online = client.is_online
@@ -72,6 +84,7 @@ def validate_player_name(name):
     # TODO: More validation
 
 
+@namespace.route('', endpoint='players')
 class PlayersListAPI(Resource):
     """
     list players
@@ -102,6 +115,8 @@ class PlayersListAPI(Resource):
         return [get_player_entry(row, args.key) for row in players]
 
 
+
+@namespace.route('/<int:player_id>', endpoint='player')
 class PlayersAPI(Resource):
     """
 
@@ -145,14 +160,27 @@ class PlayersAPI(Resource):
         return my_player.as_dict()
 
 
-api.add_resource(PlayersListAPI, "/players", endpoint="players")
-api.add_resource(PlayersAPI, '/players/<int:player_id>', endpoint="player")
-
-
-@register_endpoints
+@endpoints.register
 def endpoint_info(current_user):
-    ret = {"players": url_for("players.players", _external=True)}
+    ret = {"players": url_for("players", _external=True)}
     ret["my_player"] = None
+    ret["my_gamestates"] = None
+    ret["my_player_groups"] = None
+    ret["my_summary"] = None
     if current_user:
-        ret["my_player"] = url_player(current_user["player_id"])
+        player_id = current_user["player_id"]
+        ret["my_player"] = url_player(player_id)
+
+        ret["my_gamestates"] = url_for("players_gamestates", player_id=player_id, _external=True)
+        ret["my_gamestate"] = url_for("players_gamestates", player_id=player_id, _external=True) + \
+                              "/{namespace}"
+        url = url_for(
+            "players_playergroups",
+            player_id=current_user["player_id"],
+            group_name='group_name',
+            _external=True,
+        )
+        url = url.replace('group_name', '{group_name}')
+        ret["my_player_groups"] = url
+        ret["my_summary"] = url_for("players_summary", player_id=player_id,  _external=True)
     return ret
