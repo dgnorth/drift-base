@@ -11,7 +11,6 @@
 
 import logging, datetime, json
 
-import six
 from six.moves import http_client
 
 from flask import request, url_for, g, current_app

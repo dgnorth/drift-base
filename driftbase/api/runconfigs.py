@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     These are endpoints for battleserver run configurations
     Note: This is still not used and is work in progress

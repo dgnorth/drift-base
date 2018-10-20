@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 """
     Message box, mostly meant for client-to-client communication
 """
 
-import requests
 import datetime
 import logging
 import json
@@ -16,7 +14,7 @@ import sys
 
 from six.moves import http_client
 
-from flask import Blueprint, g, url_for, request, stream_with_context, Response
+from flask import g, url_for, request, stream_with_context, Response
 from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.core.extensions.urlregistry import Endpoints

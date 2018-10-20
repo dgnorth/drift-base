@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import requests
 import logging
 import json
@@ -7,8 +5,6 @@ import json
 from flask import g, url_for
 from flask_restplus import Namespace, Resource, reqparse
 from drift.core.extensions.urlregistry import Endpoints
-
-from drift.urlregistry import register_endpoints
 
 log = logging.getLogger(__file__)
 

@@ -1,17 +1,13 @@
-# -*- coding: utf-8 -*-
-
 import logging
 
 import six
 from six.moves import http_client
 
-from flask import Blueprint, url_for, g, request
+from flask import url_for, g, request
 from flask import make_response, jsonify
-from flask_restplus import Namespace, Resource, reqparse
-from drift.core.extensions.urlregistry import Endpoints
-
 from flask_restplus import Namespace, Resource, reqparse, abort
 from drift.core.extensions.urlregistry import Endpoints
+
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user, get_cached_token
 

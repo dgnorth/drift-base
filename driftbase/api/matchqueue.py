@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     List of players waiting for a match
 """

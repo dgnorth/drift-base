@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-# -*- coding: utf-8 -*-
-
 import logging
 import collections
 import time
@@ -9,7 +5,7 @@ import time
 import six
 from six.moves import http_client
 
-from flask import Blueprint, url_for, g
+from flask import url_for, g
 from flask_restplus import Namespace, Resource, reqparse, abort
 from drift.core.extensions.urlregistry import Endpoints
 

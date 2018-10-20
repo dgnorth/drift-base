@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from dateutil import parser
 
 from six.moves import http_client
 
-from flask import Blueprint, request, url_for
+from flask import request, url_for
 from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
-from drift.urlregistry import register_endpoints
 
 from driftbase.utils import verify_log_request
 

@@ -2,6 +2,7 @@
 import json
 import re
 from six.moves import http_client
+import logging
 
 from flask import g, request
 from flask_restplus import abort
@@ -15,8 +16,6 @@ from driftbase.models.db import Ticket
 PLAYER_GROUP_NAME_REGEX = '^[a-z_]{1,15}?$'
 RETENTION_IN_SEC = 60 * 60 * 24 * 2  # Store each group for 48 hours.
 
-
-import logging
 log = logging.getLogger(__name__)
 
 

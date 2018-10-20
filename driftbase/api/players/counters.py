@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     Update summary and stats for the player
 """
@@ -6,15 +5,14 @@
 import datetime, time
 import logging
 from dateutil import parser
-import copy
 import collections
 
 from six.moves import http_client
 
 from sqlalchemy.exc import IntegrityError
 
-from flask import Blueprint, request, g, url_for
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import request, g, url_for
+from flask_restplus import Namespace, Resource, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -196,6 +194,7 @@ class CountersApi(Resource):
 
     def patch(self, player_id):
         return self._patch(player_id)
+
     def put(self, player_id):
         return self._patch(player_id)
 
@@ -243,7 +242,7 @@ class CountersApi(Resource):
 
             try:
                 name = entry["name"]
-            except:
+            except Exception:
                 continue
             missing_keys = []
             for k in required_keys:
@@ -326,9 +325,10 @@ class CounterApi(Resource):
         counter = get_counter(counter_id)
         if not counter:
             abort(404)
-        player_counter = g.db.query(PlayerCounter).filter(PlayerCounter.player_id == player_id,
-                                                          PlayerCounter.counter_id == counter_id) \
-                                                  .first()
+        player_counter = g.db.query(PlayerCounter) \
+                             .filter(PlayerCounter.player_id == player_id,
+                                     PlayerCounter.counter_id == counter_id) \
+                             .first()
         if not player_counter:
             abort(404)
 

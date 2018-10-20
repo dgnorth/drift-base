@@ -3,7 +3,7 @@
 import logging
 from six.moves import http_client
 
-from flask import Blueprint, url_for, g
+from flask import url_for, g
 from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.core.extensions.urlregistry import Endpoints

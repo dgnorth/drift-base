@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import logging
 
 from six.moves import http_client
 
-from flask import Blueprint, request, g, abort, url_for
-from flask_restplus import Namespace, Resource, reqparse, abort
-
-from drift.urlregistry import register_endpoints
+from flask import request, g, abort
+from flask_restplus import Namespace, Resource
 
 from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
 from driftbase.players import log_event, can_edit_player

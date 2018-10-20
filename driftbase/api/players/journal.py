@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from operator import itemgetter
 from dateutil import parser
 import datetime
@@ -7,7 +5,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import Blueprint, request, g, url_for
+from flask import request, g, url_for
 from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.utils import json_response

@@ -1,17 +1,14 @@
-# -*- coding: utf-8 -*-
-
 import datetime
 import logging
 
 from six.moves import http_client
 
-from flask import Blueprint, request, url_for, g
+from flask import request, url_for, g
 from flask_restplus import Namespace, Resource, reqparse, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player
 from drift.core.extensions.schemachecker import simple_schema_request
-from drift.urlregistry import register_endpoints
 from drift.core.extensions.jwt import current_user, requires_roles
 
 from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
