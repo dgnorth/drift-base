@@ -15,14 +15,14 @@ from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players_gamestate", "Player Gamestate Management")
+namespace = Namespace("players")
 
 MAX_DATA_LEN = 1024 * 1024  # 1MB
 
 TASK_VALIDATED = "validated"
 
 
-@namespace.route("/players/<int:player_id>/gamestates", endpoint="players_gamestates")
+@namespace.route("/<int:player_id>/gamestates", endpoint="players_gamestates")
 class GameStatesAPI(Resource):
 
     def get(self, player_id):
@@ -48,7 +48,7 @@ class GameStatesAPI(Resource):
         return ret
 
 
-@namespace.route("/players/<int:player_id>/gamestates/<string:namespace>", endpoint="players_gamestate")
+@namespace.route("/<int:player_id>/gamestates/<string:namespace>", endpoint="players_gamestate")
 class GameStateAPI(Resource):
 
     def get(self, player_id, namespace):
@@ -160,7 +160,7 @@ class GameStateAPI(Resource):
         return "OK"
 
 
-@namespace.route("/players/<int:player_id>/gamestates/<string:namespace>/history", endpoint="players_gamestate_historylist")
+@namespace.route("/<int:player_id>/gamestates/<string:namespace>/history", endpoint="players_gamestate_historylist")
 class GameStateHistoryListAPI(Resource):
 
     def get(self, player_id, namespace):
@@ -187,7 +187,7 @@ class GameStateHistoryListAPI(Resource):
         return ret
 
 
-@namespace.route("/players/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
+@namespace.route("/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
                  endpoint="players_gamestate_historyentry")
 class GameStateHistoryEntryAPI(Resource):
 

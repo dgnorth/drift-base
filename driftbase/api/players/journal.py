@@ -19,10 +19,10 @@ from driftbase.players import can_edit_player
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players_journal", "Player Journal Management")
+namespace = Namespace("players")
 
 
-@namespace.route("/players/<int:player_id>/journal", endpoint="players_journal")
+@namespace.route("/<int:player_id>/journal", endpoint="players_journal")
 class JournalAPI(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("rows", type=int)
@@ -146,7 +146,7 @@ def get_player_gamestate(player_id):
     return gamestate
 
 
-@namespace.route("/players/<int:player_id>/journal/<int:journal_id>", endpoint="players_journal_entry")
+@namespace.route("/<int:player_id>/journal/<int:journal_id>", endpoint="players_journal_entry")
 class JournalEntryAPI(Resource):
     def get(self, player_id, journal_id):
         """

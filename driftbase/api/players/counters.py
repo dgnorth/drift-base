@@ -24,7 +24,7 @@ from driftbase.utils import clear_counter_cache, get_counter
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players_counters", "Player Counter Management")
+namespace = Namespace("players")
 
 TOTAL_TIMESTAMP = datetime.datetime.strptime("2000-01-01", "%Y-%m-%d")
 COUNTER_PERIODS = ['total', 'month', 'day', 'hour', 'minute', 'second']
@@ -154,7 +154,7 @@ def check_and_update_player_counter(player_counter, timestamp):
     return True
 
 
-@namespace.route("/players/<int:player_id>/counters", endpoint="players_counters")
+@namespace.route("/<int:player_id>/counters", endpoint="players_counters")
 class CountersApi(Resource):
 
     def get(self, player_id):
@@ -319,7 +319,7 @@ class CountersApi(Resource):
         return result
 
 
-@namespace.route("/players/<int:player_id>/counters/<int:counter_id>",
+@namespace.route("/<int:player_id>/counters/<int:counter_id>",
                  endpoint="players_counter")
 class CounterApi(Resource):
     def get(self, player_id, counter_id):
@@ -369,7 +369,7 @@ class CounterApi(Resource):
         return "OK"
 
 
-@namespace.route("/players/<int:player_id>/counters/<int:counter_id>/<string:period>",
+@namespace.route("/<int:player_id>/counters/<int:counter_id>/<string:period>",
                  endpoint="players_counter_period")
 class CounterPeriodApi(Resource):
     def get(self, player_id, counter_id, period):
@@ -396,7 +396,7 @@ class CounterPeriodApi(Resource):
         return ret
 
 
-@namespace.route("/players/<int:player_id>/countertotals", endpoint="players_countertotals")
+@namespace.route("/<int:player_id>/countertotals", endpoint="players_countertotals")
 class CounterTotalsApi(Resource):
     def get(self, player_id):
         counter_entries = g.db.query(CounterEntry) \

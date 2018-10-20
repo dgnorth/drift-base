@@ -14,7 +14,7 @@ from driftbase.players import log_event, can_edit_player
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players_summary", "Player Summary Management")
+namespace = Namespace("players")
 
 
 def get_player(player_id):
@@ -22,7 +22,7 @@ def get_player(player_id):
     return player
 
 
-@namespace.route("/players/<int:player_id>/summary", endpoint="players_summary")
+@namespace.route("/<int:player_id>/summary", endpoint="players_summary")
 class Summary(Resource):
 
     def get(self, player_id):

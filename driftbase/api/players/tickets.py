@@ -15,7 +15,8 @@ from driftbase.players import log_event, can_edit_player, create_ticket
 from driftbase.models.db import Ticket
 
 log = logging.getLogger(__name__)
-namespace = Namespace("tickets", "Player Ticket Management")
+
+namespace = Namespace("players")
 
 
 def add_ticket_links(ticket):
@@ -29,7 +30,7 @@ def add_ticket_links(ticket):
     return ret
 
 
-@namespace.route("/players/<int:player_id>/tickets", endpoint="players_tickets")
+@namespace.route("/<int:player_id>/tickets", endpoint="players_tickets")
 class TicketsEndpoint(Resource):
 
     def get(self, player_id):
@@ -80,7 +81,7 @@ def get_ticket(player_id, ticket_id):
     return ticket
 
 
-@namespace.route("/players/<int:player_id>/tickets/<int:ticket_id>", endpoint="players_ticket")
+@namespace.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="players_ticket")
 class TicketEndpoint(Resource):
 
     def get(self, player_id, ticket_id):

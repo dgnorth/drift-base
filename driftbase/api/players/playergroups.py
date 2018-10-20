@@ -17,10 +17,10 @@ from driftbase.players import get_playergroup, set_playergroup
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("playergroups", "Player Group Management")
+namespace = Namespace("players")
 
 
-@namespace.route("/players/<int:player_id>/player-groups/<string:group_name>", endpoint="players_playergroups")
+@namespace.route("/<int:player_id>/player-groups/<string:group_name>", endpoint="players_playergroups")
 class PlayerGroupsAPI(Resource):
     """
     Manage groups of players. Can be used as friends list and such.
