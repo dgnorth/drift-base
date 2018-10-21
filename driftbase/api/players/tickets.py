@@ -23,12 +23,12 @@ def add_ticket_links(ticket):
     ret["issuer_url"] = None
     if ticket.issuer_id:
         ret["issuer_url"] = url_for("player", player_id=ticket.issuer_id, _external=True)
-    ret["url"] = url_for("players_ticket", player_id=ticket.player_id,
+    ret["url"] = url_for("player_ticket", player_id=ticket.player_id,
                          ticket_id=ticket.ticket_id, _external=True)
     return ret
 
 
-@namespace.route("/<int:player_id>/tickets", endpoint="players_tickets")
+@namespace.route("/<int:player_id>/tickets", endpoint="player_tickets")
 class TicketsEndpoint(Resource):
 
     def get(self, player_id):
@@ -58,7 +58,7 @@ class TicketsEndpoint(Resource):
         details = args.get("details")
         external_id = args.get("external_id")
         ticket_id = create_ticket(player_id, issuer_id, ticket_type, details, external_id)
-        ticket_url = url_for("players_ticket", ticket_id=ticket_id,
+        ticket_url = url_for("player_ticket", ticket_id=ticket_id,
                              player_id=player_id, _external=True)
         ret = {
             "ticket_id": ticket_id,
@@ -79,7 +79,7 @@ def get_ticket(player_id, ticket_id):
     return ticket
 
 
-@namespace.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="players_ticket")
+@namespace.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="player_ticket")
 class TicketEndpoint(Resource):
 
     def get(self, player_id, ticket_id):

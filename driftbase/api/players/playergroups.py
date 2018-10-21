@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 namespace = Namespace("players")
 
 
-@namespace.route("/<int:player_id>/player-groups/<string:group_name>", endpoint="players_playergroups")
+@namespace.route("/<int:player_id>/player-groups/<string:group_name>", endpoint="player_playergroups")
 class PlayerGroupsAPI(Resource):
     """
     Manage groups of players. Can be used as friends list and such.
@@ -102,7 +102,7 @@ class PlayerGroupsAPI(Resource):
         }
 
         set_playergroup(group_name, player_id, payload)
-        resource_uri = url_for("players_playergroups", group_name=group_name,
+        resource_uri = url_for("player_playergroups", group_name=group_name,
                                player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Created user group %s for player %s", group_name, player_id)

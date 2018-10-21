@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime, Unicode, ForeignKey, BigInteger, Float, Boolean
@@ -42,6 +40,7 @@ class User(ModelBase):
     client_id = Column(BigInteger, nullable=True)
 
     roles = relationship('UserRole', backref=backref('ck_users', uselist=True))
+    client = relationship('Client', backref=backref('ck_users', uselist=False))
 
 
 class UserRole(ModelBase):
@@ -90,6 +89,23 @@ class CorePlayer(ModelBase):
     clients = relationship('Client', backref='player')
 
     status = Column(String(20), nullable=True, default="active")
+
+    def __marshallable__(self):
+        """
+        This is needed to fill in required parameters for fields.Url() in the 
+        player_model response model object.
+        """
+        ret = self.__dict__
+        ret['exchange_id'] = self.player_id
+        ret['exchange'] = 'players'
+        ret['queue'] = '{queue}'
+        return ret
+
+    @hybrid_property
+    def is_online(self):
+        if self.user and self.user.client:
+            return self.user.client.is_online
+        return False
 
 
 class Client(ModelBase):

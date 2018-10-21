@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 namespace = Namespace("players")
 
 
-@namespace.route("/<int:player_id>/journal", endpoint="players_journal")
+@namespace.route("/<int:player_id>/journal", endpoint="player_journal")
 class JournalAPI(Resource):
     get_args = reqparse.RequestParser()
     get_args.add_argument("rows", type=int)
@@ -122,7 +122,7 @@ class JournalAPI(Resource):
                 abort(http_client.BAD_REQUEST, description=str(e))
 
             ret.append({"journal_id": journal["journal_id"],
-                        "url": url_for("players_journal_entry",
+                        "url": url_for("player_journal_entry",
                                        player_id=player_id,
                                        journal_id=journal["journal_id"])
                         })
@@ -144,7 +144,7 @@ def get_player_gamestate(player_id):
     return gamestate
 
 
-@namespace.route("/<int:player_id>/journal/<int:journal_id>", endpoint="players_journal_entry")
+@namespace.route("/<int:player_id>/journal/<int:journal_id>", endpoint="player_journal_entry")
 class JournalEntryAPI(Resource):
     def get(self, player_id, journal_id):
         """

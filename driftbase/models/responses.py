@@ -1,5 +1,48 @@
 from flask_restplus import fields, Model
 
+player_statuses = ['active', 'disabled']
+  # {
+  #   "create_date": "2018-10-21T14:21:37.602518Z",
+  #   "is_online": false,
+  #   "logon_date": "2018-10-21T14:21:37.602518Z",
+  #   "modify_date": "2018-10-21T14:21:37.602518Z",
+  #   "num_logons": 0,
+  #   "player_id": 1,
+  #   "player_name": "",
+  #   "status": "active",
+  #   "user_id": 100000001,
+  #   "counter_url": "http://localhost:5000/players/1/counters",
+  #   "countertotals_url": "http://localhost:5000/players/1/countertotals",
+  #   "gamestates_url": "http://localhost:5000/players/1/gamestates",
+  #   "journal_url": "http://localhost:5000/players/1/journal",
+  #   "messagequeue_url": "http://localhost:5000/messages/messages/players/1/{queue}",
+  #   "messages_url": "http://localhost:5000/messages/messages/players/1",
+  #   "player_url": "http://localhost:5000/players/1",
+  #   "summary_url": "http://localhost:5000/players/1/summary",
+  #   "tickets_url": "http://localhost:5000/players/1/tickets",
+  #   "user_url": "http://localhost:5000/users/100000001"
+  # }
+
+player_model = Model('Player', {
+    'player_id': fields.Integer(description="Unique ID of the player"),
+    'player_name': fields.String(description="Name of the player"),
+    'user_id': fields.String(description="ID of the user that owns this player"),
+    'is_online': fields.Boolean(description="Is the player currently online?"),
+    'create_date': fields.DateTime(description="When the player was created"),
+    'logon_date': fields.DateTime(description="When the player last authenticated"),
+    'status': fields.String(enum=player_statuses, description="Current status of this player"),
+    'player_url': fields.Url('player', absolute=True, description="URL of the player resource"),
+    'counter_url': fields.Url('player_counters', absolute=True, description="URL of the player resource"),
+    'countertotals_url': fields.Url('player_countertotals', absolute=True, description="URL of the player resource"),
+    'gamestates_url': fields.Url('player_gamestates', absolute=True, description="URL of the player resource"),
+    'journal_url': fields.Url('player_journal', absolute=True, description="URL of the player resource"),
+    'messagequeue_url': fields.Url('messages_queue', absolute=True, description="URL of the player resource"),
+    'messages_url': fields.Url('messages_exchange', absolute=True, description="URL of the player resource"),
+    'summary_url': fields.Url('player_summary', absolute=True, description="URL of the player resource"),
+    'tickets_url': fields.Url('player_tickets', absolute=True, description="URL of the player resource"),
+    'user_url': fields.Url('user', absolute=True, description="URL of the player resource"),
+})
+
 client_descriptions = {
     'client_type': "Type of client as reported by the client itself. Example: UE4",
     'build': "Build/version information about the client executable",

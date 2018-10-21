@@ -124,7 +124,7 @@ class CounterApi(Resource):
                 entry = {
                     "name": counter_name,
                     "counter_id": this_counter_id,
-                    "counter_url": url_for("players_counter",
+                    "counter_url": url_for("player_counter",
                                            player_id=this_player_id,
                                            counter_id=this_counter_id,
                                            _external=True),
@@ -141,7 +141,7 @@ class CounterApi(Resource):
                 "player_id": player_id,
                 "player_name": row[1].player_name,
                 "player_url": url_for("player", player_id=player_id, _external=True),
-                "counter_url": url_for("players_counter",
+                "counter_url": url_for("player_counter",
                                        player_id=player_id,
                                        counter_id=row[0].counter_id,
                                        _external=True),
