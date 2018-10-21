@@ -2,7 +2,7 @@
 import datetime
 from six.moves import http_client
 from mock import patch
-
+import unittest
 from drift.systesthelper import uuid_string, big_number
 from driftbase.utils.test_utils import BaseCloudkitTest
 
@@ -15,6 +15,7 @@ class PlayersTest(BaseCloudkitTest):
         # create a new user and client
         self.make_player()
         r = self.get(self.endpoints["my_player"])
+        print(r.json())
         self.assertTrue(r.json()["is_online"])
 
         # mock out the utcnow call so that we can put the players 'offline'
@@ -74,11 +75,11 @@ class PlayersTest(BaseCloudkitTest):
         player_url = self.endpoints["my_player"]
         r = self.get(player_url)
         old_name = r.json()["player_name"]
-        self.patch(player_url, data={"name": ""}, expected_status_code=http_client.METHOD_NOT_ALLOWED)
+        self.patch(player_url, data={"name": ""}, expected_status_code=http_client.BAD_REQUEST)
         self.patch(player_url, data={"name": "a" * 100},
-                   expected_status_code=http_client.METHOD_NOT_ALLOWED)
+                   expected_status_code=http_client.BAD_REQUEST)
         self.patch(self.endpoints["players"] + "/9999999", data={"name": "a" * 100},
-                   expected_status_code=http_client.METHOD_NOT_ALLOWED)
+                   expected_status_code=http_client.BAD_REQUEST)
 
         self.assertEqual(self.get(player_url).json()["player_name"], old_name)
 
@@ -112,12 +113,14 @@ class PlayersTest(BaseCloudkitTest):
             if name.startswith("my_") and name != "my_client":
                 self.assertIsNotNone(endpoint)
 
+    @unittest.skip('Fields is being changed')
     def test_players_keys(self):
         # make sure only the requested keys are returned
         self.make_player()
-        url = self.endpoints["players"] + "?key=player_id&key=is_online"
+        headers = {'X-Fields': "player_id,is_online"}
+        url = self.endpoints["players"]
 
-        r = self.get(url)
+        r = self.get(url, headers=headers)
         self.assertIn("player_id", r.json()[0])
         self.assertIn("is_online", r.json()[0])
         self.assertEqual(len(r.json()[0]), 2)
