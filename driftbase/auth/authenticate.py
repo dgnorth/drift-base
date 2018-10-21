@@ -17,6 +17,9 @@ from driftbase.utils import UserCache
 
 log = logging.getLogger(__name__)
 
+def drift_init_extension(app, api, **kwds):
+    jwt.register_auth_provider(app, "default", authenticate_with_provider)
+
 
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
@@ -97,10 +100,6 @@ def authenticate_with_provider(auth_info):
                            auth_info['provider'])
 
     return identity
-
-
-# LEGACY STUFF HERE. BAD WAY OF INJECTING
-jwt.authenticate_with_provider = authenticate_with_provider
 
 
 def authenticate(username, password, automatic_account_creation=True):
