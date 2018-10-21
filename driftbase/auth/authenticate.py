@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import importlib
 
 from six.moves import http_client
 
@@ -17,8 +18,26 @@ from driftbase.utils import UserCache
 
 log = logging.getLogger(__name__)
 
+AUTH_MODULES = {
+    'gamecenter': 'driftbase.auth.gamecenter',
+    'googleplay': 'driftbase.auth.googleplay',
+    'oculus': 'driftbase.auth.oculus',
+    'psn': 'driftbase.auth.psn',
+    'steam': 'driftbase.auth.steam',
+    }
+
+LOCAL_AUTH = [
+    'device_id', 'user+pass', 'uuid', 'unit_test', 'viveport', 'hypereal', '7663',
+    ]
+
+
 def drift_init_extension(app, api, **kwds):
-    jwt.register_auth_provider(app, "default", authenticate_with_provider)
+    # register authentication handlers
+    for name, module in AUTH_MODULES.items():
+        m = importlib.import_module(module)
+        jwt.register_auth_provider(app, name, m.authenticate)
+    for name in LOCAL_AUTH:
+        jwt.register_auth_provider(app, name, authenticate_with_provider)
 
 
 def abort_unauthorized(description):
@@ -39,30 +58,7 @@ def authenticate_with_provider(auth_info):
         identity = authenticate(auth_info['username'],
                                 auth_info['password'],
                                 automatic_account_creation)
-    elif auth_info['provider'] == "gamecenter":
-        from driftbase.auth.gamecenter import validate_gamecenter_token
-        identity_id = validate_gamecenter_token(provider_details)
-        # The GameCenter user_id cannot be stored in plain text, so let's
-        # give it one cycle of hashing.
-        username = "gamecenter:" + pbkdf2_hex(identity_id, "staticsalt",
-                                              iterations=1)
-        identity = authenticate(username, "", automatic_account_creation)
-    elif auth_info['provider'] == "steam":
-        from driftbase.auth.steam import validate_steam_ticket
-        identity_id = validate_steam_ticket()
-        username = "steam:" + identity_id
-        identity = authenticate(username, "", True or automatic_account_creation)
-    elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
-        if len(provider_details['username']) < 1:
-            abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
-        username = "oculus:" + provider_details['username']
-        password = provider_details['password']
-        identity = authenticate(username, password, True or automatic_account_creation)
-    elif auth_info['provider'] == "oculus":
-        from driftbase.auth.oculus import validate_oculus_ticket
-        identity_id = validate_oculus_ticket()
-        username = "oculus:" + identity_id
-        identity = authenticate(username, "", True or automatic_account_creation)
+
     elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
         if len(provider_details['username']) < 1:
             abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
@@ -75,22 +71,7 @@ def authenticate_with_provider(auth_info):
         username = "hypereal:" + provider_details['username']
         password = provider_details['password']
         identity = authenticate(username, password, True or automatic_account_creation)
-    elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
-        if len(provider_details['username']) < 1:
-            abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
-        username = "googleplay:" + provider_details['username']
-        password = provider_details['password']
-        identity = authenticate(username, password, automatic_account_creation)
-    elif auth_info['provider'] == "googleplay":
-        from driftbase.auth.googleplay import validate_googleplay_token
-        identity_id = validate_googleplay_token()
-        username = "googleplay:" + identity_id
-        identity = authenticate(username, "", automatic_account_creation)
-    elif auth_info['provider'] == "psn":
-        from driftbase.auth.psn import validate_psn_ticket
-        identity_id = validate_psn_ticket()
-        username = "psn:" + identity_id
-        identity = authenticate(username, "", automatic_account_creation)
+
     elif auth_info['provider'] == "7663":
         username = "7663:" + provider_details['username']
         password = provider_details['password']

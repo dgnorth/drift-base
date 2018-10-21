@@ -7,12 +7,25 @@ from six.moves import http_client
 from flask_restplus import abort
 
 from werkzeug.exceptions import Unauthorized
+from werkzeug.security import pbkdf2_hex
 
 from driftbase.auth import get_provider_config
 from driftbase.auth.util import fetch_url
+from .authenticate import authenticate as base_authenticate
 
 
 TRUSTED_ORGANIZATIONS = ["Apple Inc."]
+
+
+def authenticate(auth_info):
+    assert auth_info['provider'] == "gamecenter"
+    provider_details = auth_info.get('provider_details')
+    identity_id = validate_gamecenter_token(provider_details)
+    # The GameCenter user_id cannot be stored in plain text, so let's
+    # give it one cycle of hashing.
+    username = "gamecenter:" + pbkdf2_hex(identity_id, "staticsalt",
+                                          iterations=1)
+    return base_authenticate(username, "", automatic_account_creation)
 
 
 def abort_unauthorized(description):

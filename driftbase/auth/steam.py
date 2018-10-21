@@ -11,8 +11,16 @@ from flask_restplus import abort
 from driftbase.auth import get_provider_config
 from driftbase.auth.util import fetch_url
 from drift.core.extensions.schemachecker import check_schema
+from .authenticate import authenticate as base_authenticate
 
 log = logging.getLogger(__name__)
+
+
+def authenticate(auth_info):
+    assert auth_info['provider'] == "steam"
+    identity_id = validate_steam_ticket()
+    username = "steam:" + identity_id
+    return base_authenticate(username, "", True or automatic_account_creation)
 
 
 def abort_unauthorized(description):

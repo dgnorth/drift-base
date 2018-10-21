@@ -10,6 +10,7 @@ from driftbase.auth import get_provider_config
 from base64 import urlsafe_b64encode
 
 from drift.core.extensions.schemachecker import check_schema
+from .authenticate import authenticate as base_authenticate
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +42,13 @@ psn_provider_schema = {
     },
     'required': ['provider_details'],
 }
+
+
+def authenticate(auth_info):
+    assert auth_info['provider'] == "psn"
+    identity_id = validate_psn_ticket()
+    username = "psn:" + identity_id
+    return base_authenticate(username, "", automatic_account_creation)
 
 
 def validate_psn_ticket():

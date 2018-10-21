@@ -11,6 +11,8 @@ from driftbase.auth import get_provider_config
 
 from drift.core.extensions.schemachecker import check_schema
 
+from .authenticate import authenticate as base_authenticate
+
 log = logging.getLogger(__name__)
 
 
@@ -32,6 +34,22 @@ oculus_provider_schema = {
     },
     'required': ['provider_details'],
 }
+
+
+def authenticate(auth_info):
+    assert auth_info['provider'] == 'oculus'
+    provider_details = auth_info.get('provider_details')
+    automatic_account_creation = auth_info.get("automatic_account_creation", True)
+
+    if provider_details.get('provisional', False):
+        if len(provider_details['username']) < 1:
+            abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+        username = "oculus:" + provider_details['username']
+        password = provider_details['password']
+        return base_authenticate(username, password, True or automatic_account_creation)
+    identity_id = validate_oculus_ticket()
+    username = "oculus:" + identity_id
+    return base_authenticate(username, "", True or automatic_account_creation)
 
 
 def validate_oculus_ticket():
