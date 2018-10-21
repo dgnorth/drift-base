@@ -152,7 +152,7 @@ def check_and_update_player_counter(player_counter, timestamp):
     return True
 
 
-@namespace.route("/<int:player_id>/counters", endpoint="players_counters")
+@namespace.route("/<int:player_id>/counters", endpoint="player_counters")
 class CountersApi(Resource):
 
     def get(self, player_id):
@@ -172,13 +172,13 @@ class CountersApi(Resource):
                 "first_update": row.create_date,
                 "last_update": row.modify_date,
                 "num_updates": row.num_updates,
-                "url": url_for("players_counter", player_id=player_id,
+                "url": url_for("player_counter", player_id=player_id,
                                counter_id=counter_id, _external=True),
                 "name": counter["name"],
                 "periods": {}
             }
             for period in COUNTER_PERIODS + ["all"]:
-                entry["periods"][period] = url_for("players_counter_period", player_id=player_id,
+                entry["periods"][period] = url_for("player_counter_period", player_id=player_id,
                                                    counter_id=counter_id, period=period,
                                                    _external=True)
             total = g.db.query(CounterEntry.value).filter(CounterEntry.player_id == player_id,
@@ -319,7 +319,7 @@ class CountersApi(Resource):
 
 
 @namespace.route("/<int:player_id>/counters/<int:counter_id>",
-                 endpoint="players_counter")
+                 endpoint="player_counter")
 class CounterApi(Resource):
     def get(self, player_id, counter_id):
         counter = get_counter(counter_id)
@@ -338,7 +338,7 @@ class CounterApi(Resource):
             "periods": {}
         }
         for period in COUNTER_PERIODS + ["all"]:
-            ret["periods"][period] = url_for("players_counter_period", player_id=player_id,
+            ret["periods"][period] = url_for("player_counter_period", player_id=player_id,
                                              counter_id=counter_id, period=period, _external=True)
 
         return ret
@@ -370,7 +370,7 @@ class CounterApi(Resource):
 
 
 @namespace.route("/<int:player_id>/counters/<int:counter_id>/<string:period>",
-                 endpoint="players_counter_period")
+                 endpoint="player_counter_period")
 class CounterPeriodApi(Resource):
     def get(self, player_id, counter_id, period):
         counter = get_counter(counter_id)
@@ -396,7 +396,7 @@ class CounterPeriodApi(Resource):
         return ret
 
 
-@namespace.route("/<int:player_id>/countertotals", endpoint="players_countertotals")
+@namespace.route("/<int:player_id>/countertotals", endpoint="player_countertotals")
 class CounterTotalsApi(Resource):
     def get(self, player_id):
         counter_entries = g.db.query(CounterEntry) \

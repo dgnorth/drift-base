@@ -124,7 +124,7 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
                   message="You can only read from an exchange that belongs to you!")
 
 
-@namespace.route('/messages/<string:exchange>/<int:exchange_id>', endpoint='messages_exchange')
+@namespace.route('/<string:exchange>/<int:exchange_id>', endpoint='messages_exchange')
 class MessagesExchangeAPI(Resource):
 
     no_jwt_check = ["GET"]
@@ -192,7 +192,7 @@ class MessagesExchangeAPI(Resource):
             return messages
 
 
-@namespace.route('/messages/<string:exchange>/<int:exchange_id>/<string:queue>', 'messages_queue')
+@namespace.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='messages_queue')
 class MessagesQueueAPI(Resource):
 
     @simple_schema_request({

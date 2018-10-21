@@ -18,7 +18,7 @@ def get_player(player_id):
     return player
 
 
-@namespace.route("/<int:player_id>/summary", endpoint="players_summary")
+@namespace.route("/<int:player_id>/summary", endpoint="player_summary")
 class Summary(Resource):
 
     def get(self, player_id):

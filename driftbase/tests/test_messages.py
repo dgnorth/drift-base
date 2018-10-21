@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 from six.moves import http_client
 from driftbase.utils.test_utils import BaseCloudkitTest
+import urllib
 
 
 class MessagesTest(BaseCloudkitTest):
@@ -13,6 +13,7 @@ class MessagesTest(BaseCloudkitTest):
         player_receiver_endpoint = self.endpoints["my_player"]
         r = self.get(player_receiver_endpoint)
         messagequeue_url_template = r.json()["messagequeue_url"]
+        messagequeue_url_template = urllib.parse.unquote(messagequeue_url_template)
         messages_url = r.json()["messages_url"]
 
         player_sender = self.make_player()
@@ -39,6 +40,7 @@ class MessagesTest(BaseCloudkitTest):
         player_receiver_endpoint = self.endpoints["my_player"]
         r = self.get(player_receiver_endpoint)
         messagequeue_url_template = r.json()["messagequeue_url"]
+        messagequeue_url_template = urllib.parse.unquote(messagequeue_url_template)
         messages_url = r.json()["messages_url"]
 
         # send a message from another player
@@ -80,6 +82,7 @@ class MessagesTest(BaseCloudkitTest):
         player_receiver_endpoint = self.endpoints["my_player"]
         r = self.get(player_receiver_endpoint)
         messagequeue_url_template = r.json()["messagequeue_url"]
+        messagequeue_url_template = urllib.parse.unquote(messagequeue_url_template)
         messages_url = r.json()["messages_url"]
 
         # send a message from another player
@@ -90,6 +93,7 @@ class MessagesTest(BaseCloudkitTest):
         otherqueue = "othertestqueue"
         othermessagequeue_url = messagequeue_url_template.format(queue=otherqueue)
         data = {"message": {"Hello": "World"}}
+
         r = self.post(messagequeue_url, data=data)
         r = self.post(othermessagequeue_url, data=data)
         r = self.post(messagequeue_url, data=data)
@@ -101,6 +105,7 @@ class MessagesTest(BaseCloudkitTest):
         self.headers = receiver_headers
 
         # get all messages
+        print(messages_url)
         r = self.get(messages_url)
         js = r.json()
         self.assertEqual(len(js), 2)
@@ -129,6 +134,7 @@ class MessagesTest(BaseCloudkitTest):
         player_receiver_endpoint = self.endpoints["my_player"]
         r = self.get(player_receiver_endpoint)
         messagequeue_url_template = r.json()["messagequeue_url"]
+        messagequeue_url_template = urllib.parse.unquote(messagequeue_url_template)
         messages_url = r.json()["messages_url"]
 
         # send a message from another player
@@ -170,6 +176,7 @@ class MessagesTest(BaseCloudkitTest):
         player_receiver_endpoint = self.endpoints["my_player"]
         r = self.get(player_receiver_endpoint)
         messagequeue_url_template = r.json()["messagequeue_url"]
+        messagequeue_url_template = urllib.parse.unquote(messagequeue_url_template)
         messages_url = r.json()["messages_url"]
 
         player_sender = self.make_player()
@@ -201,6 +208,7 @@ class MessagesTest(BaseCloudkitTest):
         player_receiver_endpoint = self.endpoints["my_player"]
         r = self.get(player_receiver_endpoint)
         messagequeue_url_template = r.json()["messagequeue_url"]
+        messagequeue_url_template = urllib.parse.unquote(messagequeue_url_template)
         messages_url = r.json()["messages_url"]
 
         # send a message from another player
