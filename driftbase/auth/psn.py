@@ -5,7 +5,7 @@ from six.moves import http_client
 import requests
 from werkzeug.exceptions import Unauthorized
 from flask import request, escape
-from flask_restful import abort
+from flask_restplus import abort
 from driftbase.auth import get_provider_config
 from base64 import urlsafe_b64encode
 

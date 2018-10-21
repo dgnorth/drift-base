@@ -4,7 +4,7 @@ import base64
 
 from six.moves import http_client
 
-from flask_restful import abort
+from flask_restplus import abort
 
 from werkzeug.exceptions import Unauthorized
 
