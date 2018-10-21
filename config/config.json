@@ -3,7 +3,6 @@
     "PORT": 10080,
     "DISABLE_JWT": 0,
     "apps": [
-        "driftbase.auth.authenticate",
         "driftbase.tasks.tasks",
         "driftbase.api.players",
         "driftbase.api.users",
@@ -38,7 +37,8 @@
         "drift.core.resources.apitarget",
         "drift.core.resources.jwtsession",
         "driftbase.resources.staticdata",
-        "driftbase.resources.gameserver"
+        "driftbase.resources.gameserver",
+        "driftbase.auth"
     ],
     "resource_attributes": {
         "drift.core.resources.apitarget": {"api": "drift", "requires_api_key": true},
