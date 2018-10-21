@@ -21,6 +21,10 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
+def drift_init_extension(app, api, **kwds):
+    pass
+
+
 @celery.task
 def cleanup_orphaned_matchqueues():
     """

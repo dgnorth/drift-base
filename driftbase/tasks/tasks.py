@@ -14,6 +14,10 @@ from driftbase.models.db import Counter, Client
 DEFAULT_HEARTBEAT_TIMEOUT = 300
 
 
+def drift_init_extension(app, api, **kwds):
+    pass
+
+
 def get_redis(tenant):
     cache = RedisCache(
         tenant=tenant['tenant_name'],
