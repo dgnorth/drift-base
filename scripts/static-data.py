@@ -15,9 +15,6 @@ import six
 from six.moves.urllib.parse import urlparse
 import click
 
-from driftconfig.util import get_default_drift_config
-from drift.utils import get_tier_name
-
 
 STATIC_DATA_ROOT_FOLDER = 'static-data'  # Root folder on S3
 
@@ -90,6 +87,8 @@ def publish(repository, user, region, bucket):
         click.echo("User defined reference ...")
         to_upload = set()
         # TODO: This will crash. No serialno??
+        raise NotImplementedError()
+        serialno = 0
         s3_upload_batch.append(["user-{}/{}".format(user, serialno)])
     else:
         # We need to checkout a few branches. Let's remember which branch is currently active
@@ -101,7 +100,7 @@ def publish(repository, user, region, bucket):
         to_upload = set()  # Commit ID's to upload to S3
         indexes = []  # Full list of git references to write to index.json
 
-        click.echo() "Index file:"
+        click.echo("Index file:")
         ls_remote = subprocess.check_output('git ls-remote --quiet'.split(' ')).strip()
         now = datetime.utcnow()
         for refline in ls_remote.split('\n'):
@@ -173,7 +172,7 @@ def publish(repository, user, region, bucket):
     key.set_metadata('Content-Type', "application/json")
     key.set_metadata('Cache-Control', "max-age=0, no-cache, no-store")
     key.key = "{}{}/index.json".format(STATIC_DATA_ROOT_FOLDER, repository)
-    cick.echo("Uploading: {}".format(key.key))
+    click.echo("Uploading: {}".format(key.key))
     key.set_contents_from_string(json.dumps(refs_index))
     key.set_acl('public-read')
 
@@ -192,7 +191,7 @@ def publish(repository, user, region, bucket):
 def mirror(region, bucket):
     """Mirror static data to other CDNs."""
 
-    #ts = get_default_drift_config()
+    # ts = get_default_drift_config()
     bucket = get_s3_bucket(region, bucket)
     keys = set()
     for key in bucket.list(prefix="static-data/", delimiter="/"):
@@ -203,7 +202,7 @@ def mirror(region, bucket):
         for key2 in bucket.list(prefix=key.name, delimiter=""):
             keys.add(key2.name)
 
-    cick.echo("{} s3 objects loaded".format(len(keys)))
+    click.echo("{} s3 objects loaded".format(len(keys)))
 
     mirror_alicloud(copy.copy(keys), bucket)
 

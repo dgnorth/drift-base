@@ -200,7 +200,7 @@ class MatchesAPI(Resource):
                       )
         g.db.add(match)
         g.db.flush()
-        #! have to set this explicitly after the row is created
+        # ! have to set this explicitly after the row is created
         match.start_date = None
         g.db.commit()
         match_id = match.match_id
@@ -328,7 +328,7 @@ class MatchAPI(Resource):
                 match.start_date = utcnow()
             elif new_status == "completed":
                 match.end_date = utcnow()
-                #! TODO: Set leave_date on matchplayers who are still in the match
+                # ! TODO: Set leave_date on matchplayers who are still in the match
             match.status_date = utcnow()
 
         for arg in args:

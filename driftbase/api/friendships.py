@@ -5,7 +5,7 @@ import datetime
 from six.moves import http_client
 
 from flask import request, g, abort, url_for
-from flask_restplus import Namespace, Resource, reqparse
+from flask_restplus import Namespace, Resource
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.jwt import current_user
@@ -78,7 +78,7 @@ class FriendshipsAPI(Resource):
             abort(http_client.FORBIDDEN, description="That is not your player!")
 
         args = request.json
-        invite_token=args.get("token")
+        invite_token = args.get("token")
 
         invite = g.db.query(FriendInvite).filter_by(token=invite_token).first()
         if invite is None:

@@ -87,8 +87,8 @@ class UserIdentitiesAPI(Resource):
 
         if my_user_id == link_with_user_id:
             log.warning("User identity %s is already linked with user_id %s in the JWT. "
-                     "Rejecting the switch",
-                     my_identity_id, link_with_user_id)
+                        "Rejecting the switch",
+                        my_identity_id, link_with_user_id)
             abort(http_client.BAD_REQUEST, message="Identity is already associated with user %s" %
                   link_with_user_id)
 
@@ -105,8 +105,8 @@ class UserIdentitiesAPI(Resource):
         link_with_user_jti_payload = get_cached_token(link_with_user_jti)
         if link_with_user_jti_payload["user_id"] != link_with_user_id:
             log.warning("Request for a user identity switch with user_id %s which does not "
-                     "match user_id %s from JWT",
-                     link_with_user_id, link_with_user_jti_payload["user_id"])
+                        "match user_id %s from JWT",
+                        link_with_user_id, link_with_user_jti_payload["user_id"])
             abort(http_client.BAD_REQUEST, message="User does not match JWT user")
 
         link_with_player = g.db.query(CorePlayer) \
@@ -125,15 +125,17 @@ class UserIdentitiesAPI(Resource):
 
         if my_identity.user_id:
             if my_identity.user_id == link_with_user_id:
-                log.warning("User identity %s is already linked with user_id %s in the db. "
-                         "Looks like the caller is trying to make an association again",
-                         my_identity_id, link_with_user_id)
+                log.warning(
+                    "User identity %s is already linked with user_id %s in the db. "
+                    "Looks like the caller is trying to make an association again",
+                    my_identity_id, link_with_user_id)
                 abort(http_client.BAD_REQUEST, message="Identity is already associated with user %s" %
                       link_with_user_id)
 
-            log.warning("Caller with identity %s already has a user_id %s associated with the "
-                     "identity. This user will probably become orphaned",
-                     my_identity_id, my_user_id)
+            log.warning(
+                "Caller with identity %s already has a user_id %s associated with the "
+                "identity. This user will probably become orphaned",
+                my_identity_id, my_user_id)
 
         # If we are associating a gamecenter identity with an existing user, then that
         # user cannot have another game center association already in place.

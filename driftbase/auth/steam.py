@@ -30,8 +30,6 @@ def abort_unauthorized(description):
     raise Unauthorized(description=description)
 
 
-
-
 # Steam provider details schema
 steam_provider_schema = {
     'type': 'object',

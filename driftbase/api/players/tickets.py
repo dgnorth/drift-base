@@ -4,7 +4,7 @@ import datetime
 from six.moves import http_client
 
 from flask import url_for, request, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, abort
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import requires_roles
@@ -36,8 +36,8 @@ class TicketsEndpoint(Resource):
         Get a list of outstanding tickets for the player
         """
         can_edit_player(player_id)
-        tickets = g.db.query(Ticket) \
-                 .filter(Ticket.player_id == player_id, Ticket.used_date == None)
+        tickets = g.db.query(Ticket)\
+            .filter(Ticket.player_id == player_id, Ticket.used_date is None)
         ret = [add_ticket_links(t) for t in tickets]
         return ret
 
@@ -98,6 +98,7 @@ class TicketEndpoint(Resource):
     @simple_schema_request({"journal_id": {"type": "number", }})
     def patch(self, player_id, ticket_id):
         return self._patch(player_id, ticket_id)
+
     @simple_schema_request({"journal_id": {"type": "number", }})
     def put(self, player_id, ticket_id):
         return self._patch(player_id, ticket_id)

@@ -92,7 +92,7 @@ class CorePlayer(ModelBase):
 
     def __marshallable__(self):
         """
-        This is needed to fill in required parameters for fields.Url() in the 
+        This is needed to fill in required parameters for fields.Url() in the
         player_model response model object.
         """
         ret = self.__dict__
@@ -231,6 +231,7 @@ class Machine(ModelBase):
     config = Column(JSON, nullable=True)
     statistics = Column(JSON, nullable=True)
     group_name = Column(String(50), nullable=True)
+
 
 class Server(ModelBase):
     __tablename__ = 'gs_servers'

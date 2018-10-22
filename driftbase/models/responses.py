@@ -1,27 +1,27 @@
 from flask_restplus import fields, Model
 
 player_statuses = ['active', 'disabled']
-  # {
-  #   "create_date": "2018-10-21T14:21:37.602518Z",
-  #   "is_online": false,
-  #   "logon_date": "2018-10-21T14:21:37.602518Z",
-  #   "modify_date": "2018-10-21T14:21:37.602518Z",
-  #   "num_logons": 0,
-  #   "player_id": 1,
-  #   "player_name": "",
-  #   "status": "active",
-  #   "user_id": 100000001,
-  #   "counter_url": "http://localhost:5000/players/1/counters",
-  #   "countertotals_url": "http://localhost:5000/players/1/countertotals",
-  #   "gamestates_url": "http://localhost:5000/players/1/gamestates",
-  #   "journal_url": "http://localhost:5000/players/1/journal",
-  #   "messagequeue_url": "http://localhost:5000/messages/messages/players/1/{queue}",
-  #   "messages_url": "http://localhost:5000/messages/messages/players/1",
-  #   "player_url": "http://localhost:5000/players/1",
-  #   "summary_url": "http://localhost:5000/players/1/summary",
-  #   "tickets_url": "http://localhost:5000/players/1/tickets",
-  #   "user_url": "http://localhost:5000/users/100000001"
-  # }
+# {
+#   "create_date": "2018-10-21T14:21:37.602518Z",
+#   "is_online": false,
+#   "logon_date": "2018-10-21T14:21:37.602518Z",
+#   "modify_date": "2018-10-21T14:21:37.602518Z",
+#   "num_logons": 0,
+#   "player_id": 1,
+#   "player_name": "",
+#   "status": "active",
+#   "user_id": 100000001,
+#   "counter_url": "http://localhost:5000/players/1/counters",
+#   "countertotals_url": "http://localhost:5000/players/1/countertotals",
+#   "gamestates_url": "http://localhost:5000/players/1/gamestates",
+#   "journal_url": "http://localhost:5000/players/1/journal",
+#   "messagequeue_url": "http://localhost:5000/messages/messages/players/1/{queue}",
+#   "messages_url": "http://localhost:5000/messages/messages/players/1",
+#   "player_url": "http://localhost:5000/players/1",
+#   "summary_url": "http://localhost:5000/players/1/summary",
+#   "tickets_url": "http://localhost:5000/players/1/tickets",
+#   "user_url": "http://localhost:5000/users/100000001"
+# }
 
 player_model = Model('Player', {
     'player_id': fields.Integer(description="Unique ID of the player"),
@@ -86,8 +86,9 @@ client_registration_model = Model('ClientRegistration', {
     'client_id': fields.Integer(description="Unique ID of the client connection"),
     'user_id': fields.Integer(description="Unique ID of the user who owns this session (> 100000000)"),
     'player_id': fields.Integer(description="Unique ID of the player who owns this session"),
-    'url': fields.Url('client', absolute=True,
-                             description="Fully qualified url of the client resource"),
+    'url': fields.Url(
+        'client', absolute=True,
+        description="Fully qualified url of the client resource"),
     'server_time': fields.DateTime(description="Current Server time UTC"),
     'next_heartbeat_seconds': fields.Integer(description="Number of seconds recommended for the client to heartbeat."),
     'heartbeat_timeout': fields.DateTime(description="Timestamp when the client will be removed if heartbeat has not been received"),

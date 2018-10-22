@@ -195,4 +195,3 @@ def authenticate(username, password, automatic_account_creation=True):
     cache = UserCache()
     cache.set_all(user_id, ret)
     return ret
-

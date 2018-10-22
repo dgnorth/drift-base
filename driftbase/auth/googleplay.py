@@ -50,6 +50,7 @@ def authenticate(auth_info):
     username = "googleplay:" + identity_id
     return authenticate(username, "", automatic_account_creation)
 
+
 def validate_googleplay_token():
     """Validate Google Play token from /auth call."""
 

@@ -1,17 +1,15 @@
 import logging
 from six.moves import http_client
 
-from flask import Blueprint, url_for, g, request
+from flask import url_for, g
 from flask_restplus import Namespace, Resource, reqparse, abort
 from flask_restplus.errors import ValidationError
 
 from drift.core.extensions.jwt import current_user
-from drift.urlregistry import register_endpoints
-from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.urlregistry import Endpoints
 
-from driftbase.utils import url_player, url_user
-from driftbase.models.db import CorePlayer, Client, User
+from driftbase.utils import url_player
+from driftbase.models.db import CorePlayer
 from driftbase.models.responses import player_model
 from driftbase.players import get_playergroup_ids
 from driftbase.api.players import counters, gamestate, journal, playergroups, summary, tickets
@@ -150,7 +148,7 @@ def endpoint_info(current_user):
 
         ret["my_gamestates"] = url_for("player_gamestates", player_id=player_id, _external=True)
         ret["my_gamestate"] = url_for("player_gamestates", player_id=player_id, _external=True) + \
-                              "/{namespace}"
+            "/{namespace}"
         url = url_for(
             "player_playergroups",
             player_id=current_user["player_id"],

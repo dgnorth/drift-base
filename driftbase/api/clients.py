@@ -9,7 +9,9 @@
     deregistered automatically (by a timestamp check in sql returning clients).
 """
 
-import logging, datetime, json
+import logging
+import datetime
+import json
 
 from six.moves import http_client
 
@@ -23,7 +25,6 @@ from driftbase.utils import url_client
 from driftbase.models.db import User, CorePlayer, Client, UserIdentity
 from driftbase.models.responses import client_descriptions, client_model, client_registration_model, \
                                        client_heartbeat_model
-from flask_restplus import fields, marshal
 
 log = logging.getLogger(__name__)
 namespace = Namespace("clients", "Client registration")
@@ -51,8 +52,9 @@ class ClientsAPI(Resource):
     no_jwt_check = ['GET']
     # GET args
     get_parser = reqparse.RequestParser()
-    get_parser.add_argument('player_id', type=int,
-                          help="Optional ID of a player to return sessions for")
+    get_parser.add_argument(
+        'player_id', type=int,
+        help="Optional ID of a player to return sessions for")
 
     @namespace.expect(get_parser)
     @namespace.marshal_with(client_model, as_list=True)
@@ -87,6 +89,7 @@ class ClientsAPI(Resource):
                              help=client_descriptions['platform_version'])
     post_parser.add_argument('platform_info', type=str,
                              help=client_descriptions['platform_info'])
+
     @namespace.expect(post_parser)
     @namespace.marshal_with(client_registration_model, code=http_client.CREATED)
     def post(self):

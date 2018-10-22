@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-import datetime
 from driftconfig.util import get_parameters
-from flask import g
 import logging
 log = logging.getLogger(__name__)
 
@@ -18,6 +16,7 @@ def provision(config, args, recreate=False):
     # Static data repo is per product
     if 'gameserver' not in config.product:
         config.product['gameserver'] = params
+
 
 def healthcheck():
     pass

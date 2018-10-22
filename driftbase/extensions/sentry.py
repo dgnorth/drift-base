@@ -1,4 +1,4 @@
-from raven.contrib.flask import Sentry, SentryHandler
+from raven.contrib.flask import Sentry
 import raven
 
 

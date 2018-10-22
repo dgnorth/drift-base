@@ -31,6 +31,7 @@ def drift_init_extension(app, api, **kwargs):
     api.add_namespace(namespace)
     endpoints.init_app(app)
 
+
 # messages expire in a day by default
 DEFAULT_EXPIRE_SECONDS = 60 * 60 * 24
 # keep the top message around for a month
@@ -202,7 +203,7 @@ class MessagesQueueAPI(Resource):
     def post(self, exchange, exchange_id, queue):
         check_can_use_exchange(exchange, exchange_id, read=False)
         args = request.json
-        expire_seconds=args.get("expire") or DEFAULT_EXPIRE_SECONDS
+        expire_seconds = args.get("expire") or DEFAULT_EXPIRE_SECONDS
 
         message = _add_message(
             exchange=exchange,

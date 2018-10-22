@@ -41,7 +41,7 @@ def process_match_queue(redis=None, db_session=None):
         queued_players = db_session.query(MatchQueuePlayer, Client) \
                                    .filter(Client.client_id == MatchQueuePlayer.client_id,
                                            MatchQueuePlayer.status == "waiting",
-                                           MatchQueuePlayer.match_id == None) \
+                                           MatchQueuePlayer.match_id is None) \
                                    .order_by(MatchQueuePlayer.id) \
                                    .all()
 
@@ -118,4 +118,3 @@ def process_match_queue(redis=None, db_session=None):
                 log.info("Only found %s players for match %s which needs %s players "
                          "so I cannot populate it",
                          len(possibly_matched_players), match.match_id, match.max_players)
-

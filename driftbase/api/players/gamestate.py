@@ -94,7 +94,7 @@ class GameStateAPI(Resource):
             journal_row = g.db.query(PlayerJournal) \
                 .filter(PlayerJournal.player_id == player_id,
                         PlayerJournal.journal_id == journal_id,
-                        PlayerJournal.deleted != True) \
+                        PlayerJournal.deleted is not True) \
                 .first()
             if not journal_row:
                 # Note: this might happen normally unless we serialize on the

@@ -163,7 +163,7 @@ class MachineAPI(Resource):
         "details": {"type": "object", },
         "config": {"type": "object", },
         "statistics": {"type": "object", },
-        "group_name" : {"type": "string"},
+        "group_name": {"type": "string"},
         "events": {"type": "array"}
     }, required=[])
     def put(self, machine_id):

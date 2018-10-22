@@ -370,6 +370,7 @@ class ServerCommandAPI(Resource):
     }, required=["status"])
     def patch(self, server_id, command_id):
         return self._patch(server_id, command_id)
+
     @requires_roles("service")
     @simple_schema_request({
         "status": {"type": "string", },

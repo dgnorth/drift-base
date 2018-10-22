@@ -4,7 +4,7 @@ import logging
 from six.moves import http_client
 
 from flask import url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask_restplus import Namespace, Resource, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player, url_user
