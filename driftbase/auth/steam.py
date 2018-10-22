@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 def authenticate(auth_info):
     assert auth_info['provider'] == "steam"
+    automatic_account_creation = auth_info.get("automatic_account_creation", True)
     identity_id = validate_steam_ticket()
     username = "steam:" + identity_id
     return base_authenticate(username, "", True or automatic_account_creation)

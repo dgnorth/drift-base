@@ -20,6 +20,7 @@ TRUSTED_ORGANIZATIONS = ["Apple Inc."]
 def authenticate(auth_info):
     assert auth_info['provider'] == "gamecenter"
     provider_details = auth_info.get('provider_details')
+    automatic_account_creation = auth_info.get("automatic_account_creation", True)
     identity_id = validate_gamecenter_token(provider_details)
     # The GameCenter user_id cannot be stored in plain text, so let's
     # give it one cycle of hashing.

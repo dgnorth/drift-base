@@ -46,6 +46,7 @@ psn_provider_schema = {
 
 def authenticate(auth_info):
     assert auth_info['provider'] == "psn"
+    automatic_account_creation = auth_info.get("automatic_account_creation", True)
     identity_id = validate_psn_ticket()
     username = "psn:" + identity_id
     return base_authenticate(username, "", automatic_account_creation)
