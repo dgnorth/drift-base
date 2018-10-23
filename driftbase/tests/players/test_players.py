@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import datetime
 from six.moves import http_client
 from mock import patch

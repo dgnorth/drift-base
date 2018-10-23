@@ -1,17 +1,12 @@
-# -*- coding: utf-8 -*-
-
-import types
 import datetime
 import unittest
 
-from flask import g
-
 from drift.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
-import driftbase.matchqueue
 
 
 tasks = None
+
 
 def setUpModule():
     setup_tenant()

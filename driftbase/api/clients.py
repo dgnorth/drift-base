@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     A client is required to register itself via POST /clients after it
     has authenticated. Before the client shuts down it should deregister itself

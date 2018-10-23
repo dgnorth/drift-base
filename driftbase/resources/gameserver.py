@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from driftconfig.util import get_parameters
 import logging
 log = logging.getLogger(__name__)

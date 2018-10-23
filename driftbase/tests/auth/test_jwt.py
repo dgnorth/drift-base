@@ -1,14 +1,12 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from flask import Flask, Blueprint, jsonify
 from flask_restplus import Api, Resource
-from flask import g
 
 from drift.tests import DriftTestCase
 from drift.systesthelper import DriftBaseTestCase
 from drift.core.extensions.jwt import jwtsetup, verify_token, jwt_not_required, current_user, check_jwt_authorization
+from drift.systesthelper import setup_tenant, remove_tenant
 
 app = Flask(__name__)
 app.testing = True
@@ -110,12 +108,9 @@ public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
     "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
     " unittest@dg-api.com"
 
-from drift.systesthelper import setup_tenant, remove_tenant
-
 
 if 0:
     class JWTCase2(DriftTestCase):
-
 
         custom_payload = {
             "user_id": 123,
@@ -124,8 +119,6 @@ if 0:
             "player_name": "A player name",
             "roles": [],
         }
-
-
 
         @classmethod
         def setUpClass(cls):
@@ -159,11 +152,11 @@ if 0:
 
         @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
         def test_sumthin(self):
-            #import drift.core.extensions.jwt as jwtsetupmodule
-            #jwtsetupmodule.authenticate = self.authenticate
-            import driftbase.auth.authenticate
-            rv = self.get(200, '/openxx')
-
+            # import drift.core.extensions.jwt as jwtsetupmodule
+            # jwtsetupmodule.authenticate = self.authenticate
+            # import driftbase.auth.authenticate
+            # rv = self.get(200, '/openxx')
+            pass
 
         @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
         def test_oculus_authentication(self):
@@ -276,7 +269,6 @@ class JWTCase(DriftBaseTestCase):
         # We don't want empty username at this point
         data['provider_details']['username'] = ""
         self.post(401, '/auth', data=data)
-
 
     @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
     def test_access_control(self):

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import datetime
 from celery.utils.log import get_task_logger
 from flask import current_app, g

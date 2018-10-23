@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from collections import defaultdict
 
 from six.moves import http_client
@@ -252,17 +251,19 @@ class MatchesTest(BaseMatchTest):
         matchplayers_url = match["matchplayers_url"]
         resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
         team_id = resp.json()["team_id"]
-        data1 = {"player_id": player1_id,
-                "team_id": team_id
-                }
+        data1 = {
+            "player_id": player1_id,
+            "team_id": team_id
+            }
         resp = self.post(matchplayers_url, data=data1, expected_status_code=http_client.CREATED)
         matchplayer1_url = resp.json()["url"]
         resp = self.get(match_url)
         match_start = resp.json()["start_date"]
 
-        data2 = {"player_id": player2_id,
-                "team_id": team_id
-                }
+        data2 = {
+            "player_id": player2_id,
+            "team_id": team_id
+            }
         resp = self.post(matchplayers_url, data=data2, expected_status_code=http_client.CREATED)
         matchplayer2_url = resp.json()["url"]
         resp = self.get(match_url)

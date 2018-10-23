@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import datetime
 import unittest
 import random
 import json
-from mock import patch
 from dateutil import parser
 
 from six.moves import http_client
@@ -23,7 +20,7 @@ def tearDownModule():
 
 
 # patch celery to run its tasks inproc
-#@patch.dict('drift.core.extensions.celery.celery.conf', {'CELERY_ALWAYS_EAGER': True})
+# @patch.dict('drift.core.extensions.celery.celery.conf', {'CELERY_ALWAYS_EAGER': True})
 class JournalTests(DriftBaseTestCase):
     """
     Tests for the /players/x/journal endpoints

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from six.moves import http_client
 from drift.systesthelper import DriftBaseTestCase
 

@@ -5,7 +5,7 @@ import datetime
 
 from six.moves import http_client
 
-from drift.systesthelper import setup_tenant, remove_tenant, service_username, service_password, local_password, uuid_string, DriftBaseTestCase, big_number
+from drift.systesthelper import setup_tenant, remove_tenant, uuid_string, DriftBaseTestCase
 
 
 def setUpModule():

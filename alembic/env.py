@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-
-import os, sys, socket
-from os.path import abspath, join
+import sys
+import socket
 import logging
 from logging.config import fileConfig
 
@@ -11,6 +9,7 @@ from sqlalchemy import pool, create_engine
 from drift.core.resources.postgres import format_connection_string
 from drift.utils import get_tier_name
 from driftconfig.util import get_default_drift_config
+
 
 def get_ts():
     return get_default_drift_config()
@@ -63,7 +62,7 @@ def get_engines():
     tenants = []
     ts = get_ts()
     tier = get_tier_name()
-    tenants_table = ts.get_table('tenants').find({'deployable_name': 'drift-base'}) #!
+    tenants_table = ts.get_table('tenants').find({'deployable_name': 'drift-base'})
     pick_tenant = context.get_x_argument(as_dictionary=True).get('tenant')
     if pick_tenant:
         echo('picking tenant %s' % pick_tenant)
@@ -190,7 +189,7 @@ def run_migrations_online():
 
         for rec in engines.values():
             rec['transaction'].commit()
-    except:
+    except BaseException:
         for rec in engines.values():
             rec['transaction'].rollback()
         raise

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import datetime
 
 import mock
@@ -24,7 +23,6 @@ class EventsTest(DriftBaseTestCase):
         self.post(endpoint, expected_status_code=http_client.METHOD_NOT_ALLOWED)
         self.post(endpoint, data=[], expected_status_code=http_client.METHOD_NOT_ALLOWED)
         self.post(endpoint, data=["test"], expected_status_code=http_client.METHOD_NOT_ALLOWED)
-
 
         r = self.post(endpoint, data=[{"hello": "world", "event_name": "dummy"}],
                       expected_status_code=http_client.METHOD_NOT_ALLOWED)

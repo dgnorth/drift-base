@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from six.moves import http_client
 from drift.systesthelper import DriftBaseTestCase
 
@@ -43,8 +41,8 @@ class MachinesTest(DriftBaseTestCase):
         resp = self.get(url)
         self.assertEqual(resp.json()["realm"], data["realm"])
         self.assertEqual(resp.json()["instance_name"], data["instance_name"])
-        machine_id = resp.json()["machine_id"]
-        #! TODO: System tests are currently offline. Will continue this later and add PUT tests
+        resp.json()["machine_id"]
+        # ! TODO: System tests are currently offline. Will continue this later and add PUT tests
 
     def test_get_awsmachine(self):
         self.auth_service()

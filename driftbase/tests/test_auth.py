@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from mock import patch, MagicMock
 from six.moves import http_client
 
@@ -53,7 +51,7 @@ class AuthTests(DriftBaseTestCase):
         # Oculus normal authentication check
         nonce = "140000003DED3A"
         data = {
-        "provider": "oculus",
+            "provider": "oculus",
             "provider_details": {
                 "nonce": nonce,
                 "user_id": "testuser"

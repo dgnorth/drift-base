@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from six.moves import http_client
 from drift.systesthelper import uuid_string, DriftBaseTestCase
 
@@ -25,8 +24,8 @@ class UserIdentitiesTest(DriftBaseTestCase):
         self.headers = headers_gamecenter
 
         data = {
-            "link_with_user_id" : -1,
-            "link_with_user_jti" : device_jti
+            "link_with_user_id": -1,
+            "link_with_user_jti": device_jti
         }
         self.post(user_identities_url, data=data, expected_status_code=http_client.NOT_FOUND)
 
@@ -55,10 +54,9 @@ class UserIdentitiesTest(DriftBaseTestCase):
         # switch to gamecenter user
         self.headers = headers_gamecenter
 
-
         data = {
-            "link_with_user_id" : other_user_id,
-            "link_with_user_jti" : device_jti
+            "link_with_user_id": other_user_id,
+            "link_with_user_jti": device_jti
         }
         r = self.post(user_identities_url, data=data, expected_status_code=http_client.BAD_REQUEST)
         self.assertIn("User does not match JWT user", r.json()['error']["description"])

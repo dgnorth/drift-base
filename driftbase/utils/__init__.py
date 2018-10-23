@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import json
 import logging
 from dateutil import parser
@@ -36,7 +34,7 @@ def get_all_counters(force=False):
     else:
         try:
             all_counters = json.loads(val)
-        except:
+        except Exception:
             log.error("Cannot decode '%s'", val)
             raise
     return all_counters
@@ -148,4 +146,3 @@ def url_player(player_id):
 
 def url_client(client_id):
     return url_for("client", client_id=client_id, _external=True)
-

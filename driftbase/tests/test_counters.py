@@ -1,12 +1,6 @@
-# -*- coding: utf-8 -*-
-
-import os, sys, copy
-import unittest, responses, mock
-import json, requests
 import datetime
 
 from six.moves import http_client
-from mock import patch
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, uuid_string
 
 

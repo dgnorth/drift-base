@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import collections
 import datetime
 from six.moves import http_client
