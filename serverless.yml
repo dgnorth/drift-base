@@ -1,5 +1,7 @@
 service: drift-base-lambda
 
+
+
 plugins:
   - serverless-wsgi
   - serverless-python-requirements
@@ -21,6 +23,39 @@ custom:
 
 
 provider:
+
+  resourcePolicy:
+    - Effect: Deny
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource:
+        - execute-api:/*/*/*
+      Condition:
+        StringNotEquals:
+          "aws:sourceVpc": vpc-6458d901
+    - Effect: Allow
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource:
+        - execute-api:/*/*/*
+
+
+# you can add statements to the Lambda function's IAM Role here
+#  iamRoleStatements:
+#    - Effect: "Allow"
+#      Action:
+#        - "s3:ListBucket"
+#      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+#    - Effect: "Allow"
+#      Action:
+#        - "s3:PutObject"
+#      Resource:
+#        Fn::Join:
+#          - ""
+#          - - "arn:aws:s3:::"
+#            - "Ref" : "ServerlessDeploymentBucket"
+#
+
   name: aws
   runtime: python3.6
   stage: main                     # TEMPLATIZED
@@ -48,7 +83,7 @@ provider:
 
   # API Gateway
   apiName: DEVNORTH-drift-base-api # TEMPLATIZED
-  endpointType: edge
+  endpointType: private
 
 
 
