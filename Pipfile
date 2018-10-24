@@ -4,13 +4,17 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-drift = { git = 'https://github.com/dgnorth/drift.git', ref = 'develop'}
+# Due to uneccessary or weird dependency in auth.util.fetch_url()
 driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
 gevent = "*"
 requests = "*"
-boto3 = "*"  # Due to uneccessary or weird dependency in auth.util.fetch_url()
+"boto3" = "*"
 greenlet = "*"
 flask-restplus = "*"
+flask-rest-api = "*"
+"c6a48b4" = {path = "./../drift", editable = true}
+marshmallow = "*"
+marshmallow-sqlalchemy = "*"
 
 [dev-packages]
 pytest = "*"

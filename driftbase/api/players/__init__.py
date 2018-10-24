@@ -1,9 +1,13 @@
 import logging
 from six.moves import http_client
 
-from flask import url_for, g
+from flask import url_for, g, request
+from flask.views import MethodView
 from flask_restplus import Namespace, Resource, reqparse, abort
 from flask_restplus.errors import ValidationError
+import marshmallow as ma
+from flask_rest_api import Api, Blueprint
+from marshmallow_sqlalchemy import ModelSchema
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
@@ -16,13 +20,38 @@ from driftbase.api.players import counters, gamestate, journal, playergroups, su
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players", "Player Management")
+
+bp = Blueprint('players', 'Users', url_prefix='/players', description='Player Management')
+
 endpoints = Endpoints()
+
+class PlayerSchema(ModelSchema):
+    class Meta:
+        model = CorePlayer
+        exclude = ('ck_player_summary', )
+    player_url = ma.fields.Str(description="Fully qualified URL of the player resource")
+
+class PlayersListArgs(ma.Schema):
+    player_id = ma.fields.List(ma.fields.Integer(), description="Player ID's to filter for")
+    rows = ma.fields.Integer(description="Number of rows to return, maximum of 100")
+    player_group = ma.fields.String(description="The player group the players should belong to (see player-group api)")
+    key = ma.fields.List(ma.fields.String(), description="Only return these columns")
+
+
+class PlayerPatchArgs(ma.Schema):
+    name = ma.fields.String(description="New name for the player")
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    #api.spec.definition('User', schema=UserSchema)
+
+    api.register_blueprint(bp)
     endpoints.init_app(app)
+
+    api.spec.definition('Player', schema=PlayerSchema)
+
+    return
+    api.add_namespace(namespace)
     api.add_namespace(counters.namespace)
     api.add_namespace(gamestate.namespace)
     api.add_namespace(journal.namespace)
@@ -38,31 +67,23 @@ MIN_NAME_LEN = 1
 MAX_NAME_LEN = 20
 
 
-@namespace.route('', endpoint='players')
-class PlayersListAPI(Resource):
-    """
-    list players
-    """
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("player_id", type=int, action="append",
-                          help="Filter on player ID")
-    get_args.add_argument("rows", type=int, default=10,
-                          help="Number of rows to return, maximum of 100")
-    get_args.add_argument("player_group", type=str,
-                          help="The player group the players should belong to (see player-group api)")
-    get_args.add_argument("key", type=str, action="append",
-                          help="Only return these columns")
+@bp.route('', endpoint='players')
+class PlayersListAPI(MethodView):
 
-    @namespace.expect(get_args)
-    @namespace.marshal_with(player_model)
-    def get(self):
-        args = self.get_args.parse_args()
+    @bp.arguments(PlayersListArgs, location='query')
+    @bp.response(PlayerSchema(many=True))
+    def get(self, args):
+        """
+        List Players
+
+        Retrieves multiple players based on input filters
+        """
         query = g.db.query(CorePlayer)
-        rows = min(args.rows or 10, 100)
-        if args.player_id:
-            query = query.filter(CorePlayer.player_id.in_(args.player_id))
-        elif args.player_group:
-            player_ids = get_playergroup_ids(args.player_group, caress_in_predicate=False)
+        rows = min(args.get('rows') or 10, 100)
+        if 'player_id' in args:
+            query = query.filter(CorePlayer.player_id.in_(args['player_id']))
+        elif 'player_group' in args:
+            player_ids = get_playergroup_ids(args['player_group'], caress_in_predicate=False)
             if not player_ids:
                 # Note! This is a particular optimization in case where player group is empty
                 return []
@@ -82,14 +103,13 @@ def validate_length(min_length, max_length):
     return validate
 
 
-@namespace.route('/<int:player_id>', endpoint='player')
-class PlayersAPI(Resource):
-    """
-    Individual players
-    """
-    @namespace.marshal_with(player_model)
+@bp.route('/<int:player_id>', endpoint='player')
+class PlayerAPI(Resource):
+    @bp.response(PlayerSchema(many=False))
     def get(self, player_id):
         """
+        Single Player
+
         Retrieve information about a specific player
         """
         player = g.db.query(CorePlayer).get(player_id)
@@ -98,24 +118,21 @@ class PlayersAPI(Resource):
 
         return player
 
-    patch_args = reqparse.RequestParser()
-    patch_args.add_argument("name",
-                            type=validate_length(MIN_NAME_LEN, MAX_NAME_LEN),
-                            help="New name for player")
-
-    @namespace.expect(patch_args)
-    @namespace.marshal_with(player_model)
+    @bp.arguments(PlayerPatchArgs)
+    @bp.response(PlayerSchema(many=False))
     def patch(self, player_id):
         """
         Update player name
         """
         return self._patch(player_id)
 
-    @namespace.expect(patch_args)
-    @namespace.marshal_with(player_model)
+    @bp.arguments(PlayerPatchArgs)
+    @bp.response(PlayerSchema(many=False))
     def put(self, player_id):
         """
-        Update player name (backwards compatibility with old clients)
+        Update player name
+
+        This method is provided for backwards compatibility with old clients
         """
         return self._patch(player_id)
 
