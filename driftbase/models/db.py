@@ -1,6 +1,16 @@
 import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, Unicode, ForeignKey, BigInteger, Float, Boolean
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Unicode,
+    ForeignKey,
+    BigInteger,
+    Float,
+    Boolean,
+)
 from sqlalchemy import CheckConstraint
 from sqlalchemy.dialects.postgresql import ENUM, INET, JSON
 from sqlalchemy.schema import Sequence, Index
@@ -23,70 +33,95 @@ def utcnow():
 
 
 class User(ModelBase):
-    __tablename__ = 'ck_users'
+    __tablename__ = "ck_users"
 
-    user_id = Column('user_id', Integer, primary_key=True)
+    user_id = Column("user_id", Integer, primary_key=True)
     user_name = Column(Unicode(200))
-    provider = Column(String(50))
-    default_player_id = Column('default_player_id', Integer)
-    create_date = Column('create_date', DateTime, nullable=False,
-                         server_default=utc_now)
-    logon_date = Column('logon_date', DateTime, nullable=False,
-                        server_default=utc_now)
-    num_logons = Column('num_logons', Integer, default=0)
+    provider = Column(String(50), doc="Identity provider")
+    default_player_id = Column("default_player_id", Integer)
+    create_date = Column(
+        "create_date",
+        DateTime,
+        nullable=False,
+        server_default=utc_now,
+        doc="Timestamp when the user was created",
+    )
+    logon_date = Column(
+        "logon_date",
+        DateTime,
+        nullable=False,
+        server_default=utc_now,
+        doc="Timestamp when the user last authenticated",
+    )
+    num_logons = Column(
+        "num_logons",
+        Integer,
+        default=0,
+        doc="Number of times the user has authenticated",
+    )
 
-    players = relationship('CorePlayer', backref='user')
-    status = Column(String(20), nullable=True, default="active")
-    client_id = Column(BigInteger, nullable=True)
+    players = relationship(
+        "CorePlayer", backref="user", doc="Players that this user owns"
+    )
+    status = Column(
+        String(20),
+        nullable=True,
+        default="active",
+        doc="Is the user active or disabled",
+    )
+    client_id = Column(
+        BigInteger,
+        nullable=True,
+        doc="The last client that the user had when logged in.",
+    )
 
-    roles = relationship('UserRole', backref=backref('ck_users', uselist=True))
-    client = relationship('Client', backref=backref('ck_users', uselist=False))
+    roles = relationship("UserRole", backref=backref("ck_users", uselist=True))
+    client = relationship("Client", backref=backref("ck_users", uselist=False))
 
 
 class UserRole(ModelBase):
-    __tablename__ = 'ck_userroles'
+    __tablename__ = "ck_userroles"
     role_id = Column(Integer, primary_key=True)
-    user_id = Column(Integer,
-                     ForeignKey('ck_users.user_id', ondelete='CASCADE'))
+    user_id = Column(Integer, ForeignKey("ck_users.user_id", ondelete="CASCADE"))
     role = Column(String(20), nullable=False)
 
-    user = relationship(User, backref=backref('ck_userroles', uselist=False))
+    user = relationship(User, backref=backref("ck_userroles", uselist=False))
 
 
 class UserIdentity(ModelBase):
-    __tablename__ = 'ck_user_identities'
+    __tablename__ = "ck_user_identities"
 
     identity_id = Column(Integer, primary_key=True)
     name = Column(String(200), index=True)
     identity_type = Column(String(50), index=True)
     password_hash = Column(String(200))
-    user_id = Column(Integer, ForeignKey('ck_users.user_id'), index=True)
+    user_id = Column(Integer, ForeignKey("ck_users.user_id"), index=True)
     extra_info = Column(JSON, nullable=True)
 
-    logon_date = Column('logon_date', DateTime, nullable=False,
-                        server_default=utc_now)
-    num_logons = Column('num_logons', Integer, default=0)
+    logon_date = Column("logon_date", DateTime, nullable=False, server_default=utc_now)
+    num_logons = Column("num_logons", Integer, default=0)
     last_ip_address = Column(INET, nullable=True)
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password,
-                                                    method='pbkdf2:sha1:25000')
+        self.password_hash = generate_password_hash(
+            password, method="pbkdf2:sha1:25000"
+        )
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
 
 class CorePlayer(ModelBase):
-    __tablename__ = 'ck_players'
+    __tablename__ = "ck_players"
 
     player_id = Column(Integer, primary_key=True)
     player_name = Column(Unicode(200))
-    user_id = Column(Integer, ForeignKey('ck_users.user_id'), index=True)
+    user_id = Column(Integer, ForeignKey("ck_users.user_id"), index=True)
     create_date = Column(DateTime, nullable=False, server_default=utc_now)
     logon_date = Column(DateTime, nullable=False, server_default=utc_now)
     num_logons = Column(Integer, default=0)
 
-    clients = relationship('Client', backref='player')
+    clients = relationship("Client", backref="player")
 
     status = Column(String(20), nullable=True, default="active")
 
@@ -96,9 +131,9 @@ class CorePlayer(ModelBase):
         player_model response model object.
         """
         ret = self.__dict__
-        ret['exchange_id'] = self.player_id
-        ret['exchange'] = 'players'
-        ret['queue'] = '{queue}'
+        ret["exchange_id"] = self.player_id
+        ret["exchange"] = "players"
+        ret["queue"] = "{queue}"
         return ret
 
     @hybrid_property
@@ -109,12 +144,12 @@ class CorePlayer(ModelBase):
 
 
 class Client(ModelBase):
-    __tablename__ = 'ck_clients'
+    __tablename__ = "ck_clients"
 
     client_id = Column(BigInteger, primary_key=True)
     client_type = Column(String(20))
-    user_id = Column(Integer, ForeignKey('ck_users.user_id'), index=True)
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'), index=True)
+    user_id = Column(Integer, ForeignKey("ck_users.user_id"), index=True)
+    player_id = Column(Integer, ForeignKey("ck_players.player_id"), index=True)
     create_date = Column(DateTime, nullable=False, server_default=utc_now)
     build = Column(String(100), index=True)
     platform_type = Column(String(20))
@@ -127,94 +162,113 @@ class Client(ModelBase):
     num_requests = Column(Integer, nullable=False, server_default="0")
     platform_info = Column(JSON, nullable=True)
 
-    identity_id = Column(Integer, ForeignKey('ck_user_identities.identity_id'),
-                         index=True)
+    identity_id = Column(
+        Integer, ForeignKey("ck_user_identities.identity_id"), index=True
+    )
 
-    status = Column(String(20), nullable=True,
-                    server_default="active", index=True)
+    status = Column(String(20), nullable=True, server_default="active", index=True)
     details = Column(JSON, nullable=True)
 
     @hybrid_property
     def is_online(self):
-        heartbeat_timeout = current_app.config.get("heartbeat_timeout",
-                                                   DEFAULT_HEARTBEAT_TIMEOUT)
-        if self.status == "active" and \
-           self.heartbeat + datetime.timedelta(seconds=heartbeat_timeout) >= \
-           utcnow():
+        heartbeat_timeout = current_app.config.get(
+            "heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT
+        )
+        if (
+            self.status == "active"
+            and self.heartbeat + datetime.timedelta(seconds=heartbeat_timeout)
+            >= utcnow()
+        ):
             return True
         return False
 
 
 class ConnectEvent(ModelBase):
-    __tablename__ = 'ck_connect_events'
-    event_id = Column(BigInteger, Sequence('ck_event_id_seq'),
-                      primary_key=True)
+    __tablename__ = "ck_connect_events"
+    event_id = Column(BigInteger, Sequence("ck_event_id_seq"), primary_key=True)
     event_date = Column(DateTime, nullable=False, server_default=utc_now)
     event_type_id = Column(Integer, nullable=False)
-    user_id = Column(Integer, ForeignKey('ck_users.user_id'),
-                     nullable=False, index=True)
+    user_id = Column(
+        Integer, ForeignKey("ck_users.user_id"), nullable=False, index=True
+    )
     seconds = Column(Integer)
 
 
 class UserEvent(ModelBase):
-    __tablename__ = 'ck_user_events'
-    __table_args__ = (Index('ix_ckuserevent_user_id_event_date',
-                            'user_id', 'event_date'), )
+    __tablename__ = "ck_user_events"
+    __table_args__ = (
+        Index("ix_ckuserevent_user_id_event_date", "user_id", "event_date"),
+    )
 
-    event_id = Column(BigInteger, Sequence('ck_event_id_seq'),
-                      primary_key=True)
+    event_id = Column(BigInteger, Sequence("ck_event_id_seq"), primary_key=True)
     event_date = Column(DateTime, nullable=False, server_default=utc_now)
     event_type_id = Column(Integer, nullable=False)
-    user_id = Column(Integer, ForeignKey('ck_users.user_id'),
-                     nullable=False, index=True)
+    user_id = Column(
+        Integer, ForeignKey("ck_users.user_id"), nullable=False, index=True
+    )
     data = Column(String(500))
 
 
 class Counter(ModelBase):
-    __tablename__ = 'ck_counters'
+    __tablename__ = "ck_counters"
 
     counter_id = Column(Integer, primary_key=True)
     name = Column(String(255), index=True, unique=True)
     label = Column(String(255), nullable=True, index=False)
-    counter_type = Column(ENUM('count', 'absolute', name='counter_type'),
-                          nullable=False, index=True)
+    counter_type = Column(
+        ENUM("count", "absolute", name="counter_type"), nullable=False, index=True
+    )
 
 
 class PlayerCounter(ModelBase):
-    __tablename__ = 'ck_playercounters'
+    __tablename__ = "ck_playercounters"
 
     id = Column(Integer, primary_key=True)
-    counter_id = Column(Integer, ForeignKey('ck_counters.counter_id'),
-                        nullable=False, index=True)
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'),
-                       nullable=False, index=True)
+    counter_id = Column(
+        Integer, ForeignKey("ck_counters.counter_id"), nullable=False, index=True
+    )
+    player_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     num_updates = Column(Integer, nullable=False, default=1)
     last_update = Column(DateTime, nullable=True)
 
 
 class CounterEntry(Base):
-    __tablename__ = 'ck_counterentries'
+    __tablename__ = "ck_counterentries"
 
     id = Column(Integer, primary_key=True)
-    counter_id = Column(Integer, ForeignKey('ck_counters.counter_id'),
-                        nullable=False, index=True)
+    counter_id = Column(
+        Integer, ForeignKey("ck_counters.counter_id"), nullable=False, index=True
+    )
     player_id = Column(Integer, nullable=True, index=True)
-    period = Column(ENUM('total', 'month', 'week', 'day', 'hour', 'minute',
-                    'second', name='counter_period'), nullable=False,
-                    index=True)
-    date_time = Column(DateTime, nullable=False, index=True,
-                       server_default=utc_now)
+    period = Column(
+        ENUM(
+            "total",
+            "month",
+            "week",
+            "day",
+            "hour",
+            "minute",
+            "second",
+            name="counter_period",
+        ),
+        nullable=False,
+        index=True,
+    )
+    date_time = Column(DateTime, nullable=False, index=True, server_default=utc_now)
     value = Column(Float, nullable=False)
     context_id = Column(Integer, nullable=True, index=True)
 
 
 # GameServer models
 class Machine(ModelBase):
-    __tablename__ = 'gs_machines'
+    __tablename__ = "gs_machines"
 
     machine_id = Column(Integer, primary_key=True)
-    realm = Column(ENUM('local', 'aws', 'other', name='realm_type'),
-                   nullable=False, index=True)
+    realm = Column(
+        ENUM("local", "aws", "other", name="realm_type"), nullable=False, index=True
+    )
     instance_id = Column(String(50), nullable=True)
     instance_type = Column(String(50), nullable=True)
     instance_name = Column(String(200), nullable=True)
@@ -234,7 +288,7 @@ class Machine(ModelBase):
 
 
 class Server(ModelBase):
-    __tablename__ = 'gs_servers'
+    __tablename__ = "gs_servers"
 
     server_id = Column(Integer, primary_key=True)
     machine_id = Column(Integer, nullable=False)
@@ -265,7 +319,7 @@ class Server(ModelBase):
 
 
 class ServerDaemonCommand(ModelBase):
-    __tablename__ = 'gs_serverdaemoncommands'
+    __tablename__ = "gs_serverdaemoncommands"
     command_id = Column(Integer, primary_key=True)
     server_id = Column(Integer, index=True)
     command = Column(String(50), nullable=False)
@@ -276,7 +330,7 @@ class ServerDaemonCommand(ModelBase):
 
 
 class Match(ModelBase):
-    __tablename__ = 'gs_matches'
+    __tablename__ = "gs_matches"
 
     match_id = Column(Integer, primary_key=True)
     server_id = Column(Integer, nullable=False)
@@ -293,7 +347,7 @@ class Match(ModelBase):
 
 
 class MatchPlayer(ModelBase):
-    __tablename__ = 'gs_matchplayers'
+    __tablename__ = "gs_matchplayers"
 
     id = Column(Integer, primary_key=True)
     match_id = Column(Integer, index=True)
@@ -309,7 +363,7 @@ class MatchPlayer(ModelBase):
 
 
 class MatchTeam(ModelBase):
-    __tablename__ = 'gs_matchteams'
+    __tablename__ = "gs_matchteams"
 
     team_id = Column(Integer, primary_key=True)
     name = Column(String(50), nullable=True)
@@ -319,7 +373,7 @@ class MatchTeam(ModelBase):
 
 
 class MatchEvent(ModelBase):
-    __tablename__ = 'gs_matchevents'
+    __tablename__ = "gs_matchevents"
 
     event_id = Column(BigInteger, primary_key=True)
     event_type_id = Column(Integer, nullable=True)
@@ -330,7 +384,7 @@ class MatchEvent(ModelBase):
 
 
 class RunConfig(ModelBase):
-    __tablename__ = 'gs_runconfigs'
+    __tablename__ = "gs_runconfigs"
 
     runconfig_id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
@@ -343,7 +397,7 @@ class RunConfig(ModelBase):
 
 
 class MachineGroup(ModelBase):
-    __tablename__ = 'gs_machinegroups'
+    __tablename__ = "gs_machinegroups"
 
     machinegroup_id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
@@ -352,7 +406,7 @@ class MachineGroup(ModelBase):
 
 
 class MachineEvent(ModelBase):
-    __tablename__ = 'gs_machine_events'
+    __tablename__ = "gs_machine_events"
 
     event_id = Column(Integer, primary_key=True)
     event_type_name = Column(String(50), nullable=False)
@@ -362,7 +416,7 @@ class MachineEvent(ModelBase):
 
 
 class MatchQueuePlayer(ModelBase):
-    __tablename__ = 'gs_matchqueueplayers'
+    __tablename__ = "gs_matchqueueplayers"
 
     id = Column(Integer, primary_key=True)
     player_id = Column(Integer, nullable=False, index=True)
@@ -375,16 +429,16 @@ class MatchQueuePlayer(ModelBase):
     token = Column(String(50), nullable=True)
 
     def __repr__(self):
-        return "<MatchQueuePlayer %s in match %s>" % (self.player_id,
-                                                      self.match_id)
+        return "<MatchQueuePlayer %s in match %s>" % (self.player_id, self.match_id)
 
 
 class GameState(ModelBase):
-    __tablename__ = 'ck_gamestates'
+    __tablename__ = "ck_gamestates"
 
     gamestate_id = Column(BigInteger, primary_key=True)
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'),
-                       nullable=False, index=True)
+    player_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     namespace = Column(String(255), nullable=False, index=True)
     version = Column(Integer, nullable=False, default=1)
     journal_id = Column(Integer, nullable=True)
@@ -395,11 +449,12 @@ class GameState(ModelBase):
 
 
 class GameStateHistory(ModelBase):
-    __tablename__ = 'ck_gamestateshistory'
+    __tablename__ = "ck_gamestateshistory"
 
     gamestatehistory_id = Column(BigInteger, primary_key=True)
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'),
-                       nullable=False, index=True)
+    player_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     namespace = Column(String(255), nullable=False, index=True)
     version = Column(Integer, nullable=False)
     journal_id = Column(Integer, nullable=True)
@@ -408,14 +463,14 @@ class GameStateHistory(ModelBase):
 
 
 class PlayerJournal(ModelBase):
-    __tablename__ = 'ck_playerjournal'
+    __tablename__ = "ck_playerjournal"
 
     sequence_id = Column(BigInteger, primary_key=True)
-    journal_id = Column(Integer, nullable=False,
-                        server_default="0", index=True)
+    journal_id = Column(Integer, nullable=False, server_default="0", index=True)
     timestamp = Column(DateTime, nullable=True, index=False)
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'),
-                       nullable=False, index=True)
+    player_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     actor_id = Column(Integer, nullable=True, index=True)
     action_type_id = Column(Integer, nullable=True, index=True)
     action_type_name = Column(String(50), nullable=False, index=True)
@@ -425,7 +480,7 @@ class PlayerJournal(ModelBase):
 
 
 class Ticket(ModelBase):
-    __tablename__ = 'ck_tickets'
+    __tablename__ = "ck_tickets"
 
     ticket_id = Column(Integer, primary_key=True)
     player_id = Column(Integer, nullable=False, index=True)
@@ -441,34 +496,37 @@ class Ticket(ModelBase):
 
 
 class PlayerEvent(ModelBase):
-    __tablename__ = 'ck_player_events'
-    __table_args__ = (Index('ix_ckplayerevent_player_id_create_date',
-                            'player_id', 'create_date'), )
+    __tablename__ = "ck_player_events"
+    __table_args__ = (
+        Index("ix_ckplayerevent_player_id_create_date", "player_id", "create_date"),
+    )
 
-    event_id = Column(BigInteger, Sequence('ck_event_id_seq'),
-                      primary_key=True)
+    event_id = Column(BigInteger, Sequence("ck_event_id_seq"), primary_key=True)
     event_type_id = Column(Integer, nullable=True)
     event_type_name = Column(String(50), nullable=False)
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'),
-                       nullable=False, index=True)
+    player_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     details = Column(JSON, nullable=True)
 
 
 class PlayerSummary(ModelBase):
-    __tablename__ = 'ck_player_summary'
+    __tablename__ = "ck_player_summary"
 
     id = Column(Integer, primary_key=True)
-    player_id = Column(Integer, ForeignKey('ck_players.player_id'),
-                       nullable=False, index=True)
+    player_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     name = Column(String(50))
     value = Column(Integer, nullable=False)
 
-    player = relationship(CorePlayer, backref=backref('ck_player_summary',
-                          uselist=False))
+    player = relationship(
+        CorePlayer, backref=backref("ck_player_summary", uselist=False)
+    )
 
 
 class PlayerSummaryHistory(ModelBase):
-    __tablename__ = 'ck_player_summaryhistory'
+    __tablename__ = "ck_player_summaryhistory"
 
     id = Column(Integer, primary_key=True)
     player_id = Column(Integer, nullable=False, index=True)
@@ -477,21 +535,27 @@ class PlayerSummaryHistory(ModelBase):
 
 
 class Friendship(ModelBase):
-    __tablename__ = 'ck_friendships'
+    __tablename__ = "ck_friendships"
 
-    id = Column(BigInteger, Sequence('ck_friendships_id_seq'), primary_key=True)
-    player1_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
-    player2_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
+    id = Column(BigInteger, Sequence("ck_friendships_id_seq"), primary_key=True)
+    player1_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
+    player2_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     status = Column(String(20), nullable=False, default="active")
 
-    CheckConstraint('player1_id < player2_id')
+    CheckConstraint("player1_id < player2_id")
 
 
 class FriendInvite(ModelBase):
-    __tablename__ = 'ck_friend_invites'
+    __tablename__ = "ck_friend_invites"
 
-    id = Column(BigInteger, Sequence('ck_friend_invites_id_seq'), primary_key=True)
-    issued_by_player_id = Column(Integer, ForeignKey('ck_players.player_id'), nullable=False, index=True)
+    id = Column(BigInteger, Sequence("ck_friend_invites_id_seq"), primary_key=True)
+    issued_by_player_id = Column(
+        Integer, ForeignKey("ck_players.player_id"), nullable=False, index=True
+    )
     token = Column(String(50), nullable=False, index=True)
     expiry_date = Column(DateTime, nullable=False)
     deleted = Column(Boolean, nullable=True, default=False)
@@ -500,26 +564,26 @@ class FriendInvite(ModelBase):
 event.listen(
     CorePlayer.__table__,
     "after_create",
-    DDL("ALTER SEQUENCE ck_players_player_id_seq RESTART WITH 1;")
+    DDL("ALTER SEQUENCE ck_players_player_id_seq RESTART WITH 1;"),
 )
 event.listen(
     User.__table__,
     "after_create",
-    DDL("ALTER SEQUENCE ck_users_user_id_seq RESTART WITH 100000001;")
+    DDL("ALTER SEQUENCE ck_users_user_id_seq RESTART WITH 100000001;"),
 )
 event.listen(
     UserIdentity.__table__,
     "after_create",
-    DDL("ALTER SEQUENCE ck_user_identities_identity_id_seq RESTART WITH 200000001;")
+    DDL("ALTER SEQUENCE ck_user_identities_identity_id_seq RESTART WITH 200000001;"),
 )
 
 event.listen(
     UserIdentity.__table__,
     "after_create",
-    DDL("ALTER SEQUENCE gs_servers_server_id_seq RESTART WITH 100000001;")
+    DDL("ALTER SEQUENCE gs_servers_server_id_seq RESTART WITH 100000001;"),
 )
 event.listen(
     UserIdentity.__table__,
     "after_create",
-    DDL("ALTER SEQUENCE gs_machines_machine_id_seq RESTART WITH 200000001;")
+    DDL("ALTER SEQUENCE gs_machines_machine_id_seq RESTART WITH 200000001;"),
 )

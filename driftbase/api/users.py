@@ -35,16 +35,13 @@ class UserSchema(ModelSchema):
     identities = ma.fields.List(ma.fields.Dict())
 
 class UserRequestSchema(ma.Schema):
-
     class Meta:
         strict = True
         ordered = True
 
 def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
-
     api.spec.definition('User', schema=UserSchema)
-
     api.register_blueprint(bp)
 
 
@@ -76,7 +73,7 @@ class UsersAPI(Resource):
     """
     @bp.response(UserSchema(many=False))
     def get(self, user_id):
-        """A single user
+        """Single user
 
         Return a user by ID
         """
@@ -86,8 +83,6 @@ class UsersAPI(Resource):
 
         data = user.as_dict()
         data["client_url"] = None
-        #if user.client_id:
-        #    data["client_url"] = url_for("client", client_id=user.client_id, _external=True)
         players = g.db.query(CorePlayer).filter(CorePlayer.user_id == user_id)
         data["players"] = players
         identities = g.db.query(UserIdentity).filter(UserIdentity.user_id == user_id)
