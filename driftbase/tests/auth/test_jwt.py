@@ -1,6 +1,7 @@
 import unittest
 
 from flask import Flask, Blueprint, jsonify
+from flask.views import MethodView
 from flask_restplus import Api, Resource
 
 from drift.tests import DriftTestCase
@@ -17,7 +18,7 @@ api = Api(bp)
 
 
 # Endpoints closed from public access
-class APIClosed(Resource):
+class APIClosed(MethodView):
 
     def get(self):
         ret = {
@@ -36,7 +37,7 @@ def closedfunc():
 
 
 # Endpoints open for public access
-class APIOpen(Resource):
+class APIOpen(MethodView):
 
     no_jwt_check = ["GET"]  # Only GET is public, DELETE is closed
 

@@ -6,7 +6,10 @@ import six
 from six.moves import http_client
 
 from flask import url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 from driftbase.models.db import CorePlayer, Counter, CounterEntry
@@ -14,7 +17,7 @@ from driftbase.utils import get_all_counters, get_counter
 from driftbase.players import get_playergroup_ids
 
 log = logging.getLogger(__name__)
-api = namespace = Namespace("counters")
+bp = Blueprint("counters", "counters", url_prefix="/counters", description="Counters")
 endpoints = Endpoints()
 
 
@@ -22,12 +25,12 @@ NUM_RESULTS = 100
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
-@namespace.route('/', endpoint='counters')
-class CountersApi(Resource):
+@bp.route('/', endpoint='counters')
+class CountersApi(MethodView):
 
     get_args = reqparse.RequestParser()
 
@@ -49,8 +52,8 @@ class CountersApi(Resource):
         return ret, http_client.OK, {'Cache-Control': "max_age=60"}
 
 
-@namespace.route('/<int:counter_id>', endpoint='counter')
-class CounterApi(Resource):
+@bp.route('/<int:counter_id>', endpoint='counter')
+class CounterApi(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("num", type=int, default=NUM_RESULTS)
     get_args.add_argument("include", type=int, action='append')
@@ -59,7 +62,7 @@ class CounterApi(Resource):
     get_args.add_argument("player_group", type=str)
     get_args.add_argument("reverse", type=bool)
 
-    @namespace.expect(get_args)
+    #@namespace.expect(get_args)
     def get(self, counter_id):
         start_time = time.time()
         args = self.get_args.parse_args()

@@ -8,7 +8,10 @@ import logging
 from six.moves import http_client
 
 from flask import g, url_for, request
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
@@ -21,12 +24,13 @@ from driftbase.matchqueue import process_match_queue
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("matchqueue", "Queuing mechanism for matches")
+bp = Blueprint("matchqueue", "matchqueue", url_prefix="/matchqueue", description="Queuing mechanism for matches")
+
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -55,8 +59,8 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
     return ret
 
 
-@namespace.route('', endpoint='matchqueue')
-class MatchQueueAPI(Resource):
+@bp.route('', endpoint='matchqueue')
+class MatchQueueAPI(MethodView):
 
     no_jwt_check = ["GET"]
 
@@ -173,8 +177,8 @@ class MatchQueueAPI(Resource):
         return ret
 
 
-@namespace.route('/<int:player_id>', endpoint='matchqueue_player')
-class MatchQueueEntryAPI(Resource):
+@bp.route('/<int:player_id>', endpoint='matchqueue_player')
+class MatchQueueEntryAPI(MethodView):
 
     no_jwt_check = ["GET"]
 

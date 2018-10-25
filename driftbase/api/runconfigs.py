@@ -8,7 +8,10 @@ import logging
 from six.moves import http_client
 
 from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -18,17 +21,17 @@ from driftbase.models.db import RunConfig
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("staticdata", "Static Data Management")
+bp = Blueprint("runconfigs", "runconfigs", url_prefix="/runconfigs", description="Battleserver run configuration")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
-@namespace.route('', endpoint='runconfigs')
-class RunConfigsAPI(Resource):
+@bp.route('', endpoint='runconfigs')
+class RunConfigsAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
     get_args.add_argument("rows", type=int, required=False)
@@ -93,8 +96,8 @@ class RunConfigsAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
-@namespace.route('/<int:runconfig_id>', endpoint='runconfig')
-class RunConfigAPI(Resource):
+@bp.route('/<int:runconfig_id>', endpoint='runconfig')
+class RunConfigAPI(MethodView):
     """
     Information about specific machines
     """

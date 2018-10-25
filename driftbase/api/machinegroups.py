@@ -7,7 +7,10 @@ import logging
 from six.moves import http_client
 
 from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -17,17 +20,17 @@ from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("machinegroups", "Battleserver machine instance groups")
+bp = Blueprint("machinegroups", "machinegroups", url_prefix="/machinegroups", description="Battleserver machine instance groups")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
-@namespace.route('/', endpoint='machinegroups')
-class MachineGroupsAPI(Resource):
+@bp.route('/', endpoint='machinegroups')
+class MachineGroupsAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
     get_args.add_argument("rows", type=int, required=False)
@@ -81,8 +84,8 @@ class MachineGroupsAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
-@namespace.route('/<int:machinegroup_id>', endpoint='machinegroup')
-class MachineGroupAPI(Resource):
+@bp.route('/<int:machinegroup_id>', endpoint='machinegroup')
+class MachineGroupAPI(MethodView):
     """
     Information about specific machines
     """

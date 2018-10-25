@@ -5,7 +5,10 @@ import uuid
 from six.moves import http_client
 
 from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -16,12 +19,12 @@ from driftbase.models.db import Machine, Server, Match, ServerDaemonCommand
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("servers", "Battleserver processes")
+bp = Blueprint("servers", "servers", url_prefix="/servers", description="Battleserver processes")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -32,8 +35,8 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('', endpoint='servers')
-class ServersAPI(Resource):
+@bp.route('', endpoint='servers')
+class ServersAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("machine_id", type=int, required=False)
     get_args.add_argument("rows", type=int, required=False)
@@ -172,8 +175,8 @@ class ServersAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
-@namespace.route('/<int:server_id>', endpoint='server')
-class ServerAPI(Resource):
+@bp.route('/<int:server_id>', endpoint='server')
+class ServerAPI(MethodView):
     """
     Interface to battle servers instances. A battleserver instance is
     a single run of a battleserver executable. The battleserver will
@@ -288,8 +291,8 @@ class ServerAPI(Resource):
                 }, http_client.OK, None
 
 
-@namespace.route('/<int:server_id>/heartbeat', endpoint='server_heartbeat')
-class ServerHeartbeatAPI(Resource):
+@bp.route('/<int:server_id>/heartbeat', endpoint='server_heartbeat')
+class ServerHeartbeatAPI(MethodView):
     """
     Thin heartbeat API
     """
@@ -308,8 +311,8 @@ class ServerHeartbeatAPI(Resource):
         return {"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }, http_client.OK, None
 
 
-@namespace.route('/<int:server_id>/commands', endpoint='server_commands')
-class ServerCommandsAPI(Resource):
+@bp.route('/<int:server_id>/commands', endpoint='server_commands')
+class ServerCommandsAPI(MethodView):
     """
     Commands for the battleserver daemon
     """
@@ -361,8 +364,8 @@ class ServerCommandsAPI(Resource):
         return ret
 
 
-@namespace.route('/<int:server_id>/commands/<int:command_id>', endpoint='server_command')
-class ServerCommandAPI(Resource):
+@bp.route('/<int:server_id>/commands/<int:command_id>', endpoint='server_command')
+class ServerCommandAPI(MethodView):
     @requires_roles("service")
     @simple_schema_request({
         "status": {"type": "string", },

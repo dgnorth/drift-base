@@ -5,7 +5,10 @@ import datetime
 from six.moves import http_client
 
 from flask import request, g, abort, url_for
-from flask_restplus import Namespace, Resource
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.jwt import current_user
@@ -20,7 +23,7 @@ DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("friendships", "Player to player relationships")
+bp = Blueprint("friendships", "friendships", url_prefix="/friendships", description="Player to player relationships")
 endpoints = Endpoints()
 
 
@@ -30,7 +33,7 @@ def on_message(queue_name, message):
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
     app.messagebus.register_consumer(on_message, 'clients')
 
@@ -40,8 +43,8 @@ def get_player(player_id):
     return player
 
 
-@namespace.route('/players/<int:player_id>', endpoint='friendships')
-class FriendshipsAPI(Resource):
+@bp.route('/players/<int:player_id>', endpoint='friendships')
+class FriendshipsAPI(MethodView):
 
     def get(self, player_id):
         """
@@ -125,8 +128,8 @@ class FriendshipsAPI(Resource):
         return ret, http_client.CREATED
 
 
-@namespace.route('/<int:friendship_id>', endpoint='friendship')
-class FriendshipAPI(Resource):
+@bp.route('/<int:friendship_id>', endpoint='friendship')
+class FriendshipAPI(MethodView):
 
     def delete(self, friendship_id):
         """
@@ -149,8 +152,8 @@ class FriendshipAPI(Resource):
         return {}, http_client.NO_CONTENT
 
 
-@namespace.route('/invites', endpoint='friendinvites')
-class FriendInvitesAPI(Resource):
+@bp.route('/invites', endpoint='friendinvites')
+class FriendInvitesAPI(MethodView):
 
     def post(self):
         """
@@ -183,8 +186,8 @@ class FriendInvitesAPI(Resource):
         return ret
 
 
-@namespace.route('/invites/<int:invite_id>', endpoint='friendinvite')
-class FriendInviteAPI(Resource):
+@bp.route('/invites/<int:invite_id>', endpoint='friendinvite')
+class FriendInviteAPI(MethodView):
 
     def delete(self, invite_id):
         """

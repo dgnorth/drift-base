@@ -3,10 +3,14 @@ from six.moves import http_client
 
 from flask import url_for, g, request
 from flask.views import MethodView
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from flask_restplus.errors import ValidationError
 import marshmallow as ma
-from flask_rest_api import Api, Blueprint
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
 
 from drift.core.extensions.jwt import current_user
@@ -21,7 +25,7 @@ from driftbase.api.players import counters, gamestate, journal, playergroups, su
 log = logging.getLogger(__name__)
 
 
-bp = Blueprint('players', 'Users', url_prefix='/players', description='Player Management')
+bp = Blueprint('players', 'Players', url_prefix='/players', description='Player Management')
 
 endpoints = Endpoints()
 
@@ -46,20 +50,15 @@ def drift_init_extension(app, api, **kwargs):
     #api.spec.definition('User', schema=UserSchema)
 
     api.register_blueprint(bp)
+    api.register_blueprint(counters.bp)
+    api.register_blueprint(gamestate.bp)
+    api.register_blueprint(journal.bp)
+    api.register_blueprint(playergroups.bp)
+    api.register_blueprint(summary.bp)
+    api.register_blueprint(tickets.bp)
     endpoints.init_app(app)
 
     api.spec.definition('Player', schema=PlayerSchema)
-
-    return
-    api.add_namespace(namespace)
-    api.add_namespace(counters.namespace)
-    api.add_namespace(gamestate.namespace)
-    api.add_namespace(journal.namespace)
-    api.add_namespace(playergroups.namespace)
-    api.add_namespace(summary.namespace)
-    api.add_namespace(tickets.namespace)
-
-    api.models[player_model.name] = player_model
 
 
 # TODO: Have this configured on a per product level and use drift config to specify it.
@@ -67,7 +66,7 @@ MIN_NAME_LEN = 1
 MAX_NAME_LEN = 20
 
 
-@bp.route('', endpoint='players')
+@bp.route('', endpoint='list')
 class PlayersListAPI(MethodView):
 
     @bp.arguments(PlayersListArgs, location='query')
@@ -104,7 +103,7 @@ def validate_length(min_length, max_length):
 
 
 @bp.route('/<int:player_id>', endpoint='player')
-class PlayerAPI(Resource):
+class PlayerAPI(MethodView):
     @bp.response(PlayerSchema(many=False))
     def get(self, player_id):
         """
@@ -154,7 +153,7 @@ class PlayerAPI(Resource):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {"players": url_for("players", _external=True)}
+    ret = {"players": url_for("players.list", _external=True)}
     ret["my_player"] = None
     ret["my_gamestates"] = None
     ret["my_player_groups"] = None
@@ -163,16 +162,16 @@ def endpoint_info(current_user):
         player_id = current_user["player_id"]
         ret["my_player"] = url_player(player_id)
 
-        ret["my_gamestates"] = url_for("player_gamestates", player_id=player_id, _external=True)
-        ret["my_gamestate"] = url_for("player_gamestates", player_id=player_id, _external=True) + \
+        ret["my_gamestates"] = url_for("gamestate.list", player_id=player_id, _external=True)
+        ret["my_gamestate"] = url_for("gamestate.list", player_id=player_id, _external=True) + \
             "/{namespace}"
         url = url_for(
-            "player_playergroups",
+            "playergroups.group",
             player_id=current_user["player_id"],
             group_name='group_name',
             _external=True,
         )
         url = url.replace('group_name', '{group_name}')
         ret["my_player_groups"] = url
-        ret["my_summary"] = url_for("player_summary", player_id=player_id,  _external=True)
+        ret["my_summary"] = url_for("summary.list", player_id=player_id,  _external=True)
     return ret

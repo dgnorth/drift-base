@@ -6,7 +6,10 @@ import logging
 from six.moves import http_client
 
 from flask import request, g, url_for
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint, abort
 
 from drift.utils import json_response
 from drift.core.extensions.jwt import current_user
@@ -17,11 +20,11 @@ from driftbase.players import can_edit_player
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("journal", "Player Journal", url_prefix='/players')
 
 
-@namespace.route("/<int:player_id>/journal", endpoint="player_journal")
-class JournalAPI(Resource):
+@bp.route("/<int:player_id>/journal", endpoint="journal")
+class JournalAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("rows", type=int)
     get_args.add_argument("include_deleted", type=bool)
@@ -144,8 +147,8 @@ def get_player_gamestate(player_id):
     return gamestate
 
 
-@namespace.route("/<int:player_id>/journal/<int:journal_id>", endpoint="player_journal_entry")
-class JournalEntryAPI(Resource):
+@bp.route("/<int:player_id>/journal/<int:journal_id>", endpoint="player_journal_entry")
+class JournalEntryAPI(MethodView):
     def get(self, player_id, journal_id):
         """
         Get a specific journal entry for the player

@@ -4,7 +4,10 @@ import datetime
 from six.moves import http_client
 
 from flask import url_for, request, g
-from flask_restplus import Namespace, Resource, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint, abort
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import requires_roles
@@ -14,7 +17,7 @@ from driftbase.models.db import Ticket
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("tickets", "Player tickets", url_prefix='/players')
 
 
 def add_ticket_links(ticket):
@@ -28,8 +31,8 @@ def add_ticket_links(ticket):
     return ret
 
 
-@namespace.route("/<int:player_id>/tickets", endpoint="player_tickets")
-class TicketsEndpoint(Resource):
+@bp.route("/<int:player_id>/tickets", endpoint="player_tickets")
+class TicketsEndpoint(MethodView):
 
     def get(self, player_id):
         """
@@ -79,8 +82,8 @@ def get_ticket(player_id, ticket_id):
     return ticket
 
 
-@namespace.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="player_ticket")
-class TicketEndpoint(Resource):
+@bp.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="player_ticket")
+class TicketEndpoint(MethodView):
 
     def get(self, player_id, ticket_id):
         """

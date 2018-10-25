@@ -2,7 +2,10 @@ import logging
 from six.moves import http_client
 
 from flask import url_for, request, g
-from flask_restplus import Namespace, Resource, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 
 from drift.utils import json_response
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -12,15 +15,15 @@ from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("gamestate", "Player Game state", url_prefix='/players')
 
 MAX_DATA_LEN = 1024 * 1024  # 1MB
 
 TASK_VALIDATED = "validated"
 
 
-@namespace.route("/<int:player_id>/gamestates", endpoint="player_gamestates")
-class GameStatesAPI(Resource):
+@bp.route("/<int:player_id>/gamestates", endpoint="list")
+class GameStatesAPI(MethodView):
 
     def get(self, player_id):
         """
@@ -45,8 +48,8 @@ class GameStatesAPI(Resource):
         return ret
 
 
-@namespace.route("/<int:player_id>/gamestates/<string:namespace>", endpoint="player_gamestate")
-class GameStateAPI(Resource):
+@bp.route("/<int:player_id>/gamestates/<string:namespace>", endpoint="entry")
+class GameStateAPI(MethodView):
 
     def get(self, player_id, namespace):
         """
@@ -157,8 +160,8 @@ class GameStateAPI(Resource):
         return "OK"
 
 
-@namespace.route("/<int:player_id>/gamestates/<string:namespace>/history", endpoint="player_gamestate_historylist")
-class GameStateHistoryListAPI(Resource):
+@bp.route("/<int:player_id>/gamestates/<string:namespace>/history", endpoint="player_gamestate_historylist")
+class GameStateHistoryListAPI(MethodView):
 
     def get(self, player_id, namespace):
         can_edit_player(player_id)
@@ -184,9 +187,9 @@ class GameStateHistoryListAPI(Resource):
         return ret
 
 
-@namespace.route("/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
+@bp.route("/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
                  endpoint="player_gamestate_historyentry")
-class GameStateHistoryEntryAPI(Resource):
+class GameStateHistoryEntryAPI(MethodView):
 
     def get(self, player_id, namespace, gamestatehistory_id):
         can_edit_player(player_id)

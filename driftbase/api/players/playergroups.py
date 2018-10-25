@@ -4,7 +4,10 @@ import uuid
 from six.moves import http_client
 
 from flask import url_for, g, request
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint, abort
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user
@@ -14,11 +17,11 @@ from driftbase.players import get_playergroup, set_playergroup
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("playergroups", "Player Groups", url_prefix='/players')
 
 
-@namespace.route("/<int:player_id>/player-groups/<string:group_name>", endpoint="player_playergroups")
-class PlayerGroupsAPI(Resource):
+@bp.route("/<int:player_id>/player-groups/<string:group_name>", endpoint="group")
+class PlayerGroupsAPI(MethodView):
     """
     Manage groups of players. Can be used as friends list and such.
     The groups are persisted for a period of 48 hours. Client apps should register

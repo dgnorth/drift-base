@@ -2,10 +2,10 @@ import logging
 from six.moves import http_client
 
 from flask import url_for, g
-from flask_restplus import Namespace, Resource, abort
 from flask.views import MethodView
 import marshmallow as ma
-from flask_rest_api import Api, Blueprint
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player, url_user
@@ -18,26 +18,32 @@ endpoints = Endpoints()
 
 bp = Blueprint('users', 'Users', url_prefix='/users', description='User management')
 
+
 class PlayerSchema(ModelSchema):
     class Meta:
         model = CorePlayer
         exclude = ('num_logons', )
+        strict = True
     player_url = ma.fields.Str(description="Hello")
+
 
 class UserSchema(ModelSchema):
 
     class Meta:
         model = User
+        strict = True
     user_url = ma.fields.Str(description="Hello")
     client_url = ma.fields.Str()
     user_url = ma.fields.Str()
     players = ma.fields.List(ma.fields.Nested(PlayerSchema))
     identities = ma.fields.List(ma.fields.Dict())
 
+
 class UserRequestSchema(ma.Schema):
     class Meta:
         strict = True
         ordered = True
+
 
 def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
@@ -45,8 +51,8 @@ def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
 
 
-#@namespace.route('', endpoint='users')
-@bp.route('', endpoint='users')
+#@bp.route('', endpoint='users')
+@bp.route('', endpoint='list')
 class UsersListAPI(MethodView):
     @bp.response(UserSchema(many=True))
     def get(self):
@@ -65,9 +71,9 @@ class UsersListAPI(MethodView):
         return ret
 
 
-#@namespace.route('/<int:user_id>', endpoint='user')
+#@bp.route('/<int:user_id>', endpoint='user')
 @bp.route('/<int:user_id>', endpoint='user')
-class UsersAPI(Resource):
+class UsersAPI(MethodView):
     """
 
     """
@@ -93,8 +99,8 @@ class UsersAPI(Resource):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {"users": url_for("users", _external=True), }
+    ret = {"users": url_for("users.list", _external=True), }
     ret["my_user"] = None
     if current_user:
-        ret["my_user"] = url_for("user", user_id=current_user["user_id"], _external=True)
+        ret["my_user"] = url_for("users.user", user_id=current_user["user_id"], _external=True)
     return ret

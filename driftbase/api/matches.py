@@ -4,7 +4,10 @@ import logging
 from six.moves import http_client
 
 from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player
@@ -18,12 +21,12 @@ from driftbase.matchqueue import process_match_queue
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("matches", "Realtime matches")
+bp = Blueprint("matches", "matches", url_prefix="/matches", description="Realtime matches")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -31,8 +34,8 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('/active', endpoint='matches_active')
-class ActiveMatchesAPI(Resource):
+@bp.route('/active', endpoint='matches_active')
+class ActiveMatchesAPI(MethodView):
     """UE4 matches available for matchmaking
     """
     get_args = reqparse.RequestParser()
@@ -134,8 +137,8 @@ class ActiveMatchesAPI(Resource):
         return ret
 
 
-@namespace.route('', endpoint='matches')
-class MatchesAPI(Resource):
+@bp.route('', endpoint='matches')
+class MatchesAPI(MethodView):
     """UE4 match
     """
     get_args = reqparse.RequestParser()
@@ -234,8 +237,8 @@ class MatchesAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
-@namespace.route('/<int:match_id>', endpoint='match')
-class MatchAPI(Resource):
+@bp.route('/<int:match_id>', endpoint='match')
+class MatchAPI(MethodView):
     """
     Information about specific matches
     """
@@ -348,8 +351,8 @@ class MatchAPI(Resource):
         return ret, http_client.OK, response_header
 
 
-@namespace.route('/<int:match_id>/teams', endpoint='match_teams')
-class MatchTeamsAPI(Resource):
+@bp.route('/<int:match_id>/teams', endpoint='match_teams')
+class MatchTeamsAPI(MethodView):
     """
     All teams in a match
     """
@@ -399,8 +402,8 @@ class MatchTeamsAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
-@namespace.route('/<int:match_id>/teams/<int:team_id>', endpoint='match_team')
-class MatchTeamAPI(Resource):
+@bp.route('/<int:match_id>/teams/<int:team_id>', endpoint='match_team')
+class MatchTeamAPI(MethodView):
     """
     A specific team in a match
     """
@@ -450,8 +453,8 @@ class MatchTeamAPI(Resource):
         return ret
 
 
-@namespace.route('/<int:match_id>/players', endpoint='match_players')
-class MatchPlayersAPI(Resource):
+@bp.route('/<int:match_id>/players', endpoint='match_players')
+class MatchPlayersAPI(MethodView):
     """
     Players in a specific match. The UE4 server will post to this endpoint
     to add a player to a match.
@@ -552,8 +555,8 @@ class MatchPlayersAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
-@namespace.route('/<int:match_id>/players/<int:player_id>', endpoint='match_player')
-class MatchPlayerAPI(Resource):
+@bp.route('/<int:match_id>/players/<int:player_id>', endpoint='match_player')
+class MatchPlayerAPI(MethodView):
     """
     A specific player in a specific match
     """

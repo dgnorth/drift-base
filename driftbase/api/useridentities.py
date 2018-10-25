@@ -5,7 +5,10 @@ from six.moves import http_client
 
 from flask import url_for, g, request
 from flask import make_response, jsonify
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -16,27 +19,51 @@ from driftbase.models.db import User, CorePlayer, UserIdentity
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("user-identities", "User Identity management")
+bp = Blueprint('useridentities', 'User Identities', url_prefix='/user-identities', description='User identity management')
+
 endpoints = Endpoints()
 
 
+class UserIdentitiesGetResponseSchema(ma.Schema):
+    class Meta:
+        strict = True
+        ordered = True
+    player_id = ma.fields.Integer()
+    player_url = ma.fields.Str()
+    player_name = ma.fields.Str()
+    identity_name = ma.fields.Str()
+
+
+class UserIdentitiesGetSchema(ma.Schema):
+    class Meta:
+        strict = True
+        ordered = True
+    name = ma.fields.List(ma.fields.Str(), description="Filter by these names")
+    player_id = ma.fields.List(ma.fields.Integer(), description="Filter by these player ID's")
+
+
+class UserIdentitiesPostSchema(ma.Schema):
+    class Meta:
+        strict = True
+        ordered = True
+    link_with_user_id = ma.fields.Integer(description="User ID to link the current player with")
+    link_with_user_jti = ma.fields.Integer(description="User JTI to link the current player with")
+
+
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
-@namespace.route('', endpoint="useridentities")
-class UserIdentitiesAPI(Resource):
+@bp.route('', endpoint="useridentities")
+class UserIdentitiesAPI(MethodView):
 
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("name", type=six.text_type, action='append')
-    get_args.add_argument("player_id", type=int, action='append')
-
-    def get(self):
+    @bp.arguments(UserIdentitiesGetSchema)
+    @bp.response(UserIdentitiesGetResponseSchema(many=True))
+    def get(self, args):
         """
         Convert user identities to player_ids
         """
-        args = self.get_args.parse_args()
         player_ids = args.get("player_id")
         names = args.get("name")
         if player_ids and names:
@@ -68,17 +95,15 @@ class UserIdentitiesAPI(Resource):
             ret.append(d)
         return ret
 
-    @simple_schema_request({
-        "link_with_user_id": {"type": "number", },
-        "link_with_user_jti": {"type": "string", },
-    })
-    def post(self):
+    @bp.arguments(UserIdentitiesPostSchema)
+    def post(self, args):
         """
+        Add identity
+
         Associate the current user identity (in the auth header context) with
         the passed in user. We use the JTI for an identity associated with that
         user to verify that the caller is indeed the owner of the user
         """
-        args = request.json
         link_with_user_id = args["link_with_user_id"]
         link_with_user_jti = args["link_with_user_jti"]
 
@@ -192,7 +217,7 @@ class UserIdentitiesAPI(Resource):
 @endpoints.register
 def endpoint_info(current_user):
     ret = {
-        "user_identities": url_for("useridentities", _external=True),
-        "user-identities": url_for("useridentities", _external=True),
+        "user_identities": url_for("useridentities.useridentities", _external=True),
+        "user-identities": url_for("useridentities.useridentities", _external=True),
     }
     return ret

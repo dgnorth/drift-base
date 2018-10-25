@@ -3,14 +3,17 @@ import logging
 from six.moves import http_client
 
 from flask import request, g, abort
-from flask_restplus import Namespace, Resource
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint, abort
 
 from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
 from driftbase.players import log_event, can_edit_player
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("summary", "Player Summary", url_prefix='/players')
 
 
 def get_player(player_id):
@@ -18,8 +21,8 @@ def get_player(player_id):
     return player
 
 
-@namespace.route("/<int:player_id>/summary", endpoint="player_summary")
-class Summary(Resource):
+@bp.route("/<int:player_id>/summary", endpoint="list")
+class Summary(MethodView):
 
     def get(self, player_id):
         """

@@ -15,7 +15,10 @@ import json
 from six.moves import http_client
 
 from flask import request, url_for, g, current_app
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 
 from drift.utils import json_response
 from drift.core.extensions.urlregistry import Endpoints
@@ -26,7 +29,7 @@ from driftbase.models.responses import client_descriptions, client_model, client
                                        client_heartbeat_model
 
 log = logging.getLogger(__name__)
-namespace = Namespace("clients", "Client registration")
+bp = Blueprint("clients", "clients", url_prefix="/clients", description="Client registration")
 endpoints = Endpoints()
 
 DEFAULT_HEARTBEAT_PERIOD = 30
@@ -34,10 +37,10 @@ DEFAULT_HEARTBEAT_TIMEOUT = 300
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.models[client_model.name] = client_model
-    api.models[client_registration_model.name] = client_registration_model
-    api.models[client_heartbeat_model.name] = client_heartbeat_model
-    api.add_namespace(namespace)
+    #api.models[client_model.name] = client_model
+    #api.models[client_registration_model.name] = client_registration_model
+    #api.models[client_heartbeat_model.name] = client_heartbeat_model
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -46,8 +49,8 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('/', endpoint='clients')
-class ClientsAPI(Resource):
+@bp.route('/', endpoint='clients')
+class ClientsAPI(MethodView):
     no_jwt_check = ['GET']
     # GET args
     get_parser = reqparse.RequestParser()
@@ -55,8 +58,8 @@ class ClientsAPI(Resource):
         'player_id', type=int,
         help="Optional ID of a player to return sessions for")
 
-    @namespace.expect(get_parser)
-    @namespace.marshal_with(client_model, as_list=True)
+    #@namespace.expect(get_parser)
+    #@namespace.marshal_with(client_model, as_list=True)
     def get(self):
         """
         Retrieves all active clients. If a client has not heartbeat
@@ -89,8 +92,8 @@ class ClientsAPI(Resource):
     post_parser.add_argument('platform_info', type=str,
                              help=client_descriptions['platform_info'])
 
-    @namespace.expect(post_parser)
-    @namespace.marshal_with(client_registration_model, code=http_client.CREATED)
+    #@namespace.expect(post_parser)
+    #@namespace.marshal_with(client_registration_model, code=http_client.CREATED)
     def post(self):
         """
         Register a new connected client.
@@ -212,14 +215,14 @@ def get_client(client_id):
     return client
 
 
-@namespace.route('/<int:client_id>', endpoint='client')
-class ClientAPI(Resource):
+@bp.route('/<int:client_id>', endpoint='client')
+class ClientAPI(MethodView):
     """
     Client API. This is used by the game clients to
     register themselves as connected-to-the-backend and to heartbeat
     to let the backend know that they are still connected.
     """
-    @namespace.marshal_with(client_model)
+    #@namespace.marshal_with(client_model)
     def get(self, client_id):
         """
         Get information about a single client. Just dumps out the DB row as json
@@ -230,7 +233,7 @@ class ClientAPI(Resource):
 
         return client
 
-    @namespace.marshal_with(client_heartbeat_model)
+    #@namespace.marshal_with(client_heartbeat_model)
     def put(self, client_id):
         """
         Heartbeat for client registration.

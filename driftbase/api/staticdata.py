@@ -3,18 +3,21 @@ import logging
 import json
 
 from flask import g, url_for
-from flask_restplus import Namespace, Resource, reqparse
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 log = logging.getLogger(__file__)
 
 
-namespace = Namespace("staticdata", "Static Data Management")
+bp = Blueprint('staticdata', 'Static Data', url_prefix='/staticdata', description="Static Data Management")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -38,8 +41,8 @@ def get_static_data_ids():
         return {}
 
 
-@namespace.route('', endpoint='staticdata')
-class StaticDataAPI(Resource):
+@bp.route('', endpoint='staticdata')
+class StaticDataAPI(MethodView):
 
     no_jwt_check = ['GET']
 

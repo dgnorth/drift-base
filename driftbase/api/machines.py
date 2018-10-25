@@ -4,7 +4,10 @@ import datetime
 from six.moves import http_client
 
 from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 from dateutil import parser
 
@@ -16,12 +19,12 @@ from driftbase.models.db import Machine, MachineEvent
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("machines", "Battleserver machine instances")
+bp = Blueprint("machines", "machines", url_prefix="/machines", description="Battleserver machine instances")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -29,8 +32,8 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('', endpoint='machines')
-class MachinesAPI(Resource):
+@bp.route('', endpoint='machines')
+class MachinesAPI(MethodView):
     """The interface to battleserver machines. Each physical machine
     (for example ec2 instance) has a machine resource here. Each
     machine resource has zero or more battleserver resources.
@@ -51,7 +54,7 @@ class MachinesAPI(Resource):
     get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
-    @namespace.expect(get_args)
+    #@namespace.expect(get_args)
     def get(self):
         args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
@@ -132,8 +135,8 @@ class MachinesAPI(Resource):
                 }, http_client.CREATED, response_header
 
 
-@namespace.route('/<int:machine_id>', endpoint='machine')
-class MachineAPI(Resource):
+@bp.route('/<int:machine_id>', endpoint='machine')
+class MachineAPI(MethodView):
     """
     Information about specific machines
     """

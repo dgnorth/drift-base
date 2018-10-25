@@ -13,7 +13,10 @@ from six.moves import http_client
 from sqlalchemy.exc import IntegrityError
 
 from flask import request, g, url_for
-from flask_restplus import Namespace, Resource, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Api, Blueprint
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -23,7 +26,7 @@ from driftbase.utils import clear_counter_cache, get_counter
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("player_counters", "Player Counters", url_prefix='/players')
 
 TOTAL_TIMESTAMP = datetime.datetime.strptime("2000-01-01", "%Y-%m-%d")
 COUNTER_PERIODS = ['total', 'month', 'day', 'hour', 'minute', 'second']
@@ -153,8 +156,8 @@ def check_and_update_player_counter(player_counter, timestamp):
     return True
 
 
-@namespace.route("/<int:player_id>/counters", endpoint="player_counters")
-class CountersApi(Resource):
+@bp.route("/<int:player_id>/counters", endpoint="player_counters")
+class CountersApi(MethodView):
 
     def get(self, player_id):
         """
@@ -319,9 +322,9 @@ class CountersApi(Resource):
         return result
 
 
-@namespace.route("/<int:player_id>/counters/<int:counter_id>",
+@bp.route("/<int:player_id>/counters/<int:counter_id>",
                  endpoint="player_counter")
-class CounterApi(Resource):
+class CounterApi(MethodView):
     def get(self, player_id, counter_id):
         counter = get_counter(counter_id)
         if not counter:
@@ -371,9 +374,9 @@ class CounterApi(Resource):
         return "OK"
 
 
-@namespace.route("/<int:player_id>/counters/<int:counter_id>/<string:period>",
+@bp.route("/<int:player_id>/counters/<int:counter_id>/<string:period>",
                  endpoint="player_counter_period")
-class CounterPeriodApi(Resource):
+class CounterPeriodApi(MethodView):
     def get(self, player_id, counter_id, period):
         counter = get_counter(counter_id)
         if not counter:
@@ -398,8 +401,8 @@ class CounterPeriodApi(Resource):
         return ret
 
 
-@namespace.route("/<int:player_id>/countertotals", endpoint="player_countertotals")
-class CounterTotalsApi(Resource):
+@bp.route("/<int:player_id>/countertotals", endpoint="player_countertotals")
+class CounterTotalsApi(MethodView):
     def get(self, player_id):
         counter_entries = g.db.query(CounterEntry) \
                               .filter(CounterEntry.player_id == player_id,
