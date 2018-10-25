@@ -15,10 +15,10 @@ custom:
     packRequirements: false
   pythonRequirements:
     #dockerImage: drift-base:latest
-    #usePipenv: true
+    usePipenv: true
     dockerizePip: true
-    #dockerFile: Dockerfile
-    dockerImage: drift-base:latest
+    dockerFile: Dockerfile
+    #dockerImage: drift-base:latest
 
 
 
