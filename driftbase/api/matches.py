@@ -3,7 +3,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, url_for, g
+from flask import request, url_for, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -134,7 +134,7 @@ class ActiveMatchesAPI(MethodView):
             if include:
                 ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
 
 @bp.route('', endpoint='list')
@@ -165,7 +165,7 @@ class MatchesAPI(MethodView):
             record = row.as_dict()
             record["url"] = url_for("matches.entry", match_id=row.match_id, _external=True)
             ret.append(record)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -231,10 +231,10 @@ class MatchesAPI(MethodView):
         except Exception:
             log.exception("Unable to process match queue")
 
-        return {"match_id": match_id,
+        return jsonify({"match_id": match_id,
                 "url": resource_uri,
                 "players_url": players_resource_uri,
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:match_id>', endpoint='entry')
@@ -280,7 +280,7 @@ class MatchAPI(MethodView):
         ret["teams"] = teams
 
         ret["matchplayers_url"] = url_for("matches.players", match_id=match_id, _external=True)
-        ret["teams_url"] = url_for("match_teams", match_id=match_id, _external=True)
+        ret["teams_url"] = url_for("matches.teams", match_id=match_id, _external=True)
 
         players = []
         rows = g.db.query(MatchPlayer).filter(MatchPlayer.match_id == match_id).all()
@@ -295,7 +295,7 @@ class MatchAPI(MethodView):
 
         log.debug("Returning info for match %s", match_id)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -348,7 +348,7 @@ class MatchAPI(MethodView):
 
         log.info("Match %s has been updated.", match_id)
 
-        return ret, http_client.OK, response_header
+        return jsonify(ret), http_client.OK, response_header
 
 
 @bp.route('/<int:match_id>/teams', endpoint='teams')
@@ -370,7 +370,7 @@ class MatchTeamsAPI(MethodView):
                                     team_id=row.team_id,
                                     _external=True)
             ret.append(record)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -397,9 +397,9 @@ class MatchTeamsAPI(MethodView):
                         "gameserver.match.team_created",
                         details={"team_id": team_id})
 
-        return {"team_id": team_id,
+        return jsonify({"team_id": team_id,
                 "url": resource_uri,
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:match_id>/teams/<int:team_id>', endpoint='team')
@@ -433,7 +433,7 @@ class MatchTeamAPI(MethodView):
             player["player_url"] = url_player(r.player_id)
             players.append(player)
         ret["players"] = players
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -450,7 +450,7 @@ class MatchTeamAPI(MethodView):
             setattr(team, arg, args[arg])
         g.db.commit()
         ret = team.as_dict()
-        return ret
+        return jsonify(ret)
 
 
 @bp.route('/<int:match_id>/players', endpoint='players')
@@ -476,7 +476,7 @@ class MatchPlayersAPI(MethodView):
             player["player_url"] = url_player(r.player_id)
             ret.append(player)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -548,11 +548,11 @@ class MatchPlayersAPI(MethodView):
         log_match_event(match_id, player_id, "gameserver.match.player_joined",
                         details={"team_id": team_id})
 
-        return {"match_id": match_id,
+        return jsonify({"match_id": match_id,
                 "player_id": player_id,
                 "team_id": team_id,
                 "url": resource_uri,
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:match_id>/players/<int:player_id>', endpoint='player')
@@ -576,7 +576,7 @@ class MatchPlayerAPI(MethodView):
             ret["team_url"] = url_for("matches.team", match_id=match_id,
                                       team_id=player.team_id, _external=True)
         ret["player_url"] = url_player(player_id)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     def delete(self, match_id, player_id):
@@ -618,7 +618,7 @@ class MatchPlayerAPI(MethodView):
                         "gameserver.match.player_left",
                         details={"team_id": team_id})
 
-        return {"message": "Player has left the battle"}
+        return jsonify({"message": "Player has left the battle"})
 
 
 @endpoints.register

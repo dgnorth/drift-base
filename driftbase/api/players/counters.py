@@ -195,7 +195,7 @@ class CountersApi(MethodView):
                 entry["total"] = 0
             ret.append(entry)
 
-        return ret
+        return jsonify(ret)
 
     def patch(self, player_id):
         """
@@ -357,7 +357,7 @@ class CounterApi(MethodView):
             ret["periods"][period] = url_for("player_counter_period", player_id=player_id,
                                              counter_id=counter_id, period=period, _external=True)
 
-        return ret
+        return jsonify(ret)
 
     @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
     def patch(self, player_id, counter_id, context_id):
@@ -409,7 +409,7 @@ class CounterPeriodApi(MethodView):
             ret = {}
             for row in counter_entries:
                 ret[row.date_time.isoformat() + "Z"] = row.value
-        return ret
+        return jsonify(ret)
 
 
 @bp.route("/<int:player_id>/countertotals", endpoint="totals")
@@ -423,4 +423,4 @@ class CounterTotalsApi(MethodView):
             counter = get_counter(row.counter_id)
             ret[counter["name"]] = row.value
 
-        return ret
+        return jsonify(ret)

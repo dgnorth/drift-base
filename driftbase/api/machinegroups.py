@@ -6,7 +6,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, url_for, g
+from flask import request, url_for, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -52,7 +52,7 @@ class MachineGroupsAPI(MethodView):
                                     machinegroup_id=row.machinegroup_id, _external=True)
             ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -71,7 +71,7 @@ class MachineGroupsAPI(MethodView):
         g.db.add(machinegroup)
         g.db.commit()
         machinegroup_id = machinegroup.machinegroup_id
-        resource_uri = url_for("machinegroup", machinegroup_id=machinegroup_id,
+        resource_uri = url_for("machinegroups.entry", machinegroup_id=machinegroup_id,
                                _external=True)
         response_header = {
             "Location": resource_uri,
@@ -79,9 +79,9 @@ class MachineGroupsAPI(MethodView):
         log.info("Machine Group %s has been created with name '%s'",
                  machinegroup_id, args.get("name"))
 
-        return {"machinegroup_id": machinegroup_id,
+        return jsonify({"machinegroup_id": machinegroup_id,
                 "url": resource_uri
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:machinegroup_id>', endpoint='entry')
@@ -100,12 +100,12 @@ class MachineGroupAPI(MethodView):
             log.warning("Requested a non-existant machine group %s", machinegroup_id)
             abort(http_client.NOT_FOUND, description="Machine Group not found")
         record = row.as_dict()
-        record["url"] = url_for("machinegroup", machinegroup_id=machinegroup_id,
+        record["url"] = url_for("machinegroups.entry", machinegroup_id=machinegroup_id,
                                 _external=True)
 
         log.info("Returning info for run config %s", machinegroup_id)
 
-        return record
+        return jsonify(record)
 
     @requires_roles("service")
     @simple_schema_request({

@@ -7,7 +7,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import g, url_for, request
+from flask import g, url_for, request, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -44,7 +44,7 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
         "match_url": None,
         "ue4_connection_url": None,
         "status": matchqueue_entry.status,
-        "matchqueueplayer_url": url_for("matchqueue_player", player_id=player_id, _external=True),
+        "matchqueueplayer_url": url_for("matchqueue.player", player_id=player_id, _external=True),
         "create_date": matchqueue_entry.create_date,
         "criteria": matchqueue_entry.criteria,
     }
@@ -148,7 +148,7 @@ class MatchQueueAPI(MethodView):
         response_header = {
             "Location": ret["matchqueueplayer_url"],
         }
-        return ret, http_client.CREATED, response_header
+        return jsonify(ret), http_client.CREATED, response_header
 
     get_args = reqparse.RequestParser()
     get_args.add_argument("status", type=str, required=False, action='append')
@@ -174,7 +174,7 @@ class MatchQueueAPI(MethodView):
         for player in matchqueue_players:
             entry = make_matchqueueplayer_response(player[0], player[1])
             ret.append(entry)
-        return ret
+        return jsonify(ret)
 
 
 @bp.route('/<int:player_id>', endpoint='player')
@@ -200,7 +200,7 @@ class MatchQueueEntryAPI(MethodView):
             server = g.db.query(Server).get(match.server_id)
             if not server:
                 log.error("Could not find a server for match %s", my_matchqueueplayer.match_id)
-        return make_matchqueueplayer_response(my_player, my_matchqueueplayer, server)
+        return jsonify(make_matchqueueplayer_response(my_player, my_matchqueueplayer, server))
 
     delete_args = reqparse.RequestParser()
     delete_args.add_argument("force", type=bool, required=False, default=False)

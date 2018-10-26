@@ -3,7 +3,7 @@ import uuid
 
 from six.moves import http_client
 
-from flask import url_for, g, request
+from flask import url_for, g, request, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -105,9 +105,9 @@ class PlayerGroupsAPI(MethodView):
         }
 
         set_playergroup(group_name, player_id, payload)
-        resource_uri = url_for("player_playergroups", group_name=group_name,
+        resource_uri = url_for("playergroups.group", group_name=group_name,
                                player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Created user group %s for player %s", group_name, player_id)
 
-        return payload, http_client.OK, response_header
+        return jsonify(payload), http_client.OK, response_header

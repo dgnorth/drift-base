@@ -4,7 +4,7 @@ import datetime
 
 from six.moves import http_client
 
-from flask import request, g, abort, url_for
+from flask import request, g, abort, url_for, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -68,7 +68,7 @@ class FriendshipsAPI(MethodView):
             friends.append(friend)
 
         ret = friends
-        return ret
+        return jsonify(ret)
 
     @simple_schema_request({
         "token": {"type": "string", },
@@ -112,7 +112,7 @@ class FriendshipsAPI(MethodView):
             if friendship.status == "deleted":
                 friendship.status = "active"
             else:
-                return {}, http_client.OK
+                return "{}", http_client.OK
         else:
             friendship = Friendship(player1_id=left_id, player2_id=right_id)
             g.db.add(friendship)
@@ -121,11 +121,11 @@ class FriendshipsAPI(MethodView):
         ret = {
             "friend_id": friend_id,
             "url": url_for("friendships.entry", friendship_id=friendship.id, _external=True),
-            "messagequeue_url": url_for("messages_exchange", exchange="players", exchange_id=friend_id,
+            "messagequeue_url": url_for("messages.exchange", exchange="players", exchange_id=friend_id,
                                         _external=True) + "/{queue}",
         }
 
-        return ret, http_client.CREATED
+        return jsonify(ret), http_client.CREATED
 
 
 @bp.route('/<int:friendship_id>', endpoint='entry')
@@ -143,13 +143,13 @@ class FriendshipAPI(MethodView):
         elif friendship.player1_id != player_id and friendship.player2_id != player_id:
             abort(http_client.FORBIDDEN)
         elif friendship.status == "deleted":
-            return {}, http_client.GONE
+            return "{}", http_client.GONE
 
         if friendship:
             friendship.status = "deleted"
             g.db.commit()
 
-        return {}, http_client.NO_CONTENT
+        return "{}", http_client.NO_CONTENT
 
 
 @bp.route('/invites', endpoint='invites')
@@ -178,11 +178,11 @@ class FriendInvitesAPI(MethodView):
         g.db.add(invite)
         g.db.commit()
 
-        ret = {
+        ret = jsonify({
             "token": token,
             "expires": expires,
-            "url": url_for("friendships.friendinvite", invite_id=invite.id, _external=True)
-        }, http_client.CREATED
+            "url": url_for("friendships.invite", invite_id=invite.id, _external=True)
+        }), http_client.CREATED
         return ret
 
 
@@ -201,11 +201,11 @@ class FriendInviteAPI(MethodView):
         elif invite.issued_by_player_id != player_id:
             abort(http_client.FORBIDDEN)
         elif invite.deleted:
-            return {}, http_client.GONE
+            return "{}", http_client.GONE
 
         invite.deleted = True
         g.db.commit()
-        return {}, http_client.NO_CONTENT
+        return "{}", http_client.NO_CONTENT
 
 
 @endpoints.register

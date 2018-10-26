@@ -3,7 +3,7 @@ import logging
 import six
 from six.moves import http_client
 
-from flask import url_for, g, request
+from flask import url_for, g, request, jsonify
 from flask import make_response, jsonify
 from flask.views import MethodView
 import marshmallow as ma

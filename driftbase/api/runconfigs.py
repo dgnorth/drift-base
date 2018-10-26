@@ -7,7 +7,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, url_for, g
+from flask import request, url_for, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -49,11 +49,11 @@ class RunConfigsAPI(MethodView):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("runconfig", runconfig_id=row.runconfig_id,
+            record["url"] = url_for("runconfig.entry", runconfig_id=row.runconfig_id,
                                     _external=True)
             ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -84,16 +84,16 @@ class RunConfigsAPI(MethodView):
         g.db.add(runconfig)
         g.db.commit()
         runconfig_id = runconfig.runconfig_id
-        resource_uri = url_for("runconfig", runconfig_id=runconfig_id, _external=True)
+        resource_uri = url_for("runconfigs.entry", runconfig_id=runconfig_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
         log.info("Run Configuration %s has been registered with name '%s'",
                  runconfig_id, args.get("name"))
 
-        return {"runconfig_id": runconfig_id,
+        return jsonify({"runconfig_id": runconfig_id,
                 "url": resource_uri
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:runconfig_id>', endpoint='entry')
@@ -116,7 +116,7 @@ class RunConfigAPI(MethodView):
 
         log.info("Returning info for run config %s", runconfig_id)
 
-        return record
+        return jsonify(record)
 
 
 @endpoints.register

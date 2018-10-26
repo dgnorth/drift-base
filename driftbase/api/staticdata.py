@@ -2,7 +2,7 @@ import requests
 import logging
 import json
 
-from flask import g, url_for
+from flask import g, url_for, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -119,7 +119,7 @@ class StaticDataAPI(MethodView):
                 }
                 data["static_data_urls"].append(d)
 
-        return data
+        return jsonify(data)
 
 
 @endpoints.register

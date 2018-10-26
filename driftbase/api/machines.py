@@ -3,7 +3,7 @@ import datetime
 
 from six.moves import http_client
 
-from flask import request, url_for, g
+from flask import request, url_for, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -86,10 +86,10 @@ class MachinesAPI(MethodView):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("machines", machine_id=row.machine_id, _external=True)
+            record["url"] = url_for("machines.entry", machine_id=row.machine_id, _external=True)
             ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -130,9 +130,9 @@ class MachinesAPI(MethodView):
         log.info("Battleserver machine %s has been registered on public ip %s",
                  machine_id, args.get("public_ip"))
 
-        return {"machine_id": machine_id,
+        return jsonify({"machine_id": machine_id,
                 "url": resource_uri
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:machine_id>', endpoint='entry')
@@ -157,7 +157,7 @@ class MachineAPI(MethodView):
 
         log.debug("Returning info for battleserver machine %s", machine_id)
 
-        return record
+        return jsonify(record)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -199,7 +199,7 @@ class MachineAPI(MethodView):
                 g.db.add(event_row)
 
         g.db.commit()
-        return {"last_heartbeat": last_heartbeat}
+        return jsonify({"last_heartbeat": last_heartbeat})
 
 
 @endpoints.register
