@@ -7,7 +7,7 @@ from flask import request, url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 from dateutil import parser
 
@@ -19,7 +19,7 @@ from driftbase.models.db import Machine, MachineEvent
 log = logging.getLogger(__name__)
 
 
-bp = Blueprint("machines", "machines", url_prefix="/machines", description="Battleserver machine instances")
+bp = Blueprint("machines", __name__, url_prefix="/machines", description="Battleserver machine instances")
 endpoints = Endpoints()
 
 
@@ -32,7 +32,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@bp.route('', endpoint='machines')
+@bp.route('', endpoint='list')
 class MachinesAPI(MethodView):
     """The interface to battleserver machines. Each physical machine
     (for example ec2 instance) has a machine resource here. Each
@@ -123,7 +123,7 @@ class MachinesAPI(MethodView):
         g.db.add(machine)
         g.db.commit()
         machine_id = machine.machine_id
-        resource_uri = url_for("machine", machine_id=machine_id, _external=True)
+        resource_uri = url_for("machines.entry", machine_id=machine_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
@@ -135,7 +135,7 @@ class MachinesAPI(MethodView):
                 }, http_client.CREATED, response_header
 
 
-@bp.route('/<int:machine_id>', endpoint='machine')
+@bp.route('/<int:machine_id>', endpoint='entry')
 class MachineAPI(MethodView):
     """
     Information about specific machines
@@ -151,9 +151,9 @@ class MachineAPI(MethodView):
             log.warning("Requested a non-existant machine: %s", machine_id)
             abort(http_client.NOT_FOUND, description="Machine not found")
         record = row.as_dict()
-        record["url"] = url_for("machine", machine_id=machine_id, _external=True)
-        record["servers_url"] = url_for("servers", machine_id=machine_id, _external=True)
-        record["matches_url"] = url_for("matches", machine_id=machine_id, _external=True)
+        record["url"] = url_for("machines.entry", machine_id=machine_id, _external=True)
+        record["servers_url"] = url_for("servers.list", machine_id=machine_id, _external=True)
+        record["matches_url"] = url_for("matches.list", machine_id=machine_id, _external=True)
 
         log.debug("Returning info for battleserver machine %s", machine_id)
 
@@ -204,5 +204,5 @@ class MachineAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"machines": url_for("machines", _external=True)}
+    ret = {"machines": url_for("machines.list", _external=True)}
     return ret

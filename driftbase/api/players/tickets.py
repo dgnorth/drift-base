@@ -7,7 +7,7 @@ from flask import url_for, request, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint, abort
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import requires_roles
@@ -17,21 +17,21 @@ from driftbase.models.db import Ticket
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("tickets", "Player tickets", url_prefix='/players')
+bp = Blueprint("player_tickets", __name__, url_prefix='/players')
 
 
 def add_ticket_links(ticket):
     ret = ticket.as_dict()
-    ret["player_url"] = url_for("player", player_id=ticket.player_id, _external=True)
+    ret["player_url"] = url_for("players.entry", player_id=ticket.player_id, _external=True)
     ret["issuer_url"] = None
     if ticket.issuer_id:
-        ret["issuer_url"] = url_for("player", player_id=ticket.issuer_id, _external=True)
+        ret["issuer_url"] = url_for("players.entry", player_id=ticket.issuer_id, _external=True)
     ret["url"] = url_for("player_ticket", player_id=ticket.player_id,
                          ticket_id=ticket.ticket_id, _external=True)
     return ret
 
 
-@bp.route("/<int:player_id>/tickets", endpoint="player_tickets")
+@bp.route("/<int:player_id>/tickets", endpoint="list")
 class TicketsEndpoint(MethodView):
 
     def get(self, player_id):
@@ -61,7 +61,7 @@ class TicketsEndpoint(MethodView):
         details = args.get("details")
         external_id = args.get("external_id")
         ticket_id = create_ticket(player_id, issuer_id, ticket_type, details, external_id)
-        ticket_url = url_for("player_ticket", ticket_id=ticket_id,
+        ticket_url = url_for("player_tickets.entry", ticket_id=ticket_id,
                              player_id=player_id, _external=True)
         ret = {
             "ticket_id": ticket_id,
@@ -82,7 +82,7 @@ def get_ticket(player_id, ticket_id):
     return ticket
 
 
-@bp.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="player_ticket")
+@bp.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="entry")
 class TicketEndpoint(MethodView):
 
     def get(self, player_id, ticket_id):

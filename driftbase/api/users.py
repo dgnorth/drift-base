@@ -5,7 +5,7 @@ from flask import url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint, abort
+from flask_rest_api import Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player, url_user
@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 endpoints = Endpoints()
 
-bp = Blueprint('users', 'Users', url_prefix='/users', description='User management')
+bp = Blueprint('users', __name__, url_prefix='/users', description='User management')
 
 
 class PlayerSchema(ModelSchema):
@@ -26,6 +26,10 @@ class PlayerSchema(ModelSchema):
         strict = True
     player_url = ma.fields.Str(description="Hello")
 
+class UserIdentitySchema(ModelSchema):
+    class Meta:
+        model = UserIdentity
+        strict = True
 
 class UserSchema(ModelSchema):
 
@@ -36,7 +40,7 @@ class UserSchema(ModelSchema):
     client_url = ma.fields.Str()
     user_url = ma.fields.Str()
     players = ma.fields.List(ma.fields.Nested(PlayerSchema))
-    identities = ma.fields.List(ma.fields.Dict())
+    identities = ma.fields.List(ma.fields.Nested(UserIdentitySchema))
 
 
 class UserRequestSchema(ma.Schema):
@@ -65,14 +69,14 @@ class UsersListAPI(MethodView):
         for row in users:
             user = {
                 "user_id": row.user_id,
-                "user_url": url_for('users.user', user_id=row.user_id, _external=True)
+                "user_url": url_for('users.entry', user_id=row.user_id, _external=True)
             }
             ret.append(user)
         return ret
 
 
 #@bp.route('/<int:user_id>', endpoint='user')
-@bp.route('/<int:user_id>', endpoint='user')
+@bp.route('/<int:user_id>', endpoint='entry')
 class UsersAPI(MethodView):
     """
 
@@ -102,5 +106,5 @@ def endpoint_info(current_user):
     ret = {"users": url_for("users.list", _external=True), }
     ret["my_user"] = None
     if current_user:
-        ret["my_user"] = url_for("users.user", user_id=current_user["user_id"], _external=True)
+        ret["my_user"] = url_for("users.entry", user_id=current_user["user_id"], _external=True)
     return ret

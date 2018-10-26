@@ -11,7 +11,7 @@ from flask import request, url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -21,7 +21,7 @@ from driftbase.models.db import RunConfig
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("runconfigs", "runconfigs", url_prefix="/runconfigs", description="Battleserver run configuration")
+bp = Blueprint("runconfigs", __name__, url_prefix="/runconfigs", description="Battleserver run configuration")
 endpoints = Endpoints()
 
 
@@ -30,7 +30,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-@bp.route('', endpoint='runconfigs')
+@bp.route('', endpoint='list')
 class RunConfigsAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
@@ -96,7 +96,7 @@ class RunConfigsAPI(MethodView):
                 }, http_client.CREATED, response_header
 
 
-@bp.route('/<int:runconfig_id>', endpoint='runconfig')
+@bp.route('/<int:runconfig_id>', endpoint='entry')
 class RunConfigAPI(MethodView):
     """
     Information about specific machines
@@ -112,7 +112,7 @@ class RunConfigAPI(MethodView):
             log.warning("Requested a non-existant run config: %s", runconfig_id)
             abort(http_client.NOT_FOUND, description="Run Config not found")
         record = row.as_dict()
-        record["url"] = url_for("runconfig", runconfig_id=runconfig_id, _external=True)
+        record["url"] = url_for("runconfigs.entry", runconfig_id=runconfig_id, _external=True)
 
         log.info("Returning info for run config %s", runconfig_id)
 
@@ -121,5 +121,5 @@ class RunConfigAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"runconfigs": url_for("runconfigs", _external=True)}
+    ret = {"runconfigs": url_for("runconfigs.list", _external=True)}
     return ret

@@ -8,7 +8,7 @@ from flask import request, g, abort, url_for
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.jwt import current_user
@@ -23,7 +23,7 @@ DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 log = logging.getLogger(__name__)
 
 
-bp = Blueprint("friendships", "friendships", url_prefix="/friendships", description="Player to player relationships")
+bp = Blueprint("friendships", __name__, url_prefix="/friendships", description="Player to player relationships")
 endpoints = Endpoints()
 
 
@@ -43,7 +43,7 @@ def get_player(player_id):
     return player
 
 
-@bp.route('/players/<int:player_id>', endpoint='friendships')
+@bp.route('/players/<int:player_id>', endpoint='list')
 class FriendshipsAPI(MethodView):
 
     def get(self, player_id):
@@ -62,8 +62,8 @@ class FriendshipsAPI(MethodView):
             friend_id = row[2]
             friend = {
                 "friend_id": friend_id,
-                "player_url": url_for("player", player_id=friend_id, _external=True),
-                "friendship_url": url_for("friendship", friendship_id=friendship_id, _external=True)
+                "player_url": url_for("players.entry", player_id=friend_id, _external=True),
+                "friendship_url": url_for("friendships.entry", friendship_id=friendship_id, _external=True)
             }
             friends.append(friend)
 
@@ -120,7 +120,7 @@ class FriendshipsAPI(MethodView):
 
         ret = {
             "friend_id": friend_id,
-            "url": url_for("friendship", friendship_id=friendship.id, _external=True),
+            "url": url_for("friendships.entry", friendship_id=friendship.id, _external=True),
             "messagequeue_url": url_for("messages_exchange", exchange="players", exchange_id=friend_id,
                                         _external=True) + "/{queue}",
         }
@@ -128,7 +128,7 @@ class FriendshipsAPI(MethodView):
         return ret, http_client.CREATED
 
 
-@bp.route('/<int:friendship_id>', endpoint='friendship')
+@bp.route('/<int:friendship_id>', endpoint='entry')
 class FriendshipAPI(MethodView):
 
     def delete(self, friendship_id):
@@ -152,7 +152,7 @@ class FriendshipAPI(MethodView):
         return {}, http_client.NO_CONTENT
 
 
-@bp.route('/invites', endpoint='friendinvites')
+@bp.route('/invites', endpoint='invites')
 class FriendInvitesAPI(MethodView):
 
     def post(self):
@@ -181,12 +181,12 @@ class FriendInvitesAPI(MethodView):
         ret = {
             "token": token,
             "expires": expires,
-            "url": url_for("friendinvite", invite_id=invite.id, _external=True)
+            "url": url_for("friendships.friendinvite", invite_id=invite.id, _external=True)
         }, http_client.CREATED
         return ret
 
 
-@bp.route('/invites/<int:invite_id>', endpoint='friendinvite')
+@bp.route('/invites/<int:invite_id>', endpoint='invite')
 class FriendInviteAPI(MethodView):
 
     def delete(self, invite_id):
@@ -212,7 +212,7 @@ class FriendInviteAPI(MethodView):
 def endpoint_info(*args):
     ret = {}
     ret["my_friends"] = None
-    ret["friend_invites"] = url_for("friendinvites", _external=True)
+    ret["friend_invites"] = url_for("friendships.invites", _external=True)
     if current_user:
-        ret["my_friends"] = url_for("friendships", player_id=current_user["player_id"], _external=True)
+        ret["my_friends"] = url_for("friendships.list", player_id=current_user["player_id"], _external=True)
     return ret

@@ -5,7 +5,7 @@ from flask import url_for, request, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 
 from drift.utils import json_response
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -15,7 +15,7 @@ from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("gamestate", "Player Game state", url_prefix='/players')
+bp = Blueprint("player_gamestate", __name__, url_prefix='/players', description="Datastore for game state information")
 
 MAX_DATA_LEN = 1024 * 1024  # 1MB
 
@@ -53,7 +53,9 @@ class GameStateAPI(MethodView):
 
     def get(self, player_id, namespace):
         """
-        Get full dump of game state for the current player in namespace 'namespace'
+        Get full dump of game state
+
+        for the current player in namespace 'namespace'
         """
         can_edit_player(player_id)
 

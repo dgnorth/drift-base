@@ -11,7 +11,7 @@ from flask import g, url_for, request
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
@@ -49,7 +49,7 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
         "criteria": matchqueue_entry.criteria,
     }
     if matchqueue_entry.match_id:
-        ret["match_url"] = url_for("match", match_id=matchqueue_entry.match_id,
+        ret["match_url"] = url_for("matches.entry", match_id=matchqueue_entry.match_id,
                                    _external=True)
     if server:
         ret["ue4_connection_url"] = "%s:%s?player_id=%s?token=%s" % (server.public_ip,
@@ -59,7 +59,7 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
     return ret
 
 
-@bp.route('', endpoint='matchqueue')
+@bp.route('', endpoint='queue')
 class MatchQueueAPI(MethodView):
 
     no_jwt_check = ["GET"]
@@ -177,7 +177,7 @@ class MatchQueueAPI(MethodView):
         return ret
 
 
-@bp.route('/<int:player_id>', endpoint='matchqueue_player')
+@bp.route('/<int:player_id>', endpoint='player')
 class MatchQueueEntryAPI(MethodView):
 
     no_jwt_check = ["GET"]
@@ -234,4 +234,4 @@ class MatchQueueEntryAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    return {"matchqueue": url_for("matchqueue", _external=True)}
+    return {"matchqueue": url_for("matchqueue.queue", _external=True)}

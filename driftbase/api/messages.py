@@ -18,7 +18,7 @@ from flask import g, url_for, request, stream_with_context, Response
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
@@ -128,7 +128,7 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
                   message="You can only read from an exchange that belongs to you!")
 
 
-@bp.route('/<string:exchange>/<int:exchange_id>', endpoint='messages_exchange')
+@bp.route('/<string:exchange>/<int:exchange_id>', endpoint='exchange')
 class MessagesExchangeAPI(MethodView):
 
     no_jwt_check = ["GET"]
@@ -196,7 +196,7 @@ class MessagesExchangeAPI(MethodView):
             return messages
 
 
-@bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='messages_queue')
+@bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='queue')
 class MessagesQueueAPI(MethodView):
 
     @simple_schema_request({
@@ -291,6 +291,6 @@ def endpoint_info(*args):
     ret = {}
     ret["my_messages"] = None
     if current_user:
-        ret["my_messages"] = url_for("messages_exchange", exchange="players",
+        ret["my_messages"] = url_for("messages.exchange", exchange="players",
                                      exchange_id=current_user["player_id"], _external=True)
     return ret

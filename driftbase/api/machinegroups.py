@@ -10,7 +10,7 @@ from flask import request, url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -20,7 +20,7 @@ from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("machinegroups", "machinegroups", url_prefix="/machinegroups", description="Battleserver machine instance groups")
+bp = Blueprint("machinegroups", __name__, url_prefix="/machinegroups", description="Battleserver machine instance groups")
 endpoints = Endpoints()
 
 
@@ -29,7 +29,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-@bp.route('/', endpoint='machinegroups')
+@bp.route('/', endpoint='list')
 class MachineGroupsAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
@@ -48,7 +48,7 @@ class MachineGroupsAPI(MethodView):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("machinegroups",
+            record["url"] = url_for("machinegroups.entry",
                                     machinegroup_id=row.machinegroup_id, _external=True)
             ret.append(record)
 
@@ -84,7 +84,7 @@ class MachineGroupsAPI(MethodView):
                 }, http_client.CREATED, response_header
 
 
-@bp.route('/<int:machinegroup_id>', endpoint='machinegroup')
+@bp.route('/<int:machinegroup_id>', endpoint='entry')
 class MachineGroupAPI(MethodView):
     """
     Information about specific machines
@@ -130,6 +130,6 @@ class MachineGroupAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     ret = {
-        "machinegroups": url_for("machinegroups", _external=True),
+        "machinegroups": url_for("machinegroups.list", _external=True),
     }
     return ret

@@ -8,7 +8,7 @@ from flask import make_response, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint, abort
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -47,7 +47,7 @@ class UserIdentitiesPostSchema(ma.Schema):
         strict = True
         ordered = True
     link_with_user_id = ma.fields.Integer(description="User ID to link the current player with")
-    link_with_user_jti = ma.fields.Integer(description="User JTI to link the current player with")
+    link_with_user_jti = ma.fields.Str(description="User JTI to link the current player with")
 
 
 def drift_init_extension(app, api, **kwargs):
@@ -88,7 +88,7 @@ class UserIdentitiesAPI(MethodView):
         for r in rows:
             d = {
                 "player_id": r[1].player_id,
-                "player_url": url_for("player", player_id=r[1].player_id, _external=True),
+                "player_url": url_for("players.entry", player_id=r[1].player_id, _external=True),
                 "player_name": r[1].player_name,
                 "identity_name": r[0].name,
             }

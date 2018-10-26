@@ -9,7 +9,7 @@ from flask import request, g, url_for
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint, abort
+from flask_rest_api import Blueprint, abort
 
 from drift.utils import json_response
 from drift.core.extensions.jwt import current_user
@@ -20,7 +20,7 @@ from driftbase.players import can_edit_player
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("journal", "Player Journal", url_prefix='/players')
+bp = Blueprint("player_journal", __name__, url_prefix='/players')
 
 
 @bp.route("/<int:player_id>/journal", endpoint="journal")

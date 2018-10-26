@@ -9,7 +9,7 @@ from flask import url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 from driftbase.models.db import CorePlayer, Counter, CounterEntry
@@ -17,7 +17,7 @@ from driftbase.utils import get_all_counters, get_counter
 from driftbase.players import get_playergroup_ids
 
 log = logging.getLogger(__name__)
-bp = Blueprint("counters", "counters", url_prefix="/counters", description="Counters")
+bp = Blueprint("counters", __name__, url_prefix="/counters", description="Counters")
 endpoints = Endpoints()
 
 
@@ -29,7 +29,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-@bp.route('/', endpoint='counters')
+@bp.route('/', endpoint='list')
 class CountersApi(MethodView):
 
     get_args = reqparse.RequestParser()
@@ -52,7 +52,7 @@ class CountersApi(MethodView):
         return ret, http_client.OK, {'Cache-Control': "max_age=60"}
 
 
-@bp.route('/<int:counter_id>', endpoint='counter')
+@bp.route('/<int:counter_id>', endpoint='entry')
 class CounterApi(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("num", type=int, default=NUM_RESULTS)
@@ -143,7 +143,7 @@ class CounterApi(MethodView):
                 "counter_id": counter_id,
                 "player_id": player_id,
                 "player_name": row[1].player_name,
-                "player_url": url_for("player", player_id=player_id, _external=True),
+                "player_url": url_for("players.entry", player_id=player_id, _external=True),
                 "counter_url": url_for("player_counter",
                                        player_id=player_id,
                                        counter_id=row[0].counter_id,
@@ -162,5 +162,5 @@ class CounterApi(MethodView):
 @endpoints.register
 def endpoint_info(current_user):
     ret = {}
-    ret["counters"] = url_for("counters", _external=True)
+    ret["counters"] = url_for("counters.list", _external=True)
     return ret

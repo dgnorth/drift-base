@@ -6,13 +6,13 @@ from flask import g, url_for
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 log = logging.getLogger(__file__)
 
 
-bp = Blueprint('staticdata', 'Static Data', url_prefix='/staticdata', description="Static Data Management")
+bp = Blueprint('staticdata', __name__, url_prefix='/staticdata', description="Static Data Management")
 endpoints = Endpoints()
 
 
@@ -41,7 +41,7 @@ def get_static_data_ids():
         return {}
 
 
-@bp.route('', endpoint='staticdata')
+@bp.route('', endpoint='list')
 class StaticDataAPI(MethodView):
 
     no_jwt_check = ['GET']
@@ -125,5 +125,5 @@ class StaticDataAPI(MethodView):
 @endpoints.register
 def endpoint_info(current_users):
     return {
-        "static_data": url_for("staticdata", _external=True),
+        "static_data": url_for("staticdata.list", _external=True),
     }

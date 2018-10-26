@@ -7,7 +7,7 @@ from flask import url_for, g, request
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint, abort
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user
@@ -17,7 +17,7 @@ from driftbase.players import get_playergroup, set_playergroup
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("playergroups", "Player Groups", url_prefix='/players')
+bp = Blueprint("playergroups", __name__, url_prefix='/players')
 
 
 @bp.route("/<int:player_id>/player-groups/<string:group_name>", endpoint="group")
@@ -88,7 +88,7 @@ class PlayerGroupsAPI(MethodView):
         player_group = {
             player_row.player_id: {
                 "player_id": player_row.player_id,
-                "player_url": url_for("player",
+                "player_url": url_for("players.entry",
                                       player_id=player_row.player_id,
                                       _external=True),
                 "player_name": player_row.player_name,

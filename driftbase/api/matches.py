@@ -7,7 +7,7 @@ from flask import request, url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player
@@ -21,7 +21,7 @@ from driftbase.matchqueue import process_match_queue
 log = logging.getLogger(__name__)
 
 
-bp = Blueprint("matches", "matches", url_prefix="/matches", description="Realtime matches")
+bp = Blueprint("matches", __name__, url_prefix="/matches", description="Realtime matches")
 endpoints = Endpoints()
 
 
@@ -34,7 +34,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@bp.route('/active', endpoint='matches_active')
+@bp.route('/active', endpoint='active')
 class ActiveMatchesAPI(MethodView):
     """UE4 matches available for matchmaking
     """
@@ -102,13 +102,13 @@ class ActiveMatchesAPI(MethodView):
             record["realm"] = machine.realm
             record["placement"] = machine.placement
             record["ref"] = server.ref
-            record["match_url"] = url_for("match",
+            record["match_url"] = url_for("matches.entry",
                                           match_id=match.match_id,
                                           _external=True)
-            record["server_url"] = url_for("server",
+            record["server_url"] = url_for("servers.entry",
                                            server_id=server.server_id,
                                            _external=True)
-            record["machine_url"] = url_for("machine",
+            record["machine_url"] = url_for("machines.entry",
                                             machine_id=server.machine_id,
                                             _external=True)
             conn_url = "%s:%s?player_id=%s?token=%s"
@@ -137,7 +137,7 @@ class ActiveMatchesAPI(MethodView):
         return ret
 
 
-@bp.route('', endpoint='matches')
+@bp.route('', endpoint='list')
 class MatchesAPI(MethodView):
     """UE4 match
     """
@@ -163,7 +163,7 @@ class MatchesAPI(MethodView):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("match", match_id=row.match_id, _external=True)
+            record["url"] = url_for("matches.entry", match_id=row.match_id, _external=True)
             ret.append(record)
         return ret
 
@@ -216,8 +216,8 @@ class MatchesAPI(MethodView):
                 g.db.add(team)
             g.db.commit()
 
-        resource_uri = url_for("match", match_id=match_id, _external=True)
-        players_resource_uri = url_for("match_players", match_id=match_id, _external=True)
+        resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
+        players_resource_uri = url_for("matches.players", match_id=match_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
@@ -237,7 +237,7 @@ class MatchesAPI(MethodView):
                 }, http_client.CREATED, response_header
 
 
-@bp.route('/<int:match_id>', endpoint='match')
+@bp.route('/<int:match_id>', endpoint='entry')
 class MatchAPI(MethodView):
     """
     Information about specific matches
@@ -254,7 +254,7 @@ class MatchAPI(MethodView):
             abort(http_client.NOT_FOUND)
 
         ret = match.as_dict()
-        ret["url"] = url_for("match", match_id=match_id, _external=True)
+        ret["url"] = url_for("matches.entry", match_id=match_id, _external=True)
 
         server = g.db.query(Server).get(match.server_id)
         ret["server"] = None
@@ -262,31 +262,31 @@ class MatchAPI(MethodView):
         ret["machine_url"] = None
         if server:
             ret["server"] = server.as_dict()
-            ret["server_url"] = url_for("server", server_id=server.server_id, _external=True)
+            ret["server_url"] = url_for("servers.entry", server_id=server.server_id, _external=True)
 
             machine = g.db.query(Machine).get(server.machine_id)
             ret["machine"] = None
             if server:
-                ret["machine_url"] = url_for("machine",
+                ret["machine_url"] = url_for("machines.entry",
                                              machine_id=machine.machine_id, _external=True)
 
         teams = []
         rows = g.db.query(MatchTeam).filter(MatchTeam.match_id == match_id).all()
         for r in rows:
             team = r.as_dict()
-            team["url"] = url_for("match_team", match_id=match_id, team_id=r.team_id,
+            team["url"] = url_for("matches.team", match_id=match_id, team_id=r.team_id,
                                   _external=True)
             teams.append(team)
         ret["teams"] = teams
 
-        ret["matchplayers_url"] = url_for("match_players", match_id=match_id, _external=True)
+        ret["matchplayers_url"] = url_for("matches.players", match_id=match_id, _external=True)
         ret["teams_url"] = url_for("match_teams", match_id=match_id, _external=True)
 
         players = []
         rows = g.db.query(MatchPlayer).filter(MatchPlayer.match_id == match_id).all()
         for r in rows:
             player = r.as_dict()
-            player["matchplayer_url"] = url_for("match_player", match_id=match_id,
+            player["matchplayer_url"] = url_for("matches.player", match_id=match_id,
                                                 player_id=r.player_id, _external=True)
             player["player_url"] = url_player(r.player_id)
             players.append(player)
@@ -338,7 +338,7 @@ class MatchAPI(MethodView):
             setattr(match, arg, args[arg])
         g.db.commit()
 
-        resource_uri = url_for("match", match_id=match_id, _external=True)
+        resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
@@ -351,7 +351,7 @@ class MatchAPI(MethodView):
         return ret, http_client.OK, response_header
 
 
-@bp.route('/<int:match_id>/teams', endpoint='match_teams')
+@bp.route('/<int:match_id>/teams', endpoint='teams')
 class MatchTeamsAPI(MethodView):
     """
     All teams in a match
@@ -365,7 +365,7 @@ class MatchTeamsAPI(MethodView):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("match_team",
+            record["url"] = url_for("matches.team",
                                     match_id=match_id,
                                     team_id=row.team_id,
                                     _external=True)
@@ -388,7 +388,7 @@ class MatchTeamsAPI(MethodView):
         g.db.add(team)
         g.db.commit()
         team_id = team.team_id
-        resource_uri = url_for("match_team", match_id=match_id, team_id=team_id, _external=True)
+        resource_uri = url_for("matches.team", match_id=match_id, team_id=team_id, _external=True)
         response_header = {"Location": resource_uri}
 
         log.info("Created team %s for match %s", team_id, match_id)
@@ -402,7 +402,7 @@ class MatchTeamsAPI(MethodView):
                 }, http_client.CREATED, response_header
 
 
-@bp.route('/<int:match_id>/teams/<int:team_id>', endpoint='match_team')
+@bp.route('/<int:match_id>/teams/<int:team_id>', endpoint='team')
 class MatchTeamAPI(MethodView):
     """
     A specific team in a match
@@ -417,7 +417,7 @@ class MatchTeamAPI(MethodView):
             abort(http_client.NOT_FOUND)
 
         ret = row.as_dict()
-        ret["url"] = url_for("match_team", match_id=match_id, team_id=row.team_id, _external=True)
+        ret["url"] = url_for("matches.team", match_id=match_id, team_id=row.team_id, _external=True)
 
         query = g.db.query(MatchPlayer)
         query = query.filter(MatchPlayer.match_id == match_id,
@@ -426,7 +426,7 @@ class MatchTeamAPI(MethodView):
         players = []
         for r in rows:
             player = r.as_dict()
-            player["matchplayer_url"] = url_for("match_player",
+            player["matchplayer_url"] = url_for("matches.player",
                                                 match_id=match_id,
                                                 player_id=r.player_id,
                                                 _external=True)
@@ -453,7 +453,7 @@ class MatchTeamAPI(MethodView):
         return ret
 
 
-@bp.route('/<int:match_id>/players', endpoint='match_players')
+@bp.route('/<int:match_id>/players', endpoint='players')
 class MatchPlayersAPI(MethodView):
     """
     Players in a specific match. The UE4 server will post to this endpoint
@@ -469,7 +469,7 @@ class MatchPlayersAPI(MethodView):
         ret = []
         for r in rows:
             player = r.as_dict()
-            player["matchplayer_url"] = url_for("match_player",
+            player["matchplayer_url"] = url_for("matches.player",
                                                 match_id=match_id,
                                                 player_id=r.player_id,
                                                 _external=True)
@@ -538,7 +538,7 @@ class MatchPlayersAPI(MethodView):
         g.db.commit()
 
         # prepare the response
-        resource_uri = url_for("match_player",
+        resource_uri = url_for("matches.player",
                                match_id=match_id,
                                player_id=player_id,
                                _external=True)
@@ -555,7 +555,7 @@ class MatchPlayersAPI(MethodView):
                 }, http_client.CREATED, response_header
 
 
-@bp.route('/<int:match_id>/players/<int:player_id>', endpoint='match_player')
+@bp.route('/<int:match_id>/players/<int:player_id>', endpoint='player')
 class MatchPlayerAPI(MethodView):
     """
     A specific player in a specific match
@@ -573,7 +573,7 @@ class MatchPlayerAPI(MethodView):
         ret = player.as_dict()
         ret["team_url"] = None
         if player.team_id:
-            ret["team_url"] = url_for("match_team", match_id=match_id,
+            ret["team_url"] = url_for("matches.team", match_id=match_id,
                                       team_id=player.team_id, _external=True)
         ret["player_url"] = url_player(player_id)
         return ret
@@ -624,7 +624,7 @@ class MatchPlayerAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     ret = {
-        "active_matches": url_for("matches_active", _external=True),
-        "matches": url_for("matches", _external=True),
+        "active_matches": url_for("matches.active", _external=True),
+        "matches": url_for("matches.list", _external=True),
     }
     return ret

@@ -6,7 +6,7 @@ from flask import request, url_for
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
@@ -14,7 +14,7 @@ from drift.core.extensions.jwt import current_user
 from driftbase.utils import verify_log_request
 
 log = logging.getLogger(__name__)
-bp = Blueprint("events", "events", url_prefix="/events", description="Client Logs")
+bp = Blueprint("events", __name__, url_prefix="/events", description="Client Logs")
 endpoints = Endpoints()
 
 clientlogger = logging.getLogger("clientlog")
@@ -26,7 +26,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-@bp.route('', endpoint='events')
+@bp.route('', endpoint='list')
 class EventsAPI(MethodView):
 
     def post(self):
@@ -68,5 +68,5 @@ class EventsAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     return {
-        "eventlogs": url_for("events", _external=True),
+        "eventlogs": url_for("events.list", _external=True),
     }

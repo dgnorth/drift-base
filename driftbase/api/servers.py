@@ -8,7 +8,7 @@ from flask import request, url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -19,7 +19,7 @@ from driftbase.models.db import Machine, Server, Match, ServerDaemonCommand
 log = logging.getLogger(__name__)
 
 
-bp = Blueprint("servers", "servers", url_prefix="/servers", description="Battleserver processes")
+bp = Blueprint("servers", __name__, url_prefix="/servers", description="Battleserver processes")
 endpoints = Endpoints()
 
 
@@ -35,7 +35,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@bp.route('', endpoint='servers')
+@bp.route('', endpoint='list')
 class ServersAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("machine_id", type=int, required=False)
@@ -59,7 +59,7 @@ class ServersAPI(MethodView):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("server", server_id=row.server_id, _external=True)
+            record["url"] = url_for("servers.entry", server_id=row.server_id, _external=True)
             ret.append(record)
         return ret
 
@@ -157,10 +157,10 @@ class ServersAPI(MethodView):
 
         server_id = server.server_id
 
-        resource_url = url_for("server", server_id=server_id, _external=True)
-        machine_url = url_for("machine", machine_id=machine_id, _external=True)
-        heartbeat_url = url_for("server_heartbeat", server_id=server_id, _external=True)
-        commands_url = url_for("server_commands", server_id=server_id, _external=True)
+        resource_url = url_for("servers.entry", server_id=server_id, _external=True)
+        machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
+        heartbeat_url = url_for("servers.heartbeat", server_id=server_id, _external=True)
+        commands_url = url_for("servers.commands", server_id=server_id, _external=True)
         response_header = {
             "Location": resource_url,
         }
@@ -175,7 +175,7 @@ class ServersAPI(MethodView):
                 }, http_client.CREATED, response_header
 
 
-@bp.route('/<int:server_id>', endpoint='server')
+@bp.route('/<int:server_id>', endpoint='entry')
 class ServerAPI(MethodView):
     """
     Interface to battle servers instances. A battleserver instance is
@@ -199,14 +199,14 @@ class ServerAPI(MethodView):
         machine_id = server.machine_id
         record = server.as_dict()
         record["url"] = url_for("servers", server_id=server_id, _external=True)
-        record["heartbeat_url"] = url_for("server_heartbeat", server_id=server_id, _external=True)
-        record["commands_url"] = url_for("server_commands", server_id=server_id, _external=True)
+        record["heartbeat_url"] = url_for("servers.heartbeat", server_id=server_id, _external=True)
+        record["commands_url"] = url_for("servers.commands", server_id=server_id, _external=True)
 
         record["machine_url"] = None
         if machine_id:
             machine = g.db.query(Machine).get(machine_id)
             if machine:
-                record["machine_url"] = url_for("machine", machine_id=machine_id,
+                record["machine_url"] = url_for("machines.entry", machine_id=machine_id,
                                                 _external=True)
 
         matches = []
@@ -214,7 +214,7 @@ class ServerAPI(MethodView):
         for row in rows:
             match_id = row.match_id
             match = {"match_id": match_id,
-                     "url": url_for("match", match_id=match_id, _external=True),
+                     "url": url_for("matches.entry", match_id=match_id, _external=True),
                      "num_players": row.num_players,
                      }
             matches.append(match)
@@ -228,7 +228,7 @@ class ServerAPI(MethodView):
                        "command": row.command,
                        "arguments": row.arguments,
                        "create_date": row.create_date,
-                       "url": url_for("server_command", server_id=server_id,
+                       "url": url_for("servers.command", server_id=server_id,
                                       command_id=row.command_id, _external=True)
                        }
             commands.append(command)
@@ -280,18 +280,18 @@ class ServerAPI(MethodView):
         machine_id = server.machine_id
         machine_url = None
         if machine_id:
-            machine_url = url_for("machine", machine_id=machine_id, _external=True)
+            machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
 
         return {"server_id": server_id,
-                "url": url_for("server", server_id=server_id, _external=True),
+                "url": url_for("servers.entry", server_id=server_id, _external=True),
                 "machine_id": machine_id,
                 "machine_url": machine_url,
-                "heartbeat_url": url_for("server_heartbeat", server_id=server_id, _external=True),
+                "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
                 "next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT,
                 }, http_client.OK, None
 
 
-@bp.route('/<int:server_id>/heartbeat', endpoint='server_heartbeat')
+@bp.route('/<int:server_id>/heartbeat', endpoint='heartbeat')
 class ServerHeartbeatAPI(MethodView):
     """
     Thin heartbeat API
@@ -341,7 +341,7 @@ class ServerCommandsAPI(MethodView):
         g.db.add(command)
         g.db.commit()
 
-        resource_url = url_for("server_command", server_id=server_id,
+        resource_url = url_for("servers.command", server_id=server_id,
                                command_id=command.command_id, _external=True)
         return {"command_id": command.command_id,
                 "url": resource_url,
@@ -356,7 +356,7 @@ class ServerCommandsAPI(MethodView):
         ret = []
         for r in rows:
             command = r.as_dict()
-            command["url"] = url_for("server_command",
+            command["url"] = url_for("servers.command",
                                      server_id=server_id,
                                      command_id=r.command_id,
                                      _external=True)
@@ -399,7 +399,7 @@ class ServerCommandAPI(MethodView):
         g.db.commit()
 
         ret = row.as_dict()
-        ret["url"] = url_for("server_command", server_id=server_id, command_id=row.command_id,
+        ret["url"] = url_for("servers.command", server_id=server_id, command_id=row.command_id,
                              _external=True)
         return ret
 
@@ -407,12 +407,12 @@ class ServerCommandAPI(MethodView):
     def get(self, server_id, command_id):
         row = g.db.query(ServerDaemonCommand).get(command_id)
         ret = row.as_dict()
-        ret["url"] = url_for("server_command", server_id=server_id, command_id=row.command_id,
+        ret["url"] = url_for("servers.command", server_id=server_id, command_id=row.command_id,
                              _external=True)
         return ret
 
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"servers": url_for("servers", _external=True), }
+    ret = {"servers": url_for("servers.list", _external=True), }
     return ret
