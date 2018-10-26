@@ -2,7 +2,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, g, abort
+from flask import request, g, abort, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -35,7 +35,7 @@ class Summary(MethodView):
         for row in summary:
             ret[row.name] = row.value
 
-        return ret
+        return jsonify(ret)
 
     # TODO: schema
     def put(self, player_id):
@@ -91,7 +91,7 @@ class Summary(MethodView):
                  player_id, request_txt, new_summary_txt)
 
         ret = []
-        return ret
+        return jsonify(ret)
 
     # TODO: schema
     def patch(self, player_id):
@@ -148,4 +148,4 @@ class Summary(MethodView):
         log.info("Updating summary. Request is '%s'. Old summary is '%s'. New summary is '%s'",
                  request_txt, old_summary_txt, new_summary_txt)
 
-        return [r.as_dict() for r in new_summary]
+        return jsonify([r.as_dict() for r in new_summary])

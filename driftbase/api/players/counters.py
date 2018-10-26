@@ -177,13 +177,13 @@ class CountersApi(MethodView):
                 "first_update": row.create_date,
                 "last_update": row.modify_date,
                 "num_updates": row.num_updates,
-                "url": url_for("player_counter", player_id=player_id,
+                "url": url_for("player_counters.entry", player_id=player_id,
                                counter_id=counter_id, _external=True),
                 "name": counter["name"],
                 "periods": {}
             }
             for period in COUNTER_PERIODS + ["all"]:
-                entry["periods"][period] = url_for("player_counter_period", player_id=player_id,
+                entry["periods"][period] = url_for("player_counters.period", player_id=player_id,
                                                    counter_id=counter_id, period=period,
                                                    _external=True)
             total = g.db.query(CounterEntry.value).filter(CounterEntry.player_id == player_id,
@@ -354,7 +354,7 @@ class CounterApi(MethodView):
             "periods": {}
         }
         for period in COUNTER_PERIODS + ["all"]:
-            ret["periods"][period] = url_for("player_counter_period", player_id=player_id,
+            ret["periods"][period] = url_for("player_counters.period", player_id=player_id,
                                              counter_id=counter_id, period=period, _external=True)
 
         return jsonify(ret)

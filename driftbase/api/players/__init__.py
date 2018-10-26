@@ -1,14 +1,12 @@
 import logging
 from six.moves import http_client
 
-from flask import url_for, g, request
-from flask.views import MethodView
+from flask import url_for, g, request, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
 from flask_rest_api import Blueprint
 import marshmallow as ma
-from flask_restplus import reqparse
 from flask_rest_api import Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
 from marshmallow import pre_dump, validates, ValidationError
@@ -49,7 +47,7 @@ class PlayerSchema(ModelSchema):
     def populate_urls(self, obj):
         obj.player_url = url_for('players.entry', player_id=obj.player_id, _external=True)
         obj.gamestates_url = url_for('player_gamestate.list', player_id=obj.player_id, _external=True)
-        obj.journal_url = url_for('player_journal.journal', player_id=obj.player_id, _external=True)
+        obj.journal_url = url_for('player_journal.list', player_id=obj.player_id, _external=True)
         obj.user_url = url_for('users.entry', user_id=obj.user_id, _external=True)
         obj.messagequeue_url = url_for('messages.exchange', exchange='players', exchange_id=obj.player_id, _external=True)
         obj.messages_url = url_for('messages.exchange', exchange='players', exchange_id=obj.player_id, _external=True)

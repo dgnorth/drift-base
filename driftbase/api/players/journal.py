@@ -5,7 +5,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, g, url_for
+from flask import request, g, url_for, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 bp = Blueprint("player_journal", __name__, url_prefix='/players')
 
 
-@bp.route("/<int:player_id>/journal", endpoint="journal")
+@bp.route("/<int:player_id>/journal", endpoint="list")
 class JournalAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("rows", type=int)
@@ -49,7 +49,7 @@ class JournalAPI(MethodView):
         for entry in query:
             e = entry.as_dict()
             ret.append(e)
-        return ret
+        return jsonify(ret)
 
     def post(self, player_id):
         """
@@ -125,11 +125,11 @@ class JournalAPI(MethodView):
                 abort(http_client.BAD_REQUEST, description=str(e))
 
             ret.append({"journal_id": journal["journal_id"],
-                        "url": url_for("player_journal_entry",
+                        "url": url_for("player_journal.entry",
                                        player_id=player_id,
                                        journal_id=journal["journal_id"])
                         })
-        return ret, http_client.CREATED
+        return jsonify(ret), http_client.CREATED
 
 
 def get_journal_entry(player_id, journal_id):
@@ -147,7 +147,7 @@ def get_player_gamestate(player_id):
     return gamestate
 
 
-@bp.route("/<int:player_id>/journal/<int:journal_id>", endpoint="player_journal_entry")
+@bp.route("/<int:player_id>/journal/<int:journal_id>", endpoint="entry")
 class JournalEntryAPI(MethodView):
     def get(self, player_id, journal_id):
         """
@@ -159,4 +159,4 @@ class JournalEntryAPI(MethodView):
         if not entry.first():
             return json_response("Journal entry not found", http_client.NOT_FOUND)
         ret = entry.first().as_dict()
-        return ret
+        return jsonify(ret)

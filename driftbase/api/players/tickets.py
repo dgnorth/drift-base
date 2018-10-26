@@ -3,7 +3,7 @@ import datetime
 
 from six.moves import http_client
 
-from flask import url_for, request, g
+from flask import url_for, request, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -26,7 +26,7 @@ def add_ticket_links(ticket):
     ret["issuer_url"] = None
     if ticket.issuer_id:
         ret["issuer_url"] = url_for("players.entry", player_id=ticket.issuer_id, _external=True)
-    ret["url"] = url_for("player_ticket", player_id=ticket.player_id,
+    ret["url"] = url_for("player_tickets.entry", player_id=ticket.player_id,
                          ticket_id=ticket.ticket_id, _external=True)
     return ret
 
@@ -42,7 +42,7 @@ class TicketsEndpoint(MethodView):
         tickets = g.db.query(Ticket)\
             .filter(Ticket.player_id == player_id, Ticket.used_date is None)
         ret = [add_ticket_links(t) for t in tickets]
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -71,7 +71,7 @@ class TicketsEndpoint(MethodView):
             "Location": ticket_url,
         }
 
-        return ret, http_client.CREATED, response_header
+        return jsonify(ret), http_client.CREATED, response_header
 
 
 def get_ticket(player_id, ticket_id):
@@ -96,7 +96,7 @@ class TicketEndpoint(MethodView):
         ticket = get_ticket(player_id, ticket_id)
         if not ticket:
             abort(404, message="Ticket was not found")
-        return add_ticket_links(ticket)
+        return jsonify(add_ticket_links(ticket))
 
     @simple_schema_request({"journal_id": {"type": "number", }})
     def patch(self, player_id, ticket_id):
@@ -132,4 +132,4 @@ class TicketEndpoint(MethodView):
 
         log_event(player_id, "event.player.ticketclaimed", {"ticket_id": ticket_id})
 
-        return add_ticket_links(ticket)
+        return jsonify(add_ticket_links(ticket))
