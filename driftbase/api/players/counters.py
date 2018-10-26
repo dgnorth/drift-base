@@ -12,7 +12,7 @@ from six.moves import http_client
 
 from sqlalchemy.exc import IntegrityError
 
-from flask import request, g, url_for
+from flask import request, g, url_for, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
@@ -329,7 +329,7 @@ class CountersApi(MethodView):
         g.db.commit()
 
         log.info("patch(%s) done in %.2fs!", player_id, time.time() - start_time)
-        return result
+        return jsonify(result)
 
 
 @bp.route("/<int:player_id>/counters/<int:counter_id>", endpoint="entry")

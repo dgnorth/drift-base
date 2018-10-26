@@ -5,11 +5,11 @@ import time
 import six
 from six.moves import http_client
 
-from flask import url_for, g
+from flask import url_for, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Blueprint
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from driftbase.models.db import CorePlayer, Counter, CounterEntry
@@ -46,10 +46,10 @@ class CountersApi(MethodView):
                 "name": s.name,
                 "label": s.label,
                 "counter_id": s.counter_id,
-                "url": url_for("counter", counter_id=s.counter_id, _external=True)
+                "url": url_for("counters.entry", counter_id=s.counter_id, _external=True)
             })
 
-        return ret, http_client.OK, {'Cache-Control': "max_age=60"}
+        return jsonify(ret), http_client.OK, {'Cache-Control': "max_age=60"}
 
 
 @bp.route('/<int:counter_id>', endpoint='entry')
@@ -127,7 +127,7 @@ class CounterApi(MethodView):
                 entry = {
                     "name": counter_name,
                     "counter_id": this_counter_id,
-                    "counter_url": url_for("player_counter",
+                    "counter_url": url_for("player_counters.entry",
                                            player_id=this_player_id,
                                            counter_id=this_counter_id,
                                            _external=True),
@@ -144,7 +144,7 @@ class CounterApi(MethodView):
                 "player_id": player_id,
                 "player_name": row[1].player_name,
                 "player_url": url_for("players.entry", player_id=player_id, _external=True),
-                "counter_url": url_for("player_counter",
+                "counter_url": url_for("player_counters.entry",
                                        player_id=player_id,
                                        counter_id=row[0].counter_id,
                                        _external=True),
@@ -156,7 +156,7 @@ class CounterApi(MethodView):
 
         log.info("Returning counters in %.2fsec", time.time() - start_time)
 
-        return ret, http_client.OK, {'Cache-Control': "max_age=60"}
+        return jsonify(ret), http_client.OK, {'Cache-Control': "max_age=60"}
 
 
 @endpoints.register
