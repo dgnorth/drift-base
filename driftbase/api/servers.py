@@ -198,7 +198,7 @@ class ServerAPI(MethodView):
 
         machine_id = server.machine_id
         record = server.as_dict()
-        record["url"] = url_for("servers", server_id=server_id, _external=True)
+        record["url"] = url_for("servers.entry", server_id=server_id, _external=True)
         record["heartbeat_url"] = url_for("servers.heartbeat", server_id=server_id, _external=True)
         record["commands_url"] = url_for("servers.commands", server_id=server_id, _external=True)
 
