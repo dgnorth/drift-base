@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 # Due to uneccessary or weird dependency in auth.util.fetch_url()
+drift = { git = 'https://github.com/dgnorth/drift.git', ref = 'feature/restplus'}
 driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
 gevent = "*"
 requests = "*"
@@ -12,9 +13,9 @@ requests = "*"
 greenlet = "*"
 flask-restplus = "*"
 flask-rest-api = "*"
-"c6a48b4" = {path = "./../drift", editable = true}
 marshmallow = "*"
 marshmallow-sqlalchemy = "*"
+flask-marshmallow = "*"
 
 [dev-packages]
 pytest = "*"
