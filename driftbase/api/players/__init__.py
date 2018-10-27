@@ -49,7 +49,7 @@ class PlayerSchema(ModelSchema):
         obj.gamestates_url = url_for('player_gamestate.list', player_id=obj.player_id, _external=True)
         obj.journal_url = url_for('player_journal.list', player_id=obj.player_id, _external=True)
         obj.user_url = url_for('users.entry', user_id=obj.user_id, _external=True)
-        obj.messagequeue_url = url_for('messages.exchange', exchange='players', exchange_id=obj.player_id, _external=True)
+        obj.messagequeue_url = url_for('messages.exchange', exchange='players', exchange_id=obj.player_id, _external=True) + '/{queue}'
         obj.messages_url = url_for('messages.exchange', exchange='players', exchange_id=obj.player_id, _external=True)
         obj.summary_url = url_for('player_summary.list', player_id=obj.player_id, _external=True)
         obj.countertotals_url = url_for('player_counters.totals', player_id=obj.player_id, _external=True)

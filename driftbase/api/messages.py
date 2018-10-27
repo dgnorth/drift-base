@@ -193,7 +193,7 @@ class MessagesExchangeAPI(MethodView):
             return Response(stream_with_context(streamer()), mimetype="application/json")
         else:
             messages = fetch_messages(exchange, exchange_id, min_message_number, rows)
-            return messages
+            return jsonify(messages)
 
 
 @bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='queue')
@@ -227,7 +227,7 @@ class MessagesQueueAPI(MethodView):
 
         ret = copy.copy(message)
         ret["url"] = url_for(
-            "message",
+            "messages.message",
             exchange=message['exchange'],
             exchange_id=message['exchange_id'],
             queue=message['queue'],
