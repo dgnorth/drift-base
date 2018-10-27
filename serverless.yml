@@ -5,6 +5,7 @@ service: drift-base-lambda
 plugins:
   - serverless-wsgi
   - serverless-python-requirements
+
 custom:
   wsgi:
     #app: api.app
@@ -16,10 +17,9 @@ custom:
   pythonRequirements:
     #dockerImage: drift-base:latest
     #usePipenv: true
-    dockerizePip: true
-    #dockerFile: Dockerfile
-    dockerImage: drift-base:latest
-
+    #dockerizePip: true
+    dockerFile: Dockerfile
+    #dockerImage: drift-base:latest
 
 
 provider:
