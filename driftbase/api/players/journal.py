@@ -38,7 +38,7 @@ class JournalAPI(Resource):
         query = g.db.query(PlayerJournal)
         query = query.filter(PlayerJournal.player_id == player_id)
         if not getattr(args, "include_deleted", False):
-            query = query.filter(PlayerJournal.deleted is False)
+            query = query.filter(PlayerJournal.deleted == False)
         query = query.order_by(-PlayerJournal.journal_id, -PlayerJournal.sequence_id)
         query = query.limit(args.rows or DEFAULT_ROWS)
 

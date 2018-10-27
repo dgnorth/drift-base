@@ -41,7 +41,7 @@ def process_match_queue(redis=None, db_session=None):
         queued_players = db_session.query(MatchQueuePlayer, Client) \
                                    .filter(Client.client_id == MatchQueuePlayer.client_id,
                                            MatchQueuePlayer.status == "waiting",
-                                           MatchQueuePlayer.match_id is None) \
+                                           MatchQueuePlayer.match_id == None) \
                                    .order_by(MatchQueuePlayer.id) \
                                    .all()
 
