@@ -41,10 +41,9 @@ class JournalAPI(MethodView):
         query = g.db.query(PlayerJournal)
         query = query.filter(PlayerJournal.player_id == player_id)
         if not getattr(args, "include_deleted", False):
-            query = query.filter(PlayerJournal.deleted is False)
+            query = query.filter(PlayerJournal.deleted == False)  # noqa: E711
         query = query.order_by(-PlayerJournal.journal_id, -PlayerJournal.sequence_id)
         query = query.limit(args.rows or DEFAULT_ROWS)
-
         ret = []
         for entry in query:
             e = entry.as_dict()
@@ -127,7 +126,8 @@ class JournalAPI(MethodView):
             ret.append({"journal_id": journal["journal_id"],
                         "url": url_for("player_journal.entry",
                                        player_id=player_id,
-                                       journal_id=journal["journal_id"])
+                                       journal_id=journal["journal_id"],
+                                       _external=True)
                         })
         return jsonify(ret), http_client.CREATED
 

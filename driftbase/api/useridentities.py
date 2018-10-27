@@ -3,21 +3,18 @@ import logging
 import six
 from six.moves import http_client
 
-from flask import url_for, g, request, jsonify
-from flask import make_response, jsonify
+from flask import url_for, g, jsonify
+from flask import make_response
 from flask.views import MethodView
 import marshmallow as ma
-from flask_restplus import reqparse
 from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
-from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user, get_cached_token
 
 from driftbase.models.db import User, CorePlayer, UserIdentity
 
 log = logging.getLogger(__name__)
-
 
 bp = Blueprint('useridentities', 'User Identities', url_prefix='/user-identities', description='User identity management')
 
@@ -58,7 +55,7 @@ def drift_init_extension(app, api, **kwargs):
 @bp.route('', endpoint="useridentities")
 class UserIdentitiesAPI(MethodView):
 
-    @bp.arguments(UserIdentitiesGetSchema)
+    @bp.arguments(UserIdentitiesGetSchema, location='query')
     @bp.response(UserIdentitiesGetResponseSchema(many=True))
     def get(self, args):
         """

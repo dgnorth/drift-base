@@ -101,7 +101,8 @@ class GameStateTests(DriftBaseTestCase):
         r = self.put(gamestate_url, data=data)
         self.assertEqual(r.json()["version"], 2)
         self.assertEqual(r.json()["journal_id"], journal_id)
-        self.assertGreater(r.json()["modify_date"], old_modify_date)
+        if r.json()["modify_date"] != old_modify_date:
+            self.assertGreater(r.json()["modify_date"], old_modify_date)
 
     def test_gamestate_nojournal(self):
         self.auth(username=uuid_string())

@@ -40,7 +40,7 @@ class TicketsEndpoint(MethodView):
         """
         can_edit_player(player_id)
         tickets = g.db.query(Ticket)\
-            .filter(Ticket.player_id == player_id, Ticket.used_date is None)
+            .filter(Ticket.player_id == player_id, Ticket.used_date == None)  # noqa: E711
         ret = [add_ticket_links(t) for t in tickets]
         return jsonify(ret)
 

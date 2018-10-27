@@ -47,7 +47,7 @@ class PlayerGroupsAPI(MethodView):
                     "A proper 'secret' or role 'service' is required to use arbitrary 'player_id'."
                 abort(http_client.FORBIDDEN, message=message)
 
-        return pg
+        return jsonify(pg)
 
     @simple_schema_request(
         {
