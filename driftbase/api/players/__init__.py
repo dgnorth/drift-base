@@ -1,12 +1,12 @@
 import logging
 from six.moves import http_client
 
-from flask import g
+from flask import g, url_for
 from flask.views import MethodView
 from flask_rest_api import Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema, field_for
 import marshmallow as ma
-from marshmallow import validates, ValidationError
+from marshmallow import validates, ValidationError, pre_dump
 from flask_marshmallow.fields import URLFor
 
 from drift.core.extensions.jwt import current_user
@@ -66,16 +66,12 @@ class PlayerSchema(ModelSchema):
         _external=True,
         description="Fully qualified URL of the players' user resource",
     )
-    messagequeue_url = URLFor(
-        'messages.exchange',
-        exchange='<players>',
-        exchange_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' message queue resource",
-    )  # ??? + '/{queue}'
+    messagequeue_url = ma.fields.Str(
+        description="Fully qualified URL of the players' message queue resource"
+    )
     messages_url = URLFor(
         'messages.exchange',
-        exchange='<players>',
+        exchange='players',
         exchange_id='<player_id>',
         _external=True,
         description="Fully qualified URL of the players' messages resource",
@@ -104,6 +100,19 @@ class PlayerSchema(ModelSchema):
         _external=True,
         description="Fully qualified URL of the players' tickets resource",
     )
+
+    @pre_dump
+    def populate_urls(self, obj):
+        obj.messagequeue_url = (
+            url_for(
+                'messages.exchange',
+                exchange='players',
+                exchange_id=obj.player_id,
+                _external=True,
+            )
+            + '/{queue}'
+        )
+        return obj
 
 
 class PlayersListArgs(ma.Schema):
@@ -237,7 +246,7 @@ class PlayerAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {"players": URLFor("players.list", _external=True)}
+    ret = {"players": url_for("players.list", _external=True)}
     ret["my_player"] = None
     ret["my_gamestates"] = None
     ret["my_player_groups"] = None
@@ -246,14 +255,14 @@ def endpoint_info(current_user):
         player_id = current_user["player_id"]
         ret["my_player"] = url_player(player_id)
 
-        ret["my_gamestates"] = URLFor(
+        ret["my_gamestates"] = url_for(
             "player_gamestate.list", player_id=player_id, _external=True
         )
         ret["my_gamestate"] = (
-            URLFor("player_gamestate.list", player_id=player_id, _external=True)
+            url_for("player_gamestate.list", player_id=player_id, _external=True)
             + "/{namespace}"
         )
-        url = URLFor(
+        url = url_for(
             "playergroups.group",
             player_id=current_user["player_id"],
             group_name='group_name',
@@ -261,7 +270,7 @@ def endpoint_info(current_user):
         )
         url = url.replace('group_name', '{group_name}')
         ret["my_player_groups"] = url
-        ret["my_summary"] = URLFor(
+        ret["my_summary"] = url_for(
             "player_summary.list", player_id=player_id, _external=True
         )
     return ret
