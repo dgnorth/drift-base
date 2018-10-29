@@ -42,6 +42,7 @@
         "drift.core.resources.redis",
         "drift.core.resources.apitarget",
         "drift.core.resources.jwtsession",
+        "drift.core.resources.sentry",
         "driftbase.resources.staticdata",
         "driftbase.resources.gameserver",
         "driftbase.auth"
