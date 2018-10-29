@@ -47,7 +47,10 @@ class ActiveMatchesAPI(MethodView):
     get_args.add_argument("rows", type=int, required=False)
 
     def get(self):
-        """This endpoint used by clients to fetch a list of matches available
+        """
+        Get active matches
+
+        This endpoint used by clients to fetch a list of matches available
         for joining
         """
         args = self.get_args.parse_args()

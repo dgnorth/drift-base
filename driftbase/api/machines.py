@@ -56,6 +56,9 @@ class MachinesAPI(MethodView):
     @requires_roles("service")
     #@namespace.expect(get_args)
     def get(self):
+        """
+        Get a list of machines
+        """
         args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
         query = g.db.query(Machine)
@@ -105,6 +108,9 @@ class MachinesAPI(MethodView):
         "group_name": {"type": "string", },
     }, required=["realm", "instance_name"])
     def post(self):
+        """
+        Register a machine
+        """
         args = request.json
         log.info("registering a battleserver machine for realm %s from ip %s",
                  args.get("realm"), args.get("public_ip"))
@@ -143,6 +149,8 @@ class MachineAPI(MethodView):
     @requires_roles("service")
     def get(self, machine_id):
         """
+        Find machine by ID
+
         Get information about a single battle server machine.
         Just dumps out the DB row as json
         """
@@ -171,6 +179,8 @@ class MachineAPI(MethodView):
     }, required=[])
     def put(self, machine_id):
         """
+        Update machine
+
         Heartbeat and update the machine reference
         """
         args = request.json

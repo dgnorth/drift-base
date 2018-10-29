@@ -37,6 +37,9 @@ class MachineGroupsAPI(MethodView):
 
     @requires_roles("service")
     def get(self):
+        """
+        Get a list of machine groups
+        """
         args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
         query = g.db.query(MachineGroup)
@@ -61,6 +64,9 @@ class MachineGroupsAPI(MethodView):
         "runconfig_id": {"type": "number", },
     }, required=["name"])
     def post(self):
+        """
+        Create machine group
+        """
         args = request.json
         log.info("creating a new machine group")
 
@@ -92,6 +98,8 @@ class MachineGroupAPI(MethodView):
     @requires_roles("service")
     def get(self, machinegroup_id):
         """
+        Find machine group by ID
+
         Get information about a single battle server machine.
         Just dumps out the DB row as json
         """
@@ -114,6 +122,9 @@ class MachineGroupAPI(MethodView):
         "runconfig_id": {"type": "number", },
     }, required=[])
     def patch(self, machinegroup_id):
+        """
+        Update machine group
+        """
         args = request.json
 
         machinegroup = g.db.query(MachineGroup).get(machinegroup_id)

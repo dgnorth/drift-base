@@ -100,7 +100,9 @@ class ClientsAPI(MethodView):
     @bp.response(ClientSchema(many=True))
     def get(self):
         """
-        Retrieves all active clients. If a client has not heartbeat
+        Retrieve all active clients.
+
+        If a client has not heartbeat
         for 5 minutes it is considered disconnected and is not returned by
         this endpoint
         """
@@ -135,7 +137,9 @@ class ClientsAPI(MethodView):
     @bp.response(ClientPostSchema, code=201)
     def post(self):
         """
-        Register a new connected client.
+        Register a client
+
+        Registers a newly connectd client and get a JWT with the new client_id back
         """
         now = utcnow()
 
@@ -264,6 +268,8 @@ class ClientAPI(MethodView):
     @bp.response(ClientSchema())
     def get(self, client_id):
         """
+        Find client by ID
+
         Get information about a single client. Just dumps out the DB row as json
         """
         client = get_client(client_id)
@@ -276,6 +282,8 @@ class ClientAPI(MethodView):
     @bp.response(ClientHeartbeatSchema())
     def put(self, client_id):
         """
+        Client heartbeat
+
         Heartbeat for client registration.
         """
         client = get_client(client_id)
@@ -311,6 +319,8 @@ class ClientAPI(MethodView):
 
     def delete(self, client_id):
         """
+        Deregister client
+
         Deregister an already registered client. Should return status 200 if successful.
         """
         client = get_client(client_id)
