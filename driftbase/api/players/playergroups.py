@@ -5,10 +5,11 @@ from six.moves import http_client
 
 from flask import url_for, g, request, jsonify
 from flask.views import MethodView
-import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Blueprint, abort
+from flask_rest_api import Blueprint, abort, utils
+import marshmallow as ma
 
+from drift.utils import Url
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user
 
@@ -17,10 +18,33 @@ from driftbase.players import get_playergroup, set_playergroup
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("playergroups", __name__, url_prefix='/players')
+bp = Blueprint("playergroups", __name__, url_prefix='/players/<int:player_id>/player-groups')
 
 
-@bp.route("/<int:player_id>/player-groups/<string:group_name>", endpoint="group")
+class PlayerGroupGetRequestSchema(ma.Schema):
+    secret = ma.fields.String(description="Shared secret for this group")
+
+
+class PlayerGroupPutRequestSchema(ma.Schema):
+    identity_names = ma.fields.List(ma.fields.String())
+    player_ids = ma.fields.List(ma.fields.Integer())
+
+
+class PlayerGroupPlayerSchema(ma.Schema):
+    player_id = ma.fields.Integer()
+    player_url = Url('players.entry', player_id='<player_id>', doc='Player resource')
+    player_name = ma.fields.String()
+    identity_name = ma.fields.String()
+
+
+class PlayerGroupResponseSchema(ma.Schema):
+    group_name = ma.fields.String()
+    player_id = ma.fields.Integer()
+    players = ma.fields.List(ma.fields.Nested(PlayerGroupPlayerSchema()))
+    secret = ma.fields.String()
+
+
+@bp.route("/<string:group_name>", endpoint="group")
 class PlayerGroupsAPI(MethodView):
     """
     Manage groups of players. Can be used as friends list and such.
@@ -28,14 +52,14 @@ class PlayerGroupsAPI(MethodView):
     a new group each time it connects (or initiates a session).
     """
 
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("secret", type=str)
-
-    def get(self, player_id, group_name):
+    @bp.arguments(PlayerGroupGetRequestSchema, location='query')
+    @bp.response(PlayerGroupResponseSchema)
+    def get(self, args, player_id, group_name):
         """
+        Get group for player
+
         Returns user identities group 'group_name' associated with 'player_id'.
         """
-        args = self.get_args.parse_args()
         my_player_id = current_user['player_id']
         pg = get_playergroup(group_name, player_id)
 
@@ -46,21 +70,17 @@ class PlayerGroupsAPI(MethodView):
                 message = "'player_id' does not match current user. " \
                     "A proper 'secret' or role 'service' is required to use arbitrary 'player_id'."
                 abort(http_client.FORBIDDEN, message=message)
+        return pg
 
-        return jsonify(pg)
+    @bp.arguments(PlayerGroupPutRequestSchema, location='json')
+    @bp.response(PlayerGroupResponseSchema)
+    def put(self, args, player_id, group_name):
+        """
+        Create a player group
 
-    @simple_schema_request(
-        {
-            "identity_names": {"type": "array", "items": {"type": "string"}},
-            "player_ids": {"type": "array", "items": {"type": "number"}},
-        },
-        required=[],
-    )
-    def put(self, player_id, group_name):
+        Creates a new player group for the player. Can only be called by the 
+        player or from a service.
         """
-        Create a player group.
-        """
-        args = request.json
         if not args:
             abort(http_client.BAD_REQUEST, message="JSON body missing.")
 
@@ -109,5 +129,5 @@ class PlayerGroupsAPI(MethodView):
                                player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Created user group %s for player %s", group_name, player_id)
-
-        return jsonify(payload), http_client.OK, response_header
+        utils.get_appcontext()['headers'].update(response_header)
+        return payload

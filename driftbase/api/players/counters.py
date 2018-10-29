@@ -14,8 +14,6 @@ from sqlalchemy.exc import IntegrityError
 
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
-import marshmallow as ma
-from flask_restplus import reqparse
 from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user
@@ -161,7 +159,9 @@ class CountersApi(MethodView):
 
     def get(self, player_id):
         """
-        Find counters by player ID
+        Counters by player ID
+
+        Returns a list of counters that have been created on the players' behalf.
         """
         # TODO: Playercheck
         if not get_player(player_id):
@@ -199,13 +199,15 @@ class CountersApi(MethodView):
 
     def patch(self, player_id):
         """
-        Update counter for player
+        Update counters for player
+
+        The endpoint accepts a list of counters to update at once.
         """
         return self._patch(player_id)
 
     def put(self, player_id):
         """
-        Update counter for player
+        Update counters for player
 
         This verb is provided for backwards-compatibility for clients that
         do not support PATCH        
@@ -336,7 +338,9 @@ class CountersApi(MethodView):
 class CounterApi(MethodView):
     def get(self, player_id, counter_id):
         """
-        Find counter by counter ID and player ID
+        Find counter for player
+
+        Returns information for a specific counter for the player.
         """
         counter = get_counter(counter_id)
         if not counter:
@@ -361,10 +365,20 @@ class CounterApi(MethodView):
 
     @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
     def patch(self, player_id, counter_id, context_id):
+        """
+        Update single counter
+
+        Update a single counter for the player. Includes optional context
+        """
         return self._patch(player_id, counter_id, context_id)
 
     @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
     def put(self, player_id, counter_id, context_id):
+        """
+        Update single counter
+
+        Update a single counter for the player. Includes optional context
+        """
         return self._patch(player_id, counter_id, context_id)
 
     def _patch(self, player_id, counter_id, context_id):
@@ -389,6 +403,11 @@ class CounterApi(MethodView):
 @bp.route("/<int:player_id>/counters/<int:counter_id>/<string:period>", endpoint="period")
 class CounterPeriodApi(MethodView):
     def get(self, player_id, counter_id, period):
+        """
+        Counter entries for period
+
+        Retruns a list of counters for the requested period.
+        """
         counter = get_counter(counter_id)
         if not counter:
             abort(404)
@@ -415,6 +434,11 @@ class CounterPeriodApi(MethodView):
 @bp.route("/<int:player_id>/countertotals", endpoint="totals")
 class CounterTotalsApi(MethodView):
     def get(self, player_id):
+        """
+        Counter Totals
+
+        Return the 'total' count for all counters belonging to the player.
+        """
         counter_entries = g.db.query(CounterEntry) \
                               .filter(CounterEntry.player_id == player_id,
                                       CounterEntry.period == "total")

@@ -125,7 +125,7 @@ class PlayerPatchArgs(ma.Schema):
     class Meta:
         strict = True
 
-    name = ma.fields.String(description="New name for the player")
+    name = ma.fields.String(description="New name for the player. Can be between 1 and 20 characters long.")
 
     @validates('name')
     def validate(self, s):
