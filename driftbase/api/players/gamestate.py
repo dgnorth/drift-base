@@ -5,9 +5,12 @@ from flask import url_for, request, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restplus import reqparse
-from flask_rest_api import Blueprint, abort
+from marshmallow_sqlalchemy import ModelSchema
+from flask_rest_api import Blueprint, abort, utils
 
 from drift.utils import json_response
+from drift.utils import Url
+
 from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.players import can_edit_player
@@ -22,9 +25,40 @@ MAX_DATA_LEN = 1024 * 1024  # 1MB
 TASK_VALIDATED = "validated"
 
 
+class GameStateRequestSchema(ma.Schema):
+    gamestate = ma.fields.Dict()
+    journal_id = ma.fields.Integer(allow_none=True)
+
+
+class GameStateSchema(ModelSchema):
+    class Meta:
+        strict = True
+        model = GameState
+    gamestate_url = Url('player_gamestate.entry',
+                        player_id='<player_id>',
+                        namespace='<namespace>',
+                        doc="Url to the game state resource")
+    gamestatehistory_url = Url('player_gamestate.historylist',
+                               player_id='<player_id>',
+                               namespace='<namespace>',
+                               doc="Url to the game state history resource")
+
+
+class GameStateHistorySchema(ModelSchema):
+    class Meta:
+        strict = True
+        model = GameStateHistory
+    gamestatehistoryentry_url = Url('player_gamestate.historyentry',
+                                    player_id='<player_id>',
+                                    namespace='<namespace>',
+                                    gamestatehistory_id='<gamestatehistory_id>',
+                                    doc="Url to the game state history resource")
+
+
 @bp.route("/<int:player_id>/gamestates", endpoint="list")
 class GameStatesAPI(MethodView):
 
+    @bp.response(GameStateSchema(many=True))
     def get(self, player_id):
         """
         Get a list of all gamestates for the player
@@ -34,23 +68,13 @@ class GameStatesAPI(MethodView):
         gamestates = g.db.query(GameState) \
                          .filter(GameState.player_id == player_id) \
                          .order_by(GameState.namespace)
-
-        ret = []
-        for gamestate in gamestates:
-            entry = {
-                "namespace": gamestate.namespace,
-                "gamestate_id": gamestate.gamestate_id,
-                "gamestate_url": url_for("player_gamestate.entry", player_id=player_id,
-                                         namespace=gamestate.namespace, _external=True)
-            }
-            ret.append(entry)
-
-        return jsonify(ret)
+        return gamestates
 
 
 @bp.route("/<int:player_id>/gamestates/<string:namespace>", endpoint="entry")
 class GameStateAPI(MethodView):
 
+    @bp.response(GameStateSchema())
     def get(self, player_id, namespace):
         """
         Get full dump of game state
@@ -73,23 +97,16 @@ class GameStateAPI(MethodView):
                                (player_id, gamestates.count(), namespace))
 
         gamestate = gamestates.first()
-        ret = gamestate.as_dict()
-        ret["gamestatehistory_url"] = url_for("player_gamestate.historylist",
-                                              player_id=player_id, namespace=namespace,
-                                              _external=True)
-        return jsonify(ret)
+        return gamestate
 
-    @simple_schema_request({
-        "gamestate": {"type": "object"},
-        "journal_id": {"type": ["number", "null"]},
-    }, required=["gamestate"])
-    def put(self, player_id, namespace):
+    @bp.arguments(GameStateRequestSchema())
+    @bp.response(GameStateSchema())
+    def put(self, args, player_id, namespace):
         """
         Upload the gamestate state to the server
         """
         can_edit_player(player_id)
 
-        args = request.json
         data = args["gamestate"]
         journal_id = None
         if args.get("journal_id"):
@@ -143,7 +160,7 @@ class GameStateAPI(MethodView):
         gamestate.gamestatehistory_id = gamestatehistory_id
         g.db.commit()
 
-        return jsonify(gamestate.as_dict())
+        return gamestate
 
     def delete(self, player_id, namespace):
         """
@@ -165,6 +182,7 @@ class GameStateAPI(MethodView):
 @bp.route("/<int:player_id>/gamestates/<string:namespace>/history", endpoint="historylist")
 class GameStateHistoryListAPI(MethodView):
 
+    @bp.response(GameStateHistorySchema(many=True))
     def get(self, player_id, namespace):
         can_edit_player(player_id)
 
@@ -174,25 +192,14 @@ class GameStateHistoryListAPI(MethodView):
                    .order_by(-GameStateHistory.gamestatehistory_id)
         if not rows:
             abort(http_client.NOT_FOUND)
-        ret = []
-        for row in rows:
-            entry = {
-                "gamestatehistory_id": row.gamestatehistory_id,
-                "gamestatehistoryentry_url": url_for("player_gamestate.historyentry",
-                                                     player_id=player_id,
-                                                     namespace=namespace,
-                                                     gamestatehistory_id=row.gamestatehistory_id,
-                                                     _external=True),
-                "create_date": row.create_date
-            }
-            ret.append(entry)
-        return jsonify(ret)
+        return rows
 
 
 @bp.route("/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
                  endpoint="historyentry")
 class GameStateHistoryEntryAPI(MethodView):
 
+    @bp.response(GameStateHistorySchema())
     def get(self, player_id, namespace, gamestatehistory_id):
         can_edit_player(player_id)
 
@@ -202,5 +209,4 @@ class GameStateHistoryEntryAPI(MethodView):
                             .first()
         if not row_gamestate:
             abort(http_client.NOT_FOUND)
-        ret = row_gamestate.as_dict()
-        return jsonify(ret)
+        return row_gamestate
