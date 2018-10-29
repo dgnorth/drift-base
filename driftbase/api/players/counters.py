@@ -11,13 +11,16 @@ import collections
 from six.moves import http_client
 
 from sqlalchemy.exc import IntegrityError
+from marshmallow_sqlalchemy import ModelSchema
+import marshmallow as ma
+from marshmallow import validates, ValidationError, pre_dump
 
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
 from flask_rest_api import Blueprint, abort
 
+from drift.utils import Url
 from drift.core.extensions.jwt import current_user
-from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.models.db import CounterEntry, Counter, CorePlayer, PlayerCounter
 from driftbase.utils import clear_counter_cache, get_counter
@@ -28,6 +31,24 @@ bp = Blueprint("player_counters", __name__, url_prefix='/players', description="
 
 TOTAL_TIMESTAMP = datetime.datetime.strptime("2000-01-01", "%Y-%m-%d")
 COUNTER_PERIODS = ['total', 'month', 'day', 'hour', 'minute', 'second']
+
+
+class PlayerCounterRequestSchema(ma.Schema):
+    timestamp = ma.fields.DateTime()
+    value = ma.fields.Integer()
+    context_id = ma.fields.Integer()
+
+
+class PlayerCounterSchema(ma.Schema):
+    counter_id = ma.fields.Integer()
+    player_id = ma.fields.Integer()
+    first_update = ma.fields.DateTime()
+    last_update = ma.fields.DateTime()
+    num_updates = ma.fields.Integer()
+    url = Url('player_counters.entry', player_id='<player_id>', counter_id='<counter_id>', doc="This is the url")
+    name = ma.fields.String()
+    total = ma.fields.Integer()
+    periods = ma.fields.Dict()
 
 
 def get_player(player_id):
@@ -157,6 +178,7 @@ def check_and_update_player_counter(player_counter, timestamp):
 @bp.route("/<int:player_id>/counters", endpoint="list")
 class CountersApi(MethodView):
 
+    @bp.response(PlayerCounterSchema(many=True))
     def get(self, player_id):
         """
         Counters for player
@@ -174,13 +196,13 @@ class CountersApi(MethodView):
             counter = get_counter(counter_id)
             entry = {
                 "counter_id": counter_id,
+                "player_id": player_id,
                 "first_update": row.create_date,
                 "last_update": row.modify_date,
                 "num_updates": row.num_updates,
-                "url": url_for("player_counters.entry", player_id=player_id,
-                               counter_id=counter_id, _external=True),
                 "name": counter["name"],
-                "periods": {}
+                "periods": {},
+                "total": 0,
             }
             for period in COUNTER_PERIODS + ["all"]:
                 entry["periods"][period] = url_for("player_counters.period", player_id=player_id,
@@ -195,9 +217,10 @@ class CountersApi(MethodView):
                 entry["total"] = 0
             ret.append(entry)
 
-        return jsonify(ret)
+        return ret
 
-    def patch(self, player_id):
+    @bp.arguments(PlayerCounterRequestSchema)
+    def patch(self, args, player_id):
         """
         Update counters for player
 
@@ -205,7 +228,8 @@ class CountersApi(MethodView):
         """
         return self._patch(player_id)
 
-    def put(self, player_id):
+    @bp.arguments(PlayerCounterRequestSchema)
+    def put(self, args, player_id):
         """
         Update counters for player
 
@@ -363,7 +387,7 @@ class CounterApi(MethodView):
 
         return jsonify(ret)
 
-    @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
+    @bp.arguments(PlayerCounterRequestSchema)
     def patch(self, player_id, counter_id, context_id):
         """
         Update single counter
@@ -372,7 +396,7 @@ class CounterApi(MethodView):
         """
         return self._patch(player_id, counter_id, context_id)
 
-    @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
+    @bp.arguments(PlayerCounterRequestSchema)
     def put(self, player_id, counter_id, context_id):
         """
         Update single counter

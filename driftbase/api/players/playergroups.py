@@ -5,12 +5,11 @@ from six.moves import http_client
 
 from flask import url_for, g, request, jsonify
 from flask.views import MethodView
-from flask_restplus import reqparse
 from flask_rest_api import Blueprint, abort, utils
+
 import marshmallow as ma
 
 from drift.utils import Url
-from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user
 
 from driftbase.models.db import CorePlayer, UserIdentity

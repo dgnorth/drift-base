@@ -5,7 +5,10 @@ from six.moves import http_client
 from flask import request, g, abort, jsonify
 from flask.views import MethodView
 import marshmallow as ma
-from flask_rest_api import Blueprint
+from flask_rest_api import Blueprint, utils
+from marshmallow_sqlalchemy import ModelSchema
+
+from drift.utils import Url
 
 from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
 from driftbase.players import log_event, can_edit_player
@@ -13,6 +16,12 @@ from driftbase.players import log_event, can_edit_player
 log = logging.getLogger(__name__)
 
 bp = Blueprint("player_summary", __name__, url_prefix='/players')
+
+
+class PlayerSummarySchema(ModelSchema):
+    class Meta:
+        model = PlayerSummary
+        #exclude = ('ck_player_summary',)
 
 
 def get_player(player_id):
@@ -25,6 +34,9 @@ class Summary(MethodView):
 
     def get(self, player_id):
         """
+        Get summary for player
+
+        Returns all summary fields for the player, keyed on the summary field name.
         """
         can_edit_player(player_id)
         if not get_player(player_id):
@@ -39,7 +51,9 @@ class Summary(MethodView):
     # TODO: schema
     def put(self, player_id):
         """
-        Full update of summary fields, deletes fields from db that are not included
+        Full update of summary fields
+
+        Deletes fields from db that are not included
         """
         if not can_edit_player(player_id):
             abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
@@ -93,9 +107,10 @@ class Summary(MethodView):
         return jsonify(ret)
 
     # TODO: schema
+    @bp.response(PlayerSummarySchema(many=True))
     def patch(self, player_id):
         """
-        Partial update of summary fields.
+        Partial update of summary fields
         """
         if not can_edit_player(player_id):
             abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
@@ -147,4 +162,4 @@ class Summary(MethodView):
         log.info("Updating summary. Request is '%s'. Old summary is '%s'. New summary is '%s'",
                  request_txt, old_summary_txt, new_summary_txt)
 
-        return jsonify([r.as_dict() for r in new_summary])
+        return new_summary
