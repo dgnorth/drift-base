@@ -115,10 +115,10 @@ class CorePlayer(ModelBase):
     __tablename__ = "ck_players"
 
     player_id = Column(Integer, primary_key=True)
-    player_name = Column(Unicode(200))
+    player_name = Column(Unicode(200), doc="Players display name")
     user_id = Column(Integer, ForeignKey("ck_users.user_id"), index=True)
     create_date = Column(DateTime, nullable=False, server_default=utc_now)
-    logon_date = Column(DateTime, nullable=False, server_default=utc_now)
+    logon_date = Column(DateTime, nullable=False, server_default=utc_now, doc="Last logon date")
     num_logons = Column(Integer, default=0)
 
     clients = relationship("Client", backref="player")
