@@ -6,11 +6,13 @@ from six.moves import http_client
 from flask import url_for, request, g, jsonify
 from flask.views import MethodView
 import marshmallow as ma
-from flask_restplus import reqparse
-from flask_rest_api import Blueprint, abort
+from marshmallow import validates, ValidationError, pre_dump
+from marshmallow_sqlalchemy import ModelSchema
+from flask_rest_api import Blueprint, abort, utils
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import requires_roles
+from drift.utils import Url
 
 from driftbase.players import log_event, can_edit_player, create_ticket
 from driftbase.models.db import Ticket
@@ -19,30 +21,56 @@ log = logging.getLogger(__name__)
 
 bp = Blueprint("player_tickets", __name__, url_prefix='/players')
 
+class TicketPatchRequestSchema(ma.Schema):
+    journal_id = ma.fields.Integer()
 
-def add_ticket_links(ticket):
-    ret = ticket.as_dict()
-    ret["player_url"] = url_for("players.entry", player_id=ticket.player_id, _external=True)
-    ret["issuer_url"] = None
-    if ticket.issuer_id:
-        ret["issuer_url"] = url_for("players.entry", player_id=ticket.issuer_id, _external=True)
-    ret["url"] = url_for("player_tickets.entry", player_id=ticket.player_id,
-                         ticket_id=ticket.ticket_id, _external=True)
-    return ret
+class TicketSchema(ModelSchema):
+    class Meta:
+        model = Ticket
+        #exclude = ('ck_player_summary',)
+
+    player_url = Url(
+        'players.entry',
+        doc="Fully qualified URL of the player resource",
+        player_id='<player_id>',
+    )
+
+    url = Url(
+        'player_tickets.entry',
+        doc="Fully qualified URL of the player resource",
+        player_id='<player_id>',
+        ticket_id='<ticket_id>'
+    )
+    # cannot use Url() because sometimes there is no issuer_id
+    issuer_url = ma.fields.String()
+
+    @pre_dump
+    def populate_urls(self, obj):
+        if obj.issuer_id:
+            obj.issuer_url = (
+                url_for(
+                    'players.entry',
+                    player_id=obj.issuer_id,
+                   _external=True
+                )
+            )
+        return obj
 
 
 @bp.route("/<int:player_id>/tickets", endpoint="list")
 class TicketsEndpoint(MethodView):
 
+    @bp.response(TicketSchema(many=True))
     def get(self, player_id):
         """
+        List of tickets
+
         Get a list of outstanding tickets for the player
         """
         can_edit_player(player_id)
         tickets = g.db.query(Ticket)\
             .filter(Ticket.player_id == player_id, Ticket.used_date == None)  # noqa: E711
-        ret = [add_ticket_links(t) for t in tickets]
-        return jsonify(ret)
+        return tickets
 
     @requires_roles("service")
     @simple_schema_request({
@@ -53,6 +81,8 @@ class TicketsEndpoint(MethodView):
     }, required=["ticket_type"])
     def post(self, player_id):
         """
+        Create ticket
+
         Create a ticket for a player. Only available to services
         """
         args = request.json
@@ -85,10 +115,14 @@ def get_ticket(player_id, ticket_id):
 @bp.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="entry")
 class TicketEndpoint(MethodView):
 
+    @bp.response(TicketSchema())
     def get(self, player_id, ticket_id):
         """
+        Get specific ticket
+
         Get information about any past or ongoing battle initiated by
         the current player against the other player
+        Say what?
         """
         if not can_edit_player(player_id):
             abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
@@ -96,21 +130,25 @@ class TicketEndpoint(MethodView):
         ticket = get_ticket(player_id, ticket_id)
         if not ticket:
             abort(404, message="Ticket was not found")
-        return jsonify(add_ticket_links(ticket))
+        return ticket
 
-    @simple_schema_request({"journal_id": {"type": "number", }})
-    def patch(self, player_id, ticket_id):
-        return self._patch(player_id, ticket_id)
-
-    @simple_schema_request({"journal_id": {"type": "number", }})
-    def put(self, player_id, ticket_id):
-        return self._patch(player_id, ticket_id)
-
-    def _patch(self, player_id, ticket_id):
+    @bp.arguments(TicketPatchRequestSchema)
+    @bp.response(TicketSchema())
+    def patch(self, args, player_id, ticket_id):
         """
-        Claim a ticket
+        Claim ticket
         """
-        args = request.json
+        return self._patch(args, player_id, ticket_id)
+
+    @bp.arguments(TicketPatchRequestSchema)
+    @bp.response(TicketSchema())
+    def put(self, args, player_id, ticket_id):
+        """
+        Claim ticket
+        """
+        return self._patch(args, player_id, ticket_id)
+
+    def _patch(self, args, player_id, ticket_id):
         journal_id = args.get("journal_id")
 
         if not can_edit_player(player_id):
@@ -131,5 +169,4 @@ class TicketEndpoint(MethodView):
         g.db.commit()
 
         log_event(player_id, "event.player.ticketclaimed", {"ticket_id": ticket_id})
-
-        return jsonify(add_ticket_links(ticket))
+        return ticket

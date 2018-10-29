@@ -5,8 +5,7 @@ from six.moves import http_client
 from flask import request, g, abort, jsonify
 from flask.views import MethodView
 import marshmallow as ma
-from flask_restplus import reqparse
-from flask_rest_api import Blueprint, abort
+from flask_rest_api import Blueprint
 
 from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
 from driftbase.players import log_event, can_edit_player

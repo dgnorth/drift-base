@@ -31,7 +31,7 @@ COUNTER_PERIODS = ['total', 'month', 'day', 'hour', 'minute', 'second']
 
 
 def get_player(player_id):
-    player = g.db.query(CorePlayer).filter(CorePlayer.player_id == player_id).first()
+    player = g.db.query(CorePlayer).get(player_id)
     return player
 
 
@@ -159,7 +159,7 @@ class CountersApi(MethodView):
 
     def get(self, player_id):
         """
-        Counters by player ID
+        Counters for player
 
         Returns a list of counters that have been created on the players' behalf.
         """
