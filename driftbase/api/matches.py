@@ -248,6 +248,8 @@ class MatchAPI(MethodView):
     @requires_roles("service")
     def get(self, match_id):
         """
+        Find battle by ID
+
         Get information about a single battle. Dumps out the DB row as json
         URL's are provided for additional information about the battle for
         drilldown. Machine and matcheserver url's are also written out.
@@ -313,6 +315,8 @@ class MatchAPI(MethodView):
     }, required=["status"])
     def put(self, match_id):
         """
+        Update battle status
+
         The UE4 server calls this method to update its status and any
         metadata that the backend should know about
         """
@@ -361,6 +365,9 @@ class MatchTeamsAPI(MethodView):
     """
     @requires_roles("service")
     def get(self, match_id):
+        """
+        Find teams by match
+        """
         query = g.db.query(MatchTeam)
         query = query.filter(MatchTeam.match_id == match_id)
         rows = query.all()
@@ -382,6 +389,9 @@ class MatchTeamsAPI(MethodView):
         "details": {"type": "object", },
     }, required=[])
     def post(self, match_id):
+        """
+        Add a team to a match
+        """
         args = request.json
         team = MatchTeam(match_id=match_id,
                          name=args.get("name"),
@@ -412,6 +422,9 @@ class MatchTeamAPI(MethodView):
     """
     @requires_roles("service")
     def get(self, match_id, team_id):
+        """
+        Find a team in a match by ID's
+        """
         query = g.db.query(MatchTeam)
         query = query.filter(MatchTeam.match_id == match_id,
                              MatchTeam.team_id == team_id)
