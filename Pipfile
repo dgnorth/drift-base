@@ -13,7 +13,7 @@ requests = "*"
 greenlet = "*"
 flask-restplus = "*"
 flask-rest-api = "*"
-marshmallow = "*"
+marshmallow = "==3.0.0b19"
 marshmallow-sqlalchemy = "*"
 flask-marshmallow = "*"
 
@@ -24,3 +24,6 @@ mock = "*"
 
 [requires]
 python_version = "3.6"
+
+[pipenv]
+allow_prereleases = true
