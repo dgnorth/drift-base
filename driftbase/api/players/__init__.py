@@ -4,13 +4,13 @@ from six.moves import http_client
 from flask import g, url_for
 from flask.views import MethodView
 from flask_rest_api import Blueprint, abort
-from marshmallow_sqlalchemy import ModelSchema, field_for
+from marshmallow_sqlalchemy import ModelSchema
 import marshmallow as ma
 from marshmallow import validates, ValidationError, pre_dump
-from flask_marshmallow.fields import URLFor
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
+from drift.utils import Url
 
 from driftbase.utils import url_player
 from driftbase.models.db import CorePlayer
@@ -40,65 +40,57 @@ class PlayerSchema(ModelSchema):
         model = CorePlayer
         exclude = ('ck_player_summary',)
 
-    player_name = field_for(CorePlayer, 'player_name', description="Players name")
+    is_online = ma.fields.Boolean()
 
-    player_url = URLFor(
+    player_url = Url(
         'players.entry',
+        doc="Fully qualified URL of the player resource",
         player_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the player resource",
     )
-    gamestates_url = URLFor(
+
+    gamestates_url = Url(
         'player_gamestate.list',
+        doc="Fully qualified URL of the players' gamestate resource",
         player_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' gamestate resource",
     )
-    journal_url = URLFor(
+    journal_url = Url(
         'player_journal.list',
+        doc="Fully qualified URL of the players' journal resource",
         player_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' journal resource",
     )
-    user_url = URLFor(
+    user_url = Url(
         'users.entry',
+        doc="Fully qualified URL of the players' user resource",
         user_id='<user_id>',
-        _external=True,
-        description="Fully qualified URL of the players' user resource",
     )
     messagequeue_url = ma.fields.Str(
         description="Fully qualified URL of the players' message queue resource"
     )
-    messages_url = URLFor(
+    messages_url = Url(
         'messages.exchange',
+        doc="Fully qualified URL of the players' messages resource",
         exchange='players',
         exchange_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' messages resource",
     )
-    summary_url = URLFor(
+    summary_url = Url(
         'player_summary.list',
+        doc="Fully qualified URL of the players' summary resource",
         player_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' summary resource",
     )
-    countertotals_url = URLFor(
+    countertotals_url = Url(
         'player_counters.totals',
+        doc="Fully qualified URL of the players' counter totals resource",
         player_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' counter totals resource",
     )
-    counter_url = URLFor(
+    counter_url = Url(
         'player_counters.list',
+        doc="Fully qualified URL of the players' counter resource",
         player_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' counter resource",
     )
-    tickets_url = URLFor(
+    tickets_url = Url(
         'player_tickets.list',
+        doc="Fully qualified URL of the players' tickets resource",
         player_id='<player_id>',
-        _external=True,
-        description="Fully qualified URL of the players' tickets resource",
     )
 
     @pre_dump
