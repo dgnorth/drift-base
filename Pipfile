@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 # Due to uneccessary or weird dependency in auth.util.fetch_url()
-drift = { git = 'https://github.com/dgnorth/drift.git', ref = 'feature/restplus'}
+drift = { git = 'https://github.com/dgnorth/drift.git', ref = 'develop'}
 driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
 gevent = "*"
 requests = "*"

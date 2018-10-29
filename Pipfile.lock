@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "70414e842e7166b046ba5d882abfc7cd88d16fbfc6172f763d7ea3da0da5e3a0"
+            "sha256": "9e11929d07c1e83b81d76b42e688dae5ff3ab938fbc3b8926e3d9952b76da5b0"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -83,7 +83,7 @@
         },
         "drift": {
             "git": "https://github.com/dgnorth/drift.git",
-            "ref": "da78da5d17028232d23866a1aa87a51d39b00c11"
+            "ref": "5e7bd292323f7f0d3fcbb9960aed1cf251e26a6d"
         },
         "driftconfig": {
             "git": "https://github.com/dgnorth/drift-config.git",
