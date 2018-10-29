@@ -1,36 +1,158 @@
 import logging
 from six.moves import http_client
 
-from flask import url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
-from flask_restplus.errors import ValidationError
+from flask import g, url_for
+from flask.views import MethodView
+from flask_rest_api import Blueprint, abort
+from marshmallow_sqlalchemy import ModelSchema
+import marshmallow as ma
+from marshmallow import validates, ValidationError, pre_dump
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
+from drift.utils import Url
 
 from driftbase.utils import url_player
 from driftbase.models.db import CorePlayer
-from driftbase.models.responses import player_model
 from driftbase.players import get_playergroup_ids
-from driftbase.api.players import counters, gamestate, journal, playergroups, summary, tickets
+from driftbase.api.players import (
+    counters,
+    gamestate,
+    journal,
+    playergroups,
+    summary,
+    tickets,
+)
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players", "Player Management")
+
+bp = Blueprint(
+    'players', __name__, url_prefix='/players', description='Player Management'
+)
+
 endpoints = Endpoints()
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
-    endpoints.init_app(app)
-    api.add_namespace(counters.namespace)
-    api.add_namespace(gamestate.namespace)
-    api.add_namespace(journal.namespace)
-    api.add_namespace(playergroups.namespace)
-    api.add_namespace(summary.namespace)
-    api.add_namespace(tickets.namespace)
+class PlayerSchema(ModelSchema):
+    class Meta:
+        strict = True
+        model = CorePlayer
+        exclude = ('ck_player_summary',)
 
-    api.models[player_model.name] = player_model
+    is_online = ma.fields.Boolean()
+
+    player_url = Url(
+        'players.entry',
+        doc="Fully qualified URL of the player resource",
+        player_id='<player_id>',
+    )
+
+    gamestates_url = Url(
+        'player_gamestate.list',
+        doc="Fully qualified URL of the players' gamestate resource",
+        player_id='<player_id>',
+    )
+    journal_url = Url(
+        'player_journal.list',
+        doc="Fully qualified URL of the players' journal resource",
+        player_id='<player_id>',
+    )
+    user_url = Url(
+        'users.entry',
+        doc="Fully qualified URL of the players' user resource",
+        user_id='<user_id>',
+    )
+    messagequeue_url = ma.fields.Str(
+        description="Fully qualified URL of the players' message queue resource"
+    )
+    messages_url = Url(
+        'messages.exchange',
+        doc="Fully qualified URL of the players' messages resource",
+        exchange='players',
+        exchange_id='<player_id>',
+    )
+    summary_url = Url(
+        'player_summary.list',
+        doc="Fully qualified URL of the players' summary resource",
+        player_id='<player_id>',
+    )
+    countertotals_url = Url(
+        'player_counters.totals',
+        doc="Fully qualified URL of the players' counter totals resource",
+        player_id='<player_id>',
+    )
+    counter_url = Url(
+        'player_counters.list',
+        doc="Fully qualified URL of the players' counter resource",
+        player_id='<player_id>',
+    )
+    tickets_url = Url(
+        'player_tickets.list',
+        doc="Fully qualified URL of the players' tickets resource",
+        player_id='<player_id>',
+    )
+
+    @pre_dump
+    def populate_urls(self, obj):
+        obj.messagequeue_url = (
+            url_for(
+                'messages.exchange',
+                exchange='players',
+                exchange_id=obj.player_id,
+                _external=True,
+            )
+            + '/{queue}'
+        )
+        return obj
+
+
+class PlayersListArgs(ma.Schema):
+    class Meta:
+        strict = True
+
+    player_id = ma.fields.List(
+        ma.fields.Integer(), description="Player ID's to filter for"
+    )
+    rows = ma.fields.Integer(description="Number of rows to return, maximum of 100")
+    player_group = ma.fields.String(
+        description="The player group the players should belong to (see player-group api)"
+    )
+    key = ma.fields.List(ma.fields.String(), description="Only return these columns")
+
+
+class PlayerPatchArgs(ma.Schema):
+    class Meta:
+        strict = True
+
+    name = ma.fields.String(description="New name for the player. Can be between 1 and 20 characters long.")
+
+    @validates('name')
+    def validate(self, s):
+        min_length = 1
+        max_length = 20
+        if len(s) >= min_length and len(s) <= max_length:
+            return
+        raise ValidationError(
+            "String must be between %i and %i characters long"
+            % (min_length, max_length),
+            status_code=400,
+        )
+
+
+def drift_init_extension(app, api, **kwargs):
+    # api.spec.definition('User', schema=UserSchema)
+
+    api.register_blueprint(bp)
+    api.register_blueprint(counters.bp)
+    api.register_blueprint(gamestate.bp)
+    api.register_blueprint(journal.bp)
+    api.register_blueprint(playergroups.bp)
+    api.register_blueprint(summary.bp)
+    api.register_blueprint(tickets.bp)
+    endpoints.init_app(app)
+
+    api.spec.definition('Player', schema=PlayerSchema)
 
 
 # TODO: Have this configured on a per product level and use drift config to specify it.
@@ -38,31 +160,24 @@ MIN_NAME_LEN = 1
 MAX_NAME_LEN = 20
 
 
-@namespace.route('', endpoint='players')
-class PlayersListAPI(Resource):
-    """
-    list players
-    """
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("player_id", type=int, action="append",
-                          help="Filter on player ID")
-    get_args.add_argument("rows", type=int, default=10,
-                          help="Number of rows to return, maximum of 100")
-    get_args.add_argument("player_group", type=str,
-                          help="The player group the players should belong to (see player-group api)")
-    get_args.add_argument("key", type=str, action="append",
-                          help="Only return these columns")
+@bp.route('', endpoint='list')
+class PlayersListAPI(MethodView):
+    @bp.arguments(PlayersListArgs, location='query')
+    @bp.response(PlayerSchema(many=True))
+    def get(self, args):
+        """
+        List Players
 
-    @namespace.expect(get_args)
-    @namespace.marshal_with(player_model)
-    def get(self):
-        args = self.get_args.parse_args()
+        Retrieves multiple players based on input filters
+        """
         query = g.db.query(CorePlayer)
-        rows = min(args.rows or 10, 100)
-        if args.player_id:
-            query = query.filter(CorePlayer.player_id.in_(args.player_id))
-        elif args.player_group:
-            player_ids = get_playergroup_ids(args.player_group, caress_in_predicate=False)
+        rows = min(args.get('rows') or 10, 100)
+        if 'player_id' in args:
+            query = query.filter(CorePlayer.player_id.in_(args['player_id']))
+        elif 'player_group' in args:
+            player_ids = get_playergroup_ids(
+                args['player_group'], caress_in_predicate=False
+            )
             if not player_ids:
                 # Note! This is a particular optimization in case where player group is empty
                 return []
@@ -73,23 +188,13 @@ class PlayersListAPI(Resource):
         return players
 
 
-def validate_length(min_length, max_length):
-    def validate(s):
-        if len(s) >= min_length and len(s) <= max_length:
-            return s
-        raise ValidationError("String must be between %i and %i characters long" %
-                              (min_length, max_length))
-    return validate
-
-
-@namespace.route('/<int:player_id>', endpoint='player')
-class PlayersAPI(Resource):
-    """
-    Individual players
-    """
-    @namespace.marshal_with(player_model)
+@bp.route('/<int:player_id>', endpoint='entry')
+class PlayerAPI(MethodView):
+    @bp.response(PlayerSchema(many=False))
     def get(self, player_id):
         """
+        Single Player
+
         Retrieve information about a specific player
         """
         player = g.db.query(CorePlayer).get(player_id)
@@ -98,30 +203,26 @@ class PlayersAPI(Resource):
 
         return player
 
-    patch_args = reqparse.RequestParser()
-    patch_args.add_argument("name",
-                            type=validate_length(MIN_NAME_LEN, MAX_NAME_LEN),
-                            help="New name for player")
-
-    @namespace.expect(patch_args)
-    @namespace.marshal_with(player_model)
-    def patch(self, player_id):
+    @bp.arguments(PlayerPatchArgs)
+    @bp.response(PlayerSchema(many=False))
+    def patch(self, args, player_id):
         """
         Update player name
         """
-        return self._patch(player_id)
+        return self._patch(player_id, args)
 
-    @namespace.expect(patch_args)
-    @namespace.marshal_with(player_model)
-    def put(self, player_id):
+    @bp.arguments(PlayerPatchArgs)
+    @bp.response(PlayerSchema(many=False))
+    def put(self, args, player_id):
         """
-        Update player name (backwards compatibility with old clients)
-        """
-        return self._patch(player_id)
+        Update player name
 
-    def _patch(self, player_id):
-        args = self.patch_args.parse_args()
-        new_name = args.name
+        This method is provided for backwards compatibility with old clients
+        """
+        return self._patch(player_id, args)
+
+    def _patch(self, player_id, args):
+        new_name = args.get('name')
 
         if player_id != current_user["player_id"]:
             abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
@@ -137,7 +238,7 @@ class PlayersAPI(Resource):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {"players": url_for("players", _external=True)}
+    ret = {"players": url_for("players.list", _external=True)}
     ret["my_player"] = None
     ret["my_gamestates"] = None
     ret["my_player_groups"] = None
@@ -146,16 +247,22 @@ def endpoint_info(current_user):
         player_id = current_user["player_id"]
         ret["my_player"] = url_player(player_id)
 
-        ret["my_gamestates"] = url_for("player_gamestates", player_id=player_id, _external=True)
-        ret["my_gamestate"] = url_for("player_gamestates", player_id=player_id, _external=True) + \
-            "/{namespace}"
+        ret["my_gamestates"] = url_for(
+            "player_gamestate.list", player_id=player_id, _external=True
+        )
+        ret["my_gamestate"] = (
+            url_for("player_gamestate.list", player_id=player_id, _external=True)
+            + "/{namespace}"
+        )
         url = url_for(
-            "player_playergroups",
+            "playergroups.group",
             player_id=current_user["player_id"],
             group_name='group_name',
             _external=True,
         )
         url = url.replace('group_name', '{group_name}')
         ret["my_player_groups"] = url
-        ret["my_summary"] = url_for("player_summary", player_id=player_id,  _external=True)
+        ret["my_summary"] = url_for(
+            "player_summary.list", player_id=player_id, _external=True
+        )
     return ret

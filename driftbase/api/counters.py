@@ -5,8 +5,11 @@ import time
 import six
 from six.moves import http_client
 
-from flask import url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import url_for, g, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from driftbase.models.db import CorePlayer, Counter, CounterEntry
@@ -14,7 +17,7 @@ from driftbase.utils import get_all_counters, get_counter
 from driftbase.players import get_playergroup_ids
 
 log = logging.getLogger(__name__)
-api = namespace = Namespace("counters")
+bp = Blueprint("counters", __name__, url_prefix="/counters", description="Counters")
 endpoints = Endpoints()
 
 
@@ -22,12 +25,12 @@ NUM_RESULTS = 100
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
-@namespace.route('/', endpoint='counters')
-class CountersApi(Resource):
+@bp.route('/', endpoint='list')
+class CountersApi(MethodView):
 
     get_args = reqparse.RequestParser()
 
@@ -43,14 +46,14 @@ class CountersApi(Resource):
                 "name": s.name,
                 "label": s.label,
                 "counter_id": s.counter_id,
-                "url": url_for("counter", counter_id=s.counter_id, _external=True)
+                "url": url_for("counters.entry", counter_id=s.counter_id, _external=True)
             })
 
-        return ret, http_client.OK, {'Cache-Control': "max_age=60"}
+        return jsonify(ret), http_client.OK, {'Cache-Control': "max_age=60"}
 
 
-@namespace.route('/<int:counter_id>', endpoint='counter')
-class CounterApi(Resource):
+@bp.route('/<int:counter_id>', endpoint='entry')
+class CounterApi(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("num", type=int, default=NUM_RESULTS)
     get_args.add_argument("include", type=int, action='append')
@@ -59,7 +62,7 @@ class CounterApi(Resource):
     get_args.add_argument("player_group", type=str)
     get_args.add_argument("reverse", type=bool)
 
-    @namespace.expect(get_args)
+    #@namespace.expect(get_args)
     def get(self, counter_id):
         start_time = time.time()
         args = self.get_args.parse_args()
@@ -124,7 +127,7 @@ class CounterApi(Resource):
                 entry = {
                     "name": counter_name,
                     "counter_id": this_counter_id,
-                    "counter_url": url_for("player_counter",
+                    "counter_url": url_for("player_counters.entry",
                                            player_id=this_player_id,
                                            counter_id=this_counter_id,
                                            _external=True),
@@ -140,8 +143,8 @@ class CounterApi(Resource):
                 "counter_id": counter_id,
                 "player_id": player_id,
                 "player_name": row[1].player_name,
-                "player_url": url_for("player", player_id=player_id, _external=True),
-                "counter_url": url_for("player_counter",
+                "player_url": url_for("players.entry", player_id=player_id, _external=True),
+                "counter_url": url_for("player_counters.entry",
                                        player_id=player_id,
                                        counter_id=row[0].counter_id,
                                        _external=True),
@@ -153,11 +156,11 @@ class CounterApi(Resource):
 
         log.info("Returning counters in %.2fsec", time.time() - start_time)
 
-        return ret, http_client.OK, {'Cache-Control': "max_age=60"}
+        return jsonify(ret), http_client.OK, {'Cache-Control': "max_age=60"}
 
 
 @endpoints.register
 def endpoint_info(current_user):
     ret = {}
-    ret["counters"] = url_for("counters", _external=True)
+    ret["counters"] = url_for("counters.list", _external=True)
     return ret

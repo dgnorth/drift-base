@@ -6,8 +6,11 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import request, url_for, g, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -17,23 +20,26 @@ from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("machinegroups", "Battleserver machine instance groups")
+bp = Blueprint("machinegroups", __name__, url_prefix="/machinegroups", description="Battleserver machine instance groups")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
-@namespace.route('/', endpoint='machinegroups')
-class MachineGroupsAPI(Resource):
+@bp.route('/', endpoint='list')
+class MachineGroupsAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
     get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
     def get(self):
+        """
+        Get a list of machine groups
+        """
         args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
         query = g.db.query(MachineGroup)
@@ -45,11 +51,11 @@ class MachineGroupsAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("machinegroups",
+            record["url"] = url_for("machinegroups.entry",
                                     machinegroup_id=row.machinegroup_id, _external=True)
             ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -58,6 +64,9 @@ class MachineGroupsAPI(Resource):
         "runconfig_id": {"type": "number", },
     }, required=["name"])
     def post(self):
+        """
+        Create machine group
+        """
         args = request.json
         log.info("creating a new machine group")
 
@@ -68,7 +77,7 @@ class MachineGroupsAPI(Resource):
         g.db.add(machinegroup)
         g.db.commit()
         machinegroup_id = machinegroup.machinegroup_id
-        resource_uri = url_for("machinegroup", machinegroup_id=machinegroup_id,
+        resource_uri = url_for("machinegroups.entry", machinegroup_id=machinegroup_id,
                                _external=True)
         response_header = {
             "Location": resource_uri,
@@ -76,19 +85,21 @@ class MachineGroupsAPI(Resource):
         log.info("Machine Group %s has been created with name '%s'",
                  machinegroup_id, args.get("name"))
 
-        return {"machinegroup_id": machinegroup_id,
+        return jsonify({"machinegroup_id": machinegroup_id,
                 "url": resource_uri
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
-@namespace.route('/<int:machinegroup_id>', endpoint='machinegroup')
-class MachineGroupAPI(Resource):
+@bp.route('/<int:machinegroup_id>', endpoint='entry')
+class MachineGroupAPI(MethodView):
     """
     Information about specific machines
     """
     @requires_roles("service")
     def get(self, machinegroup_id):
         """
+        Find machine group by ID
+
         Get information about a single battle server machine.
         Just dumps out the DB row as json
         """
@@ -97,12 +108,12 @@ class MachineGroupAPI(Resource):
             log.warning("Requested a non-existant machine group %s", machinegroup_id)
             abort(http_client.NOT_FOUND, description="Machine Group not found")
         record = row.as_dict()
-        record["url"] = url_for("machinegroup", machinegroup_id=machinegroup_id,
+        record["url"] = url_for("machinegroups.entry", machinegroup_id=machinegroup_id,
                                 _external=True)
 
         log.info("Returning info for run config %s", machinegroup_id)
 
-        return record
+        return jsonify(record)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -111,6 +122,9 @@ class MachineGroupAPI(Resource):
         "runconfig_id": {"type": "number", },
     }, required=[])
     def patch(self, machinegroup_id):
+        """
+        Update machine group
+        """
         args = request.json
 
         machinegroup = g.db.query(MachineGroup).get(machinegroup_id)
@@ -127,6 +141,6 @@ class MachineGroupAPI(Resource):
 @endpoints.register
 def endpoint_info(*args):
     ret = {
-        "machinegroups": url_for("machinegroups", _external=True),
+        "machinegroups": url_for("machinegroups.list", _external=True),
     }
     return ret

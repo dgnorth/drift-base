@@ -43,8 +43,7 @@ def process_match_queue(redis=None, db_session=None):
                                            MatchQueuePlayer.status == "waiting",
                                            MatchQueuePlayer.match_id == None) \
                                    .order_by(MatchQueuePlayer.id) \
-                                   .all()
-
+                                   .all()  # noqa: E711
         query = db_session.query(Machine, Server, Match)
         query = query.filter(Match.server_id == Server.server_id,
                              Server.machine_id == Machine.machine_id,

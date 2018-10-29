@@ -7,8 +7,11 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import request, url_for, g, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -18,17 +21,17 @@ from driftbase.models.db import RunConfig
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("staticdata", "Static Data Management")
+bp = Blueprint("runconfigs", __name__, url_prefix="/runconfigs", description="Battleserver run configuration")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
-@namespace.route('', endpoint='runconfigs')
-class RunConfigsAPI(Resource):
+@bp.route('', endpoint='list')
+class RunConfigsAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("name", type=str)
     get_args.add_argument("rows", type=int, required=False)
@@ -46,11 +49,11 @@ class RunConfigsAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("runconfig", runconfig_id=row.runconfig_id,
+            record["url"] = url_for("runconfig.entry", runconfig_id=row.runconfig_id,
                                     _external=True)
             ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -81,20 +84,20 @@ class RunConfigsAPI(Resource):
         g.db.add(runconfig)
         g.db.commit()
         runconfig_id = runconfig.runconfig_id
-        resource_uri = url_for("runconfig", runconfig_id=runconfig_id, _external=True)
+        resource_uri = url_for("runconfigs.entry", runconfig_id=runconfig_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
         log.info("Run Configuration %s has been registered with name '%s'",
                  runconfig_id, args.get("name"))
 
-        return {"runconfig_id": runconfig_id,
+        return jsonify({"runconfig_id": runconfig_id,
                 "url": resource_uri
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
-@namespace.route('/<int:runconfig_id>', endpoint='runconfig')
-class RunConfigAPI(Resource):
+@bp.route('/<int:runconfig_id>', endpoint='entry')
+class RunConfigAPI(MethodView):
     """
     Information about specific machines
     """
@@ -109,14 +112,14 @@ class RunConfigAPI(Resource):
             log.warning("Requested a non-existant run config: %s", runconfig_id)
             abort(http_client.NOT_FOUND, description="Run Config not found")
         record = row.as_dict()
-        record["url"] = url_for("runconfig", runconfig_id=runconfig_id, _external=True)
+        record["url"] = url_for("runconfigs.entry", runconfig_id=runconfig_id, _external=True)
 
         log.info("Returning info for run config %s", runconfig_id)
 
-        return record
+        return jsonify(record)
 
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"runconfigs": url_for("runconfigs", _external=True)}
+    ret = {"runconfigs": url_for("runconfigs.list", _external=True)}
     return ret

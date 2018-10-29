@@ -15,7 +15,12 @@ import json
 from six.moves import http_client
 
 from flask import request, url_for, g, current_app
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
+from marshmallow_sqlalchemy import ModelSchema
+from marshmallow import pre_dump, validates, ValidationError
 
 from drift.utils import json_response
 from drift.core.extensions.urlregistry import Endpoints
@@ -26,7 +31,7 @@ from driftbase.models.responses import client_descriptions, client_model, client
                                        client_heartbeat_model
 
 log = logging.getLogger(__name__)
-namespace = Namespace("clients", "Client registration")
+bp = Blueprint("clients", __name__, url_prefix="/clients", description="Client registration")
 endpoints = Endpoints()
 
 DEFAULT_HEARTBEAT_PERIOD = 30
@@ -34,10 +39,10 @@ DEFAULT_HEARTBEAT_TIMEOUT = 300
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.models[client_model.name] = client_model
-    api.models[client_registration_model.name] = client_registration_model
-    api.models[client_heartbeat_model.name] = client_heartbeat_model
-    api.add_namespace(namespace)
+    #api.models[client_model.name] = client_model
+    #api.models[client_registration_model.name] = client_registration_model
+    #api.models[client_heartbeat_model.name] = client_heartbeat_model
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -46,8 +51,43 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('/', endpoint='clients')
-class ClientsAPI(Resource):
+class ClientSchema(ModelSchema):
+    class Meta:
+        strict = True
+        model = Client
+        exclude = ()
+    client_url = ma.fields.Str(description="Fully qualified URL of the client resource")
+    @pre_dump
+    def populate_urls(self, obj):
+        obj.client_url = url_for('clients.entry', client_id=obj.client_id, _external=True)
+        return obj
+
+class ClientPostSchema(ma.Schema):
+    class Meta:
+        strict = True
+
+    client_id = ma.fields.Int()
+    player_id = ma.fields.Int()
+    user_id = ma.fields.Int()
+    url = ma.fields.Str()
+    server_time = ma.fields.Str()
+    next_heartbeat_seconds = ma.fields.Int()
+    heartbeat_timeout = ma.fields.Str()
+    jti = ma.fields.Str()
+    jwt = ma.fields.Str()
+    url = ma.fields.Str(description="Fully qualified URL of the client resource")
+
+class ClientHeartbeatSchema(ma.Schema):
+    num_heartbeats = ma.fields.Integer(description=client_descriptions['num_heartbeats'])
+    last_heartbeat = ma.fields.DateTime(description="Timestamp of the previous heartbeat")
+    this_heartbeat = ma.fields.DateTime(description="Timestamp of this heartbeat")
+    next_heartbeat = ma.fields.DateTime(description="Timestamp when the next heartbeat is expected")
+    next_heartbeat_seconds = ma.fields.Integer(description="Number of seconds until the next heartbeat is expected")
+    heartbeat_timeout = ma.fields.DateTime(description="Timestamp when the client times out if no heartbeat is received")
+    heartbeat_timeout_seconds = ma.fields.Integer(description="Number of seconds until the client times out if no heartbeat is received")
+
+@bp.route('/', endpoint='list')
+class ClientsAPI(MethodView):
     no_jwt_check = ['GET']
     # GET args
     get_parser = reqparse.RequestParser()
@@ -55,11 +95,14 @@ class ClientsAPI(Resource):
         'player_id', type=int,
         help="Optional ID of a player to return sessions for")
 
-    @namespace.expect(get_parser)
-    @namespace.marshal_with(client_model, as_list=True)
+    #@namespace.expect(get_parser)
+    #@namespace.marshal_with(client_model, as_list=True)
+    @bp.response(ClientSchema(many=True))
     def get(self):
         """
-        Retrieves all active clients. If a client has not heartbeat
+        Retrieve all active clients.
+
+        If a client has not heartbeat
         for 5 minutes it is considered disconnected and is not returned by
         this endpoint
         """
@@ -89,11 +132,14 @@ class ClientsAPI(Resource):
     post_parser.add_argument('platform_info', type=str,
                              help=client_descriptions['platform_info'])
 
-    @namespace.expect(post_parser)
-    @namespace.marshal_with(client_registration_model, code=http_client.CREATED)
+    #@namespace.expect(post_parser)
+    #@namespace.marshal_with(client_registration_model, code=http_client.CREATED)
+    @bp.response(ClientPostSchema, code=201)
     def post(self):
         """
-        Register a new connected client.
+        Register a client
+
+        Registers a newly connectd client and get a JWT with the new client_id back
         """
         now = utcnow()
 
@@ -189,7 +235,7 @@ class ClientsAPI(Resource):
             {'event': 'created', 'payload': payload, 'url': resource_url}
         )
 
-        return ret, http_client.CREATED, response_header
+        return ret
 
 
 def get_client(client_id):
@@ -212,16 +258,18 @@ def get_client(client_id):
     return client
 
 
-@namespace.route('/<int:client_id>', endpoint='client')
-class ClientAPI(Resource):
+@bp.route('/<int:client_id>', endpoint='entry')
+class ClientAPI(MethodView):
     """
     Client API. This is used by the game clients to
     register themselves as connected-to-the-backend and to heartbeat
     to let the backend know that they are still connected.
     """
-    @namespace.marshal_with(client_model)
+    @bp.response(ClientSchema())
     def get(self, client_id):
         """
+        Find client by ID
+
         Get information about a single client. Just dumps out the DB row as json
         """
         client = get_client(client_id)
@@ -230,9 +278,12 @@ class ClientAPI(Resource):
 
         return client
 
-    @namespace.marshal_with(client_heartbeat_model)
+    #@namespace.marshal_with(client_heartbeat_model)
+    @bp.response(ClientHeartbeatSchema())
     def put(self, client_id):
         """
+        Client heartbeat
+
         Heartbeat for client registration.
         """
         client = get_client(client_id)
@@ -268,6 +319,8 @@ class ClientAPI(Resource):
 
     def delete(self, client_id):
         """
+        Deregister client
+
         Deregister an already registered client. Should return status 200 if successful.
         """
         client = get_client(client_id)
@@ -288,9 +341,9 @@ class ClientAPI(Resource):
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"clients": url_for("clients", _external=True)}
+    ret = {"clients": url_for("clients.list", _external=True)}
     ret["my_client"] = None
     if current_user and current_user.get("client_id"):
-        ret["my_client"] = url_for("client", client_id=current_user.get("client_id"),
+        ret["my_client"] = url_for("clients.entry", client_id=current_user.get("client_id"),
                                    _external=True)
     return ret

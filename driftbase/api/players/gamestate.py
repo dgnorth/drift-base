@@ -1,8 +1,11 @@
 import logging
 from six.moves import http_client
 
-from flask import url_for, request, g
-from flask_restplus import Namespace, Resource, abort
+from flask import url_for, request, g, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 
 from drift.utils import json_response
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -12,15 +15,15 @@ from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("player_gamestate", __name__, url_prefix='/players', description="Datastore for game state information")
 
 MAX_DATA_LEN = 1024 * 1024  # 1MB
 
 TASK_VALIDATED = "validated"
 
 
-@namespace.route("/<int:player_id>/gamestates", endpoint="player_gamestates")
-class GameStatesAPI(Resource):
+@bp.route("/<int:player_id>/gamestates", endpoint="list")
+class GameStatesAPI(MethodView):
 
     def get(self, player_id):
         """
@@ -37,20 +40,22 @@ class GameStatesAPI(Resource):
             entry = {
                 "namespace": gamestate.namespace,
                 "gamestate_id": gamestate.gamestate_id,
-                "gamestate_url": url_for("player_gamestate", player_id=player_id,
+                "gamestate_url": url_for("player_gamestate.entry", player_id=player_id,
                                          namespace=gamestate.namespace, _external=True)
             }
             ret.append(entry)
 
-        return ret
+        return jsonify(ret)
 
 
-@namespace.route("/<int:player_id>/gamestates/<string:namespace>", endpoint="player_gamestate")
-class GameStateAPI(Resource):
+@bp.route("/<int:player_id>/gamestates/<string:namespace>", endpoint="entry")
+class GameStateAPI(MethodView):
 
     def get(self, player_id, namespace):
         """
-        Get full dump of game state for the current player in namespace 'namespace'
+        Get full dump of game state
+
+        for the current player in namespace 'namespace'
         """
         can_edit_player(player_id)
 
@@ -69,10 +74,10 @@ class GameStateAPI(Resource):
 
         gamestate = gamestates.first()
         ret = gamestate.as_dict()
-        ret["gamestatehistory_url"] = url_for("player_gamestate_historylist",
+        ret["gamestatehistory_url"] = url_for("player_gamestate.historylist",
                                               player_id=player_id, namespace=namespace,
                                               _external=True)
-        return ret
+        return jsonify(ret)
 
     @simple_schema_request({
         "gamestate": {"type": "object"},
@@ -138,7 +143,7 @@ class GameStateAPI(Resource):
         gamestate.gamestatehistory_id = gamestatehistory_id
         g.db.commit()
 
-        return gamestate.as_dict()
+        return jsonify(gamestate.as_dict())
 
     def delete(self, player_id, namespace):
         """
@@ -157,8 +162,8 @@ class GameStateAPI(Resource):
         return "OK"
 
 
-@namespace.route("/<int:player_id>/gamestates/<string:namespace>/history", endpoint="player_gamestate_historylist")
-class GameStateHistoryListAPI(Resource):
+@bp.route("/<int:player_id>/gamestates/<string:namespace>/history", endpoint="historylist")
+class GameStateHistoryListAPI(MethodView):
 
     def get(self, player_id, namespace):
         can_edit_player(player_id)
@@ -173,7 +178,7 @@ class GameStateHistoryListAPI(Resource):
         for row in rows:
             entry = {
                 "gamestatehistory_id": row.gamestatehistory_id,
-                "gamestatehistoryentry_url": url_for("player_gamestate_historyentry",
+                "gamestatehistoryentry_url": url_for("player_gamestate.historyentry",
                                                      player_id=player_id,
                                                      namespace=namespace,
                                                      gamestatehistory_id=row.gamestatehistory_id,
@@ -181,12 +186,12 @@ class GameStateHistoryListAPI(Resource):
                 "create_date": row.create_date
             }
             ret.append(entry)
-        return ret
+        return jsonify(ret)
 
 
-@namespace.route("/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
-                 endpoint="player_gamestate_historyentry")
-class GameStateHistoryEntryAPI(Resource):
+@bp.route("/<int:player_id>/gamestates/<string:namespace>/history/<int:gamestatehistory_id>",
+                 endpoint="historyentry")
+class GameStateHistoryEntryAPI(MethodView):
 
     def get(self, player_id, namespace, gamestatehistory_id):
         can_edit_player(player_id)
@@ -198,4 +203,4 @@ class GameStateHistoryEntryAPI(Resource):
         if not row_gamestate:
             abort(http_client.NOT_FOUND)
         ret = row_gamestate.as_dict()
-        return ret
+        return jsonify(ret)

@@ -11,26 +11,48 @@ import collections
 from six.moves import http_client
 
 from sqlalchemy.exc import IntegrityError
+from marshmallow_sqlalchemy import ModelSchema
+import marshmallow as ma
+from marshmallow import validates, ValidationError, pre_dump
 
-from flask import request, g, url_for
-from flask_restplus import Namespace, Resource, abort
+from flask import request, g, url_for, jsonify
+from flask.views import MethodView
+from flask_rest_api import Blueprint, abort
 
+from drift.utils import Url
 from drift.core.extensions.jwt import current_user
-from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.models.db import CounterEntry, Counter, CorePlayer, PlayerCounter
 from driftbase.utils import clear_counter_cache, get_counter
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("players")
+bp = Blueprint("player_counters", __name__, url_prefix='/players', description="Counters for individual players")
 
 TOTAL_TIMESTAMP = datetime.datetime.strptime("2000-01-01", "%Y-%m-%d")
 COUNTER_PERIODS = ['total', 'month', 'day', 'hour', 'minute', 'second']
 
 
+class PlayerCounterRequestSchema(ma.Schema):
+    timestamp = ma.fields.DateTime()
+    value = ma.fields.Integer()
+    context_id = ma.fields.Integer()
+
+
+class PlayerCounterSchema(ma.Schema):
+    counter_id = ma.fields.Integer()
+    player_id = ma.fields.Integer()
+    first_update = ma.fields.DateTime()
+    last_update = ma.fields.DateTime()
+    num_updates = ma.fields.Integer()
+    url = Url('player_counters.entry', player_id='<player_id>', counter_id='<counter_id>', doc="This is the url")
+    name = ma.fields.String()
+    total = ma.fields.Integer()
+    periods = ma.fields.Dict()
+
+
 def get_player(player_id):
-    player = g.db.query(CorePlayer).filter(CorePlayer.player_id == player_id).first()
+    player = g.db.query(CorePlayer).get(player_id)
     return player
 
 
@@ -153,11 +175,15 @@ def check_and_update_player_counter(player_counter, timestamp):
     return True
 
 
-@namespace.route("/<int:player_id>/counters", endpoint="player_counters")
-class CountersApi(Resource):
+@bp.route("/<int:player_id>/counters", endpoint="list")
+class CountersApi(MethodView):
 
+    @bp.response(PlayerCounterSchema(many=True))
     def get(self, player_id):
         """
+        Counters for player
+
+        Returns a list of counters that have been created on the players' behalf.
         """
         # TODO: Playercheck
         if not get_player(player_id):
@@ -170,16 +196,16 @@ class CountersApi(Resource):
             counter = get_counter(counter_id)
             entry = {
                 "counter_id": counter_id,
+                "player_id": player_id,
                 "first_update": row.create_date,
                 "last_update": row.modify_date,
                 "num_updates": row.num_updates,
-                "url": url_for("player_counter", player_id=player_id,
-                               counter_id=counter_id, _external=True),
                 "name": counter["name"],
-                "periods": {}
+                "periods": {},
+                "total": 0,
             }
             for period in COUNTER_PERIODS + ["all"]:
-                entry["periods"][period] = url_for("player_counter_period", player_id=player_id,
+                entry["periods"][period] = url_for("player_counters.period", player_id=player_id,
                                                    counter_id=counter_id, period=period,
                                                    _external=True)
             total = g.db.query(CounterEntry.value).filter(CounterEntry.player_id == player_id,
@@ -193,10 +219,23 @@ class CountersApi(Resource):
 
         return ret
 
-    def patch(self, player_id):
+    @bp.arguments(PlayerCounterRequestSchema)
+    def patch(self, args, player_id):
+        """
+        Update counters for player
+
+        The endpoint accepts a list of counters to update at once.
+        """
         return self._patch(player_id)
 
-    def put(self, player_id):
+    @bp.arguments(PlayerCounterRequestSchema)
+    def put(self, args, player_id):
+        """
+        Update counters for player
+
+        This verb is provided for backwards-compatibility for clients that
+        do not support PATCH        
+        """
         return self._patch(player_id)
 
     def _patch(self, player_id):
@@ -316,13 +355,17 @@ class CountersApi(Resource):
         g.db.commit()
 
         log.info("patch(%s) done in %.2fs!", player_id, time.time() - start_time)
-        return result
+        return jsonify(result)
 
 
-@namespace.route("/<int:player_id>/counters/<int:counter_id>",
-                 endpoint="player_counter")
-class CounterApi(Resource):
+@bp.route("/<int:player_id>/counters/<int:counter_id>", endpoint="entry")
+class CounterApi(MethodView):
     def get(self, player_id, counter_id):
+        """
+        Find counter for player
+
+        Returns information for a specific counter for the player.
+        """
         counter = get_counter(counter_id)
         if not counter:
             abort(404)
@@ -339,17 +382,27 @@ class CounterApi(Resource):
             "periods": {}
         }
         for period in COUNTER_PERIODS + ["all"]:
-            ret["periods"][period] = url_for("player_counter_period", player_id=player_id,
+            ret["periods"][period] = url_for("player_counters.period", player_id=player_id,
                                              counter_id=counter_id, period=period, _external=True)
 
-        return ret
+        return jsonify(ret)
 
-    @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
+    @bp.arguments(PlayerCounterRequestSchema)
     def patch(self, player_id, counter_id, context_id):
+        """
+        Update single counter
+
+        Update a single counter for the player. Includes optional context
+        """
         return self._patch(player_id, counter_id, context_id)
 
-    @simple_schema_request({"timestamp": {"type": "string", }, "value": {"type": "number"}, "context_id": {"type": "number"}})
+    @bp.arguments(PlayerCounterRequestSchema)
     def put(self, player_id, counter_id, context_id):
+        """
+        Update single counter
+
+        Update a single counter for the player. Includes optional context
+        """
         return self._patch(player_id, counter_id, context_id)
 
     def _patch(self, player_id, counter_id, context_id):
@@ -371,10 +424,14 @@ class CounterApi(Resource):
         return "OK"
 
 
-@namespace.route("/<int:player_id>/counters/<int:counter_id>/<string:period>",
-                 endpoint="player_counter_period")
-class CounterPeriodApi(Resource):
+@bp.route("/<int:player_id>/counters/<int:counter_id>/<string:period>", endpoint="period")
+class CounterPeriodApi(MethodView):
     def get(self, player_id, counter_id, period):
+        """
+        Counter entries for period
+
+        Retruns a list of counters for the requested period.
+        """
         counter = get_counter(counter_id)
         if not counter:
             abort(404)
@@ -395,12 +452,17 @@ class CounterPeriodApi(Resource):
             ret = {}
             for row in counter_entries:
                 ret[row.date_time.isoformat() + "Z"] = row.value
-        return ret
+        return jsonify(ret)
 
 
-@namespace.route("/<int:player_id>/countertotals", endpoint="player_countertotals")
-class CounterTotalsApi(Resource):
+@bp.route("/<int:player_id>/countertotals", endpoint="totals")
+class CounterTotalsApi(MethodView):
     def get(self, player_id):
+        """
+        Counter Totals
+
+        Return the 'total' count for all counters belonging to the player.
+        """
         counter_entries = g.db.query(CounterEntry) \
                               .filter(CounterEntry.player_id == player_id,
                                       CounterEntry.period == "total")
@@ -409,4 +471,4 @@ class CounterTotalsApi(Resource):
             counter = get_counter(row.counter_id)
             ret[counter["name"]] = row.value
 
-        return ret
+        return jsonify(ret)

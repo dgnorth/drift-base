@@ -14,8 +14,11 @@ import sys
 
 from six.moves import http_client
 
-from flask import g, url_for, request, stream_with_context, Response
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import g, url_for, request, stream_with_context, Response, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
@@ -23,12 +26,12 @@ from drift.core.extensions.schemachecker import simple_schema_request
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("messages", "Message box, mostly meant for client-to-client communication")
+bp = Blueprint("messages", "messages", url_prefix="/messages", description="Message box, mostly meant for client-to-client communication")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -125,8 +128,8 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
                   message="You can only read from an exchange that belongs to you!")
 
 
-@namespace.route('/<string:exchange>/<int:exchange_id>', endpoint='messages_exchange')
-class MessagesExchangeAPI(Resource):
+@bp.route('/<string:exchange>/<int:exchange_id>', endpoint='exchange')
+class MessagesExchangeAPI(MethodView):
 
     no_jwt_check = ["GET"]
 
@@ -190,11 +193,11 @@ class MessagesExchangeAPI(Resource):
             return Response(stream_with_context(streamer()), mimetype="application/json")
         else:
             messages = fetch_messages(exchange, exchange_id, min_message_number, rows)
-            return messages
+            return jsonify(messages)
 
 
-@namespace.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='messages_queue')
-class MessagesQueueAPI(Resource):
+@bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='queue')
+class MessagesQueueAPI(MethodView):
 
     @simple_schema_request({
         "message": {"type": "object", },
@@ -224,7 +227,7 @@ class MessagesQueueAPI(Resource):
 
         ret = copy.copy(message)
         ret["url"] = url_for(
-            "message",
+            "messages.message",
             exchange=message['exchange'],
             exchange_id=message['exchange_id'],
             queue=message['queue'],
@@ -232,7 +235,7 @@ class MessagesQueueAPI(Resource):
             _external=True
         )
 
-        return ret
+        return jsonify(ret)
 
 
 def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
@@ -267,8 +270,8 @@ def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
     return message
 
 
-@namespace.route('/<string:exchange>/<int:exchange_id>/<string:queue>/<string:message_id>', endpoint='message')
-class MessageQueueAPI(Resource):
+@bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>/<string:message_id>', endpoint='message')
+class MessageQueueAPI(MethodView):
 
     def get(self, exchange, exchange_id, queue, message_id):
         check_can_use_exchange(exchange, exchange_id, read=True)
@@ -278,7 +281,7 @@ class MessageQueueAPI(Resource):
         message = {}
         if val:
             message = json.loads(val)
-            return message
+            return jsonify(message)
         else:
             abort(http_client.NOT_FOUND)
 
@@ -288,6 +291,6 @@ def endpoint_info(*args):
     ret = {}
     ret["my_messages"] = None
     if current_user:
-        ret["my_messages"] = url_for("messages_exchange", exchange="players",
+        ret["my_messages"] = url_for("messages.exchange", exchange="players",
                                      exchange_id=current_user["player_id"], _external=True)
     return ret

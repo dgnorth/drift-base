@@ -3,8 +3,11 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import request, url_for, g, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player
@@ -18,12 +21,12 @@ from driftbase.matchqueue import process_match_queue
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("matches", "Realtime matches")
+bp = Blueprint("matches", __name__, url_prefix="/matches", description="Realtime matches")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -31,8 +34,8 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('/active', endpoint='matches_active')
-class ActiveMatchesAPI(Resource):
+@bp.route('/active', endpoint='active')
+class ActiveMatchesAPI(MethodView):
     """UE4 matches available for matchmaking
     """
     get_args = reqparse.RequestParser()
@@ -44,7 +47,10 @@ class ActiveMatchesAPI(Resource):
     get_args.add_argument("rows", type=int, required=False)
 
     def get(self):
-        """This endpoint used by clients to fetch a list of matches available
+        """
+        Get active matches
+
+        This endpoint used by clients to fetch a list of matches available
         for joining
         """
         args = self.get_args.parse_args()
@@ -99,13 +105,13 @@ class ActiveMatchesAPI(Resource):
             record["realm"] = machine.realm
             record["placement"] = machine.placement
             record["ref"] = server.ref
-            record["match_url"] = url_for("match",
+            record["match_url"] = url_for("matches.entry",
                                           match_id=match.match_id,
                                           _external=True)
-            record["server_url"] = url_for("server",
+            record["server_url"] = url_for("servers.entry",
                                            server_id=server.server_id,
                                            _external=True)
-            record["machine_url"] = url_for("machine",
+            record["machine_url"] = url_for("machines.entry",
                                             machine_id=server.machine_id,
                                             _external=True)
             conn_url = "%s:%s?player_id=%s?token=%s"
@@ -131,11 +137,11 @@ class ActiveMatchesAPI(Resource):
             if include:
                 ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
 
-@namespace.route('', endpoint='matches')
-class MatchesAPI(Resource):
+@bp.route('', endpoint='list')
+class MatchesAPI(MethodView):
     """UE4 match
     """
     get_args = reqparse.RequestParser()
@@ -160,9 +166,9 @@ class MatchesAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("match", match_id=row.match_id, _external=True)
+            record["url"] = url_for("matches.entry", match_id=row.match_id, _external=True)
             ret.append(record)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -213,8 +219,8 @@ class MatchesAPI(Resource):
                 g.db.add(team)
             g.db.commit()
 
-        resource_uri = url_for("match", match_id=match_id, _external=True)
-        players_resource_uri = url_for("match_players", match_id=match_id, _external=True)
+        resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
+        players_resource_uri = url_for("matches.players", match_id=match_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
@@ -228,20 +234,22 @@ class MatchesAPI(Resource):
         except Exception:
             log.exception("Unable to process match queue")
 
-        return {"match_id": match_id,
+        return jsonify({"match_id": match_id,
                 "url": resource_uri,
                 "players_url": players_resource_uri,
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
-@namespace.route('/<int:match_id>', endpoint='match')
-class MatchAPI(Resource):
+@bp.route('/<int:match_id>', endpoint='entry')
+class MatchAPI(MethodView):
     """
     Information about specific matches
     """
     @requires_roles("service")
     def get(self, match_id):
         """
+        Find battle by ID
+
         Get information about a single battle. Dumps out the DB row as json
         URL's are provided for additional information about the battle for
         drilldown. Machine and matcheserver url's are also written out.
@@ -251,7 +259,7 @@ class MatchAPI(Resource):
             abort(http_client.NOT_FOUND)
 
         ret = match.as_dict()
-        ret["url"] = url_for("match", match_id=match_id, _external=True)
+        ret["url"] = url_for("matches.entry", match_id=match_id, _external=True)
 
         server = g.db.query(Server).get(match.server_id)
         ret["server"] = None
@@ -259,31 +267,31 @@ class MatchAPI(Resource):
         ret["machine_url"] = None
         if server:
             ret["server"] = server.as_dict()
-            ret["server_url"] = url_for("server", server_id=server.server_id, _external=True)
+            ret["server_url"] = url_for("servers.entry", server_id=server.server_id, _external=True)
 
             machine = g.db.query(Machine).get(server.machine_id)
             ret["machine"] = None
             if server:
-                ret["machine_url"] = url_for("machine",
+                ret["machine_url"] = url_for("machines.entry",
                                              machine_id=machine.machine_id, _external=True)
 
         teams = []
         rows = g.db.query(MatchTeam).filter(MatchTeam.match_id == match_id).all()
         for r in rows:
             team = r.as_dict()
-            team["url"] = url_for("match_team", match_id=match_id, team_id=r.team_id,
+            team["url"] = url_for("matches.team", match_id=match_id, team_id=r.team_id,
                                   _external=True)
             teams.append(team)
         ret["teams"] = teams
 
-        ret["matchplayers_url"] = url_for("match_players", match_id=match_id, _external=True)
-        ret["teams_url"] = url_for("match_teams", match_id=match_id, _external=True)
+        ret["matchplayers_url"] = url_for("matches.players", match_id=match_id, _external=True)
+        ret["teams_url"] = url_for("matches.teams", match_id=match_id, _external=True)
 
         players = []
         rows = g.db.query(MatchPlayer).filter(MatchPlayer.match_id == match_id).all()
         for r in rows:
             player = r.as_dict()
-            player["matchplayer_url"] = url_for("match_player", match_id=match_id,
+            player["matchplayer_url"] = url_for("matches.player", match_id=match_id,
                                                 player_id=r.player_id, _external=True)
             player["player_url"] = url_player(r.player_id)
             players.append(player)
@@ -292,7 +300,7 @@ class MatchAPI(Resource):
 
         log.debug("Returning info for match %s", match_id)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -307,6 +315,8 @@ class MatchAPI(Resource):
     }, required=["status"])
     def put(self, match_id):
         """
+        Update battle status
+
         The UE4 server calls this method to update its status and any
         metadata that the backend should know about
         """
@@ -335,7 +345,7 @@ class MatchAPI(Resource):
             setattr(match, arg, args[arg])
         g.db.commit()
 
-        resource_uri = url_for("match", match_id=match_id, _external=True)
+        resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
@@ -345,16 +355,19 @@ class MatchAPI(Resource):
 
         log.info("Match %s has been updated.", match_id)
 
-        return ret, http_client.OK, response_header
+        return jsonify(ret), http_client.OK, response_header
 
 
-@namespace.route('/<int:match_id>/teams', endpoint='match_teams')
-class MatchTeamsAPI(Resource):
+@bp.route('/<int:match_id>/teams', endpoint='teams')
+class MatchTeamsAPI(MethodView):
     """
     All teams in a match
     """
     @requires_roles("service")
     def get(self, match_id):
+        """
+        Find teams by match
+        """
         query = g.db.query(MatchTeam)
         query = query.filter(MatchTeam.match_id == match_id)
         rows = query.all()
@@ -362,12 +375,12 @@ class MatchTeamsAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("match_team",
+            record["url"] = url_for("matches.team",
                                     match_id=match_id,
                                     team_id=row.team_id,
                                     _external=True)
             ret.append(record)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -376,6 +389,9 @@ class MatchTeamsAPI(Resource):
         "details": {"type": "object", },
     }, required=[])
     def post(self, match_id):
+        """
+        Add a team to a match
+        """
         args = request.json
         team = MatchTeam(match_id=match_id,
                          name=args.get("name"),
@@ -385,7 +401,7 @@ class MatchTeamsAPI(Resource):
         g.db.add(team)
         g.db.commit()
         team_id = team.team_id
-        resource_uri = url_for("match_team", match_id=match_id, team_id=team_id, _external=True)
+        resource_uri = url_for("matches.team", match_id=match_id, team_id=team_id, _external=True)
         response_header = {"Location": resource_uri}
 
         log.info("Created team %s for match %s", team_id, match_id)
@@ -394,18 +410,21 @@ class MatchTeamsAPI(Resource):
                         "gameserver.match.team_created",
                         details={"team_id": team_id})
 
-        return {"team_id": team_id,
+        return jsonify({"team_id": team_id,
                 "url": resource_uri,
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
-@namespace.route('/<int:match_id>/teams/<int:team_id>', endpoint='match_team')
-class MatchTeamAPI(Resource):
+@bp.route('/<int:match_id>/teams/<int:team_id>', endpoint='team')
+class MatchTeamAPI(MethodView):
     """
     A specific team in a match
     """
     @requires_roles("service")
     def get(self, match_id, team_id):
+        """
+        Find a team in a match by ID's
+        """
         query = g.db.query(MatchTeam)
         query = query.filter(MatchTeam.match_id == match_id,
                              MatchTeam.team_id == team_id)
@@ -414,7 +433,7 @@ class MatchTeamAPI(Resource):
             abort(http_client.NOT_FOUND)
 
         ret = row.as_dict()
-        ret["url"] = url_for("match_team", match_id=match_id, team_id=row.team_id, _external=True)
+        ret["url"] = url_for("matches.team", match_id=match_id, team_id=row.team_id, _external=True)
 
         query = g.db.query(MatchPlayer)
         query = query.filter(MatchPlayer.match_id == match_id,
@@ -423,14 +442,14 @@ class MatchTeamAPI(Resource):
         players = []
         for r in rows:
             player = r.as_dict()
-            player["matchplayer_url"] = url_for("match_player",
+            player["matchplayer_url"] = url_for("matches.player",
                                                 match_id=match_id,
                                                 player_id=r.player_id,
                                                 _external=True)
             player["player_url"] = url_player(r.player_id)
             players.append(player)
         ret["players"] = players
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -447,11 +466,11 @@ class MatchTeamAPI(Resource):
             setattr(team, arg, args[arg])
         g.db.commit()
         ret = team.as_dict()
-        return ret
+        return jsonify(ret)
 
 
-@namespace.route('/<int:match_id>/players', endpoint='match_players')
-class MatchPlayersAPI(Resource):
+@bp.route('/<int:match_id>/players', endpoint='players')
+class MatchPlayersAPI(MethodView):
     """
     Players in a specific match. The UE4 server will post to this endpoint
     to add a player to a match.
@@ -466,14 +485,14 @@ class MatchPlayersAPI(Resource):
         ret = []
         for r in rows:
             player = r.as_dict()
-            player["matchplayer_url"] = url_for("match_player",
+            player["matchplayer_url"] = url_for("matches.player",
                                                 match_id=match_id,
                                                 player_id=r.player_id,
                                                 _external=True)
             player["player_url"] = url_player(r.player_id)
             ret.append(player)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -535,7 +554,7 @@ class MatchPlayersAPI(Resource):
         g.db.commit()
 
         # prepare the response
-        resource_uri = url_for("match_player",
+        resource_uri = url_for("matches.player",
                                match_id=match_id,
                                player_id=player_id,
                                _external=True)
@@ -545,15 +564,15 @@ class MatchPlayersAPI(Resource):
         log_match_event(match_id, player_id, "gameserver.match.player_joined",
                         details={"team_id": team_id})
 
-        return {"match_id": match_id,
+        return jsonify({"match_id": match_id,
                 "player_id": player_id,
                 "team_id": team_id,
                 "url": resource_uri,
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
-@namespace.route('/<int:match_id>/players/<int:player_id>', endpoint='match_player')
-class MatchPlayerAPI(Resource):
+@bp.route('/<int:match_id>/players/<int:player_id>', endpoint='player')
+class MatchPlayerAPI(MethodView):
     """
     A specific player in a specific match
     """
@@ -570,10 +589,10 @@ class MatchPlayerAPI(Resource):
         ret = player.as_dict()
         ret["team_url"] = None
         if player.team_id:
-            ret["team_url"] = url_for("match_team", match_id=match_id,
+            ret["team_url"] = url_for("matches.team", match_id=match_id,
                                       team_id=player.team_id, _external=True)
         ret["player_url"] = url_player(player_id)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     def delete(self, match_id, player_id):
@@ -615,13 +634,13 @@ class MatchPlayerAPI(Resource):
                         "gameserver.match.player_left",
                         details={"team_id": team_id})
 
-        return {"message": "Player has left the battle"}
+        return jsonify({"message": "Player has left the battle"})
 
 
 @endpoints.register
 def endpoint_info(*args):
     ret = {
-        "active_matches": url_for("matches_active", _external=True),
-        "matches": url_for("matches", _external=True),
+        "active_matches": url_for("matches.active", _external=True),
+        "matches": url_for("matches.list", _external=True),
     }
     return ret

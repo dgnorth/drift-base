@@ -7,8 +7,11 @@ import logging
 
 from six.moves import http_client
 
-from flask import g, url_for, request
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import g, url_for, request, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
@@ -21,12 +24,13 @@ from driftbase.matchqueue import process_match_queue
 
 log = logging.getLogger(__name__)
 
-namespace = Namespace("matchqueue", "Queuing mechanism for matches")
+bp = Blueprint("matchqueue", "matchqueue", url_prefix="/matchqueue", description="Queuing mechanism for matches")
+
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -40,12 +44,12 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
         "match_url": None,
         "ue4_connection_url": None,
         "status": matchqueue_entry.status,
-        "matchqueueplayer_url": url_for("matchqueue_player", player_id=player_id, _external=True),
+        "matchqueueplayer_url": url_for("matchqueue.player", player_id=player_id, _external=True),
         "create_date": matchqueue_entry.create_date,
         "criteria": matchqueue_entry.criteria,
     }
     if matchqueue_entry.match_id:
-        ret["match_url"] = url_for("match", match_id=matchqueue_entry.match_id,
+        ret["match_url"] = url_for("matches.entry", match_id=matchqueue_entry.match_id,
                                    _external=True)
     if server:
         ret["ue4_connection_url"] = "%s:%s?player_id=%s?token=%s" % (server.public_ip,
@@ -55,8 +59,8 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
     return ret
 
 
-@namespace.route('', endpoint='matchqueue')
-class MatchQueueAPI(Resource):
+@bp.route('', endpoint='queue')
+class MatchQueueAPI(MethodView):
 
     no_jwt_check = ["GET"]
 
@@ -69,6 +73,8 @@ class MatchQueueAPI(Resource):
     }, required=["player_id"])
     def post(self):
         """
+        Add a player to the queue
+
         Registers the current player into the match queue ready for a match
         """
         args = request.json
@@ -144,13 +150,15 @@ class MatchQueueAPI(Resource):
         response_header = {
             "Location": ret["matchqueueplayer_url"],
         }
-        return ret, http_client.CREATED, response_header
+        return jsonify(ret), http_client.CREATED, response_header
 
     get_args = reqparse.RequestParser()
     get_args.add_argument("status", type=str, required=False, action='append')
 
     def get(self):
         """
+        Get players in the queue
+
         Returns all players in the queue list, no matter what their status,
         as long as they are online
         """
@@ -170,15 +178,18 @@ class MatchQueueAPI(Resource):
         for player in matchqueue_players:
             entry = make_matchqueueplayer_response(player[0], player[1])
             ret.append(entry)
-        return ret
+        return jsonify(ret)
 
 
-@namespace.route('/<int:player_id>', endpoint='matchqueue_player')
-class MatchQueueEntryAPI(Resource):
+@bp.route('/<int:player_id>', endpoint='player')
+class MatchQueueEntryAPI(MethodView):
 
     no_jwt_check = ["GET"]
 
     def get(self, player_id):
+        """
+        Find a player in the queue by ID
+        """
         result = g.db.query(MatchQueuePlayer, CorePlayer) \
             .filter(MatchQueuePlayer.player_id == player_id, CorePlayer.player_id == player_id) \
             .order_by(-MatchQueuePlayer.id).first()
@@ -196,12 +207,15 @@ class MatchQueueEntryAPI(Resource):
             server = g.db.query(Server).get(match.server_id)
             if not server:
                 log.error("Could not find a server for match %s", my_matchqueueplayer.match_id)
-        return make_matchqueueplayer_response(my_player, my_matchqueueplayer, server)
+        return jsonify(make_matchqueueplayer_response(my_player, my_matchqueueplayer, server))
 
     delete_args = reqparse.RequestParser()
     delete_args.add_argument("force", type=bool, required=False, default=False)
 
     def delete(self, player_id):
+        """
+        Remove a player from the queue
+        """
         if player_id != current_user["player_id"] and "service" not in current_user["roles"]:
             abort(http_client.BAD_REQUEST, message="This is not your player")
 
@@ -230,4 +244,4 @@ class MatchQueueEntryAPI(Resource):
 
 @endpoints.register
 def endpoint_info(*args):
-    return {"matchqueue": url_for("matchqueue", _external=True)}
+    return {"matchqueue": url_for("matchqueue.queue", _external=True)}

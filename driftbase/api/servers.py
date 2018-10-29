@@ -4,8 +4,11 @@ import uuid
 
 from six.moves import http_client
 
-from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import request, url_for, g, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.schemachecker import simple_schema_request
@@ -16,12 +19,12 @@ from driftbase.models.db import Machine, Server, Match, ServerDaemonCommand
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("servers", "Battleserver processes")
+bp = Blueprint("servers", __name__, url_prefix="/servers", description="Battleserver processes")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -32,8 +35,8 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('', endpoint='servers')
-class ServersAPI(Resource):
+@bp.route('', endpoint='list')
+class ServersAPI(MethodView):
     get_args = reqparse.RequestParser()
     get_args.add_argument("machine_id", type=int, required=False)
     get_args.add_argument("rows", type=int, required=False)
@@ -56,9 +59,9 @@ class ServersAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("server", server_id=row.server_id, _external=True)
+            record["url"] = url_for("servers.entry", server_id=row.server_id, _external=True)
             ret.append(record)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -154,26 +157,26 @@ class ServersAPI(Resource):
 
         server_id = server.server_id
 
-        resource_url = url_for("server", server_id=server_id, _external=True)
-        machine_url = url_for("machine", machine_id=machine_id, _external=True)
-        heartbeat_url = url_for("server_heartbeat", server_id=server_id, _external=True)
-        commands_url = url_for("server_commands", server_id=server_id, _external=True)
+        resource_url = url_for("servers.entry", server_id=server_id, _external=True)
+        machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
+        heartbeat_url = url_for("servers.heartbeat", server_id=server_id, _external=True)
+        commands_url = url_for("servers.commands", server_id=server_id, _external=True)
         response_header = {
             "Location": resource_url,
         }
         log.info("Server %s has been registered on machine_id %s", server_id, machine_id)
-        return {"server_id": server_id,
+        return jsonify({"server_id": server_id,
                 "url": resource_url,
                 "machine_id": machine_id,
                 "machine_url": machine_url,
                 "heartbeat_url": heartbeat_url,
                 "commands_url": commands_url,
                 "token": token,
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
-@namespace.route('/<int:server_id>', endpoint='server')
-class ServerAPI(Resource):
+@bp.route('/<int:server_id>', endpoint='entry')
+class ServerAPI(MethodView):
     """
     Interface to battle servers instances. A battleserver instance is
     a single run of a battleserver executable. The battleserver will
@@ -195,15 +198,15 @@ class ServerAPI(Resource):
 
         machine_id = server.machine_id
         record = server.as_dict()
-        record["url"] = url_for("servers", server_id=server_id, _external=True)
-        record["heartbeat_url"] = url_for("server_heartbeat", server_id=server_id, _external=True)
-        record["commands_url"] = url_for("server_commands", server_id=server_id, _external=True)
+        record["url"] = url_for("servers.entry", server_id=server_id, _external=True)
+        record["heartbeat_url"] = url_for("servers.heartbeat", server_id=server_id, _external=True)
+        record["commands_url"] = url_for("servers.commands", server_id=server_id, _external=True)
 
         record["machine_url"] = None
         if machine_id:
             machine = g.db.query(Machine).get(machine_id)
             if machine:
-                record["machine_url"] = url_for("machine", machine_id=machine_id,
+                record["machine_url"] = url_for("machines.entry", machine_id=machine_id,
                                                 _external=True)
 
         matches = []
@@ -211,7 +214,7 @@ class ServerAPI(Resource):
         for row in rows:
             match_id = row.match_id
             match = {"match_id": match_id,
-                     "url": url_for("match", match_id=match_id, _external=True),
+                     "url": url_for("matches.entry", match_id=match_id, _external=True),
                      "num_players": row.num_players,
                      }
             matches.append(match)
@@ -225,14 +228,14 @@ class ServerAPI(Resource):
                        "command": row.command,
                        "arguments": row.arguments,
                        "create_date": row.create_date,
-                       "url": url_for("server_command", server_id=server_id,
+                       "url": url_for("servers.command", server_id=server_id,
                                       command_id=row.command_id, _external=True)
                        }
             commands.append(command)
         record["pending_commands"] = commands
 
         log.debug("Returning info for battleserver %s", server_id)
-        return record
+        return jsonify(record)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -277,19 +280,19 @@ class ServerAPI(Resource):
         machine_id = server.machine_id
         machine_url = None
         if machine_id:
-            machine_url = url_for("machine", machine_id=machine_id, _external=True)
+            machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
 
-        return {"server_id": server_id,
-                "url": url_for("server", server_id=server_id, _external=True),
+        return jsonify({"server_id": server_id,
+                "url": url_for("servers.entry", server_id=server_id, _external=True),
                 "machine_id": machine_id,
                 "machine_url": machine_url,
-                "heartbeat_url": url_for("server_heartbeat", server_id=server_id, _external=True),
+                "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
                 "next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT,
-                }, http_client.OK, None
+                }), http_client.OK, None
 
 
-@namespace.route('/<int:server_id>/heartbeat', endpoint='server_heartbeat')
-class ServerHeartbeatAPI(Resource):
+@bp.route('/<int:server_id>/heartbeat', endpoint='heartbeat')
+class ServerHeartbeatAPI(MethodView):
     """
     Thin heartbeat API
     """
@@ -305,11 +308,11 @@ class ServerHeartbeatAPI(Resource):
         server.heartbeat_date = utcnow()
         g.db.commit()
 
-        return {"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }, http_client.OK, None
+        return jsonify({"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }), http_client.OK, None
 
 
-@namespace.route('/<int:server_id>/commands', endpoint='server_commands')
-class ServerCommandsAPI(Resource):
+@bp.route('/<int:server_id>/commands', endpoint='commands')
+class ServerCommandsAPI(MethodView):
     """
     Commands for the battleserver daemon
     """
@@ -338,12 +341,12 @@ class ServerCommandsAPI(Resource):
         g.db.add(command)
         g.db.commit()
 
-        resource_url = url_for("server_command", server_id=server_id,
+        resource_url = url_for("servers.command", server_id=server_id,
                                command_id=command.command_id, _external=True)
-        return {"command_id": command.command_id,
+        return jsonify({"command_id": command.command_id,
                 "url": resource_url,
                 "status": status,
-                }, http_client.CREATED, None
+                }), http_client.CREATED, None
 
     @requires_roles("service")
     def get(self, server_id):
@@ -353,16 +356,16 @@ class ServerCommandsAPI(Resource):
         ret = []
         for r in rows:
             command = r.as_dict()
-            command["url"] = url_for("server_command",
+            command["url"] = url_for("servers.command",
                                      server_id=server_id,
                                      command_id=r.command_id,
                                      _external=True)
             ret.append(command)
-        return ret
+        return jsonify(ret)
 
 
-@namespace.route('/<int:server_id>/commands/<int:command_id>', endpoint='server_command')
-class ServerCommandAPI(Resource):
+@bp.route('/<int:server_id>/commands/<int:command_id>', endpoint='command')
+class ServerCommandAPI(MethodView):
     @requires_roles("service")
     @simple_schema_request({
         "status": {"type": "string", },
@@ -396,20 +399,20 @@ class ServerCommandAPI(Resource):
         g.db.commit()
 
         ret = row.as_dict()
-        ret["url"] = url_for("server_command", server_id=server_id, command_id=row.command_id,
+        ret["url"] = url_for("servers.command", server_id=server_id, command_id=row.command_id,
                              _external=True)
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     def get(self, server_id, command_id):
         row = g.db.query(ServerDaemonCommand).get(command_id)
         ret = row.as_dict()
-        ret["url"] = url_for("server_command", server_id=server_id, command_id=row.command_id,
+        ret["url"] = url_for("servers.command", server_id=server_id, command_id=row.command_id,
                              _external=True)
-        return ret
+        return jsonify(ret)
 
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"servers": url_for("servers", _external=True), }
+    ret = {"servers": url_for("servers.list", _external=True), }
     return ret

@@ -3,8 +3,11 @@ import datetime
 
 from six.moves import http_client
 
-from flask import request, url_for, g
-from flask_restplus import Namespace, Resource, reqparse, abort
+from flask import request, url_for, g, jsonify
+from flask.views import MethodView
+import marshmallow as ma
+from flask_restplus import reqparse
+from flask_rest_api import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 from dateutil import parser
 
@@ -16,12 +19,12 @@ from driftbase.models.db import Machine, MachineEvent
 log = logging.getLogger(__name__)
 
 
-namespace = Namespace("machines", "Battleserver machine instances")
+bp = Blueprint("machines", __name__, url_prefix="/machines", description="Battleserver machine instances")
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -29,8 +32,8 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-@namespace.route('', endpoint='machines')
-class MachinesAPI(Resource):
+@bp.route('', endpoint='list')
+class MachinesAPI(MethodView):
     """The interface to battleserver machines. Each physical machine
     (for example ec2 instance) has a machine resource here. Each
     machine resource has zero or more battleserver resources.
@@ -51,8 +54,11 @@ class MachinesAPI(Resource):
     get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
-    @namespace.expect(get_args)
+    #@namespace.expect(get_args)
     def get(self):
+        """
+        Get a list of machines
+        """
         args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
         query = g.db.query(Machine)
@@ -83,10 +89,10 @@ class MachinesAPI(Resource):
         ret = []
         for row in rows:
             record = row.as_dict()
-            record["url"] = url_for("machines", machine_id=row.machine_id, _external=True)
+            record["url"] = url_for("machines.entry", machine_id=row.machine_id, _external=True)
             ret.append(record)
 
-        return ret
+        return jsonify(ret)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -102,6 +108,9 @@ class MachinesAPI(Resource):
         "group_name": {"type": "string", },
     }, required=["realm", "instance_name"])
     def post(self):
+        """
+        Register a machine
+        """
         args = request.json
         log.info("registering a battleserver machine for realm %s from ip %s",
                  args.get("realm"), args.get("public_ip"))
@@ -120,26 +129,28 @@ class MachinesAPI(Resource):
         g.db.add(machine)
         g.db.commit()
         machine_id = machine.machine_id
-        resource_uri = url_for("machine", machine_id=machine_id, _external=True)
+        resource_uri = url_for("machines.entry", machine_id=machine_id, _external=True)
         response_header = {
             "Location": resource_uri,
         }
         log.info("Battleserver machine %s has been registered on public ip %s",
                  machine_id, args.get("public_ip"))
 
-        return {"machine_id": machine_id,
+        return jsonify({"machine_id": machine_id,
                 "url": resource_uri
-                }, http_client.CREATED, response_header
+                }), http_client.CREATED, response_header
 
 
-@namespace.route('/<int:machine_id>', endpoint='machine')
-class MachineAPI(Resource):
+@bp.route('/<int:machine_id>', endpoint='entry')
+class MachineAPI(MethodView):
     """
     Information about specific machines
     """
     @requires_roles("service")
     def get(self, machine_id):
         """
+        Find machine by ID
+
         Get information about a single battle server machine.
         Just dumps out the DB row as json
         """
@@ -148,13 +159,13 @@ class MachineAPI(Resource):
             log.warning("Requested a non-existant machine: %s", machine_id)
             abort(http_client.NOT_FOUND, description="Machine not found")
         record = row.as_dict()
-        record["url"] = url_for("machine", machine_id=machine_id, _external=True)
-        record["servers_url"] = url_for("servers", machine_id=machine_id, _external=True)
-        record["matches_url"] = url_for("matches", machine_id=machine_id, _external=True)
+        record["url"] = url_for("machines.entry", machine_id=machine_id, _external=True)
+        record["servers_url"] = url_for("servers.list", machine_id=machine_id, _external=True)
+        record["matches_url"] = url_for("matches.list", machine_id=machine_id, _external=True)
 
         log.debug("Returning info for battleserver machine %s", machine_id)
 
-        return record
+        return jsonify(record)
 
     @requires_roles("service")
     @simple_schema_request({
@@ -168,6 +179,8 @@ class MachineAPI(Resource):
     }, required=[])
     def put(self, machine_id):
         """
+        Update machine
+
         Heartbeat and update the machine reference
         """
         args = request.json
@@ -196,10 +209,10 @@ class MachineAPI(Resource):
                 g.db.add(event_row)
 
         g.db.commit()
-        return {"last_heartbeat": last_heartbeat}
+        return jsonify({"last_heartbeat": last_heartbeat})
 
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"machines": url_for("machines", _external=True)}
+    ret = {"machines": url_for("machines.list", _external=True)}
     return ret

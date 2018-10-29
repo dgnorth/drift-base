@@ -17,9 +17,10 @@ custom:
   pythonRequirements:
     #dockerImage: drift-base:latest
     #usePipenv: true
-    #dockerizePip: true
+    dockerizePip: true
     dockerFile: Dockerfile
     #dockerImage: drift-base:latest
+
 
 
 provider:
@@ -90,6 +91,7 @@ provider:
 functions:
   app:
     handler: wsgi.handler
+    name: DEVNORTH-drift-base-lambda-main-app  # TEMPLATIZED
     events:
 #      - http:
 #          path: /
