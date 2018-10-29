@@ -31,6 +31,8 @@ class EventsAPI(MethodView):
 
     def post(self):
         """
+        Create event
+
         Public endpoint, called from the client and other services to log an
         event into eventlog
         Used to document action flow such as authentication, client exit,

@@ -73,6 +73,8 @@ class MatchQueueAPI(MethodView):
     }, required=["player_id"])
     def post(self):
         """
+        Add a player to the queue
+
         Registers the current player into the match queue ready for a match
         """
         args = request.json
@@ -155,6 +157,8 @@ class MatchQueueAPI(MethodView):
 
     def get(self):
         """
+        Get players in the queue
+
         Returns all players in the queue list, no matter what their status,
         as long as they are online
         """
@@ -183,6 +187,9 @@ class MatchQueueEntryAPI(MethodView):
     no_jwt_check = ["GET"]
 
     def get(self, player_id):
+        """
+        Find a player in the queue by ID
+        """
         result = g.db.query(MatchQueuePlayer, CorePlayer) \
             .filter(MatchQueuePlayer.player_id == player_id, CorePlayer.player_id == player_id) \
             .order_by(-MatchQueuePlayer.id).first()
@@ -206,6 +213,9 @@ class MatchQueueEntryAPI(MethodView):
     delete_args.add_argument("force", type=bool, required=False, default=False)
 
     def delete(self, player_id):
+        """
+        Remove a player from the queue
+        """
         if player_id != current_user["player_id"] and "service" not in current_user["roles"]:
             abort(http_client.BAD_REQUEST, message="This is not your player")
 
