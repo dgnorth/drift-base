@@ -83,7 +83,7 @@
         },
         "drift": {
             "git": "https://github.com/dgnorth/drift.git",
-            "ref": "1b100dbeef203414c114e91423623afe184a27a4"
+            "ref": "60f3f5b7d6a637004c07c53c41fdf13916b5d3ee"
         },
         "driftconfig": {
             "git": "https://github.com/dgnorth/drift-config.git",
