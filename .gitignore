@@ -1,4 +1,5 @@
 # Serverless
+serverless.yml
 .serverless/
 node_modules/
 ./package.json
