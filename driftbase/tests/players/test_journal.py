@@ -129,7 +129,7 @@ class JournalTests(DriftBaseTestCase):
         # Make sure we cannot write a rolled-back journal entry into a gamestate
         gamestate_data = {"journal gamestate": "test"}
         r = self.put(gamestate_url, data={"gamestate": json.dumps(gamestate_data),
-                     "journal_id": journal_id}, expected_status_code=http_client.BAD_REQUEST)
+                     "journal_id": journal_id}, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
 
         # Roll back a few entries and ensure they are not returned from
         # a GET to /journals except if asked for
