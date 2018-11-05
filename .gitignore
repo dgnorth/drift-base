@@ -2,7 +2,7 @@
 serverless.yml
 .serverless/
 node_modules/
-./package.json
+package.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
