@@ -4,6 +4,8 @@ import os
 from six.moves.urllib.parse import urlsplit
 from datetime import datetime
 import subprocess
+import json
+import shutil
 
 import boto3
 import click
@@ -118,30 +120,53 @@ def cli(tier_name, preview, keep_file):
         'events': [],
     }
 
+    package = {
+        'name': '{}-lambda'.format(conf.drift_app['name']),
+        'dependencies': {
+            'serverless-python-requirements': '^4.2.5'
+        }
+    }
+
     # env = Environment(loader=PackageLoader('driftconfig', package_path='templates'))
     secho("\nTemplate parameters:\n----------------------------", bold=True)
     secho(pretty(tier_args, 'json'))
+    secho("\npackage.json:\n----------------------------", bold=True)
+    secho(pretty(package, 'json'))
     env = Environment(loader=FileSystemLoader(searchpath="./"))
     template = env.get_template('serverless.jinja.yml')
     settings_text = template.render(**tier_args)
     secho("\nserverless.yml:\n----------------------------", bold=True)
     secho(pretty(settings_text, 'yaml'))
+
     secho("----------------------------")
-    filename = 'serverless.yml'
-    with open(filename, 'w') as f:
+    filename_yaml = 'serverless.yml'
+    with open(filename_yaml, 'w') as f:
         f.write(settings_text)
+    filename_json = 'package.json'
+    with open(filename_json, 'w') as f:
+        json.dump(package, f)
+
     try:
-        secho("\n{} generated.".format(click.style(filename, bold=True)))
         if preview:
             secho("Preview only. Exiting now.")
             sys.exit(1)
 
+        cmd = ['sls', 'plugin', 'install', '--name', 'serverless-python-requirements']
+        echo("Running command: {}".format(' '.join(cmd)))
+        subprocess.call(cmd)
+
         cmd = ['sls', 'deploy']
         echo("Running command: {}".format(' '.join(cmd)))
         subprocess.call(cmd)
+    except FileNotFoundError as e:
+        secho(str(e))
+        secho("Is serverless installed? npm install -g serverless", bold=True)
     finally:
         if not keep_file:
-            os.unlink(filename)
+            os.unlink(filename_yaml)
+            os.unlink(filename_json)
+            shutil.rmtree('.serverless', ignore_errors=True)
+            shutil.rmtree('./node_modules', ignore_errors=True)
 
 
 if __name__ == '__main__':
