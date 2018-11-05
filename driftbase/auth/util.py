@@ -27,6 +27,12 @@ def fetch_url(url, error_title, expire=None):
         redis = g.redis
 
     if not content:
+        # TODO: It looks like only auth.gamecenter and auth.steam are using this feature to fetch
+        # secret key from S3 instead of keeping it plaintext in the Drift Config. This is not
+        # optimal. The Drift Config library should do this automatically and use something like
+        # AWS Key Management Service - KMS (https://aws.amazon.com/kms/). A field in the Table
+        # Definition can be tagged as secret and the Drift Config library will automatically
+        # use KMS or similar methods to encrypt the data.
         signed_url = _aws_s3_sign_url(url)
 
         try:
