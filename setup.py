@@ -14,6 +14,7 @@ setup(
         exclude=["*.tests", "*.tests.*", "tests.*", "tests"]
     ),
     include_package_data=True,
+    scripts=['scripts/static-data.py'],
 
     classifiers=[
         'Drift :: Tag :: Core',
