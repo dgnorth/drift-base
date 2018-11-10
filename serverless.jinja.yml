@@ -14,10 +14,14 @@ provider:
     runtime: python3.6
     stage: main
     stackName: {{ tier.tier_name }}-{{ deployable.deployable_name }}-lambda
+    stackTags:
+      tier: {{ tier.tier_name }}
+      service-name: {{ deployable.deployable_name }}
+
     region: {{ tier.aws_region }}
     timeout: 30    # The default is 6 seconds. Note: API Gateway current maximum is 30 seconds
     deploymentBucket:
-        name: serverless-devnorth
+        name: serverless-{{ tier.tier_name.lower() }}
     vpc:
         securityGroupIds: [{% for sg in tier.security_groups %}{{ sg }}{{ ", " if not loop.last }}{% endfor %}]
         subnetIds: [{% for subnet in tier.subnets %}{{ subnet }}{{ ", " if not loop.last }}{% endfor %}]
@@ -26,9 +30,9 @@ provider:
         DRIFT_CONFIG_URL: {{ tier.config_url }}
 
     tags:
-            tier: DEVNORTH
-            service-name: {{ deployable.deployable_name }}
-            Name: {{ tier.tier_name }}-{{ deployable.deployable_name }}
+        tier: {{ tier.tier_name }}
+        service-name: {{ deployable.deployable_name }}
+        Name: {{ tier.tier_name }}-{{ deployable.deployable_name }}
 
     {% if wsgiapp %}
     # API Gateway
@@ -51,12 +55,15 @@ provider:
               - execute-api:/*/*/*
     {% endif %}
 functions:
-        {% if wsgiapp %}
+    {% if wsgiapp %}
     wsgiapp:
         handler: driftbase.serverless_wsgi.handler
         events:
             - http: ANY /
             - http: 'ANY {proxy+}'
+        tags:
+            tier: {{ tier.tier_name }}
+            service-name: {{ deployable.deployable_name }}
     {% endif %}
 
     {% if events %}
