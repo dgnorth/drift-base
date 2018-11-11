@@ -22,7 +22,7 @@ from flask_rest_api import Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
 from marshmallow import pre_dump, validates, ValidationError
 
-from drift.utils import json_response
+from drift.utils import json_response, Url
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user, issue_token
 from driftbase.utils import url_client
@@ -56,11 +56,20 @@ class ClientSchema(ModelSchema):
         strict = True
         model = Client
         exclude = ()
-    client_url = ma.fields.Str(description="Fully qualified URL of the client resource")
-    @pre_dump
-    def populate_urls(self, obj):
-        obj.client_url = url_for('clients.entry', client_id=obj.client_id, _external=True)
-        return obj
+    client_url = Url('clients.entry',
+                     doc="Fully qualified URL of the client resource",
+                     client_id='<client_id>')
+
+
+class ClientPostRequestSchema(ma.Schema):
+    client_type = ma.fields.Str(description=client_descriptions['client_type'])
+    build = ma.fields.Str(description=client_descriptions['build'])
+    platform_type = ma.fields.Str(description=client_descriptions['platform_type'])
+    app_guid = ma.fields.Str(description=client_descriptions['app_guid'])
+    version = ma.fields.Str(description=client_descriptions['version'])
+    platform_version = ma.fields.Str(description=client_descriptions['platform_version'])
+    platform_info = ma.fields.Raw(description=client_descriptions['platform_info'])
+
 
 class ClientPostSchema(ma.Schema):
     class Meta:
@@ -116,26 +125,9 @@ class ClientsAPI(MethodView):
         rows = query.all()
         return rows
 
-    post_parser = reqparse.RequestParser(bundle_errors=True)
-    post_parser.add_argument('client_type', type=str, required=True,
-                             help=client_descriptions['client_type'])
-    post_parser.add_argument('build', type=str, required=True,
-                             help=client_descriptions['build'])
-    post_parser.add_argument('platform_type', type=str, required=True,
-                             help=client_descriptions['platform_type'])
-    post_parser.add_argument('app_guid', type=str, required=True,
-                             help=client_descriptions['app_guid'])
-    post_parser.add_argument('version', type=str, required=True,
-                             help=client_descriptions['version'])
-    post_parser.add_argument('platform_version', type=str,
-                             help=client_descriptions['platform_version'])
-    post_parser.add_argument('platform_info', type=str,
-                             help=client_descriptions['platform_info'])
-
-    #@namespace.expect(post_parser)
-    #@namespace.marshal_with(client_registration_model, code=http_client.CREATED)
+    @bp.arguments(ClientPostRequestSchema)
     @bp.response(ClientPostSchema, code=201)
-    def post(self):
+    def post(self, args):
         """
         Register a client
 
@@ -143,7 +135,6 @@ class ClientsAPI(MethodView):
         """
         now = utcnow()
 
-        args = request.json
         player_id = current_user["player_id"]
         user_id = current_user["user_id"]
         identity_id = current_user["identity_id"]
