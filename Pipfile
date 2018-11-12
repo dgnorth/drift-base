@@ -13,10 +13,10 @@ requests = "*"
 greenlet = "*"
 flask-restplus = "*"
 flask-rest-api = "*"
-marshmallow = "==3.0.0b19"
+marshmallow = "*"
 marshmallow-sqlalchemy = "*"
 flask-marshmallow = "*"
-apispec = "<1.0.0"
+apispec = "*"
 
 [dev-packages]
 pytest = "*"

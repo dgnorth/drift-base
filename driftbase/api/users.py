@@ -51,7 +51,7 @@ class UserRequestSchema(ma.Schema):
 
 def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
-    api.spec.definition('User', schema=UserSchema)
+    api.spec.components.schema('User', schema=UserSchema)
     api.register_blueprint(bp)
 
 
