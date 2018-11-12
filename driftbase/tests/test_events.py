@@ -37,10 +37,6 @@ class EventsTest(DriftBaseTestCase):
         r = self.post(endpoint, data=[{"hello": "world", "event_name": "dummy", "timestamp": ts}],
                       expected_status_code=http_client.CREATED)
 
-        # only authenticated users can access this endpoint
-        self.headers = {}
-        r = self.post(endpoint, data=[{"hello": "world", "event_name": "dummy", "timestamp": ts}],
-                      expected_status_code=http_client.UNAUTHORIZED)
 
     def test_events_from_server(self):
         # The event log API should enforce the player_id to the current player, unless
