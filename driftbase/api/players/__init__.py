@@ -141,7 +141,7 @@ class PlayerPatchArgs(ma.Schema):
 
 
 def drift_init_extension(app, api, **kwargs):
-    # api.spec.definition('User', schema=UserSchema)
+    # api.spec.components.schema('User', schema=UserSchema)
 
     api.register_blueprint(bp)
     api.register_blueprint(counters.bp)
@@ -152,7 +152,7 @@ def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(tickets.bp)
     endpoints.init_app(app)
 
-    api.spec.definition('Player', schema=PlayerSchema)
+    api.spec.components.schema('Player', schema=PlayerSchema)
 
 
 # TODO: Have this configured on a per product level and use drift config to specify it.
