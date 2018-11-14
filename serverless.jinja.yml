@@ -3,11 +3,23 @@ service: {{ deployable.deployable_name }}-lambda  # drift-base-lambda
 
 plugins:
     - serverless-python-requirements
+    - serverless-log-forwarding
 
 custom:
     # serverless-python-requirements plugin
     pythonRequirements:
         dockerizePip: non-linux
+
+    {% if log_forwarding_arn %}
+    # serverless-log-forwarding
+    logForwarding:
+        destinationARN: {{ log_forwarding_arn }}
+        filterPattern: "-\"RequestId: \""
+    {% else %}
+    # Note! serverless-log-forwarding lambda not found. Add the following tags to it:
+    #   tier:         {{ tier.tier_name }}
+    #   service-type: log-forwarder
+    {% endif %}
 
 provider:
     name: aws

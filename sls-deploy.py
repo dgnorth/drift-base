@@ -74,6 +74,21 @@ def cli(tier_name, preview, keep_file):
     # and then ask for a url representation of it:
     config_url = get_redis_cache_backend(ts, tier_name).get_url()
 
+    # Find Cloudwatch log forwarding lambda
+    tags_client = boto3.client('resourcegroupstaggingapi', region_name=aws_region)
+    functions = tags_client.get_resources(
+        TagFilters=[
+            {
+            'Key': 'tier', 'Values': ['DEVNORTH']
+            },
+            {
+            'Key': 'service-type', 'Values': ['log-forwarder']
+            },
+        ],
+        ResourceTypeFilters=['lambda:function']
+    )['ResourceTagMappingList']
+    log_forwarding_arn = functions[0]['ResourceARN'] if functions else None
+
     # Sum it up
     #
     # Template input parameters:
@@ -118,12 +133,14 @@ def cli(tier_name, preview, keep_file):
         'deployable': {'deployable_name': conf.drift_app['name']},
         'wsgiapp': True,
         'events': [],
+        'log_forwarding_arn': log_forwarding_arn,
     }
 
     package = {
         'name': '{}-lambda'.format(conf.drift_app['name']),
         'dependencies': {
-            'serverless-python-requirements': '^4.2.5'
+            'serverless-python-requirements': '^4.2.5',
+            'serverless-log-forwarding': '^1.2.1',
         }
     }
 
@@ -151,9 +168,10 @@ def cli(tier_name, preview, keep_file):
             secho("Preview only. Exiting now.")
             sys.exit(1)
 
-        cmd = ['sls', 'plugin', 'install', '--name', 'serverless-python-requirements']
-        echo("Running command: {}".format(' '.join(cmd)))
-        subprocess.call(cmd)
+        for plugin_name in ['serverless-python-requirements', 'serverless-log-forwarding']:
+            cmd = ['sls', 'plugin', 'install', '--name', plugin_name]
+            echo("Running command: {}".format(' '.join(cmd)))
+            subprocess.call(cmd)
 
         cmd = ['sls', 'deploy']
         echo("Running command: {}".format(' '.join(cmd)))
