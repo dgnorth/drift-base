@@ -66,10 +66,11 @@ provider:
           Resource:
               - execute-api:/*/*/*
     {% endif %}
+{% if wsgiapp or events %}
 functions:
     {% if wsgiapp %}
     wsgiapp:
-        handler: driftbase.serverless_wsgi.handler
+        handler: {{ wsgiapp }}
         events:
             - http: ANY /
             - http: 'ANY {proxy+}'
@@ -101,6 +102,4 @@ functions:
         {% endif %}
     {%- endfor %}
     {% endif %}
-
-
-
+{% endif %}
