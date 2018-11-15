@@ -3,6 +3,7 @@ serverless.yml
 .serverless/
 node_modules/
 package.json
+package-lock.json
 .env
 
 # Byte-compiled / optimized / DLL files
