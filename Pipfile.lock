@@ -40,18 +40,18 @@
         },
         "boto3": {
             "hashes": [
-                "sha256:205bb45ab209f038d3014a468f9556ea5c7953225a0a57e49edcfd0486ff815a",
-                "sha256:4a1ac4afcb73a701c44fbba44ba7a385612c7ee76baf6f4f26da05928fa56e8a"
+                "sha256:177e9dd53db5028bb43050da20cc7956287889fc172e5e6275a634e42a10beeb",
+                "sha256:8c63e616b91907037ab19236afbcf0057efb31411faf38b46f4590e634dc17ea"
             ],
             "index": "pypi",
-            "version": "==1.9.44"
+            "version": "==1.9.50"
         },
         "botocore": {
             "hashes": [
-                "sha256:0ea8386289f5830af68b0dc4cf7d697f9437ec61a462532e3941477430642cb2",
-                "sha256:44908f329d8ae02394559cb68dd09f5c2965bc5ef0b7b21e41dce017684756cd"
+                "sha256:07fae5a2b8cfb5a92c1dbee3f2feb4da7c471bcead7e18ce735babe5f39e270f",
+                "sha256:eeaa190f50ee05a56225ee78c64cb8bf0c3bf090ec605ca6c2f325aa3826a347"
             ],
-            "version": "==1.12.44"
+            "version": "==1.12.50"
         },
         "certifi": {
             "hashes": [
@@ -84,11 +84,11 @@
         },
         "drift": {
             "git": "https://github.com/dgnorth/drift.git",
-            "ref": "9275696f4aa51a20fd73ec6d455de652295845b7"
+            "ref": "4c18cd68660e0e9919c94e067cced688c8647287"
         },
         "driftconfig": {
             "git": "https://github.com/dgnorth/drift-config.git",
-            "ref": "7a53c002148910b6304094fa7d5cfd0d4d4c1387"
+            "ref": "31a012f360e4d71e320a0e27a83679130b76113d"
         },
         "flask": {
             "hashes": [
@@ -107,11 +107,11 @@
         },
         "flask-rest-api": {
             "hashes": [
-                "sha256:8d15fcaa6ed50f7e6f8181854aded52f8d52296c28171413ba29803e82afd3b6",
-                "sha256:bec9c3128e6d446fe889860cd1eec585c6e04ef7db67e40b8d463b9b570c01ea"
+                "sha256:16c8af722df8d7b259e96547b522189bf83c72657f0b785cba4a27f391a7773d",
+                "sha256:6f373a9ebbe307650d5eb00e0f75b21983ecdf60bb2f832829091a6c282b15a7"
             ],
             "index": "pypi",
-            "version": "==0.11.0"
+            "version": "==0.11.1"
         },
         "flask-restplus": {
             "hashes": [
@@ -261,9 +261,9 @@
         },
         "pyrsistent": {
             "hashes": [
-                "sha256:f64dd1b706c31f7aa24495a7da58c0407c072981289b675331e2a16364355102"
+                "sha256:05910b7ff43cec0a853c15da0bfaf2867faa95f29b08e71f5846a195f1f38c75"
             ],
-            "version": "==0.14.5"
+            "version": "==0.14.7"
         },
         "python-dateutil": {
             "hashes": [
@@ -304,9 +304,9 @@
         },
         "sqlalchemy": {
             "hashes": [
-                "sha256:9de7c7dabcf06319becdb7e15099c44e5e34ba7062f9ba10bc00e562f5db3d04"
+                "sha256:26c1f1e7ff0abc3ed15c687348e4be9dffbc9c2ace2b7df714c6a579171a56b5"
             ],
-            "version": "==1.2.14"
+            "version": "==1.3.0b1"
         },
         "urllib3": {
             "hashes": [
@@ -406,11 +406,11 @@
         },
         "pytest": {
             "hashes": [
-                "sha256:3f193df1cfe1d1609d4c583838bea3d532b18d6160fd3f55c9447fdca30848ec",
-                "sha256:e246cf173c01169b9617fc07264b7b1316e78d7a650055235d6d897bc80d9660"
+                "sha256:488c842647bbeb350029da10325cb40af0a9c7a2fdda45aeb1dda75b60048ffb",
+                "sha256:c055690dfefa744992f563e8c3a654089a6aa5b8092dded9b6fafbd70b2e45a7"
             ],
             "index": "pypi",
-            "version": "==3.10.1"
+            "version": "==4.0.0"
         },
         "requests": {
             "hashes": [
@@ -422,11 +422,11 @@
         },
         "responses": {
             "hashes": [
-                "sha256:25df51df9ed5d879160c60129696603b9143a7e1a850616b8c7943ecccc676d3",
-                "sha256:5b99beef28dd177da180604be2e849a16c3a40605bfda7c8d792a9924dd3d60e"
+                "sha256:16ad4a7a914f20792111157adf09c63a8dc37699c57d1ad20dbc281a4f5743fb",
+                "sha256:b9b31d9b1fcf6d48aea044c9fdd3d04199f6d227b0650c15d2566b0135bc1ed7"
             ],
             "index": "pypi",
-            "version": "==0.10.3"
+            "version": "==0.10.4"
         },
         "six": {
             "hashes": [
