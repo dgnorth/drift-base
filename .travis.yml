@@ -18,10 +18,8 @@ before_install:
   - export BOTO_CONFIG=/dev/null
 install:
 - export PATH=$HOME/.local/bin:$PATH
-- pip install codecov
-- pip install pytest-cov
-- pip install pipenv
-- pipenv install --dev --skip-lock
+- pip install pipenv --upgrade
+- pipenv install --dev
 script:
 - pytest --cov
 after_success:
