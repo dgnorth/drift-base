@@ -20,6 +20,8 @@ apispec = "*"
 
 [dev-packages]
 pytest = "*"
+pytest-cov = "*"
+codecov="*"
 responses = "*"
 mock = "*"
 
