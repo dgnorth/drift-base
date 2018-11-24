@@ -140,6 +140,11 @@ class PlayerPatchArgs(ma.Schema):
         )
 
 
+# Fix soon:
+import apispec
+APISPEC_VERSION_MAJOR = int(apispec.__version__.split('.')[0])
+
+
 def drift_init_extension(app, api, **kwargs):
     # api.spec.components.schema('User', schema=UserSchema)
 
@@ -152,7 +157,10 @@ def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(tickets.bp)
     endpoints.init_app(app)
 
-    api.spec.components.schema('Player', schema=PlayerSchema)
+    if APISPEC_VERSION_MAJOR < 1:
+        api.spec.definition('Player', schema=PlayerSchema)
+    else:
+        api.spec.components.schema('Player', schema=PlayerSchema)
 
 
 # TODO: Have this configured on a per product level and use drift config to specify it.

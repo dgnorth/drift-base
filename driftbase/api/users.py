@@ -49,9 +49,17 @@ class UserRequestSchema(ma.Schema):
         ordered = True
 
 
+# Fix soon:
+import apispec
+APISPEC_VERSION_MAJOR = int(apispec.__version__.split('.')[0])
+
+
 def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
-    api.spec.components.schema('User', schema=UserSchema)
+    if APISPEC_VERSION_MAJOR < 1:
+        api.spec.definition('User', schema=UserSchema)
+    else:
+        api.spec.components.schema('User', schema=UserSchema)
     api.register_blueprint(bp)
 
 
