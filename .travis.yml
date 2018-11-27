@@ -8,8 +8,8 @@ env:
     - DRIFT_TIER=DEVNORTH
   matrix:
     include:
-      - name: Build, test and bake AMI for DEVNORTH
-      - python: 3.6
+      - name: "Build, test and bake AMI for DEVNORTH"
+      - python: "3.6"
       - env: DRIFT_CONFIG_URL=s3://relib-test/directive-games
 
 addons:
