@@ -11,6 +11,10 @@ env:
   matrix:
     - DRIFT_CONFIG_URL=s3://relib-test/directive-games
 
+drift_build_trigger:
+  - drift
+  - drift-config
+
 addons:
   postgresql: '9.4'
 services:
