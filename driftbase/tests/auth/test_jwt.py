@@ -6,7 +6,7 @@ from flask_restplus import Api, Resource
 
 from drift.tests import DriftTestCase
 from drift.systesthelper import DriftBaseTestCase
-from drift.core.extensions.jwt import jwtsetup, verify_token, jwt_not_required, current_user, check_jwt_authorization
+from drift.core.extensions.jwt import verify_token, jwt_not_required, current_user, check_jwt_authorization
 from drift.systesthelper import setup_tenant, remove_tenant
 
 app = Flask(__name__)
