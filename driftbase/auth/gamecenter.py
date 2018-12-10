@@ -3,6 +3,7 @@ import struct
 import base64
 
 from six.moves import http_client
+from six.moves.urllib.parse import urlparse
 
 from flask_restplus import abort
 
@@ -14,7 +15,9 @@ from driftbase.auth.util import fetch_url
 from .authenticate import authenticate as base_authenticate
 
 
-TRUSTED_ORGANIZATIONS = ["Apple Inc."]
+# This stuff is just based on assumptions.
+TRUSTED_ORGANIZATIONS = ["Apple Inc.", "Apple, Inc."]
+TRUSTED_KEY_URL_HOSTS = ['sandbox.gc.apple.com', 'static.gc.apple.com']
 
 
 def authenticate(auth_info):
@@ -86,6 +89,10 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
     # Verify that the token is issued to the appropriate app.
     if app_bundles and gc_token["app_bundle_id"] not in app_bundles:
         abort_unauthorized(error_title + ". 'app_bundle_id' not one of %s" % app_bundles)
+
+    # Verify that the certificate url is at Apple
+    if urlparse(gc_token['public_key_url']).hostname not in TRUSTED_KEY_URL_HOSTS:
+        abort_unauthorized(error_title + ". Public key url points to unknown host: %s" % (gc_token['public_key_url']))
 
     # Fetch public key, use cache if available.
     try:
