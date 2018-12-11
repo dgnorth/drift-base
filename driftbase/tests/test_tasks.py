@@ -1,42 +1,33 @@
 import datetime
 import unittest
 
-from drift.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
-
-
-tasks = None
-
-
-def setUpModule():
-    setup_tenant()
-    from driftbase.tasks import tasks as t
-    global tasks
-    tasks = t
-
-
-def tearDownModule():
-    remove_tenant()
 
 
 class CeleryBeatTest(BaseCloudkitTest):
     """
     Tests for celery scheduled tasks
     """
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from driftbase.tasks import tasks
+        cls.tasks = tasks
+
     def test_celery_update_online_statistics(self):
         # make a new player and heartbeat once
         self.make_player()
         self.put(self.endpoints["my_client"])
-        tasks.update_online_statistics()
+        self.tasks.update_online_statistics()
         # verify that the counter now exists
         r = self.get(self.endpoints["counters"])
         self.assertIn("backend.numonline", [row["name"] for row in r.json()])
 
     def test_celery_flush_request_statistics(self):
         # call the function before and after adding a new player
-        tasks.flush_request_statistics()
+        self.tasks.flush_request_statistics()
         self.make_player()
-        tasks.flush_request_statistics()
+        self.tasks.flush_request_statistics()
 
     def test_celery_flush_counters(self):
         # Note: flush_counters doesn't currently do anything since counters are
@@ -65,13 +56,13 @@ class CeleryBeatTest(BaseCloudkitTest):
 
         r = self.get(counterstats_url)
 
-        tasks.flush_counters()
+        self.tasks.flush_counters()
 
         r = self.get(counterstats_url)
 
     def test_celery_timeout_clients(self):
         self.make_player()
-        tasks.timeout_clients()
+        self.tasks.timeout_clients()
 
     def test_celery_cleanup_orphaned_matchqueues(self):
         self.make_player()
