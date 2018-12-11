@@ -1,9 +1,8 @@
 import importlib
+import functools
 
 from drift.utils import get_config
 from drift.core.extensions import jwt
-
-from . import authenticate
 
 
 AUTH_MODULES = {
@@ -12,20 +11,30 @@ AUTH_MODULES = {
     'oculus': 'driftbase.auth.oculus',
     'psn': 'driftbase.auth.psn',
     'steam': 'driftbase.auth.steam',
-    }
+}
 
 LOCAL_AUTH = [
     'device_id', 'user+pass', 'uuid', 'unit_test', 'viveport', 'hypereal', '7663',
-    ]
+]
+
+
+def _authentication_thunker(module, func, *args, **kw):
+    """Load in authentication handler module just-in-time and dispatch the call."""
+    m = importlib.import_module(module)
+    return getattr(m, func)(*args, **kw)
 
 
 def drift_init_extension(app, api, **kwds):
+
     # register authentication handlers
     for name, module in AUTH_MODULES.items():
-        m = importlib.import_module(module)
-        jwt.register_auth_provider(app, name, m.authenticate)
+        jwt.register_auth_provider(app, name, functools.partial(_authentication_thunker, module, 'authenticate'))
+
+    authenticate_with_provider = functools.partial(
+        _authentication_thunker, 'driftbase.auth.authenticate', 'authenticate_with_provider'
+    )
     for name in LOCAL_AUTH:
-        jwt.register_auth_provider(app, name, authenticate.authenticate_with_provider)
+        jwt.register_auth_provider(app, name, authenticate_with_provider)
 
 
 def get_provider_config(provider_name):
