@@ -199,7 +199,7 @@ class ClientsAPI(MethodView):
         new_token = issue_token(payload)
 
         jwt = new_token["token"]
-        jti = new_token["jti"]
+        jti = new_token['payload']["jti"]
 
         resource_url = url_client(client_id)
         response_header = {
