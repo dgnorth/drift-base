@@ -25,11 +25,11 @@
         },
         "apispec": {
             "hashes": [
-                "sha256:50b1cb8f0dc12db00a53e748b27ae601efdc210f1cb4358729173337b2e47354",
-                "sha256:648934f67aefa386cdde5d1d38ceb1c9fe9157c59824a6fb5499409a70dabab4"
+                "sha256:8072aaba54cb430787c3662512d5c9fe521eae1ec0b6d7d05b129814b6b48f69",
+                "sha256:93a6046bf692e8e4398101d447fffcf148b9dbed66d886073e05b491cd6835fd"
             ],
             "index": "pypi",
-            "version": "==1.0.0b5"
+            "version": "==1.0.0b6"
         },
         "attrs": {
             "hashes": [
@@ -40,18 +40,18 @@
         },
         "boto3": {
             "hashes": [
-                "sha256:61cc273d926d30ca047f1ae55ce0357f16f2726b0946f67a932bede88f9b086a",
-                "sha256:e9e93029b0d4f91ff342ffd953048c5a64e6a1522c2362c4521864bcc88cc365"
+                "sha256:c519974b6e9409b170fd2a47d548f43f0c9d5d8979a44c06c31314214143b74e",
+                "sha256:dc7e329cbff455725b43fe7abd0eaef85d1cb7daabcd15a07500587d307b82e0"
             ],
             "index": "pypi",
-            "version": "==1.9.62"
+            "version": "==1.9.69"
         },
         "botocore": {
             "hashes": [
-                "sha256:1d1150e3ffd5e7a71f67b19c6a537bcd06d04ce5f1cd2bb0bb7b7801f20bb8fa",
-                "sha256:67ebafe2d0d6a37b62033bbc78786fdada02c38535f83d74313dc0dc281bf87d"
+                "sha256:6fa72f5f37a16f0240362d05e15c5181f130b4e0408126863a4d099d0edd0b59",
+                "sha256:9c327bcbb00a87129f0d5e74835516621270b42c085275c4f6954605b62ee835"
             ],
-            "version": "==1.12.62"
+            "version": "==1.12.69"
         },
         "certifi": {
             "hashes": [
@@ -84,11 +84,11 @@
         },
         "drift": {
             "git": "https://github.com/dgnorth/drift.git",
-            "ref": "e531b166b29ac298dc88b4a40c51d9303dec65cc"
+            "ref": "712d6e04fea83263587a46e492d7c43a5760e22c"
         },
         "driftconfig": {
             "git": "https://github.com/dgnorth/drift-config.git",
-            "ref": "f86bcf1f3dddb4bc60aef896d198b65d7454ad23"
+            "ref": "11de71e71754b4f1d7ef4dd43ed3379f551f90b4"
         },
         "flask": {
             "hashes": [
@@ -261,9 +261,9 @@
         },
         "pyrsistent": {
             "hashes": [
-                "sha256:05910b7ff43cec0a853c15da0bfaf2867faa95f29b08e71f5846a195f1f38c75"
+                "sha256:59880cc33ac293515892b2969aa8f4ed2cec592cbd0be4c4e20f2410468bbc62"
             ],
-            "version": "==0.14.7"
+            "version": "==0.14.8"
         },
         "python-dateutil": {
             "hashes": [
@@ -448,11 +448,11 @@
         },
         "pytest": {
             "hashes": [
-                "sha256:1d131cc532be0023ef8ae265e2a779938d0619bb6c2510f52987ffcba7fa1ee4",
-                "sha256:ca4761407f1acc85ffd1609f464ca20bb71a767803505bd4127d0e45c5a50e23"
+                "sha256:f689bf2fc18c4585403348dd56f47d87780bf217c53ed9ae7a3e2d7faa45f8e9",
+                "sha256:f812ea39a0153566be53d88f8de94839db1e8a05352ed8a49525d7d7f37861e9"
             ],
             "index": "pypi",
-            "version": "==4.0.1"
+            "version": "==4.0.2"
         },
         "pytest-cov": {
             "hashes": [
@@ -472,11 +472,11 @@
         },
         "responses": {
             "hashes": [
-                "sha256:16ad4a7a914f20792111157adf09c63a8dc37699c57d1ad20dbc281a4f5743fb",
-                "sha256:b9b31d9b1fcf6d48aea044c9fdd3d04199f6d227b0650c15d2566b0135bc1ed7"
+                "sha256:c85882d2dc608ce6b5713a4e1534120f4a0dc6ec79d1366570d2b0c909a50c87",
+                "sha256:ea5a14f9aea173e3b786ff04cf03133c2dabd4103dbaef1028742fd71a6c2ad3"
             ],
             "index": "pypi",
-            "version": "==0.10.4"
+            "version": "==0.10.5"
         },
         "six": {
             "hashes": [
