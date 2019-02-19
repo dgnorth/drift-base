@@ -1,2 +1,2 @@
 #!/bin/bash
-uwsgi --module=drift.uwsgiboot:app --http=0.0.0.0:10080 --venv `pipenv --venv`
+uwsgi --module=drift.contrib.flask.plainapp:app --http=0.0.0.0:10080 --venv `pipenv --venv`

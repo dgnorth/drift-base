@@ -27,8 +27,7 @@ from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user, issue_token
 from driftbase.utils import url_client
 from driftbase.models.db import User, CorePlayer, Client, UserIdentity
-from driftbase.models.responses import client_descriptions, client_model, client_registration_model, \
-                                       client_heartbeat_model
+
 
 log = logging.getLogger(__name__)
 bp = Blueprint("clients", __name__, url_prefix="/clients", description="Client registration")
@@ -39,9 +38,6 @@ DEFAULT_HEARTBEAT_TIMEOUT = 300
 
 
 def drift_init_extension(app, api, **kwargs):
-    #api.models[client_model.name] = client_model
-    #api.models[client_registration_model.name] = client_registration_model
-    #api.models[client_heartbeat_model.name] = client_heartbeat_model
     api.register_blueprint(bp)
     endpoints.init_app(app)
 
@@ -49,6 +45,18 @@ def drift_init_extension(app, api, **kwargs):
 # for mocking
 def utcnow():
     return datetime.datetime.utcnow()
+
+
+client_descriptions = {
+    'client_type': "Type of client as reported by the client itself. Example: UE4",
+    'build': "Build/version information about the client executable",
+    'version': "Version information about the client executable",
+    'platform_type': "Name of the platform (e.g. Windows, IpadPro, etc)",
+    'platform_version': "Version of the platform (e.g. Windows 10, etc)",
+    'app_guid': "Globally nique name of the application",
+    'platform_info': "Information about the platform in JSON format",
+    'num_heartbeats': "Number of times a heartbeat has been sent on this session",
+}
 
 
 class ClientSchema(ModelSchema):
@@ -104,8 +112,6 @@ class ClientsAPI(MethodView):
         'player_id', type=int,
         help="Optional ID of a player to return sessions for")
 
-    #@namespace.expect(get_parser)
-    #@namespace.marshal_with(client_model, as_list=True)
     @bp.response(ClientSchema(many=True))
     def get(self):
         """
@@ -269,7 +275,6 @@ class ClientAPI(MethodView):
 
         return client
 
-    #@namespace.marshal_with(client_heartbeat_model)
     @bp.response(ClientHeartbeatSchema())
     def put(self, client_id):
         """
