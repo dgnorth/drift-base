@@ -74,11 +74,15 @@ class PlayersTest(BaseCloudkitTest):
         player_url = self.endpoints["my_player"]
         r = self.get(player_url)
         old_name = r.json()["player_name"]
-        self.patch(player_url, data={"name": ""}, expected_status_code=http_client.BAD_REQUEST)
+
+        # Schema failures:
+        self.patch(player_url, data={"name": ""}, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
         self.patch(player_url, data={"name": "a" * 100},
-                   expected_status_code=http_client.BAD_REQUEST)
-        self.patch(self.endpoints["players"] + "/9999999", data={"name": "a" * 100},
-                   expected_status_code=http_client.BAD_REQUEST)
+                   expected_status_code=http_client.UNPROCESSABLE_ENTITY)
+
+        # Not my player
+        self.patch(self.endpoints["players"] + "/9999999", data={"name": "someone"},
+                   expected_status_code=http_client.FORBIDDEN)
 
         self.assertEqual(self.get(player_url).json()["player_name"], old_name)
 
@@ -112,7 +116,8 @@ class PlayersTest(BaseCloudkitTest):
             if name.startswith("my_") and name != "my_client":
                 self.assertIsNotNone(endpoint)
 
-    @unittest.skip('Fields is being changed')
+    # This is due to the move from restplus to marshmallow
+    @unittest.skip("X-Fields is not supported and 'key' filter is not implemented yet.")
     def test_players_keys(self):
         # make sure only the requested keys are returned
         self.make_player()

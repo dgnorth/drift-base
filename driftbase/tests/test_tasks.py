@@ -3,7 +3,7 @@ import unittest
 
 from driftbase.utils.test_utils import BaseCloudkitTest
 
-
+@unittest.skip("just testing this test")
 class CeleryBeatTest(BaseCloudkitTest):
     """
     Tests for celery scheduled tasks

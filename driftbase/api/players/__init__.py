@@ -221,7 +221,7 @@ class PlayerAPI(MethodView):
         new_name = args.get('name')
 
         if player_id != current_user["player_id"]:
-            abort(http_client.METHOD_NOT_ALLOWED, message="That is not your player!")
+            abort(http_client.FORBIDDEN, message="That is not your player!")
         my_player = g.db.query(CorePlayer).get(player_id)
         if not my_player:
             abort(http_client.NOT_FOUND)
