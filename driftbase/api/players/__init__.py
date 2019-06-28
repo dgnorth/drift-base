@@ -37,8 +37,9 @@ endpoints = Endpoints()
 class PlayerSchema(ModelSchema):
     class Meta:
         strict = True
+        include_fk = True # required to expose the 'user_id' field
         model = CorePlayer
-        exclude = ('ck_player_summary',)
+        exclude = ('ck_player_summary', 'user')
 
     is_online = ma.fields.Boolean()
 
