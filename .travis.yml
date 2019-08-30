@@ -2,7 +2,7 @@ sudo: true
 language: python
 cache: pip
 python:
-- '3.6'
+- '3.7'
 env:
   global:
     - AWS_DEFAULT_REGION=eu-west-1
