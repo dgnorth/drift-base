@@ -1,0 +1,13 @@
+version: '3'
+services:
+  svc1:
+    build: .
+    links:
+      - redis
+      - postgres
+    ports:
+      - "10080:10080"
+  redis:
+    image: redis:latest
+  postgres:
+    image: postgres:latest

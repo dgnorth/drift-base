@@ -95,7 +95,7 @@ class PlayerSchema(ModelSchema):
     )
 
     @pre_dump
-    def populate_urls(self, obj):
+    def populate_urls(self, obj, many=False):
         obj.messagequeue_url = (
             url_for(
                 'messages.exchange',

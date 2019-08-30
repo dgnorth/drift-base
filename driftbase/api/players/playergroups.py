@@ -77,7 +77,7 @@ class PlayerGroupsAPI(MethodView):
         """
         Create a player group
 
-        Creates a new player group for the player. Can only be called by the 
+        Creates a new player group for the player. Can only be called by the
         player or from a service.
         """
         if not args:
@@ -128,5 +128,5 @@ class PlayerGroupsAPI(MethodView):
                                player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Created user group %s for player %s", group_name, player_id)
-        utils.get_appcontext()['headers'].update(response_header)
+        utils.get_appcontext().setdefault('headers', {}).update(response_header)
         return payload

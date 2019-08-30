@@ -45,7 +45,7 @@ class TicketSchema(ModelSchema):
     issuer_url = ma.fields.String()
 
     @pre_dump
-    def populate_urls(self, obj):
+    def populate_urls(self, obj, many=False):
         if obj.issuer_id:
             obj.issuer_url = (
                 url_for(
