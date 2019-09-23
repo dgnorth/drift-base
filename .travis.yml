@@ -8,6 +8,7 @@ env:
     - AWS_DEFAULT_REGION=eu-west-1
     - AWS_DEFAULT_OUTPUT=json
     - DRIFT_TIER=DEVNORTH
+    - DOCKER_TAG=$(git describe --tags --dirty --long)
   matrix:
     - DRIFT_CONFIG_URL=s3://relib-test/directive-games
 
@@ -15,28 +16,50 @@ drift_build_trigger:
   - drift
   - drift-config
 
-addons:
-  postgresql: '9.4'
-services:
-- postgresql
-- redis-server
-before_install:
-  - export BOTO_CONFIG=/dev/null
-install:
-- export PATH=$HOME/.local/bin:$PATH
-- pip install pipenv --upgrade
-- pipenv install --dev --deploy
-script:
-- pytest --cov
-after_success:
- - codecov
- - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
- - drift-admin ami bake --skipcopy
- - drift-admin ami run
+jobs:
+  include:
+    - stage: test
+      addons:
+        postgresql: '9.4'
+      services:
+        - postgresql
+        - redis-server
+      before_install:
+        - export BOTO_CONFIG=/dev/null
+      install:
+        - export PATH=$HOME/.local/bin:$PATH
+        - pip install pipenv --upgrade
+        - pipenv install --dev --deploy
+      script:
+        - pytest --cov --cov=driftbase/ --disable-warnings
+      after_success:
+        - codecov
 
-notifications:
-  on_pull_requests: false
-  slack:
-    secure: EAVUaNyoZoiRvanx8c4tOR0DLc1B8a4h5jxDTMzOfjZDi94bpXe2TjdKuWaGjjZf3Yt3uP3T9SP23QH2SnTD5CO6JnS7NoTSa9LOqa3cciw65niK3hW4eqNyn5/2fLNP+aA669Ta9V8t17GgINq4QerpVVW7biRzv2T61WVPUJavh9TD/rwyHO9nfq587nwqybWAJAiuzehimdTaZyZ47VRCwsEDmpAPctWH5NP1RBHuTXbbokr1/b2pQirIi9Gl+J7aCGFAr3jZBeK1ojdythHGRoIEI00vGkiHGZJ/GQN+BDX3sDRNXvHInEAXJ0si15I/KaFV1tP15YCRh28q+IDfvZnOIqGM8IFtFTXGrXLvn9UCHYwFgDybmvU3bzLEYmw+BFYwzJ4m5veOLwiQbYiqwnuv7AhRKsIAoa3LWH106w9edow7h+9NZUQvqzMBF6+6IltTB2oWGzQxrNqj+SyxRxe1L4VfO1uAt1ov+7k92jpBfEm1Pns8LQZJw2FpVAQ95U1K3qHvJ4ENkFdtbOOCxFRWhSxWFSdlAuxd7zjDDd1wf6k8LphPMNd7fuENM7X37eQwlewCgTZqtyMOjERaUcj6fLuWVT3gmcxxHKJkEVADzTYz+p02rO9Ju9CAwlurpcblgk1g8tyW/JQJaMMjRKaJvl3qz6R0xloyYQY=
-  email:
-    secure: aSsBzRiUwTWtAHZ2yqSQOQ7vhtWXulLNEbGWDVBhB5ZjiAKQXDNuKcVMTSkEYXwiVkTE8Jp+WtWCvPWivwwav9+yP5dp08NudGny1DNy2C18yQy6vJbOg3hGkaOTTly6DKSE0BL/a+JaoR67UiJ/0YS6V3z0ZA/rhMepNa1wG6217pLezvN2tcFzK/wbOZ8t0YEfrCBFKcQQelHBWCeFyF5W7uE6Ht5adukomu1/tqxLMCKkuBiT+uGY4YCoLnSAgPG2E1BuO2tEFWte2J6LRkofljAUZ6y4xeA0jO3epQYvrk7RbFs7VCtjDaBSfgQoE0waMyB5pCFG9tE0Q8n+KG/ZBjdNfjtBJ8Vv+1EvQROZEXgbLAbANFVcUl+hJ2iOsqzX3ecE2fZzByPZ5+Pj7KmlP+SuCVLbAir3AgB6T4iVQ+NHd0NRXcw97EGR4ZoSDRBQ+/oOor8fXIph2NfEnlkea/OJaXIxQWCnilNgu53bPNCN7Y2JmVrtkEEpYaIuZBrO1R2zby/Ltai50NZ9faTO1wp7IqOtM1PFGXfICzFdNiqSAZ26AYf9ZFv8SSpebl7uelBnwwe5rhpGK7FMa0GWAjd/av2hqbLKcooVPWcX3vUa726JPSU90+HuZHPyn0DaGzvA74e5SjT6tPJ53R4GapNamWMzteOB4Jh5PI4=
+    - stage: build
+      services:
+        - docker
+      script:
+        - docker build -t drift-base:$DOCKER_TAG .
+      after_success:
+        - codecov
+        - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
+        - drift-admin ami bake --skipcopy
+        - drift-admin ami run
+
+    - stage: deploy
+      services:
+        - docker
+      script:
+        - docker build -t drift-base:$DOCKER_TAG .
+      # after_success:
+      #   - codecov
+      #   - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
+      #   - drift-admin ami bake --skipcopy
+      #   - drift-admin ami run
+
+# notifications:
+#   on_pull_requests: false
+#   slack:
+#     secure: EAVUaNyoZoiRvanx8c4tOR0DLc1B8a4h5jxDTMzOfjZDi94bpXe2TjdKuWaGjjZf3Yt3uP3T9SP23QH2SnTD5CO6JnS7NoTSa9LOqa3cciw65niK3hW4eqNyn5/2fLNP+aA669Ta9V8t17GgINq4QerpVVW7biRzv2T61WVPUJavh9TD/rwyHO9nfq587nwqybWAJAiuzehimdTaZyZ47VRCwsEDmpAPctWH5NP1RBHuTXbbokr1/b2pQirIi9Gl+J7aCGFAr3jZBeK1ojdythHGRoIEI00vGkiHGZJ/GQN+BDX3sDRNXvHInEAXJ0si15I/KaFV1tP15YCRh28q+IDfvZnOIqGM8IFtFTXGrXLvn9UCHYwFgDybmvU3bzLEYmw+BFYwzJ4m5veOLwiQbYiqwnuv7AhRKsIAoa3LWH106w9edow7h+9NZUQvqzMBF6+6IltTB2oWGzQxrNqj+SyxRxe1L4VfO1uAt1ov+7k92jpBfEm1Pns8LQZJw2FpVAQ95U1K3qHvJ4ENkFdtbOOCxFRWhSxWFSdlAuxd7zjDDd1wf6k8LphPMNd7fuENM7X37eQwlewCgTZqtyMOjERaUcj6fLuWVT3gmcxxHKJkEVADzTYz+p02rO9Ju9CAwlurpcblgk1g8tyW/JQJaMMjRKaJvl3qz6R0xloyYQY=
+#   email:
+#     secure: aSsBzRiUwTWtAHZ2yqSQOQ7vhtWXulLNEbGWDVBhB5ZjiAKQXDNuKcVMTSkEYXwiVkTE8Jp+WtWCvPWivwwav9+yP5dp08NudGny1DNy2C18yQy6vJbOg3hGkaOTTly6DKSE0BL/a+JaoR67UiJ/0YS6V3z0ZA/rhMepNa1wG6217pLezvN2tcFzK/wbOZ8t0YEfrCBFKcQQelHBWCeFyF5W7uE6Ht5adukomu1/tqxLMCKkuBiT+uGY4YCoLnSAgPG2E1BuO2tEFWte2J6LRkofljAUZ6y4xeA0jO3epQYvrk7RbFs7VCtjDaBSfgQoE0waMyB5pCFG9tE0Q8n+KG/ZBjdNfjtBJ8Vv+1EvQROZEXgbLAbANFVcUl+hJ2iOsqzX3ecE2fZzByPZ5+Pj7KmlP+SuCVLbAir3AgB6T4iVQ+NHd0NRXcw97EGR4ZoSDRBQ+/oOor8fXIph2NfEnlkea/OJaXIxQWCnilNgu53bPNCN7Y2JmVrtkEEpYaIuZBrO1R2zby/Ltai50NZ9faTO1wp7IqOtM1PFGXfICzFdNiqSAZ26AYf9ZFv8SSpebl7uelBnwwe5rhpGK7FMa0GWAjd/av2hqbLKcooVPWcX3vUa726JPSU90+HuZHPyn0DaGzvA74e5SjT6tPJ53R4GapNamWMzteOB4Jh5PI4=
