@@ -8,7 +8,6 @@ env:
     - AWS_DEFAULT_REGION=eu-west-1
     - AWS_DEFAULT_OUTPUT=json
     - DRIFT_TIER=DEVNORTH
-    - DOCKER_TAG=$(git describe --tags --dirty --long)
     - PATH=$HOME/.local/bin:$PATH
     - BOTO_CONFIG=/dev/null
     - DRIFT_CONFIG_URL=s3://relib-test/directive-games
@@ -21,22 +20,23 @@ drift_build_trigger:
 
 jobs:
   include:
-    # - stage: test
-    #   services:
-    #     - postgresql
-    #     - redis-server
-    #   install:
-    #     - pip install pipenv --upgrade
-    #     - pipenv install --dev --deploy
-    #   script:
-    #     - pytest --cov=driftbase/ --disable-warnings
-    #   after_success:
-    #     - codecov
+    - stage: test
+      services:
+        - postgresql
+        - redis-server
+      install:
+        - pip install pipenv --upgrade
+        - pipenv install --dev --deploy
+      script:
+        - pytest --cov=driftbase/ --disable-warnings
+      after_success:
+        - codecov
 
     - stage: build
       services:
         - docker
       env:
+        - DOCKER_TAG=$(git describe --tags --dirty --long)
         - DOCKER_REPO=drift-base
         - REGISTRY_URL=092475124519.dkr.ecr.eu-west-1.amazonaws.com
         - SOURCE_IMAGE=drift-base:${DOCKER_TAG}
