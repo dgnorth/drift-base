@@ -39,7 +39,7 @@ jobs:
         - DOCKER_TAG=$(git describe --tags --dirty --long)
         - DOCKER_REPO=drift-base
         - REGISTRY_URL=092475124519.dkr.ecr.eu-west-1.amazonaws.com
-        - SOURCE_IMAGE=drift-base:${DOCKER_TAG}
+        - SOURCE_IMAGE=drift-base
         - TARGET_IMAGE="${REGISTRY_URL}/${SOURCE_IMAGE}"
       before_install:
         - pip install awscli
@@ -47,7 +47,8 @@ jobs:
         - docker build -t ${SOURCE_IMAGE} .
         - aws configure set default.region ${AWS_DEFAULT_REGION}
         - $(aws ecr get-login --no-include-email)
-        - docker tag ${SOURCE_IMAGE} ${TARGET_IMAGE}
+        - docker tag ${SOURCE_IMAGE} ${TARGET_IMAGE}:${DOCKER_TAG}
+        - docker tag ${SOURCE_IMAGE} ${TARGET_IMAGE}:latest
         - docker push ${TARGET_IMAGE}
 
     # - stage: deploy

@@ -11,8 +11,6 @@ MAINTAINER directivegames-north <dgnorth@directivegames.com>
 
 RUN groupadd uwsgi && useradd -m -g uwsgi uwsgi
 
-COPY config/uwsgi.ini /etc/uwsgi/uwsgi.ini
-
 RUN apt update
 RUN apt install nano htop
 RUN pip3 install pipenv uwsgi
@@ -45,4 +43,4 @@ ENV AWS_EXECUTION_ENV=1
 
 RUN dconf developer
 
-CMD [ "uwsgi", "--ini", "/app/uwsgi.ini" ]
+CMD [ "uwsgi", "--ini", "/app/config/uwsgi.ini" ]
