@@ -2,7 +2,7 @@ sudo: true
 language: python
 cache: pip
 python:
-- '3.7'
+  - '3.7'
 env:
   global:
     - AWS_DEFAULT_REGION=eu-west-1
@@ -41,7 +41,7 @@ jobs:
       services:
         - docker
       install:
-        - pip install "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
+        - pip install "git+https://github.com/dgnorth/drift.git#egg=drift[aws,test]"
         - pip install "git+https://github.com/dgnorth/drift-config.git"
       script:
         - drift-admin --help
