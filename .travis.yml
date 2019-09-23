@@ -31,7 +31,7 @@ jobs:
         - pip install pipenv --upgrade
         - pipenv install --dev --deploy
       script:
-        - pytest --cov --cov=driftbase/ --disable-warnings
+        - pytest --cov=driftbase/ --disable-warnings
       after_success:
         - codecov
 
@@ -40,22 +40,14 @@ jobs:
         - docker
       script:
         - docker build -t drift-base:$DOCKER_TAG .
-      after_success:
-        - codecov
-        - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
-        - drift-admin ami bake --skipcopy
-        - drift-admin ami run
 
     - stage: deploy
       services:
         - docker
       script:
-        - docker build -t drift-base:$DOCKER_TAG .
-      # after_success:
-      #   - codecov
-      #   - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
-      #   - drift-admin ami bake --skipcopy
-      #   - drift-admin ami run
+        - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
+        - drift-admin ami bake --skipcopy
+        - drift-admin ami run
 
 # notifications:
 #   on_pull_requests: false
