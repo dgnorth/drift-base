@@ -41,10 +41,12 @@ jobs:
       services:
         - docker
       install:
-        - pip install git+https://github.com/dgnorth/drift.git#egg=drift[aws]
+        - pip install "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
+        - pip install "git+https://github.com/dgnorth/drift-config.git"
       script:
-        - drift-admin ami bake --skipcopy
-        - drift-admin ami run
+        - drift-admin --help
+        #- drift-admin ami bake --skipcopy
+        #- drift-admin ami run
 
 # notifications:
 #   on_pull_requests: false
