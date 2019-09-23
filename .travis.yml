@@ -9,7 +9,8 @@ env:
     - AWS_DEFAULT_OUTPUT=json
     - DRIFT_TIER=DEVNORTH
     - DOCKER_TAG=$(git describe --tags --dirty --long)
-  matrix:
+    - PATH=$HOME/.local/bin:$PATH
+    - BOTO_CONFIG=/dev/null
     - DRIFT_CONFIG_URL=s3://relib-test/directive-games
 
 drift_build_trigger:
@@ -19,15 +20,10 @@ drift_build_trigger:
 jobs:
   include:
     - stage: test
-      addons:
-        postgresql: '9.4'
       services:
         - postgresql
         - redis-server
-      before_install:
-        - export BOTO_CONFIG=/dev/null
       install:
-        - export PATH=$HOME/.local/bin:$PATH
         - pip install pipenv --upgrade
         - pipenv install --dev --deploy
       script:
@@ -44,8 +40,9 @@ jobs:
     - stage: deploy
       services:
         - docker
+      install:
+        - pip install git+https://github.com/dgnorth/drift.git#egg=drift[aws]
       script:
-        - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
         - drift-admin ami bake --skipcopy
         - drift-admin ami run
 
