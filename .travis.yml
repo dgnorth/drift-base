@@ -41,6 +41,8 @@ jobs:
         - REGISTRY_URL=092475124519.dkr.ecr.eu-west-1.amazonaws.com
         - SOURCE_IMAGE=drift-base:${DOCKER_TAG}
         - TARGET_IMAGE="${REGISTRY_URL}/${SOURCE_IMAGE}"
+      before_install:
+        - pip install awscli
       script:
         - docker build -t ${SOURCE_IMAGE} .
         - aws configure set default.region ${AWS_DEFAULT_REGION}
