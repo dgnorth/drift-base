@@ -11,8 +11,8 @@ env:
     - PATH=$HOME/.local/bin:$PATH
     - BOTO_CONFIG=/dev/null
     - DRIFT_CONFIG_URL=s3://relib-test/directive-games
-    - secure: j6i4ExM6NGvg0WCV0pB1YNhX1RqrjwtHprg346N9ElQAcPDCgJ9OY8AsrPCQwisTCHdNX045t0M0hTgklISbRWvoe/tkpL/Mz7nBfCGqmN2D/N+GXODsaReLbdiLqRicM23hY0srgpv8XeihbiGkVGnPBRc9aBtie2siTX/PvnL1DbYiWdEnGCGB1DrqdAWlLOliGphmsMPiXljWVVrx3JPqx9YyUnvr36POb+6q+Dn4Rb6EQ+C1v8a7rCKcHJT18R7MtwsjAvuFW7jV6s7N1cFCTUG/Ue9iLo+OOpQLqEdcKHVjjMdwrSazD26kWZeQnB5wkHYBBlG31ECPKCoBzlvh9MurwhPANHF7UR3EX5Wn1PJIBO0oTrvhTRicgnTmKg+iB1gdekxLCMxBX+cBj8p3hN6vQklCU+HJESjaV+vbSVvfH4arLY+2xlp3fOdXLHmd0GEnDOcnY3J9fNwh+PBONoKuzg91I5XKCqLKul6SYbObVpJtvIHW6MlnrQKnD/U4Dd+HeuzgtbrZKEoE1T5mlEJGjwAV+iGx3xttGpyEuLrPKtmwFEdFU5GLMqKgSKvLiqArHzfSBZ8sWrAUjNws5yCiy1tzI41XnQTxCWds/fS1MVkj3mCfqZiN5nK360wu0jR0K55Hfj2QRQ3+AiwjODFIvbGP9wS1IRyeNZ0=
-    - AWS_ACCESS_KEY_ID=AKIAJRFN66GTACL66AZQ
+    - DOCKER_USERNAME=nonnib
+    - secure: VW2DI3gVIPeZRwsyVHPOIEkRHWlCHr00TAhx0c/Y0OVnyFAQUA/XymNGbDf92/r8T/fQoKjdm9j9zp+XupNiDkMOH0y+uA1poolF/npnqvUIDGIkj67eF5HcyM1QCsie1iCm/JuyMCVFG+XQy6AfhyHyjvvGFMLxInADvgmsQMLYuLU/5ZdsLcv7fJcPGMTjxqtcEf017ZbSAShDYmag91jNdKOTU50C16c+m2dEskDM5JDhWvxeJ6mkdhmdtHRAIGkG4Ix+nd0dzBFhCd8V8TjUW/kp9XmAbjPkHbu6h3UKAph8bkW6O+wmHkEnmaDRsSuKTv6QFwUEZgzodacJ1azYjSXoigpKlTTGp4AxDxMD23qix8Wr1KxGIGKXRQSkLWaWym2G6Gri7NEHuJidgZQ/RQJA6k6aur5xB/bIdnGxtqmiv8sJlWuvw8HnyEMv1i8BViFgGh7CO1fpfrPokbi6wMjENc6ObmzoH6u+MeFyZyolco6eJ2JeivgvWUGnfitZPPuTsxg+gaUj4ei8D9ilUQZSKLf4dmrXkqrii5eRg+hdS68lno2kcZIPnMbh23m6KjrHofFanAfm/DOM0bcN0FtqLlrw4B2JOUYuB5lHnTCqJtAxEv3Rpx8DHG0VNzZEdW2Rjp5VdRa0Ea5hy63L7mPxHlIRKzRsMLPz+N4=
 
 drift_build_trigger:
   - drift
@@ -37,17 +37,13 @@ jobs:
         - docker
       env:
         - DOCKER_TAG=$(git describe --tags --dirty --long)
-        - DOCKER_REPO=drift-base
-        - REGISTRY_URL=092475124519.dkr.ecr.eu-west-1.amazonaws.com
-        - SOURCE_IMAGE=drift-base
-        - TARGET_IMAGE="${REGISTRY_URL}/${SOURCE_IMAGE}"
+        - IMAGE_NAME=dgnorth/drift-base
       before_install:
         - pip install awscli
       script:
-        - docker build -t ${SOURCE_IMAGE} .
-        - aws configure set default.region ${AWS_DEFAULT_REGION}
-        - $(aws ecr get-login --no-include-email)
-        - docker tag ${SOURCE_IMAGE} ${TARGET_IMAGE}:${DOCKER_TAG}
+        - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
+        - docker build -t ${IMAGE_NAME}:latest .
+        - docker tag ${IMAGE_NAME}:latest ${TARGET_IMAGE}:${DOCKER_TAG}
         - docker tag ${SOURCE_IMAGE} ${TARGET_IMAGE}:latest
         - docker push ${TARGET_IMAGE}
 
