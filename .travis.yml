@@ -43,9 +43,9 @@ jobs:
       script:
         - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
         - docker build -t ${IMAGE_NAME}:latest .
-        - docker tag ${IMAGE_NAME}:latest ${TARGET_IMAGE}:${DOCKER_TAG}
-        - docker tag ${SOURCE_IMAGE} ${TARGET_IMAGE}:latest
-        - docker push ${TARGET_IMAGE}
+        - docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${DOCKER_TAG}
+        - docker tag ${SOURCE_IMAGE} ${IMAGE_NAME}:latest
+        - docker push ${IMAGE_NAME}
 
     # - stage: deploy
     #   services:
