@@ -37,7 +37,7 @@ jobs:
         - docker
       env:
         - DOCKER_TAG=$(git describe --tags --dirty --long)
-        - IMAGE_NAME=dgnorth/drift-base
+        - IMAGE_NAME=directivegames/drift-base
       before_install:
         - pip install awscli
       script:
