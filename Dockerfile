@@ -12,7 +12,7 @@ MAINTAINER directivegames-north <dgnorth@directivegames.com>
 RUN groupadd uwsgi && useradd -m -g uwsgi uwsgi
 
 RUN apt update
-RUN apt install nano htop
+RUN apt install -y nano htop jq
 RUN pip3 install pipenv uwsgi
 
 WORKDIR /app
@@ -32,15 +32,10 @@ RUN chmod 777 -R /app
 # sadly this does not work so we are limited to 128 listen sockets in uwsgi config
 RUN echo net.core.somaxconn=4096 >> /etc/sysctl.conf
 
+RUN echo "dconf developer --shared && uwsgi --ini /app/config/uwsgi.ini" >> /app/run_local.sh
+
 USER uwsgi
 
-ENV DRIFT_CONFIG_URL=developer
-ENV DRIFT_TIER=LOCALTIER
-ENV DRIFT_DEFAULT_TENANT=localorg-localdev
-ENV FLASK_APP=drift.devapp:app
-ENV FLASK_ENV=development
 ENV AWS_EXECUTION_ENV=1
-
-RUN dconf developer
 
 CMD [ "uwsgi", "--ini", "/app/config/uwsgi.ini" ]

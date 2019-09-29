@@ -36,6 +36,15 @@ flask run
 Try it out here:
 [http://localhost:5000/](http://localhost:5000/)
 
+## Run docker-compose
+docker-compose.yml contains the drift-base service and redis and postgres dependencies. If you install docker for desktop then docker compose is already included and you can simply run:
+```bash
+docker-compose up
+```
+This will download the latest version of drift-base along with postgres and redis and will run the server in local development mode.
+
+Try it out here:
+[http://localhost:8080/](http://localhost:8080/)
 
 ## Modifying library dependencies
 Python package dependencies are maintained in **Pipfile**. If you make any changes there, update the **Pipfile.lock** file as well using the following command:
