@@ -19,7 +19,7 @@ WORKDIR /app
 RUN chown uwsgi /app
 
 COPY Pipfile* ./
-RUN pipenv install --system --deploy
+RUN pipenv install --system --deploy --ignore-pipfile
 # .git is not in .dockerignore so that we can access it in the `buildinfo` build stage.
 RUN rm -rf .git
 

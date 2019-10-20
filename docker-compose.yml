@@ -15,6 +15,7 @@ services:
 
   drift-base:
     image: directivegames/drift-base:latest
+    restart: always
     environment:
       DB_HOST: postgres
       DRIFT_REDIS_HOST: redis
