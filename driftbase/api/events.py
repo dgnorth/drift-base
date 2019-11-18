@@ -26,9 +26,8 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-@bp.route('', endpoint='list')
+@bp.route("", endpoint="list")
 class EventsAPI(MethodView):
-
     def post(self):
         """
         Create event
@@ -54,21 +53,19 @@ class EventsAPI(MethodView):
         # The event log API should enforce the player_id to the current player, unless
         # the user has role "service" in which case it should only set the player_id if
         # it's not passed in the event.
-        player_id = current_user['player_id']
-        is_service = 'service' in current_user['roles']
+        player_id = current_user["player_id"]
+        is_service = "service" in current_user["roles"]
 
         for event in args:
             if is_service:
-                event.setdefault('player_id', player_id)
+                event.setdefault("player_id", player_id)
             else:
-                event['player_id'] = player_id  # Always override!
-            eventlogger.info("eventlog", extra=event)
+                event["player_id"] = player_id  # Always override!
+            eventlogger.info("eventlog", extra={"extra": event})
 
         return "OK", http_client.CREATED
 
 
 @endpoints.register
 def endpoint_info(*args):
-    return {
-        "eventlogs": url_for("events.list", _external=True),
-    }
+    return {"eventlogs": url_for("events.list", _external=True)}
