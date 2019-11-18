@@ -14,7 +14,9 @@ from drift.core.extensions.jwt import current_user
 from driftbase.utils import verify_log_request
 
 log = logging.getLogger(__name__)
-bp = Blueprint("clientlogs", __name__, url_prefix="/clientlogs", description="Client Logs")
+bp = Blueprint(
+    "clientlogs", __name__, url_prefix="/clientlogs", description="Client Logs"
+)
 endpoints = Endpoints()
 
 clientlogger = logging.getLogger("clientlog")
@@ -26,7 +28,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-@bp.route('/', endpoint='logs')
+@bp.route("/", endpoint="logs")
 class ClientLogsAPI(MethodView):
 
     no_jwt_check = ["POST"]
@@ -54,18 +56,18 @@ class ClientLogsAPI(MethodView):
             args = [args]
         player_id = current_user["player_id"] if current_user else None
 
+        print(args)
         for event in args:
             event["player_id"] = player_id
-            clientlogger.info("clientlog", extra=event)
+            print("event is; {}".format(event))
+            clientlogger.info("clientlog", extra={"extra": event})
 
-        if request.headers.get('Accept') == 'application/json':
-            return jsonify(status='OK'), http_client.CREATED
+        if request.headers.get("Accept") == "application/json":
+            return jsonify(status="OK"), http_client.CREATED
         else:
             return "OK", http_client.CREATED
 
 
 @endpoints.register
 def endpoint_info(*args):
-    return {
-        "clientlogs": url_for("clientlogs.logs", _external=True),
-    }
+    return {"clientlogs": url_for("clientlogs.logs", _external=True)}
