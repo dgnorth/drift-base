@@ -134,6 +134,18 @@ class GameCenterCase(unittest.TestCase):
             run_gamecenter_token_validation(t, app_bundles=app_bundles)
             self.assertIn("Can't fetch url 'broken url'", context.exception.description)
 
+        with self.assertRaises(Unauthorized) as context:
+            t = template.copy()
+            t['public_key_url'] = ''
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
+            self.assertIn("Can't fetch url 'broken url'", context.exception.description)
+
+        with self.assertRaises(Unauthorized) as context:
+            t = template.copy()
+            t['public_key_url'] = "https://static.gc.mapple.com/public-key/gc-prod-2.cer"
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
+            self.assertIn("Can't fetch url 'broken url'", context.exception.description)
+
     def test_broken_cert(self):
         # Verify that broken certs fail.
         with self.assertRaises(Unauthorized) as context:

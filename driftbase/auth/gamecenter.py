@@ -16,7 +16,7 @@ from .authenticate import authenticate as base_authenticate
 
 
 # We make the assumption that a public key stored on this web site is a trusted one.
-TRUSTED_KEY_URL_HOST = ".gc.apple.com"
+TRUSTED_KEY_URL_HOST = ".apple.com"
 
 
 def authenticate(auth_info):
@@ -91,7 +91,7 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
 
     # Verify that the certificate url is at Apple
     url_parts = urlparse(gc_token['public_key_url'])
-    if not url_parts.hostname or not urlparse(gc_token['public_key_url']).hostname.endswith(TRUSTED_KEY_URL_HOST):
+    if not all([url_parts.scheme == "https", url_parts.hostname and url_parts.hostname.endswith(TRUSTED_KEY_URL_HOST)]):
         abort_unauthorized(error_title + ". Public key url points to unknown host: %s" % (gc_token['public_key_url']))
 
     # Fetch public key, use cache if available.
