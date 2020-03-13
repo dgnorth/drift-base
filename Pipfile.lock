@@ -122,7 +122,7 @@
         },
         "driftconfig": {
             "git": "https://github.com/dgnorth/drift-config.git",
-            "ref": "5f83a9c822828421f703b70514118e173e8ab12d"
+            "ref": "a1e883f06791641d2c905f05088fc5d0ce877dc9"
         },
         "flask": {
             "hashes": [
