@@ -15,9 +15,8 @@ from driftbase.auth.util import fetch_url
 from .authenticate import authenticate as base_authenticate
 
 
-# This stuff is just based on assumptions.
-TRUSTED_ORGANIZATIONS = ["Apple Inc.", "Apple, Inc."]
-TRUSTED_KEY_URL_HOSTS = ['sandbox.gc.apple.com', 'static.gc.apple.com']
+# We make the assumption that a public key stored on this web site is a trusted one.
+TRUSTED_KEY_URL_HOST = ".apple.com"
 
 
 def authenticate(auth_info):
@@ -91,7 +90,8 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
         abort_unauthorized(error_title + ". 'app_bundle_id' not one of %s" % app_bundles)
 
     # Verify that the certificate url is at Apple
-    if urlparse(gc_token['public_key_url']).hostname not in TRUSTED_KEY_URL_HOSTS:
+    url_parts = urlparse(gc_token['public_key_url'])
+    if not all([url_parts.scheme == "https", url_parts.hostname and url_parts.hostname.endswith(TRUSTED_KEY_URL_HOST)]):
         abort_unauthorized(error_title + ". Public key url points to unknown host: %s" % (gc_token['public_key_url']))
 
     # Fetch public key, use cache if available.
@@ -106,11 +106,7 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
     except OpenSSL.crypto.Error as e:
         abort_unauthorized(error_title + ". Can't load certificate: %s" % str(e))
 
-    # Verify that the key is issued to someone we trust and is not expired.
-    org_name = cert.get_subject().organizationName
-    if org_name not in TRUSTED_ORGANIZATIONS:
-        abort_unauthorized(error_title + ". Certificate is issued to '%s' which is not one of %s." % (org_name, TRUSTED_ORGANIZATIONS))
-
+    # Verify that the certificate is not expired.
     if cert.has_expired():
         abort_unauthorized(error_title + ". Certificate is expired, 'notAfter' is '%s'" % cert.get_notAfter())
 

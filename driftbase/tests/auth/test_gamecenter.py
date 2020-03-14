@@ -6,7 +6,7 @@ import datetime
 import requests
 from werkzeug.exceptions import Unauthorized
 
-from driftbase.auth.gamecenter import run_gamecenter_token_validation, TRUSTED_ORGANIZATIONS
+from driftbase.auth.gamecenter import run_gamecenter_token_validation
 
 
 template = {
@@ -134,6 +134,18 @@ class GameCenterCase(unittest.TestCase):
             run_gamecenter_token_validation(t, app_bundles=app_bundles)
             self.assertIn("Can't fetch url 'broken url'", context.exception.description)
 
+        with self.assertRaises(Unauthorized) as context:
+            t = template.copy()
+            t['public_key_url'] = ''
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
+            self.assertIn("Can't fetch url 'broken url'", context.exception.description)
+
+        with self.assertRaises(Unauthorized) as context:
+            t = template.copy()
+            t['public_key_url'] = "https://static.gc.mapple.com/public-key/gc-prod-2.cer"
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
+            self.assertIn("Can't fetch url 'broken url'", context.exception.description)
+
     def test_broken_cert(self):
         # Verify that broken certs fail.
         with self.assertRaises(Unauthorized) as context:
@@ -141,17 +153,6 @@ class GameCenterCase(unittest.TestCase):
             t['public_key_url'] = 'broken cert'
             run_gamecenter_token_validation(t, app_bundles=app_bundles)
             self.assertIn("Can't load certificate", context.exception.description)
-
-    def test_cert_validation(self):
-        # Make sure cert is issued to a trusted organization.
-        _tmp = TRUSTED_ORGANIZATIONS[:]
-        TRUSTED_ORGANIZATIONS[:] = ['Mordor Inc.']
-        try:
-            with self.assertRaises(Unauthorized) as context:
-                run_gamecenter_token_validation(template, app_bundles=app_bundles)
-                self.assertIn("Certificate is issued to 'Apple Inc.' which is not one of ['Mordor Inc.'].", context.exception.description)
-        finally:
-            TRUSTED_ORGANIZATIONS[:] = _tmp
 
     @mock.patch('datetime.datetime', DateOutside)
     def test_cert_expiration(self):
