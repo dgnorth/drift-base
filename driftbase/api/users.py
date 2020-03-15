@@ -4,8 +4,8 @@ from six.moves import http_client
 from flask import url_for, g
 from flask.views import MethodView
 import marshmallow as ma
-from flask_restplus import reqparse
-from flask_rest_api import Blueprint, abort
+from flask_restx import reqparse
+from flask_smorest import Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player, url_user

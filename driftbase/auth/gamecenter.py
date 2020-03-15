@@ -5,7 +5,7 @@ import base64
 from six.moves import http_client
 from six.moves.urllib.parse import urlparse
 
-from flask_restplus import abort
+from flask_smorest import abort
 
 from werkzeug.exceptions import Unauthorized
 from werkzeug.security import pbkdf2_hex

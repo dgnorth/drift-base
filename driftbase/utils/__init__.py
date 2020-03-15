@@ -6,7 +6,7 @@ import six
 from six.moves import http_client
 
 from flask import g, url_for
-from flask_restplus import abort
+from flask_smorest import abort
 
 from driftbase.models.db import Counter, MatchEvent
 log = logging.getLogger(__name__)

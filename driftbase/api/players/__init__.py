@@ -3,7 +3,7 @@ from six.moves import http_client
 
 from flask import g, url_for
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
 import marshmallow as ma
 from marshmallow import validates, ValidationError, pre_dump

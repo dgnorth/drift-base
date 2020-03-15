@@ -5,7 +5,7 @@ from six.moves import http_client
 from flask import request, g, abort, jsonify
 from flask.views import MethodView
 import marshmallow as ma
-from flask_rest_api import Blueprint, utils
+from flask_smorest import Blueprint, utils
 from marshmallow_sqlalchemy import ModelSchema
 
 from drift.utils import Url

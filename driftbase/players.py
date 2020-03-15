@@ -5,7 +5,7 @@ from six.moves import http_client
 import logging
 
 from flask import g, request
-from flask_restplus import abort
+from flask_smorest import abort
 
 from drift.core.extensions.jwt import current_user
 

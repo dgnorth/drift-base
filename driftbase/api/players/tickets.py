@@ -8,7 +8,7 @@ from flask.views import MethodView
 import marshmallow as ma
 from marshmallow import validates, ValidationError, pre_dump
 from marshmallow_sqlalchemy import ModelSchema
-from flask_rest_api import Blueprint, abort, utils
+from flask_smorest import Blueprint, abort, utils
 
 from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import requires_roles
