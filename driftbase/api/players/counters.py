@@ -17,7 +17,7 @@ from marshmallow import validates, ValidationError, pre_dump
 
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 
 from drift.utils import Url
 from drift.core.extensions.jwt import current_user

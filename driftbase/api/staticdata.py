@@ -5,8 +5,8 @@ import json
 from flask import g, url_for, jsonify
 from flask.views import MethodView
 import marshmallow as ma
-from flask_restplus import reqparse
-from flask_rest_api import Blueprint
+from flask_restx import reqparse
+from flask_smorest import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
 log = logging.getLogger(__file__)

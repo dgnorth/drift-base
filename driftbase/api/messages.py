@@ -17,8 +17,8 @@ from six.moves import http_client
 from flask import g, url_for, request, stream_with_context, Response, jsonify
 from flask.views import MethodView
 import marshmallow as ma
-from flask_restplus import reqparse
-from flask_rest_api import Blueprint, abort
+from flask_restx import reqparse
+from flask_smorest import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user

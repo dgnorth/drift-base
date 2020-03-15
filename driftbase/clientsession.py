@@ -3,7 +3,7 @@ import logging
 from six.moves import http_client
 
 from flask import g, current_app
-from flask_restplus import abort
+from flask_smorest import abort
 
 from drift.core.extensions.jwt import query_current_user
 

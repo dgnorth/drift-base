@@ -2,7 +2,7 @@ import unittest
 
 from flask import Flask, Blueprint, jsonify
 from flask.views import MethodView
-from flask_restplus import Api, Resource
+from flask_restx import Api, Resource
 
 from drift.tests import DriftTestCase
 from drift.systesthelper import DriftBaseTestCase

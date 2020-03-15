@@ -5,7 +5,7 @@ from six.moves import http_client
 
 from flask import url_for, g, request, jsonify
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort, utils
+from flask_smorest import Blueprint, abort, utils
 
 import marshmallow as ma
 

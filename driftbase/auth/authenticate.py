@@ -3,7 +3,7 @@ import logging
 from six.moves import http_client
 
 from flask import g, current_app
-from flask_restplus import abort
+from flask_smorest import abort
 from click import secho
 
 from driftbase.models.db import User, CorePlayer, UserIdentity, UserRole

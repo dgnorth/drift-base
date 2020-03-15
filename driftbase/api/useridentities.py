@@ -7,7 +7,7 @@ from flask import url_for, g, jsonify
 from flask import make_response
 from flask.views import MethodView
 import marshmallow as ma
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.jwt import current_user, get_cached_token
