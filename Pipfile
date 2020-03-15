@@ -15,7 +15,7 @@ flask-restx = "*"
 marshmallow = "*"
 marshmallow-sqlalchemy = "*"
 flask-marshmallow = "*"
-apispec = "*"
+flask-smorest = "*"
 
 [dev-packages]
 pytest = "*"

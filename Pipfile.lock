@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a84f7a8d69b3d877c4c7ae23c4c0bf81915e0f8209e21cb1da2893331be1d992"
+            "sha256": "37704386f0066d97e9a6073050af91323f85d1f69bfff252ff11f585e5ef2a8a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -28,7 +28,6 @@
                 "sha256:419d0564b899e182c2af50483ea074db8cb05fee60838be58bb4542095d5c08d",
                 "sha256:9bf4e51d56c9067c60668b78210ae213894f060f85593dc2ad8805eb7d875a2a"
             ],
-            "index": "pypi",
             "version": "==3.3.0"
         },
         "attrs": {
@@ -112,6 +111,14 @@
             ],
             "index": "pypi",
             "version": "==0.1.1"
+        },
+        "flask-smorest": {
+            "hashes": [
+                "sha256:3f05738414070ec4b5b413fd5cdfe79475a8a29fead6d65920224dfcecda695a",
+                "sha256:72226af55c8b0ca28bfb88302e3add283d484aa9aca256968711f92f6351da30"
+            ],
+            "index": "pypi",
+            "version": "==0.19.2"
         },
         "gevent": {
             "hashes": [
@@ -323,6 +330,14 @@
             ],
             "markers": "python_version != '3.4'",
             "version": "==1.25.8"
+        },
+        "webargs": {
+            "hashes": [
+                "sha256:4f04918864c7602886335d8099f9b8960ee698b6b914f022736ed50be6b71235",
+                "sha256:871642a2e0c62f21d5b78f357750ac7a87e6bc734c972f633aa5fb6204fbf29a",
+                "sha256:fc81c9f9d391acfbce406a319217319fd8b2fd862f7fdb5319ad06944f36ed25"
+            ],
+            "version": "==5.5.3"
         },
         "werkzeug": {
             "hashes": [
