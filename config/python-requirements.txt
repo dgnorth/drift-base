@@ -22,7 +22,6 @@ python-ldap
 aniso8601
 pytz
 redis
-celery
 pyjwt
 netaddr
 mock
