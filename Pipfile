@@ -4,19 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-# Due to uneccessary or weird dependency in auth.util.fetch_url()
-drift = {git = 'https://github.com/dgnorth/drift.git',ref = 'dockerization'}
-driftconfig = {git = 'https://github.com/dgnorth/drift-config.git',ref = 'develop'}
+python-drift = "*"
+python-driftconfig = "*"
 gevent = "*"
 requests = "*"
 "boto3" = "*"
 greenlet = "*"
-flask-restx = "*"
-marshmallow = "*"
-marshmallow-sqlalchemy = "*"
-flask-marshmallow = "*"
-flask-smorest = "*"
 python-decouple = "*"
+flask-restx = "*"
 
 [dev-packages]
 pytest = "*"
