@@ -5,11 +5,4 @@ recursive-include alembic *
 recursive-include */schemas *
 recursive-include */*/schemas *
 include setup.py
-include kitrun.py
-include alembic.ini
-include flask_uwsgi.py
-include const.py
-include requirements.txt
 include VERSION
-include Pipfile
-include Pipfile.lock
