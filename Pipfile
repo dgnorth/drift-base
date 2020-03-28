@@ -5,13 +5,13 @@ name = "pypi"
 
 [packages]
 python-drift = "*"
-python-driftconfig = "*"
 gevent = "*"
 requests = "*"
 "boto3" = "*"
 greenlet = "*"
 python-decouple = "*"
 flask-restx = "*"
+python-driftconfig = "*"
 
 [dev-packages]
 pytest = "*"
@@ -21,7 +21,7 @@ responses = "*"
 mock = "*"
 
 [requires]
-python_version = "3"
+python_version = "3.7"
 
 [pipenv]
 allow_prereleases = true
