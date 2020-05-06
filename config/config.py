@@ -8,3 +8,7 @@ config = AutoConfig(__file__)
 DEBUG = config("DEBUG", default=False, cast=bool)
 LOG_LEVEL = config("LOG_LEVEL", default="INFO")
 LOG_FORMAT = config("LOG_FORMAT", default="json")
+HOST_ADDRESS = config("HOST_ADDRESS", default=None)
+
+with open("VERSION") as f:
+    VERSION = f.read().strip()

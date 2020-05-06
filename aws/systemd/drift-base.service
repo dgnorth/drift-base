@@ -1,16 +1,22 @@
 [Unit]
-Description=Drift Base Server
-After=syslog.target
+Description=Drift-base Service by Directive Games
+Requires=docker.service
+After=docker.service
+
 
 [Service]
-Type=notify
-EnvironmentFile=/etc/environment
-ExecStart=/usr/local/bin/uwsgi /etc/opt/drift-base/config/uwsgi.ini
-Restart=on-failure
-RestartSec=5
-KillSignal=SIGQUIT
-User=root
-NotifyAccess=all
+#Restart=always
+EnvironmentFile=/etc/drift.env
+ExecStartPre=/bin/bash -c "systemctl set-environment HOSTNAME_IP=$(hostname -i);systemctl set-environment VERSION=$(printenv DRIFT_TAG)"
+ExecStart=/usr/bin/docker run \
+               --env-file=/etc/drift.env \
+               -e HOST_ADDRESS=${HOSTNAME_IP} \
+               -p 10080:10080 \
+               -p 8080:8080 \
+               -p 9191:9191 \
+               --name drift-base \
+               directivegames/drift-base:${VERSION}
+ExecStop=/usr/bin/docker rm -f drift-base
 
 [Install]
-WantedBy=multiuser.target
+WantedBy=multi-user.target
