@@ -1,10 +1,5 @@
 version: '2'
 
-# echo "DRIFT_CONFIG_URL=redis://redis.devnorth.dg-api.com:6379/0?prefix=dgnorth" >> /etc/environment
-# echo "DRIFT_TIER=DEVNORTH" >> /etc/environment
-# echo "DOCKER_IMAGE=directivegames/drift-base:0.2.12" >> /etc/environment
-# echo "DD_API_KEY=1c416742cedda9a040d8fac5cd0dc167"
-
 services:
   driftbase:
     container_name: drift-base
