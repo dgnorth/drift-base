@@ -17,6 +17,9 @@ build:
 	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${BRANCH}
 	docker push ${IMAGE_NAME}:${BRANCH}
 
+buildami:
+	cd aws && packer build packer.json
+
 release:
 	docker build -t ${IMAGE_NAME} .
 	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION}

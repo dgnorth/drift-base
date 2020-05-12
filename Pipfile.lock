@@ -51,18 +51,18 @@
         },
         "boto3": {
             "hashes": [
-                "sha256:91b34fac764c908f2e9553607fb0f2c56adc6b9df76e1f313dc190af512849c8",
-                "sha256:fc8511eda662d7b4b10bce55153cf65b89c41d86b65162bc0d15b89547d3d837"
+                "sha256:33b6a07f9ca3d979543eeb70ad08eb1949a9767901569c10309da46b8520c952",
+                "sha256:69d2f78d3f9915fc789001d634d14fd05be5125f8f454a9e891ddfb98f3e2d11"
             ],
             "index": "pypi",
-            "version": "==1.13.2"
+            "version": "==1.13.4"
         },
         "botocore": {
             "hashes": [
-                "sha256:102534a1d98a70bf6ecacf51c3cef2ef09587039aef064ad076bd2e36dd4c441",
-                "sha256:8ef5b178b76920f6f11169ad69ff30e297044aab4c34d1e92f26221faaa033ed"
+                "sha256:62e5ad459ffb3fbc32e1d871b91790ba403cef3ed17307a43be2d79ac993b960",
+                "sha256:c97721df7aa738538569ef27b41c68a254582bfde67b199b4909d9d42a269422"
             ],
-            "version": "==1.16.2"
+            "version": "==1.16.4"
         },
         "cachetools": {
             "hashes": [
@@ -424,11 +424,11 @@
         },
         "python-drift": {
             "hashes": [
-                "sha256:29e57b753596d4fa012753d45f338f4295c173749ce367b94995229c39abd458",
-                "sha256:3d556527c5f66246722e6a43cfa1349746d6d4d0c0c30228aaec059d9f03b91e"
+                "sha256:1c613d43b8f17c90d7f56832d68ff5a1d12703ee94a30bc20e44c0057e69de35",
+                "sha256:c7c464cfbe68d02e23f3b9468ed6764d7f2a0f9616080cc335b2ca70ebe9b2b9"
             ],
             "index": "pypi",
-            "version": "==0.3.7"
+            "version": "==0.3.8"
         },
         "python-driftconfig": {
             "hashes": [
@@ -525,10 +525,10 @@
         },
         "webargs": {
             "hashes": [
-                "sha256:d66a056b3a40c5a3774a650fd349db5970cd91fa8f04ac50d00582c949b45b26",
-                "sha256:dfe01cd3711cee9a3651bfd5ca67770ace4a6f35f3cae583aa8400bbf7706bb4"
+                "sha256:cf0b5e2fdfb81f28b9332fce15621069d3fbc910a01c7ca8a5e166371699927b",
+                "sha256:ebb47fb35c3c4fc764213a17d1686e82fec54759ebed2b0715907d566668bb3f"
             ],
-            "version": "==6.0.0"
+            "version": "==6.1.0"
         },
         "werkzeug": {
             "hashes": [
