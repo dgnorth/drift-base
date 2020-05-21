@@ -17,7 +17,7 @@ def abort(txt):
 
 
 try:
-    DRIFT_CONFIG_URL = os.environ["DRIFT_CONFIG_URLs"]
+    DRIFT_CONFIG_URL = os.environ["DRIFT_CONFIG_URL"]
     DRIFT_TIER = os.environ["DRIFT_TIER"]
     DD_API_KEY = os.environ["DD_API_KEY"]
     DOCKER_IMAGE = os.environ["DOCKER_IMAGE"]
@@ -25,6 +25,10 @@ try:
     AWS_REGION = os.environ["AWS_REGION"]
     SSH_KEY_NAME = os.environ["SSH_KEY_NAME"]
     SERVICE_NAME = os.environ["SERVICE_NAME"]
+    MIN_INSTANCES = int(os.environ.get("MIN_INSTANCES", 1))
+    MAX_INSTANCES = int(os.environ.get("MAX_INSTANCES", 1))
+    DESIRED_INSTANCES = int(os.environ.get("DESIRED_INSTANCES", 1))
+    DRIFT_PORT = os.environ.get("DRIFT_PORT", 10080)
 except KeyError as ex:
     abort(f"Environment not set up. Please see example.env: {ex}")
 
@@ -76,7 +80,7 @@ def run_command():
         "app-root": "",
         "launched-by": boto3.client("sts").get_caller_identity()["Arn"],
         "api-target": SERVICE_NAME,
-        "api-port": "10080",
+        "api-port": str(DRIFT_PORT),
         "api-status": "online",
         "docker-image": DOCKER_IMAGE
     }
@@ -93,10 +97,6 @@ sudo bash -c "echo DRIFT_TIER=$DRIFT_TIER >> /etc/environment"
 sudo bash -c "echo DD_API_KEY=$DD_API_KEY >> /etc/environment"
 sudo bash -c "echo DOCKER_IMAGE=$DOCKER_IMAGE >> /etc/environment"
 sudo bash -c "echo HOST_ADDRESS=$(hostname -i) >> /etc/environment"
-
-source /etc/environment
-
-sudo systemctl restart drift-base
 
 """
 
@@ -129,9 +129,9 @@ sudo systemctl restart drift-base
     kwargs = dict(
         AutoScalingGroupName=target_name,
         LaunchConfigurationName=launch_config_name,
-        MinSize=1,
-        MaxSize=1,
-        DesiredCapacity=1,
+        MinSize=MIN_INSTANCES,
+        MaxSize=MAX_INSTANCES,
+        DesiredCapacity=DESIRED_INSTANCES,
         VPCZoneIdentifier=",".join([subnet.id for subnet in subnets]),
     )
 
