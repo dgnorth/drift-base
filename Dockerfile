@@ -2,9 +2,9 @@
 FROM python:3
 MAINTAINER Directive Games <info@directivegames.com>
 
-RUN pip3 install pipenv uwsgi
-ARG VERSION
 WORKDIR /app
+
+RUN pip install pipenv uwsgi
 
 COPY Pipfile* ./
 RUN pipenv install --system --deploy --dev
@@ -13,7 +13,11 @@ RUN addgroup --gid 1000 uwsgi
 RUN useradd -ms /bin/bash uwsgi -g uwsgi
 
 COPY . .
-RUN echo $VERSION > VERSION
+
+ARG VERSION
+ARG BUILD_TIMESTAMP
+ARG COMMIT_HASH
+RUN echo '{"version": "'$VERSION'", "build_timestamp": "'$BUILD_TIMESTAMP'", "commit_hash": "'$COMMIT_HASH'"}' > .build_info
 
 USER uwsgi
 

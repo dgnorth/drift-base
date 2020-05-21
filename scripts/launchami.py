@@ -158,16 +158,17 @@ sudo bash -c "echo HOST_ADDRESS=$(hostname -i) >> /etc/environment"
 
     # Define a 2 min termination cooldown so api-router can drain the connections.
     echo("Configuring lifecycle hook.")
+    drain_minutes = 4
     response = client.put_lifecycle_hook(
-        LifecycleHookName="Wait-2-minutes-on-termination",
+        LifecycleHookName=f"Wait-{drain_minutes}-minutes-on-termination",
         AutoScalingGroupName=target_name,
         LifecycleTransition="autoscaling:EC2_INSTANCE_TERMINATING",
-        HeartbeatTimeout=120,
+        HeartbeatTimeout=drain_minutes*60,
         DefaultResult="CONTINUE",
     )
 
     echo("Terminating instances in autoscaling group. New ones will be launched.")
-    echo("Old instances will linger for 2 minutes while connections are drained.")
+    echo(f"Old instances will linger for {drain_minutes} minutes while connections are drained.")
     asg = client.describe_auto_scaling_groups(AutoScalingGroupNames=[target_name])
     for instance in asg["AutoScalingGroups"][0]["Instances"]:
         response = client.terminate_instance_in_auto_scaling_group(

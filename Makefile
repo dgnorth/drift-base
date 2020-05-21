@@ -13,9 +13,10 @@ export FLASK_APP=${PACKAGE_NAME}.app:app
 .PHONY: auth push build clean info release
 
 build:
-	docker build -t ${IMAGE_NAME} . --build-arg VERSION='${VERSION}'
+	docker build -t ${IMAGE_NAME} . --build-arg VERSION='${VERSION}' --build-arg BUILD_TIMESTAMP='${BUILD_TIMESTAMP}' --build-arg COMMIT_HASH='${CI_COMMIT_SHORT_SHA}'
 	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${BRANCH}
-	docker push ${IMAGE_NAME}
+	docker push ${IMAGE_NAME}:latest
+	docker push ${IMAGE_NAME}:${BRANCH}
 
 buildami:
 	cd aws && packer build packer.json
