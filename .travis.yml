@@ -36,20 +36,7 @@ jobs:
         - docker pull "$IMAGE_NAME" || true
       script:
         - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
-        - make build BRANCH=$BRANCH
-
-    - stage: deploy
-      if: tag IS present
-      condition: $TRAVIS_TAG =~ [0-9]+\.[0-9]+\.[0-9]+
-      services:
-        - docker
-      env:
-        - DOCKER_TAG=$(git describe --tags --dirty --long)
-      before_script:
-        - docker pull "$IMAGE_NAME" || true
-      script:
-        - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
-        - make release
+        - make build BRANCH=$TRAVIS_BRANCH
 
 notifications:
   on_pull_requests: false

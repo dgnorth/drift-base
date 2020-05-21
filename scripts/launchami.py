@@ -78,6 +78,7 @@ def run_command():
         "api-target": SERVICE_NAME,
         "api-port": "10080",
         "api-status": "online",
+        "docker-image": DOCKER_IMAGE
     }
 
     user_data = f"""#!/bin/bash

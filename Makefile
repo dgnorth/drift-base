@@ -23,10 +23,6 @@ buildami:
 launchami:
 	python scripts/launchami.py
 
-release: build
-	docker build -t ${IMAGE_NAME}:${VERSION} . --build-arg VERSION='${VERSION}'
-	docker push ${IMAGE_NAME}:${VERSION}
-
 git-tag:
 	git tag ${VERSION}		
 	git push origin --tags -o ci.skip
