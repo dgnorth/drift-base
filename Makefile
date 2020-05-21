@@ -1,8 +1,8 @@
 PACKAGE_NAME = driftbase
 IMAGE_NAME = directivegames/drift-base
 
-BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
-VERSION = $(shell cat VERSION)
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+VERSION ?= $(shell git tag --sort=committerdate | grep -E '^[0-9]' | tail -1)
 
 CI_COMMIT_REF_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
 CI_COMMIT_SHORT_SHA ?= $(shell git rev-parse HEAD | cut -c 1-8)
@@ -13,16 +13,18 @@ export FLASK_APP=${PACKAGE_NAME}.app:app
 .PHONY: auth push build clean info release
 
 build:
-	docker build -t ${IMAGE_NAME} .
+	docker build -t ${IMAGE_NAME} . --build-arg VERSION='${VERSION}'
 	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${BRANCH}
-	docker push ${IMAGE_NAME}:${BRANCH}
+	docker push ${IMAGE_NAME}
 
 buildami:
 	cd aws && packer build packer.json
 
-release:
-	docker build -t ${IMAGE_NAME} .
-	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION}
+launchami:
+	python scripts/launchami.py
+
+release: build
+	docker build -t ${IMAGE_NAME}:${VERSION} . --build-arg VERSION='${VERSION}'
 	docker push ${IMAGE_NAME}:${VERSION}
 
 git-tag:
@@ -30,9 +32,8 @@ git-tag:
 	git push origin --tags -o ci.skip
 
 run:
-	docker run -e DRIFT_TIER=DEVNORTH \
-			   -e DRIFT_CONFIG_URL='redis://redis.devnorth.dg-api.com:6379/0?prefix=dgnorth' \
-			   -e DRIFT_DEFAULT_TENANT=dg-daedalus-devnorth \
+	docker run -e DRIFT_TIER=${DRIFT_TIER} \
+			   -e DRIFT_CONFIG_URL=${DRIFT_CONFIG_URL} \
 			   -e DEBUG=True \
 			   -p 10080:10080 \
 			   -p 8080:8080 \

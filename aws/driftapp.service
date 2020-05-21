@@ -1,7 +1,7 @@
 [Unit]
-Description=Drift Base Service
+Description=Drift Service
 Requires=docker.service
-After=docker.service
+After=cloud-final.service
 
 [Service]
 User=root
@@ -19,4 +19,4 @@ ExecReload=/usr/local/bin/docker-compose pull
 ExecReload=/usr/local/bin/docker-compose up -d
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=cloud-init.target

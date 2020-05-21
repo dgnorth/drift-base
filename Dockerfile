@@ -1,16 +1,9 @@
-# Extract the version from git tag and bake into the resulting container
-FROM python:3 as build_info
-WORKDIR /
-ADD ./.git .
-RUN git tag --sort=committerdate | grep -E '^[0-9]' | tail -1 > VERSION
-
+# Extract the latest version from git tag and bake into the resulting container
 FROM python:3
-MAINTAINER Directive Games <matti@directivegames.com>
+MAINTAINER Directive Games <info@directivegames.com>
 
-RUN pip3 install pipenv uwsgi uwsgitop
-RUN apt update
-RUN apt install -yq htop nano jq
-
+RUN pip3 install pipenv uwsgi
+ARG VERSION
 WORKDIR /app
 
 COPY Pipfile* ./
@@ -20,7 +13,7 @@ RUN addgroup --gid 1000 uwsgi
 RUN useradd -ms /bin/bash uwsgi -g uwsgi
 
 COPY . .
-COPY --from=build_info VERSION .
+RUN echo $VERSION > VERSION
 
 USER uwsgi
 

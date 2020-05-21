@@ -36,12 +36,11 @@ jobs:
         - docker pull "$IMAGE_NAME" || true
       script:
         - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
-        - docker build -t ${IMAGE_NAME}:latest .
-        - docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${TRAVIS_BRANCH}
-        - docker push ${IMAGE_NAME}
+        - make build BRANCH=$BRANCH
 
     - stage: deploy
       if: tag IS present
+      condition: $TRAVIS_TAG =~ [0-9]+\.[0-9]+\.[0-9]+
       services:
         - docker
       env:
@@ -50,9 +49,7 @@ jobs:
         - docker pull "$IMAGE_NAME" || true
       script:
         - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
-        - docker build -t ${IMAGE_NAME}:${DOCKER_TAG} .
-        - docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${TRAVIS_BRANCH}
-        - docker push ${IMAGE_NAME}
+        - make release
 
 notifications:
   on_pull_requests: false

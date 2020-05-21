@@ -2,7 +2,7 @@ version: '2'
 
 services:
   driftbase:
-    container_name: drift-base
+    container_name: driftapp
     image: ${DOCKER_IMAGE}
     restart: always
     user: '1000:1000'
