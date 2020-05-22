@@ -15,9 +15,11 @@ export FLASK_APP=${PACKAGE_NAME}.app:app
 build:
 	docker build -t ${IMAGE_NAME} . --build-arg VERSION='${VERSION}' --build-arg BUILD_TIMESTAMP='${BUILD_TIMESTAMP}' --build-arg COMMIT_HASH='${CI_COMMIT_SHORT_SHA}'
 	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${BRANCH}
+
+push:
 	docker push ${IMAGE_NAME}:latest
 	docker push ${IMAGE_NAME}:${BRANCH}
-
+	
 buildami:
 	cd aws && packer build packer.json
 

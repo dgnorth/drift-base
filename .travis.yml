@@ -37,6 +37,7 @@ jobs:
       script:
         - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
         - make build BRANCH=$TRAVIS_BRANCH
+        - make push BRANCH=$TRAVIS_BRANCH
 
 notifications:
   on_pull_requests: false
