@@ -7,7 +7,6 @@
     "OPENAPI_SWAGGER_UI_PATH": "/swagger",
     "OPENAPI_SWAGGER_UI_VERSION": "3.19.4",
     "apps": [
-        "driftbase.tasks.tasks",
         "driftbase.api.players",
         "driftbase.api.users",
         "driftbase.api.useridentities",
@@ -26,7 +25,6 @@
         "driftbase.api.matchqueue",
         "driftbase.api.messages",
 
-        "driftbase.tasks.matchqueue",
         "drift.core.apps.schemas",
         "drift.core.apps.provision",
         "drift.core.apps.healthcheck",
@@ -56,55 +54,5 @@
     "heartbeat_timeout": 300,
     "systest_db": {
         "server": "localhost:5432"
-    },
-    "CELERYBEAT_SCHEDULERxxx": "drift.core.extensions.celery.SingletonScheduler",
-    "CELERYBEAT_SCHEDULE": {
-        "cleanup_orphaned_matchqueues": {
-            "options": {
-                "expires": 1000
-            },
-            "schedule": 180,
-            "task": "driftbase.matchqueue.tasks.cleanup_orphaned_matchqueues"
-        },
-        "counter-flush": {
-            "options": {
-                "expires": 160
-            },
-            "schedule": 80,
-            "task": "driftbase.tasks.tasks.flush_counters"
-        },
-        "online-statistics": {
-            "options": {
-                "expires": 120
-            },
-            "schedule": 60,
-            "task": "driftbase.tasks.tasks.update_online_statistics"
-        },
-        "request-statistics": {
-            "options": {
-                "expires": 140
-            },
-            "schedule": 70,
-            "task": "driftbase.tasks.tasks.flush_request_statistics"
-        },
-        "timeout-clients": {
-            "options": {
-                "expires": 400
-            },
-            "schedule": 200,
-            "task": "driftbase.tasks.tasks.timeout_clients"
-        }
-    },
-    "CELERYD_HIJACK_ROOT_LOGGER": true,
-    "CELERYD_LOG_LEVEL": "INFO",
-    "CELERY_ACCEPT_CONTENT": [
-        "json"
-    ],
-    "CELERY_DEFAULT_EXCHANGE": "ck-tasker-default",
-    "CELERY_DEFAULT_QUEUE": "ck-tasker-default",
-    "CELERY_DEFAULT_ROUTING_KEY": "ck-tasker-default",
-    "CELERY_RESULT_SERIALIZER": "json",
-    "CELERY_STORE_ERRORS_EVEN_IF_IGNORED": true,
-    "CELERY_TASK_RESULT_EXPIRES": 3600,
-    "CELERY_TASK_SERIALIZER": "json"
+    }
 }

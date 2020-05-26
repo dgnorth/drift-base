@@ -2,37 +2,42 @@ sudo: true
 language: python
 cache: pip
 python:
-- '3.7'
+  - '3.7'
 env:
   global:
     - AWS_DEFAULT_REGION=eu-west-1
     - AWS_DEFAULT_OUTPUT=json
     - DRIFT_TIER=DEVNORTH
-  matrix:
+    - PATH=$HOME/.local/bin:$PATH
+    - BOTO_CONFIG=/dev/null
     - DRIFT_CONFIG_URL=s3://relib-test/directive-games
+    - DOCKER_USERNAME=nonnib
+    - IMAGE_NAME=directivegames/drift-base
+    - secure: VW2DI3gVIPeZRwsyVHPOIEkRHWlCHr00TAhx0c/Y0OVnyFAQUA/XymNGbDf92/r8T/fQoKjdm9j9zp+XupNiDkMOH0y+uA1poolF/npnqvUIDGIkj67eF5HcyM1QCsie1iCm/JuyMCVFG+XQy6AfhyHyjvvGFMLxInADvgmsQMLYuLU/5ZdsLcv7fJcPGMTjxqtcEf017ZbSAShDYmag91jNdKOTU50C16c+m2dEskDM5JDhWvxeJ6mkdhmdtHRAIGkG4Ix+nd0dzBFhCd8V8TjUW/kp9XmAbjPkHbu6h3UKAph8bkW6O+wmHkEnmaDRsSuKTv6QFwUEZgzodacJ1azYjSXoigpKlTTGp4AxDxMD23qix8Wr1KxGIGKXRQSkLWaWym2G6Gri7NEHuJidgZQ/RQJA6k6aur5xB/bIdnGxtqmiv8sJlWuvw8HnyEMv1i8BViFgGh7CO1fpfrPokbi6wMjENc6ObmzoH6u+MeFyZyolco6eJ2JeivgvWUGnfitZPPuTsxg+gaUj4ei8D9ilUQZSKLf4dmrXkqrii5eRg+hdS68lno2kcZIPnMbh23m6KjrHofFanAfm/DOM0bcN0FtqLlrw4B2JOUYuB5lHnTCqJtAxEv3Rpx8DHG0VNzZEdW2Rjp5VdRa0Ea5hy63L7mPxHlIRKzRsMLPz+N4=
 
-drift_build_trigger:
-  - drift
-  - drift-config
+jobs:
+  include:
+    - stage: test
+      services:
+        - postgresql
+        - redis-server
+      install:
+        - pip install pipenv --upgrade
+        - pipenv install --dev --deploy
+      script:
+        - pytest --cov=driftbase/ --disable-warnings
+      after_success:
+        - codecov
 
-addons:
-  postgresql: '9.4'
-services:
-- postgresql
-- redis-server
-before_install:
-  - export BOTO_CONFIG=/dev/null
-install:
-- export PATH=$HOME/.local/bin:$PATH
-- pip install pipenv --upgrade
-- pipenv install --dev --deploy
-script:
-- pytest --cov=driftbase
-after_success:
- - codecov
- - pip install -e "git+https://github.com/dgnorth/drift.git#egg=drift[aws]"
- - drift-admin ami bake --skipcopy
- - drift-admin ami run
+    - stage: build
+      services:
+        - docker
+      before_script:
+        - docker pull "$IMAGE_NAME" || true
+      script:
+        - docker login -u $DOCKER_USERNAME -p $DOCKER_ACCESS_TOKEN
+        - make build BRANCH=$TRAVIS_BRANCH
+        - make push BRANCH=$TRAVIS_BRANCH
 
 notifications:
   on_pull_requests: false

@@ -37,6 +37,7 @@ class PlayerCounterRequestSchema(ma.Schema):
     timestamp = ma.fields.DateTime()
     value = ma.fields.Integer()
     context_id = ma.fields.Integer()
+    name = ma.fields.String()
 
 
 class PlayerCounterSchema(ma.Schema):
@@ -219,8 +220,10 @@ class CountersApi(MethodView):
 
         return ret
 
-    @bp.arguments(PlayerCounterRequestSchema)
-    def patch(self, args, player_id):
+    # we accept lists of PlayerCounterRequestSchema items 
+    # so we cannot use the arguments field
+    #@bp.arguments(PlayerCounterRequestSchema)
+    def patch(self, player_id):
         """
         Update counters for player
 
@@ -228,8 +231,8 @@ class CountersApi(MethodView):
         """
         return self._patch(player_id)
 
-    @bp.arguments(PlayerCounterRequestSchema)
-    def put(self, args, player_id):
+    #@bp.arguments(PlayerCounterRequestSchema)
+    def put(self, player_id):
         """
         Update counters for player
 
