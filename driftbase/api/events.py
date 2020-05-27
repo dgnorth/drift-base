@@ -2,7 +2,7 @@ import logging
 
 from six.moves import http_client
 
-from flask import request, url_for
+from flask import request, url_for, jsonify
 from flask.views import MethodView
 import marshmallow as ma
 from flask_restx import reqparse
@@ -63,7 +63,10 @@ class EventsAPI(MethodView):
                 event["player_id"] = player_id  # Always override!
             eventlogger.info("eventlog", extra={"extra": event})
 
-        return "OK", http_client.CREATED
+        if request.headers.get("Accept") == "application/json":
+            return jsonify(status="OK"), http_client.CREATED
+        else:
+            return "OK", http_client.CREATED
 
 
 @endpoints.register
