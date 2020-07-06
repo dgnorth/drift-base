@@ -7,6 +7,7 @@ VERSION ?= $(shell git tag --sort=committerdate | grep -E '^[0-9]' | tail -1)
 CI_COMMIT_REF_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
 CI_COMMIT_SHORT_SHA ?= $(shell git rev-parse HEAD | cut -c 1-8)
 BUILD_TIMESTAMP = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+BRANCH_TAG = $(subst /,_,$(BRANCH))
 
 export FLASK_APP=${PACKAGE_NAME}.app:app
 
@@ -14,11 +15,11 @@ export FLASK_APP=${PACKAGE_NAME}.app:app
 
 build:
 	docker build -t ${IMAGE_NAME} . --build-arg VERSION='${VERSION}' --build-arg BUILD_TIMESTAMP='${BUILD_TIMESTAMP}' --build-arg COMMIT_HASH='${CI_COMMIT_SHORT_SHA}'
-	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${BRANCH}
+	docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${BRANCH_TAG}
 
 push:
 	docker push ${IMAGE_NAME}:latest
-	docker push ${IMAGE_NAME}:${BRANCH}
+	docker push ${IMAGE_NAME}:${BRANCH_TAG}
 	
 buildami:
 	cd aws && packer build packer.json
