@@ -11,7 +11,7 @@ COPY Pipfile* ./
 RUN PIP_USER=1 PIP_IGNORE_INSTALLED=1 pipenv install --deploy --system
 
 FROM python:3.7-slim-buster as app
-MAINTAINER Directive Games <info@directivegames.com>
+LABEL maintainer="Directive Games <info@directivegames.com>"
 
 RUN addgroup --gid 1000 uwsgi
 RUN useradd -ms /bin/bash uwsgi -g uwsgi
