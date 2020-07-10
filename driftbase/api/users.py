@@ -19,7 +19,7 @@ endpoints = Endpoints()
 bp = Blueprint('users', __name__, url_prefix='/users', description='User management')
 
 
-class UserPlayerSchema(ModelSchema):
+class PlayerSchema(ModelSchema):
     class Meta:
         model = CorePlayer
         exclude = ('num_logons', )
@@ -39,7 +39,7 @@ class UserSchema(ModelSchema):
     user_url = ma.fields.Str(description="Hello")
     client_url = ma.fields.Str()
     user_url = ma.fields.Str()
-    players = ma.fields.List(ma.fields.Nested(UserPlayerSchema))
+    players = ma.fields.List(ma.fields.Nested(PlayerSchema))
     identities = ma.fields.List(ma.fields.Nested(UserIdentitySchema))
 
 
