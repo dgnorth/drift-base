@@ -1,13 +1,24 @@
 .git/
-.idea/
 
 .coveragerc
+.dockerignore
 .env
+.gitignore
 .travis.yml
+
+.driftonconfig-developer/
+.idea/
+.pytest_cache/
+drift_base.egg-info/
 
 alembic/
 aws/
+deployment/
 scripts/
+
+config/python-requirements.txt
+config/travis-host-config.json
+config/uwsgi_local.ini
 
 Dockerfile
 LICENSE
