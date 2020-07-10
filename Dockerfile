@@ -38,4 +38,4 @@ ENV PATH /home/uwsgi/.local/bin:$PATH
 # run dconf to initialize the local drift config store
 # CMD dconf developer -r
 
-CMD [ "uwsgi", "--ini", "/app/config/uwsgi.ini" ]
+CMD ["/home/uwsgi/.local/bin/uwsgi", "--ini", "/app/config/uwsgi.ini"]
