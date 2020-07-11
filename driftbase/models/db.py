@@ -578,12 +578,12 @@ event.listen(
 )
 
 event.listen(
-    UserIdentity.__table__,
+    Server.__table__,
     "after_create",
     DDL("ALTER SEQUENCE gs_servers_server_id_seq RESTART WITH 100000001;"),
 )
 event.listen(
-    UserIdentity.__table__,
+    Machine.__table__,
     "after_create",
     DDL("ALTER SEQUENCE gs_machines_machine_id_seq RESTART WITH 200000001;"),
 )
