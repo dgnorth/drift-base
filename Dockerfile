@@ -1,8 +1,11 @@
-FROM python:3.7-buster as builder
+ARG PYTHON_VERSION=3.7
+ARG BASE_IMAGE=buster
+
+FROM python:${PYTHON_VERSION}-${BASE_IMAGE} as builder
 
 WORKDIR /build
 
-RUN pip install --no-warn-script-location pipenv && pip install --user --no-warn-script-location uwsgi
+RUN pip install pipenv && pip install --user --no-warn-script-location uwsgi
 
 COPY Pipfile* ./
 # To ensure all packages we need end up in .local for copying, we tell pipenv to install in system mode, meaning not in
@@ -10,16 +13,14 @@ COPY Pipfile* ./
 # ignore preinstalled modules so that .local actually ends up containing everything we want
 RUN PIP_USER=1 PIP_IGNORE_INSTALLED=1 pipenv install --deploy --system
 
-FROM python:3.7-slim-buster as app
-LABEL maintainer="Directive Games <info@directivegames.com>"
+FROM python:${PYTHON_VERSION}-slim-${BASE_IMAGE} as app
+LABEL Maintainer="Directive Games <info@directivegames.com>"
 
-RUN addgroup --gid 1000 uwsgi
-RUN useradd -ms /bin/bash uwsgi -g uwsgi
+RUN addgroup --gid 1000 uwsgi && useradd -ms /bin/bash uwsgi -g uwsgi
 
-# Supposed to prevent a harmless warning from apt-get install, but currently doesn't seem to work
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y libxml2
+RUN UWSGI_RUNTIME_DEPS=libxml2 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ${UWSGI_RUNTIME_DEPS}
 
 WORKDIR /app
 
@@ -29,7 +30,12 @@ COPY . .
 ARG VERSION
 ARG BUILD_TIMESTAMP
 ARG COMMIT_HASH
-RUN echo '{"version": "'$VERSION'", "build_timestamp": "'$BUILD_TIMESTAMP'", "commit_hash": "'$COMMIT_HASH'"}' > .build_info
+
+LABEL AppVersion="${VERSION}"
+LABEL CommitHash="${COMMIT_HASH}"
+
+# For runtime consumption
+RUN echo '{"version": "'${VERSION}'", "build_timestamp": "'${BUILD_TIMESTAMP}'", "commit_hash": "'${COMMIT_HASH}'"}' > .build_info
 
 USER uwsgi
 
