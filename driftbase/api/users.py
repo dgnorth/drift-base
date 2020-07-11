@@ -26,13 +26,14 @@ class UserPlayerSchema(ModelSchema):
         strict = True
     player_url = ma.fields.Str(description="Hello")
 
+
 class UserIdentitySchema(ModelSchema):
     class Meta:
         model = UserIdentity
         strict = True
 
-class UserSchema(ModelSchema):
 
+class UserSchema(ModelSchema):
     class Meta:
         model = User
         strict = True
@@ -40,7 +41,7 @@ class UserSchema(ModelSchema):
     client_url = ma.fields.Str()
     user_url = ma.fields.Str()
     players = ma.fields.List(ma.fields.Nested(UserPlayerSchema))
-    identities = ma.fields.List(ma.fields.Nested(UserIdentitySchema))
+    #identities = ma.fields.List(ma.fields.Nested(UserIdentitySchema))
 
 
 class UserRequestSchema(ma.Schema):

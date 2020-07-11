@@ -1,5 +1,6 @@
 from six.moves import http_client
 from drift.systesthelper import uuid_string, DriftBaseTestCase
+from driftbase.tests import has_key
 
 
 class UserIdentitiesTest(DriftBaseTestCase):
@@ -169,3 +170,5 @@ class UserIdentitiesTest(DriftBaseTestCase):
         self.assertEqual(len(r.json()), 1)
         self.assertEqual(r.json()[0]["player_id"], self.player_id)
         self.assertEqual(r.json()[0]["identity_name"], username)
+
+        self.assertFalse(has_key(r.json(), "password_hash"))

@@ -2,10 +2,12 @@ from six.moves import http_client
 
 from drift.systesthelper import DriftBaseTestCase, big_number
 
+from driftbase.tests import has_key
+
 
 class UsersTest(DriftBaseTestCase):
     """
-    Tests for the /clients endpoint
+    Tests for the /users endpoint
     """
     def test_users(self):
         self.auth()
@@ -17,10 +19,15 @@ class UsersTest(DriftBaseTestCase):
 
         resp = self.get("/users/%s" % my_user_id)
         self.assertTrue(isinstance(resp.json(), dict))
+        self.assertNotIn("identities", resp.json())
 
-        resp = self.get("/users/{}".format(big_number), expected_status_code=http_client.NOT_FOUND)
+        self.assertFalse(has_key(resp.json(), "password_hash"))
 
-    def test_noauth(self):
+    def test_non_existing_user_not_found(self):
+        self.auth()
+        self.get("/users/{}".format(big_number), expected_status_code=http_client.NOT_FOUND)
+
+    def test_requires_authentication(self):
         r = self.get("/users", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("error", r.json())
         self.assertIn("code", r.json()["error"])
