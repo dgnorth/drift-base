@@ -12,6 +12,7 @@ greenlet = "*"
 python-decouple = "*"
 flask-restx = "*"
 python-driftconfig = "*"
+psycogreen = "*"
 
 [dev-packages]
 pytest = "*"
