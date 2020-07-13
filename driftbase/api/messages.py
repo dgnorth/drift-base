@@ -142,9 +142,6 @@ class MessagesExchangeAPI(MethodView):
 
         args = self.get_args.parse_args()
         timeout = args.timeout or 0
-        #! Set timeout to 0 to disable long polling until we can
-        #! get gevent up and running in uwsgi.
-        timeout = 0
         min_message_number = int(args.messages_after or 0) + 1
         rows = args.rows
         if rows:
