@@ -5,7 +5,8 @@ FROM python:${PYTHON_VERSION}-${BASE_IMAGE} as builder
 
 WORKDIR /build
 
-RUN pip install pipenv && pip install --user --no-warn-script-location uwsgi
+# Later versions of pipenv currently fail to observe the PIP_IGNORE_INSTALLED flag properly
+RUN pip install pipenv==2020.6.2 && pip install --user --no-warn-script-location uwsgi
 
 COPY Pipfile* ./
 # To ensure all packages we need end up in .local for copying, we tell pipenv to install in system mode, meaning not in
