@@ -5,14 +5,13 @@ FROM python:${PYTHON_VERSION}-${BASE_IMAGE} as builder
 
 WORKDIR /build
 
-# Later versions of pipenv currently fail to observe the PIP_IGNORE_INSTALLED flag properly
-RUN pip install pipenv==2020.6.2 && pip install --user --no-warn-script-location uwsgi
+RUN pip install pipenv && pip install --user --ignore-installed --no-warn-script-location uwsgi
 
 COPY Pipfile* ./
-# To ensure all packages we need end up in .local for copying, we tell pipenv to install in system mode, meaning not in
-# a virtual env. But then we also tell pip to install in --user mode, which forces install to $HOME/.local. Finally we
-# ignore preinstalled modules so that .local actually ends up containing everything we want
-RUN PIP_USER=1 PIP_IGNORE_INSTALLED=1 pipenv install --deploy --system
+# Pipenv will ignore qualifying system packages during install, so we need to route through pip to ensure everything
+# really ends up in our /root/.local folder where we want it to be
+RUN pipenv lock --keep-outdated -r >requirements.txt && rm -rf /root/.local/share/virtualenv*
+RUN pip install --user --ignore-installed --no-warn-script-location -r requirements.txt
 
 FROM python:${PYTHON_VERSION}-slim-${BASE_IMAGE} as app
 LABEL Maintainer="Directive Games <info@directivegames.com>"
