@@ -111,6 +111,7 @@ class PlayerGroupsTest(BaseCloudkitTest):
         self.assertIn(players[1]['player_id'], [p1, p2])
 
         self.assertTrue(players[0]["is_online"])
+        self.assertTrue(players[1]["is_online"])
 
         # Make sure unknown player group returns 404
         players = self.get("/players?player_group=no_such_group",

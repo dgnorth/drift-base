@@ -139,7 +139,7 @@ class CorePlayer(ModelBase):
     @hybrid_property
     def is_online(self):
         if self.user and self.user.client:
-            return self.user.client[0].is_online
+            return next((client.is_online for client in self.clients if client.client_id == self.user.client_id), False)
         return False
 
 

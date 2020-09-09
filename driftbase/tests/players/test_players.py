@@ -13,6 +13,7 @@ class PlayersTest(BaseCloudkitTest):
     def test_players_online(self):
         # create a new user and client
         self.make_player()
+        p1 = self.player_id
         r = self.get(self.endpoints["my_player"])
         print(r.json())
         self.assertTrue(r.json()["is_online"])
@@ -25,8 +26,27 @@ class PlayersTest(BaseCloudkitTest):
 
         # make a new player but never log him in. Make sure he is correctly reported as offline
         self.auth(username="Player with no client")
+        p2 = self.player_id
         r = self.get(self.endpoints["my_player"])
         self.assertFalse(r.json()["is_online"])
+
+        # check that lists of players each report the right online state
+        p1_info, p2_info = self._get_players(p1, p2)
+        self.assertTrue(p1_info["is_online"])
+        self.assertFalse(p2_info["is_online"])
+
+        for x in range(8):
+            self.post(self.endpoints["clients"], expected_status_code=http_client.CREATED)
+
+        p1_info, p2_info = self._get_players(p1, p2)
+        self.assertTrue(p1_info["is_online"])
+        self.assertTrue(p2_info["is_online"])
+
+    def _get_players(self, p1, p2):
+        r = self.get(self.endpoints["players"] + "?player_id=%d&player_id=%d" % (p1, p2)).json()
+        p1_info = [i for i in r if i["player_id"] == p1][0]
+        p2_info = [i for i in r if i["player_id"] == p2][0]
+        return p1_info, p2_info
 
     def test_players_urls(self):
         self.make_player()
