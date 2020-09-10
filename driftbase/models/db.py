@@ -75,8 +75,12 @@ class User(ModelBase):
         doc="The last client that the user had when logged in.",
     )
 
-    roles = relationship("UserRole", backref=backref("ck_users", uselist=True))
-    client = relationship("Client", backref=backref("ck_users", uselist=False))
+    roles = relationship("UserRole", backref="users")
+    clients = relationship("Client", lazy="dynamic", backref="user")
+
+    @hybrid_property
+    def client(self):
+        return self.clients.filter(Client.client_id == self.client_id).first()
 
 
 class UserRole(ModelBase):
@@ -85,7 +89,7 @@ class UserRole(ModelBase):
     user_id = Column(Integer, ForeignKey("ck_users.user_id", ondelete="CASCADE"))
     role = Column(String(20), nullable=False)
 
-    user = relationship(User, backref=backref("ck_userroles", uselist=False))
+    user = relationship("User")
 
 
 class UserIdentity(ModelBase):
@@ -139,7 +143,7 @@ class CorePlayer(ModelBase):
     @hybrid_property
     def is_online(self):
         if self.user and self.user.client:
-            return next((client.is_online for client in self.clients if client.client_id == self.user.client_id), False)
+            return self.user.client.is_online
         return False
 
 
@@ -521,7 +525,7 @@ class PlayerSummary(ModelBase):
     value = Column(Integer, nullable=False)
 
     player = relationship(
-        CorePlayer, backref=backref("ck_player_summary", uselist=False)
+        CorePlayer, backref=backref("player_summary", uselist=False)
     )
 
 

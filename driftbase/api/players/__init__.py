@@ -39,7 +39,7 @@ class PlayerSchema(ModelSchema):
         strict = True
         include_fk = True # required to expose the 'user_id' field
         model = CorePlayer
-        exclude = ('ck_player_summary', 'user')
+        exclude = ('player_summary', 'user')
 
     is_online = ma.fields.Boolean()
 

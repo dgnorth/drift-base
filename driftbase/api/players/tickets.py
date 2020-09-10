@@ -27,7 +27,7 @@ class TicketPatchRequestSchema(ma.Schema):
 class TicketSchema(ModelSchema):
     class Meta:
         model = Ticket
-        #exclude = ('ck_player_summary',)
+        #exclude = ('player_summary',)
 
     player_url = Url(
         'players.entry',

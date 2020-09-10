@@ -21,7 +21,7 @@ bp = Blueprint("player_summary", __name__, url_prefix='/players')
 class PlayerSummarySchema(ModelSchema):
     class Meta:
         model = PlayerSummary
-        #exclude = ('ck_player_summary',)
+        #exclude = ('player_summary',)
 
 
 def get_player(player_id):
