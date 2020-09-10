@@ -1,20 +1,16 @@
 import logging
-from six.moves import http_client
 
-from flask import g, url_for
-from flask.views import MethodView
-from flask_smorest import Blueprint, abort
-from marshmallow_sqlalchemy import ModelSchema
 import marshmallow as ma
-from marshmallow import validates, ValidationError, pre_dump
-
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from drift.utils import Url
+from flask import g, url_for
+from flask.views import MethodView
+from flask_smorest import Blueprint, abort
+from marshmallow import validates, ValidationError, pre_dump
+from marshmallow_sqlalchemy import ModelSchema
+from six.moves import http_client
 
-from driftbase.utils import url_player
-from driftbase.models.db import CorePlayer
-from driftbase.players import get_playergroup_ids
 from driftbase.api.players import (
     counters,
     gamestate,
@@ -23,6 +19,9 @@ from driftbase.api.players import (
     summary,
     tickets,
 )
+from driftbase.models.db import CorePlayer
+from driftbase.players import get_playergroup_ids
+from driftbase.utils import url_player
 
 log = logging.getLogger(__name__)
 

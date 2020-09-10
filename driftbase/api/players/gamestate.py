@@ -1,20 +1,16 @@
 import logging
+
+import marshmallow as ma
+from drift.utils import Url
+from drift.utils import json_response
+from flask import g
+from flask.views import MethodView
+from flask_smorest import Blueprint, abort
+from marshmallow_sqlalchemy import ModelSchema
 from six.moves import http_client
 
-from flask import url_for, request, g, jsonify
-from flask.views import MethodView
-import marshmallow as ma
-from flask_restx import reqparse
-from marshmallow_sqlalchemy import ModelSchema
-from flask_smorest import Blueprint, abort, utils
-
-from drift.utils import json_response
-from drift.utils import Url
-
-from drift.core.extensions.schemachecker import simple_schema_request
-
-from driftbase.players import can_edit_player
 from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
+from driftbase.players import can_edit_player
 
 log = logging.getLogger(__name__)
 

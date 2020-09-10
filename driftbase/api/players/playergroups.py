@@ -1,16 +1,13 @@
 import logging
 import uuid
 
-from six.moves import http_client
-
-from flask import url_for, g, request, jsonify
+import marshmallow as ma
+from drift.core.extensions.jwt import current_user
+from drift.utils import Url
+from flask import url_for, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort, utils
-
-import marshmallow as ma
-
-from drift.utils import Url
-from drift.core.extensions.jwt import current_user
+from six.moves import http_client
 
 from driftbase.models.db import CorePlayer, UserIdentity
 from driftbase.players import get_playergroup, set_playergroup

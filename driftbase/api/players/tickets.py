@@ -1,21 +1,19 @@
-import logging
 import datetime
+import logging
 
-from six.moves import http_client
-
+import marshmallow as ma
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.schemachecker import simple_schema_request
+from drift.utils import Url
 from flask import url_for, request, g, jsonify
 from flask.views import MethodView
-import marshmallow as ma
-from marshmallow import validates, ValidationError, pre_dump
+from flask_smorest import Blueprint, abort
+from marshmallow import pre_dump
 from marshmallow_sqlalchemy import ModelSchema
-from flask_smorest import Blueprint, abort, utils
+from six.moves import http_client
 
-from drift.core.extensions.schemachecker import simple_schema_request
-from drift.core.extensions.jwt import requires_roles
-from drift.utils import Url
-
-from driftbase.players import log_event, can_edit_player, create_ticket
 from driftbase.models.db import Ticket
+from driftbase.players import log_event, can_edit_player, create_ticket
 
 log = logging.getLogger(__name__)
 

@@ -2,25 +2,20 @@
     Update summary and stats for the player
 """
 
-import datetime
-import time
-import logging
-from dateutil import parser
 import collections
+import datetime
+import logging
+import time
 
-from six.moves import http_client
-
-from sqlalchemy.exc import IntegrityError
-from marshmallow_sqlalchemy import ModelSchema
 import marshmallow as ma
-from marshmallow import validates, ValidationError, pre_dump
-
+from dateutil import parser
+from drift.core.extensions.jwt import current_user
+from drift.utils import Url
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-
-from drift.utils import Url
-from drift.core.extensions.jwt import current_user
+from six.moves import http_client
+from sqlalchemy.exc import IntegrityError
 
 from driftbase.models.db import CounterEntry, Counter, CorePlayer, PlayerCounter
 from driftbase.utils import clear_counter_cache, get_counter

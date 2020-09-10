@@ -1,22 +1,19 @@
-from operator import itemgetter
-from dateutil import parser
 import datetime
 import logging
+from operator import itemgetter
 
-from six.moves import http_client
-
+from dateutil import parser
+from drift.core.extensions.jwt import current_user
+from drift.utils import json_response
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
-import marshmallow as ma
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-
-from drift.utils import json_response
-from drift.core.extensions.jwt import current_user
+from six.moves import http_client
 
 from driftbase.models.db import PlayerJournal, GameState
-from driftbase.players import write_journal, JournalError
 from driftbase.players import can_edit_player
+from driftbase.players import write_journal, JournalError
 
 log = logging.getLogger(__name__)
 
