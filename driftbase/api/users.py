@@ -39,7 +39,6 @@ class UserSchema(ModelSchema):
     client_url = ma.fields.Str()
     user_url = ma.fields.Str()
     players = ma.fields.List(ma.fields.Nested(UserPlayerSchema))
-    #identities = ma.fields.List(ma.fields.Nested(UserIdentitySchema))
 
 
 class UserRequestSchema(ma.Schema):

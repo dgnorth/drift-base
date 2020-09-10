@@ -31,18 +31,19 @@ class PlayersTest(BaseCloudkitTest):
         self.assertFalse(r.json()["is_online"])
 
         # check that lists of players each report the right online state
-        p1_info, p2_info = self._get_players(p1, p2)
+        p1_info, p2_info = self._get_players_by_id(p1, p2)
         self.assertTrue(p1_info["is_online"])
         self.assertFalse(p2_info["is_online"])
 
+        # ensure we only look at the last client
         for x in range(8):
             self.post(self.endpoints["clients"], expected_status_code=http_client.CREATED)
 
-        p1_info, p2_info = self._get_players(p1, p2)
+        p1_info, p2_info = self._get_players_by_id(p1, p2)
         self.assertTrue(p1_info["is_online"])
         self.assertTrue(p2_info["is_online"])
 
-    def _get_players(self, p1, p2):
+    def _get_players_by_id(self, p1, p2):
         r = self.get(self.endpoints["players"] + "?player_id=%d&player_id=%d" % (p1, p2)).json()
         p1_info = [i for i in r if i["player_id"] == p1][0]
         p2_info = [i for i in r if i["player_id"] == p2][0]
