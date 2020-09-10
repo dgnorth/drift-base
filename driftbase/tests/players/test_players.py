@@ -74,6 +74,7 @@ class PlayersTest(BaseCloudkitTest):
         player_id = self.player_id
         player_info = self.get(self.endpoints["my_player"]).json()
         self.assertIsInstance(player_info, dict)
+        self.assertNotIn("clients", player_info)
 
         # Should have at least three player records. Let's ask for two.
         players = self.get(self.endpoints["players"] + "?rows=2").json()
