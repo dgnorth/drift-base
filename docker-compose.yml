@@ -1,4 +1,4 @@
-version: '3'
+version: '3.5'
 services:
   svc1:
     build: .
@@ -6,8 +6,29 @@ services:
       - redis
       - postgres
     ports:
-      - "10080:10080"
+      - "8080:8080"
+    env_file:
+      - dev.env
+    networks:
+      - app
+      - backend
   redis:
-    image: redis:latest
+    image: redis:6.0-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
   postgres:
-    image: postgres:latest
+    image: postgres:12-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    networks:
+      - backend
+
+networks:
+  app:
+    name: app
+  backend:
+    name: backend
