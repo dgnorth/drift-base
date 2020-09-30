@@ -1,6 +1,6 @@
 version: '3.5'
 services:
-  svc1:
+  driftbase:
     build: .
     links:
       - redis
