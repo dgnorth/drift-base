@@ -5,12 +5,16 @@ FROM python:${PYTHON_VERSION}-${BASE_IMAGE} as builder
 
 WORKDIR /build
 
-RUN pip install pipenv && pip install --user --ignore-installed --no-warn-script-location uwsgi
+ENV PYTHONUSERBASE=/root/.app
+
+RUN python -m pip install --upgrade pip \
+    && pip install pipenv \
+    && pip install --user --ignore-installed --no-warn-script-location uwsgi
 
 COPY Pipfile* ./
 # Pipenv will ignore qualifying system packages during install, so we need to route through pip to ensure everything
 # really ends up in our /root/.local folder where we want it to be
-RUN pipenv lock --keep-outdated -r >requirements.txt && rm -rf /root/.local/share/virtualenv*
+RUN pipenv lock --keep-outdated -r >requirements.txt
 RUN pip install --user --ignore-installed --no-warn-script-location -r requirements.txt
 
 FROM python:${PYTHON_VERSION}-slim-${BASE_IMAGE} as app
@@ -24,7 +28,7 @@ RUN UWSGI_RUNTIME_DEPS=libxml2 \
 
 WORKDIR /app
 
-COPY --chown=uwsgi:uwsgi --from=builder /root/.local/ /home/uwsgi/.local/
+COPY --chown=uwsgi:uwsgi --from=builder /root/.app/ /home/uwsgi/.local/
 COPY . .
 
 ARG VERSION
