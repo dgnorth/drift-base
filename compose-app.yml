@@ -1,0 +1,18 @@
+version: '3.5'
+services:
+  drift-base:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - dev.env
+    networks:
+      - app
+      - backend
+
+networks:
+  app:
+    name: app
+  backend:
+    external:
+      name: backend
