@@ -57,6 +57,7 @@ export DRIFT_CONFIG_URL=somecfg && export DRIFT_TIER=SOME_NAME
 Drift-base runs in docker. To build and push a docker image run the following:
 ```bash
 make build
+make push
 ```
 
 This will create a docker image called `directivegames/drift-base:<branch-name>` and push it to dockerhub here: https://hub.docker.com/repository/docker/directivegames/drift-base/tags?page=1
