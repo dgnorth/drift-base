@@ -18,6 +18,7 @@ from driftbase.api.players import (
     playergroups,
     summary,
     tickets,
+    inventory
 )
 from driftbase.models.db import CorePlayer
 from driftbase.players import get_playergroup_ids
@@ -92,6 +93,11 @@ class PlayerSchema(ModelSchema):
         doc="Fully qualified URL of the players' tickets resource",
         player_id='<player_id>',
     )
+    inventory_url = Url(
+        'player_inventory.list',
+        doc="Fully qualified URL of the players' inventory resource",
+        player_id='<player_id>',
+    )
 
     @pre_dump
     def populate_urls(self, obj, many=False):
@@ -148,6 +154,7 @@ def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(playergroups.bp)
     api.register_blueprint(summary.bp)
     api.register_blueprint(tickets.bp)
+    api.register_blueprint(inventory.bp)
     endpoints.init_app(app)
 
 

@@ -64,6 +64,7 @@ class GameStatesAPI(MethodView):
         gamestates = g.db.query(GameState) \
                          .filter(GameState.player_id == player_id) \
                          .order_by(GameState.namespace)
+        log.warning("HEY THERE: This is a test!")
         return gamestates
 
 
