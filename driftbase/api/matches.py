@@ -140,6 +140,24 @@ class ActiveMatchesAPI(MethodView):
         return jsonify(ret)
 
 
+def ensure_unique_key(details, unique_key):
+    if unique_key:
+        query = g.db.query(Match, Server)
+        existing_unique_match = query.filter(Match.server_id == Server.server_id,
+                                             Match.status.notin_(["ended", "completed"]),
+                                             Match.details["unique_key"].astext == unique_key,
+                                             Server.status.in_(["started", "running", "active", "ready"]),
+                                             Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
+                                             ).first()
+        if existing_unique_match is not None:
+            abort(http_client.CONFLICT, description="An existing match with the same unique_key was found")
+        if details is None:
+            details = {"unique_key": unique_key}
+        else:
+            details["unique_key"] = unique_key
+    return details
+
+
 @bp.route('', endpoint='list')
 class MatchesAPI(MethodView):
     """UE4 match
@@ -178,6 +196,7 @@ class MatchesAPI(MethodView):
         "map_name": {"type": "string", },
         "game_mode": {"type": "string", },
         "status": {"type": "string", },
+        "unique_key": {"type": "string", },
         "match_statistics": {"type": "object", },
         "details": {"type": "object", },
         "num_teams": {"type": "number", },
@@ -193,6 +212,8 @@ class MatchesAPI(MethodView):
         args = request.json
         server_id = args.get("server_id")
 
+        details = ensure_unique_key(args.get("details"), args.get("unique_key"))
+
         match = Match(server_id=server_id,
                       num_players=args.get("num_players", 0),
                       max_players=args.get("max_players"),
@@ -202,7 +223,7 @@ class MatchesAPI(MethodView):
                       status_date=utcnow(),
                       start_date=None,
                       match_statistics=args.get("match_statistics"),
-                      details=args.get("details"),
+                      details=details,
                       )
         g.db.add(match)
         g.db.flush()
@@ -261,6 +282,13 @@ class MatchAPI(MethodView):
         ret = match.as_dict()
         ret["url"] = url_for("matches.entry", match_id=match_id, _external=True)
 
+        # If details contains a unique_key, move it out to the root level
+        details = ret.get("details")
+        if details:
+            unique_key = details.pop("unique_key", None)
+            if unique_key:
+                ret["unique_key"] = unique_key
+
         server = g.db.query(Server).get(match.server_id)
         ret["server"] = None
         ret["server_url"] = None
@@ -310,6 +338,7 @@ class MatchAPI(MethodView):
         "map_name": {"type": "string", },
         "game_mode": {"type": "string", },
         "status": {"type": "string", },
+        "unique_key": {"type": "string", },
         "match_statistics": {"type": "object", },
         "details": {"type": "object", },
     }, required=["status"])
@@ -331,6 +360,13 @@ class MatchAPI(MethodView):
             log.warning("Trying to update a completed battle %d. Ignoring update", match_id)
             abort(http_client.BAD_REQUEST, description="Battle has already been completed.")
 
+        unique_key = args.get("unique_key")
+        current_unique_key = (match.details or {}).get("unique_key")
+        if unique_key and current_unique_key:
+            abort(http_client.CONFLICT, description="Battle unique key must not be changed from a non-empty value")
+
+        details = ensure_unique_key(args.get("details"), unique_key)
+
         if match.status != new_status:
             log.info("Changing status of match %s from '%s' to '%s'",
                      match_id, match.status, args["status"])
@@ -343,6 +379,8 @@ class MatchAPI(MethodView):
 
         for arg in args:
             setattr(match, arg, args[arg])
+        if details:
+            match.details = details
         g.db.commit()
 
         resource_uri = url_for("matches.entry", match_id=match_id, _external=True)

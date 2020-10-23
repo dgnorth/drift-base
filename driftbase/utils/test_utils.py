@@ -70,7 +70,7 @@ class BaseMatchTest(BaseCloudkitTest):
         resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         return resp.json()
 
-    def _create_match(self, server_id=None, **kwargs):
+    def _create_match(self, server_id=None, expected_status_code=http_client.CREATED, **kwargs):
         if "service" not in self.current_user["roles"]:
             raise RuntimeError("Only service users can call this method")
         if not server_id:
@@ -85,9 +85,11 @@ class BaseMatchTest(BaseCloudkitTest):
                 "max_players": 2,
                 }
         data.update(**kwargs)
-        resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
-        resp = self.get(resp.json()["url"])
-        return resp.json()
+        resp = self.post("/matches", data=data, expected_status_code=expected_status_code)
+        if resp:
+            resp = self.get(resp.json()["url"])
+            return resp.json()
+        return None
 
     def _filter_matches(self, resp, match_ids):
         return [m for m in resp.json() if m["match_id"] in match_ids]
