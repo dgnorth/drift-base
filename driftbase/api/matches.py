@@ -1,5 +1,6 @@
 import datetime
 import logging
+from contextlib import ExitStack
 
 from six.moves import http_client
 
@@ -150,12 +151,18 @@ def ensure_unique_key(details, unique_key):
                                              Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
                                              ).first()
         if existing_unique_match is not None:
+            log.info("Tried to set the unique key '{}' of a battle when one already exists".format(unique_key))
             abort(http_client.CONFLICT, description="An existing match with the same unique_key was found")
         if details is None:
             details = {"unique_key": unique_key}
         else:
             details["unique_key"] = unique_key
     return details
+
+
+def lock(redis):
+    # Moving this into a separate function so systems test can mock it out.
+    return redis.lock("ensure_match_unique_key")
 
 
 @bp.route('', endpoint='list')
@@ -211,54 +218,59 @@ class MatchesAPI(MethodView):
         """
         args = request.json
         server_id = args.get("server_id")
+        unique_key = args.get("unique_key")
 
-        details = ensure_unique_key(args.get("details"), args.get("unique_key"))
+        with ExitStack() as stack:
+            if unique_key:
+                stack.enter_context(lock(g.redis))
 
-        match = Match(server_id=server_id,
-                      num_players=args.get("num_players", 0),
-                      max_players=args.get("max_players"),
-                      map_name=args.get("map_name"),
-                      game_mode=args.get("game_mode"),
-                      status=args.get("status"),
-                      status_date=utcnow(),
-                      start_date=None,
-                      match_statistics=args.get("match_statistics"),
-                      details=details,
-                      )
-        g.db.add(match)
-        g.db.flush()
-        # ! have to set this explicitly after the row is created
-        match.start_date = None
-        g.db.commit()
-        match_id = match.match_id
+            details = ensure_unique_key(args.get("details"), unique_key)
 
-        if args.get("num_teams"):
-            for i in range(args.get("num_teams")):
-                team = MatchTeam(match_id=match_id,
-                                 name="Team %s" % (i + 1)
-                                 )
-                g.db.add(team)
+            match = Match(server_id=server_id,
+                          num_players=args.get("num_players", 0),
+                          max_players=args.get("max_players"),
+                          map_name=args.get("map_name"),
+                          game_mode=args.get("game_mode"),
+                          status=args.get("status"),
+                          status_date=utcnow(),
+                          start_date=None,
+                          match_statistics=args.get("match_statistics"),
+                          details=details,
+                          )
+            g.db.add(match)
+            g.db.flush()
+            # ! have to set this explicitly after the row is created
+            match.start_date = None
             g.db.commit()
+            match_id = match.match_id
 
-        resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
-        players_resource_uri = url_for("matches.players", match_id=match_id, _external=True)
-        response_header = {
-            "Location": resource_uri,
-        }
+            if args.get("num_teams"):
+                for i in range(args.get("num_teams")):
+                    team = MatchTeam(match_id=match_id,
+                                     name="Team %s" % (i + 1)
+                                     )
+                    g.db.add(team)
+                g.db.commit()
 
-        log.info("Created match %s for server %s", match_id, server_id)
-        log_match_event(match_id, None, "gameserver.match.created",
-                        details={"server_id": server_id})
+            resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
+            players_resource_uri = url_for("matches.players", match_id=match_id, _external=True)
+            response_header = {
+                "Location": resource_uri,
+            }
 
-        try:
-            process_match_queue()
-        except Exception:
-            log.exception("Unable to process match queue")
+            log.info("Created match %s for server %s", match_id, server_id)
+            log_match_event(match_id, None, "gameserver.match.created",
+                            details={"server_id": server_id})
 
-        return jsonify({"match_id": match_id,
-                "url": resource_uri,
-                "players_url": players_resource_uri,
-                }), http_client.CREATED, response_header
+            try:
+                process_match_queue()
+            except Exception:
+                log.exception("Unable to process match queue")
+
+            return jsonify({"match_id": match_id,
+                    "url": resource_uri,
+                    "players_url": players_resource_uri,
+                    }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:match_id>', endpoint='entry')
@@ -352,48 +364,55 @@ class MatchAPI(MethodView):
 
         log.debug("Updating battle %s", match_id)
         args = request.json
-        match = g.db.query(Match).get(match_id)
-        if not match:
-            abort(http_client.NOT_FOUND)
-        new_status = args.get("status")
-        if match.status == "completed":
-            log.warning("Trying to update a completed battle %d. Ignoring update", match_id)
-            abort(http_client.BAD_REQUEST, description="Battle has already been completed.")
-
         unique_key = args.get("unique_key")
-        current_unique_key = (match.details or {}).get("unique_key")
-        if unique_key and current_unique_key:
-            abort(http_client.CONFLICT, description="Battle unique key must not be changed from a non-empty value")
 
-        details = ensure_unique_key(args.get("details"), unique_key)
+        with ExitStack() as stack:
+            if unique_key:
+                stack.enter_context(lock(g.redis))
 
-        if match.status != new_status:
-            log.info("Changing status of match %s from '%s' to '%s'",
-                     match_id, match.status, args["status"])
-            if new_status == "started":
-                match.start_date = utcnow()
-            elif new_status == "completed":
-                match.end_date = utcnow()
-                # ! TODO: Set leave_date on matchplayers who are still in the match
-            match.status_date = utcnow()
+            match = g.db.query(Match).get(match_id)
+            if not match:
+                abort(http_client.NOT_FOUND)
+            new_status = args.get("status")
+            if match.status == "completed":
+                log.warning("Trying to update a completed battle %d. Ignoring update", match_id)
+                abort(http_client.BAD_REQUEST, description="Battle has already been completed.")
 
-        for arg in args:
-            setattr(match, arg, args[arg])
-        if details:
-            match.details = details
-        g.db.commit()
+            current_unique_key = (match.details or {}).get("unique_key")
+            if unique_key and current_unique_key:
+                log.info("Tried to update the unique key of a battle with a non-empty unique key '{}'->'{}'".format(
+                    current_unique_key, unique_key))
+                abort(http_client.CONFLICT, description="Battle unique key must not be changed from a non-empty value")
 
-        resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
-        response_header = {
-            "Location": resource_uri,
-        }
-        ret = {"match_id": match_id,
-               "url": resource_uri,
-               }
+            details = ensure_unique_key(args.get("details"), unique_key)
 
-        log.info("Match %s has been updated.", match_id)
+            if match.status != new_status:
+                log.info("Changing status of match %s from '%s' to '%s'",
+                         match_id, match.status, args["status"])
+                if new_status == "started":
+                    match.start_date = utcnow()
+                elif new_status == "completed":
+                    match.end_date = utcnow()
+                    # ! TODO: Set leave_date on matchplayers who are still in the match
+                match.status_date = utcnow()
 
-        return jsonify(ret), http_client.OK, response_header
+            for arg in args:
+                setattr(match, arg, args[arg])
+            if details:
+                match.details = details
+            g.db.commit()
+
+            resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
+            response_header = {
+                "Location": resource_uri,
+            }
+            ret = {"match_id": match_id,
+                   "url": resource_uri,
+                   }
+
+            log.info("Match %s has been updated.", match_id)
+
+            return jsonify(ret), http_client.OK, response_header
 
 
 @bp.route('/<int:match_id>/teams', endpoint='teams')
