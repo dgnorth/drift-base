@@ -20,7 +20,7 @@ utc_now = sa.text("(now() at time zone 'utc')")
 
 
 def upgrade(engine_name):
-    print "Upgrading {}".format(engine_name)
+    print("Upgrading {}".format(engine_name))
     # your upgrade script goes here
     op.create_index('ix_ck_clients_ip_address', 'ck_clients', ['ip_address'])
     op.create_index('ix_ck_clients_user_id', 'ck_clients', ['user_id'])
@@ -30,7 +30,7 @@ def upgrade(engine_name):
 
 
 def downgrade(engine_name):
-    print "Downgrading {}".format(engine_name)
+    print("Downgrading {}".format(engine_name))
     op.drop_index('ix_ck_clients_ip_address')
     op.drop_index('ix_ck_clients_user_id')
     op.drop_index('ix_ck_clients_player_id')
