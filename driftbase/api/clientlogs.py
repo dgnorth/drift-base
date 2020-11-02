@@ -56,10 +56,8 @@ class ClientLogsAPI(MethodView):
             args = [args]
         player_id = current_user["player_id"] if current_user else None
 
-        print(args)
         for event in args:
             event["player_id"] = player_id
-            print("event is; {}".format(event))
             clientlogger.info("clientlog", extra={"extra": event})
 
         if request.headers.get("Accept") == "application/json":
