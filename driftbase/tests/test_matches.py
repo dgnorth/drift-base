@@ -349,3 +349,56 @@ class MatchesTest(BaseMatchTest):
         self.put(server_url, data={"status": "quit"})
         resp = self.get(self.endpoints["active_matches"])
         self.assertEqual(len(self._filter_matches(resp, [match_id])), 0)
+
+    def test_unique_match(self):
+        self.auth_service()
+        # Create a match with a unique_key
+        match = self._create_match(unique_key="123")
+        match_url_a = match["url"]
+
+        resp = self.get(match_url_a)
+        self.assertEqual(resp.json()["unique_key"], "123")
+
+        # It should not be possible to create another match with the same unique key
+        match = self._create_match(expected_status_code=http_client.CONFLICT, unique_key="123")
+        self.assertIsNone(match)
+
+        # Creating another match with another unique_key is OK
+        match = self._create_match(unique_key="456")
+        match_url_b = match["url"]
+
+        resp = self.get(match_url_b)
+        self.assertEqual(resp.json()["unique_key"], "456")
+
+        # Creating another match with the same unique_key is possible if existing ones have completed
+        self.put(match_url_b, {"status": "completed"}, expected_status_code=http_client.OK)
+
+        match = self._create_match(unique_key="456")
+        match_url_c = match["url"]
+
+        # Check that we actually got a new match
+        self.assertNotEqual(match_url_b, match_url_c)
+
+        resp = self.get(match_url_c)
+        self.assertEqual(resp.json()["unique_key"], "456")
+
+    def test_unique_match_updates(self):
+        self.auth_service()
+        # Create a match without a unique key
+        match = self._create_match()
+        match_url_a = match["url"]
+
+        resp = self.get(match_url_a)
+        self.assertIsNone(resp.json().get("unique_key"))
+
+        # Set the unique key
+        self.put(match_url_a, {"status": "idle", "unique_key": "abc"}, expected_status_code=http_client.OK)
+
+        match = self._create_match()
+        match_url_b = match["url"]
+
+        # Check that another match can't be changed to the same unique key
+        self.put(match_url_b, {"status": "idle", "unique_key": "abc"}, expected_status_code=http_client.CONFLICT)
+
+        # Check that the unique key cannot be changed if not empty
+        self.put(match_url_a, {"status": "idle", "unique_key": "efg"}, expected_status_code=http_client.CONFLICT)
