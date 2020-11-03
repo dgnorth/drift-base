@@ -77,6 +77,10 @@ def get_engines():
 
     for tenant_config in tenants:
         conn_info = tenant_config["postgres"]
+        if not conn_info.get("database"):
+            echo('skipping tenant %s as db name is null' % tenant_config["tenant_name"])
+            continue
+
         conn_info["username"] = MASTER_USERNAME
         conn_info["password"] = MASTER_PASSWORD
         this_conn_string = format_connection_string(conn_info)
