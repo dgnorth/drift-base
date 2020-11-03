@@ -348,6 +348,7 @@ class Match(ModelBase):
     match_statistics = Column(JSON, nullable=True)
     details = Column(JSON, nullable=True)
     status_date = Column(DateTime, nullable=True)
+    unique_key = Column(String(50), nullable=True)
 
 
 class MatchPlayer(ModelBase):
