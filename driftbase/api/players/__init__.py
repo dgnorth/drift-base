@@ -119,6 +119,9 @@ class PlayersListArgs(ma.Schema):
         description="The player group the players should belong to (see player-group api)"
     )
     key = ma.fields.List(ma.fields.String(), description="Only return these columns")
+    player_name = ma.fields.String(
+        description="Player name to search for"
+    )
 
 
 class PlayerPatchArgs(ma.Schema):
@@ -178,6 +181,8 @@ class PlayersListAPI(MethodView):
                 # Note! This is a particular optimization in case where player group is empty
                 return []
             query = query.filter(CorePlayer.player_id.in_(player_ids))
+        elif 'player_name' in args:
+            query = query.filter(CorePlayer.player_name.contains(args['player_name']))
         query = query.order_by(-CorePlayer.player_id).limit(min(rows, 500))
         players = query.all()
 
