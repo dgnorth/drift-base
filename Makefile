@@ -28,6 +28,7 @@ build:
 	docker build \
 	    --tag ${IMAGE_NAME}:latest \
 	    --tag ${IMAGE_NAME}:${BRANCH_TAG} \
+	    --tag ${IMAGE_NAME}:${VERSION} \
 	    --build-arg VERSION='${VERSION}' \
 	    --build-arg BUILD_TIMESTAMP='${BUILD_TIMESTAMP}' \
 	    --build-arg COMMIT_HASH='${CI_COMMIT_SHORT_SHA}' \
@@ -36,7 +37,8 @@ build:
 push:
 	docker push ${IMAGE_NAME}:latest
 	docker push ${IMAGE_NAME}:${BRANCH_TAG}
-	
+	docker push ${IMAGE_NAME}:${VERSION}
+
 buildami:
 	cd aws && packer build packer.json
 

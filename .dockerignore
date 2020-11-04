@@ -4,7 +4,6 @@
 .dockerignore
 .env
 .gitignore
-.travis.yml
 
 .driftonconfig-developer/
 .idea/
@@ -16,7 +15,6 @@ deployment/
 scripts/
 
 config/python-requirements.txt
-config/travis-host-config.json
 config/uwsgi_local.ini
 
 Dockerfile
