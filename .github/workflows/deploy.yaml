@@ -80,6 +80,4 @@ jobs:
 
       - name: Build and push image
         run: |
-          make build push \
-            REGISTRY=${{ steps.login-ecr.outputs.registry }} \
-            REF=${{ github.ref }}
+          make build push REGISTRY=${{ steps.login-ecr.outputs.registry }} REF=${{ github.ref }}
