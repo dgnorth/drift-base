@@ -91,6 +91,18 @@ class PlayersTest(BaseCloudkitTest):
         self.get(self.endpoints["players"] + "/{}".format(big_number),
                  expected_status_code=http_client.NOT_FOUND)
 
+    def test_find_player(self):
+        self.auth()
+        player_url = self.endpoints["my_player"]
+        player_name = "Spicy Meatball"
+        self.patch(player_url, data={"name": player_name})
+        for search_string in (player_name, "*icy*"): # Test both exact and fuzzy searches
+            players = self.get(self.endpoints["players"] + "?player_name=%s" % player_name).json()
+            self.assertIsInstance(players, list)
+            self.assertTrue(len(players) == 1)
+            player = players[0]
+            self.assertEqual(player["player_name"], player_name)
+
     def test_change_name(self):
         self.auth()
         player_url = self.endpoints["my_player"]
