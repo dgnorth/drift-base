@@ -182,7 +182,11 @@ class PlayersListAPI(MethodView):
                 return []
             query = query.filter(CorePlayer.player_id.in_(player_ids))
         elif 'player_name' in args:
-            query = query.filter(CorePlayer.player_name.contains(args['player_name']))
+            if '*' not in args["player_name"]:
+                query = query.filter(CorePlayer.player_name == args['player_name'])
+            else:
+                query = query.filter(CorePlayer.player_name.ilike("%s" % args['player_name'].replace('*', '%')))
+                # TODO maybe: order results on match quality rather than id
         query = query.order_by(-CorePlayer.player_id).limit(min(rows, 500))
         players = query.all()
 
