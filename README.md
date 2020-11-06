@@ -1,4 +1,4 @@
-[![Build Status](https://github.com/directivegames/drift-base.svg?branch=develop)](https://github.com/directivegames/drift-base)
+[![Build Status](https://github.com/directivegames/drift-base/workflows/Build%20and%20Test/badge.svg)](https://github.com/directivegames/drift-base)
 [![codecov](https://codecov.io/gh/directivegames/drift-base/branch/develop/graph/badge.svg)](https://codecov.io/gh/directivegames/drift-base)
 
 
