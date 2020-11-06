@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/dgnorth/drift-base.svg?branch=master)](https://travis-ci.org/dgnorth/drift-base)
-[![codecov](https://codecov.io/gh/dgnorth/drift-base/branch/develop/graph/badge.svg)](https://codecov.io/gh/dgnorth/drift-base)
+[![Build Status](https://github.com/directivegames/drift-base.svg?branch=develop)](https://github.com/directivegames/drift-base)
+[![codecov](https://codecov.io/gh/directivegames/drift-base/branch/develop/graph/badge.svg)](https://codecov.io/gh/directivegames/drift-base)
 
 
 # drift-base
@@ -68,7 +68,7 @@ make run
 ```
 Note that you must have the following environment variables set up: `DRIFT_TIER` and `DRIFT_CONFIG_URL`. See example.env.
 
-drift-base docker images are automatically built by travis on all branches and tagged by the branch name. If any git tag is pushed, a docker image will be built with that tag as well.
+drift-base docker images are automatically built by GutHub Actions on all branches and tagged by the branch name. If any git tag is pushed, a docker image will be built with that tag as well.
 
 Versioned images are created in this way. Simply add a version tag to git and an image with correct version will be built. Any image built after this version tag push will export the same version in its root endpoint.
 
