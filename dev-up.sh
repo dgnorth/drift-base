@@ -1,12 +1,10 @@
 #!/bin/bash
 
-docker-compose -p backend -f compose-backend.yml up -d
+#docker-compose -p backend -f compose-backend.yml up -d
 
-TIER=LOCAL
-CONFIG=dev
-CONFIG_STORE=~/.drift/config/$CONFIG
-CONFIG_ORIGIN=~/.drift/origin/$CONFIG
-DEPLOYABLE=drift-base
+set -a
+source dev.config
+set +a
 
 rm -rf $CONFIG_ORIGIN $CONFIG_STORE
 
@@ -38,17 +36,17 @@ expect {
 }
 EOF
 
-# This should be done by the tool, but isn't for some reason
+# driftconfig is missing an assign-product command, so we do this manually for now
 dconf set --location products.mw-dev --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
 
-driftconfig create-tenant mw-dev mw-dev $TIER >/dev/null
+driftconfig create-tenant $TENANT mw-dev $TIER >/dev/null
 
-driftconfig provision-tenant mw-dev $DEPLOYABLE >/dev/null
+driftconfig provision-tenant $TENANT $DEPLOYABLE >/dev/null
 
-dconf set --location tiers.LOCAL --raw cache="redis://127.0.0.1:6379?prefix=dev" >/dev/null
+dconf set --location tiers.LOCAL --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
 
 driftconfig cache $CONFIG
 
-docker-compose -p app -f compose-app.yml up
+#docker-compose -p app -f compose-app.yml up
