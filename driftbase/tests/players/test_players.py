@@ -92,11 +92,14 @@ class PlayersTest(BaseCloudkitTest):
                  expected_status_code=http_client.NOT_FOUND)
 
     def test_find_player(self):
+        # Create a player that should not be returned with search results
+        self.auth(username="NeverToReturn")
+        self.patch(self.endpoints["my_player"], data={"name": "No Return"})
+        # Create the player we will search for
         self.auth()
-        player_url = self.endpoints["my_player"]
         player_name = "Spicy Meatball"
-        self.patch(player_url, data={"name": player_name})
-        for search_string in (player_name, "*icy*"): # Test that both exact and valid fuzzy searches return a result
+        self.patch(self.endpoints["my_player"], data={"name": player_name})
+        for search_string in (player_name, "*icy*"): # Test that both exact, case-sensitive and valid fuzzy searches return a result
             players = self.get(self.endpoints["players"] + "?player_name=%s" % search_string).json()
             self.assertIsInstance(players, list)
             self.assertTrue(len(players) == 1)
