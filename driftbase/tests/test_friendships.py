@@ -119,7 +119,9 @@ class FriendsTest(BaseCloudkitTest):
 
         # delete friend
         friendship_url = result["url"]
-        self.delete(friendship_url, expected_status_code=http_client.NO_CONTENT)
+        response = self.delete(friendship_url, expected_status_code=http_client.NO_CONTENT)
+        # Check if we get json type response
+        self.assertIn("application/json", response.headers["Content-Type"])
 
         # delete friend again
         self.delete(friendship_url, expected_status_code=http_client.GONE)

@@ -6,8 +6,6 @@ from six.moves import http_client
 
 from flask import request, g, abort, url_for, jsonify
 from flask.views import MethodView
-import marshmallow as ma
-from flask_restx import reqparse
 from flask_smorest import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
@@ -143,13 +141,13 @@ class FriendshipAPI(MethodView):
         elif friendship.player1_id != player_id and friendship.player2_id != player_id:
             abort(http_client.FORBIDDEN)
         elif friendship.status == "deleted":
-            return "{}", http_client.GONE
+            return jsonify("{}"), http_client.GONE
 
         if friendship:
             friendship.status = "deleted"
             g.db.commit()
 
-        return "{}", http_client.NO_CONTENT
+        return jsonify("{}"), http_client.NO_CONTENT
 
 
 @bp.route('/invites', endpoint='invites')
