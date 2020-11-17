@@ -19,6 +19,7 @@
         "driftbase.api.matches",
         "driftbase.api.servers",
         "driftbase.api.machines",
+        "driftbase.api.parties",
         "driftbase.api.staticdata",
         "driftbase.api.runconfigs",
         "driftbase.api.machinegroups",
