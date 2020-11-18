@@ -70,29 +70,28 @@ def create_party():
 
 
 def get_party_members(party_id):
-    scoped_party_players_key = g.redis.make_key("party:{}:players:".format(party_id))
+    scoped_party_players_key = make_party_players_key(party_id)
     return [int(member) for member in g.redis.conn.smembers(scoped_party_players_key)]
 
 
 def set_player_party(player_id, party_id):
-    # Create tenant scoped keys as the pipeline won't do it for us
-    scoped_player_party_key = g.redis.make_key("player:{}:party:".format(player_id))
-    scoped_party_key = g.redis.make_key("party:{}:players:".format(party_id))
+    scoped_party_players_key = make_party_players_key(party_id)
+    scoped_player_party_key = make_player_party_key(player_id)
 
     try:
         with g.redis.conn.pipeline() as pipe:
-            pipe.watch(scoped_party_key, scoped_player_party_key)
+            pipe.watch(scoped_party_players_key, scoped_player_party_key)
             current_party = pipe.get(scoped_player_party_key)
             if current_party == party_id:
                 return
 
-            if pipe.sismember(scoped_party_key, player_id):
+            if pipe.sismember(scoped_party_players_key, player_id):
                 return
 
             pipe.multi()
-            pipe.smembers(scoped_party_key)
+            pipe.smembers(scoped_party_players_key)
             pipe.set(scoped_player_party_key, party_id)
-            pipe.sadd(scoped_party_key, player_id)
+            pipe.sadd(scoped_party_players_key, player_id)
             result = pipe.execute()
             log.warning(result)
             return result[0]
@@ -101,22 +100,21 @@ def set_player_party(player_id, party_id):
 
 
 def leave_player_party(player_id, party_id):
-    # Create tenant scoped keys as the pipeline won't do it for us
-    scoped_player_party_key = g.redis.make_key("player:{}:party:".format(player_id))
-    scoped_party_key = g.redis.make_key("party:{}:players:".format(party_id))
+    scoped_party_players_key = make_party_players_key(party_id)
+    scoped_player_party_key = make_player_party_key(player_id)
 
     try:
         with g.redis.conn.pipeline() as pipe:
-            pipe.watch(scoped_party_key, scoped_player_party_key)
+            pipe.watch(scoped_party_players_key, scoped_player_party_key)
             current_party = pipe.get(scoped_player_party_key)
             if current_party != party_id:
                 return
 
-            if not pipe.sismember(scoped_party_key, player_id):
+            if not pipe.sismember(scoped_party_players_key, player_id):
                 return
 
             pipe.multi()
-            pipe.srem(scoped_party_key, player_id)
+            pipe.srem(scoped_party_players_key, player_id)
             pipe.rem(scoped_player_party_key)
             result = pipe.execute()
             return result
@@ -125,15 +123,16 @@ def leave_player_party(player_id, party_id):
 
 
 def create_party_invite(party_id, inviter_id, invited_id):
-    scoped_party_key = g.redis.make_key("party:{}:players:".format(party_id))
+    scoped_party_players_key = make_party_players_key(party_id)
+
     try:
         with g.redis.conn.pipeline() as pipe:
-            pipe.watch(scoped_party_key)
+            pipe.watch(scoped_party_players_key)
             # You can't invite someone to a party you're not member of
-            if not pipe.sismember(scoped_party_key, inviter_id):
+            if not pipe.sismember(scoped_party_players_key, inviter_id):
                 abort(http_client.FORBIDDEN, message="The inviting player has left the party")
             # If the player is already a member, just return
-            if pipe.sismember(scoped_party_key, invited_id):
+            if pipe.sismember(scoped_party_players_key, invited_id):
                 log.debug("Player {} is already a member of party {}".format(invited_id, party_id))
                 return
             invite_id = pipe.incr("party:{}:invite:id:")
@@ -146,9 +145,10 @@ def create_party_invite(party_id, inviter_id, invited_id):
 
 
 def accept_party_invite(party_id, invite_id, player_id):
-    scoped_party_players_key = g.redis.make_key("party:{}:players:".format(party_id))
-    scoped_player_party_key = g.redis.make_key("player:{}:party:".format(player_id))
-    scoped_party_invite_key = g.redis.make_key("party:{}:invite:{}:".format(party_id, invite_id))
+    scoped_party_players_key = make_party_players_key(party_id)
+    scoped_player_party_key = make_player_party_key(player_id)
+    scoped_party_invite_key = make_party_invite_key(invite_id, party_id)
+
     try:
         with g.redis.conn.pipeline() as pipe:
             pipe.watch(scoped_party_players_key, scoped_player_party_key)
@@ -171,14 +171,60 @@ def accept_party_invite(party_id, invite_id, player_id):
                 pipe.set(scoped_player_party_key, party_id)
                 pipe.delete(scoped_party_invite_key)
                 pipe.execute()
-                return
+                return int(inviter)
 
             pipe.multi()
             pipe.sadd(scoped_party_players_key, player_id)
             pipe.set(scoped_player_party_key, party_id)
             pipe.delete(scoped_party_invite_key)
             pipe.execute()
-            return
+            return int(inviter)
+    except WatchError:
+        abort(http_client.CONFLICT)
+
+
+def make_party_invite_key(invite_id, party_id):
+    return g.redis.make_key("party:{}:invite:{}:".format(party_id, invite_id))
+
+
+def make_player_party_key(player_id):
+    return g.redis.make_key("player:{}:party:".format(player_id))
+
+
+def make_party_players_key(party_id):
+    return g.redis.make_key("party:{}:players:".format(party_id))
+
+
+def decline_party_invite(party_id, invite_id, player_id):
+    scoped_party_players_key = make_party_players_key(party_id)
+    scoped_player_party_key = make_player_party_key(player_id)
+    scoped_party_invite_key = make_party_invite_key(invite_id, party_id)
+
+    try:
+        with g.redis.conn.pipeline() as pipe:
+            pipe.watch(scoped_player_party_key)
+            invite = pipe.hgetall(scoped_party_invite_key)
+            log.debug("invite {}".format(invite))
+            inviter = invite.get(b"inviter")
+            if not inviter:
+                pipe.delete(scoped_party_invite_key)
+                pipe.execute()
+                log.debug("Invite {} for party {} contains no inviting player".format(invite_id, party_id))
+                abort(http_client.FORBIDDEN, message="Inviting player doesn't match the invite")
+
+            invited = invite.get(b"invited")
+            if not invited:
+                log.debug("Invite {} for party {} does not contain the invited player".format(invite_id, party_id))
+                abort(http_client.FORBIDDEN, message="Inviting player doesn't match the invite")
+
+            if pipe.sismember(scoped_party_players_key, player_id):
+                pipe.delete(scoped_party_invite_key)
+                pipe.execute()
+                return int(inviter)
+
+            pipe.delete(scoped_party_invite_key)
+            pipe.execute()
+            return int(inviter)
     except WatchError:
         abort(http_client.CONFLICT)
 
@@ -276,15 +322,28 @@ class PartyInviteAPI(MethodView):
     def patch(self, party_id, invite_id):
         player_id = current_user['player_id']
         members = get_party_members(party_id)
-        accept_party_invite(party_id, invite_id, player_id)
-        log.debug("Player {} accepted invite to party {}".format(player_id, party_id))
+        inviter_id = accept_party_invite(party_id, invite_id, player_id)
+        log.debug("Player {} accepted invite from {} to party {}".format(player_id, inviter_id, party_id))
         for member in members:
             _add_message("players", member, "party_notification",
                          {
                              "event": "player_joined",
                              "player_id": player_id,
+                             "party_url": url_for("parties.entry", party_id=party_id, _external=True)
                          })
         return {}
+
+    def delete(self, party_id, invite_id):
+        player_id = current_user['player_id']
+        inviter_id = decline_party_invite(party_id, invite_id, player_id)
+        log.debug("Player {} declined an invite from {} to party {}".format(player_id, inviter_id, party_id))
+        _add_message("players", inviter_id, "party_notification",
+                     {
+                         "event": "invite_declined",
+                         "player_id": player_id,
+                         "party_url": url_for("parties.entry", party_id=party_id, _external=True)
+                     })
+        return {}, http_client.OK
 
 
 @bp.route("/", endpoint="list")

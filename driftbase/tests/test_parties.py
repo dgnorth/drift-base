@@ -34,14 +34,16 @@ class PartiesTest(BaseCloudkitTest):
         self.auth(username="Number two user")
         p2 = self.player_id
 
+        # Create a party
         result = self.post(self.endpoints["parties"], expected_status_code=http_client.CREATED).json()
         party_url = result['url']
 
+        # Player 2 invites player 1 to the party
         invite = self.post(result['invites_url'], data={"player_id": p1}, expected_status_code=http_client.CREATED).json()
         invite_url = invite.get('url')
         self.assertIsNotNone(invite_url)
 
-        # Log back in with invited user
+        # Check that player 1 got the invite
         self.auth(username="Number one user")
 
         def validator(payload):
@@ -55,27 +57,61 @@ class PartiesTest(BaseCloudkitTest):
         # Accept the invite
         self.patch(notification['invite_url'], data={}, expected_status_code=http_client.OK)
 
-        # Check that the inviting user gets notified
+        # Check that player 2 gets a notification when player 1 accepts the invite
         self.auth(username="Number two user")
 
         def validator(payload):
+            self.assertEqual(payload['party_url'], party_url)
             self.assertEqual(payload['player_id'], p1)
             return True
 
-        notification = self.check_party_notification('player_joined', validator)
+        self.check_party_notification('player_joined', validator)
+
+    def test_decline_invite(self):
+        # Create players for test
+        self.auth(username="Number one user")
+        p1 = self.player_id
+
+        self.auth(username="Number two user")
+        p2 = self.player_id
+
+        # Create a party
+        result = self.post(self.endpoints["parties"], expected_status_code=http_client.CREATED).json()
+        party_url = result['url']
+
+        # Player 2 invites player 1 to the party
+        invite = self.post(result['invites_url'], data={"player_id": p1}, expected_status_code=http_client.CREATED).json()
+        invite_url = invite.get('url')
+
+        # Player 1 declines the invite
+        self.auth(username="Number one user")
+        notification = self.get_party_notification('invite')
+        self.delete(notification['invite_url'], expected_status_code=http_client.OK)
+
+        # Check that player 2 gets a notification when player 1 declines
+        self.auth(username="Number two user")
+
+        def validator(payload):
+            self.assertEqual(payload['party_url'], party_url)
+            self.assertEqual(payload['player_id'], p1)
+            return True
+
+        notification = self.check_party_notification('invite_declined', validator)
         self.assertIsNotNone(notification)
 
-    def check_party_notification(self, event, validator):
-        messages = self.get(self.endpoints["my_messages"]).json()
-
-        self.assertTrue(len(messages) >= 1)
+    def get_party_notification(self, event):
         notification = None
-        for topic, content in messages.items():
-            if topic == 'party_notification':
-                for item in content:
-                    payload = item.get('payload')
-                    self.assertIsNotNone(payload)
-                    if payload.get('event', None) == event:
-                        validator(payload)
-                        notification = payload
+        messages = self.get(self.endpoints["my_messages"]).json()
+        topic = messages.get('party_notification', [])
+        for message in topic:
+            payload = message.get('payload', {})
+            if payload.get('event', None) == event:
+                notification = payload
+                break
+        return notification
+
+    def check_party_notification(self, event, validator):
+        notification = self.get_party_notification(event)
+        self.assertIsNotNone(notification)
+        validator(notification)
         return notification
