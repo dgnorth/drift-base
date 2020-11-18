@@ -16,9 +16,11 @@ class PartiesTest(BaseCloudkitTest):
 
         result = self.post(self.endpoints["parties"], expected_status_code=http_client.CREATED).json()
 
-        self.assertIsNotNone(result.get('url'))
-        self.assertIsNotNone(result.get('invites_url'))
-        self.assertIsNotNone(result.get('players_url'))
+        # Check that create and the resource returns matching data
+        party = self.get(result['url']).json()
+        self.assertEqual(party['url'], result['url'])
+        self.assertEqual(result['invites_url'], party['invites_url'])
+        self.assertEqual(result['players_url'], party['players_url'])
 
         # Check there's only one player in the party, and it's the player who created it
         players = self.get(result['players_url'], expected_status_code=http_client.OK).json()

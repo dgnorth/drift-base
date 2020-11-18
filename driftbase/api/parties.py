@@ -42,6 +42,7 @@ class PartyResponseSchema(ma.Schema):
     url = ma.fields.Url()
     invites_url = ma.fields.Url()
     players_url = ma.fields.Url()
+    players = ma.fields.List(ma.fields.Url, required=False)
 
 
 class PartyInvitePostRequestSchema(ma.Schema):
@@ -384,37 +385,27 @@ class PartiesAPI(MethodView):
     @bp.response(PartyResponseSchema)
     def post(self, args):
         """
-        Create a player group
+        Create a player party
 
-        Creates a new party for the player. Can only be called by the
+        Creates a new party and puts the player in it. Can only be called by the
         player. If the player is already in a party, he will leave the old party.
         """
         player_id = current_user['player_id']
+
         party_id = create_party()
         if party_id is None:
             log.error("Failed to create party for player {}".format(player_id))
             abort(http_client.INTERNAL_SERVER_ERROR)
+
         party_players = set_player_party(player_id, party_id)
         if party_players is None:
             log.error("Failed to add player {} to new party {}".format(player_id, party_id))
             abort(http_client.INTERNAL_SERVER_ERROR)
-        resource_uri = url_for("parties.entry", party_id=party_id, _external=True)
-        invites_uri = url_for("parties.invites", party_id=party_id, _external=True)
-        players_uri = url_for("parties.players", party_id=party_id, _external=True)
-        response_header = {"Location": resource_uri}
+
         log.info("Created party {} with player {}".format(party_id, player_id))
-        utils.get_appcontext().setdefault('headers', {}).update(response_header)
-        response = {
-            "url": resource_uri,
-            "invites_url": invites_uri,
-            "players_url": players_uri
-        }
-        _add_message("players", player_id, "party_notification",
-                     {
-                         "event":"created",
-                         "party_id":party_id
-                     })
-        return response, http_client.CREATED
+
+        response, response_header = make_party_response(party_id)
+        return response, http_client.CREATED, response_header
 
 
 @bp.route("/<int:party_id>/", endpoint="entry")
@@ -424,12 +415,23 @@ class PartyAPI(MethodView):
     """
     def get(self, party_id):
         members = get_party_members(party_id)
-        resource_uri = url_for("parties.entry", party_id=party_id, _external=True)
-        response_header = {"Location": resource_uri}
-        return {
-            "url": url_for("parties.entry", party_id=party_id, _external=True),
-            "players": [url_for("parties.player", party_id=party_id, player_id=member, _external=True) for member in members]
-        }, http_client.OK, response_header
+        response, response_header = make_party_response(party_id)
+        response["players"] = [url_for("parties.player", party_id=party_id, player_id=member, _external=True)
+                    for member in members]
+        return response, http_client.OK, response_header
+
+
+def make_party_response(party_id):
+    resource_uri = url_for("parties.entry", party_id=party_id, _external=True)
+    invites_uri = url_for("parties.invites", party_id=party_id, _external=True)
+    players_uri = url_for("parties.players", party_id=party_id, _external=True)
+    response_header = {"Location": resource_uri}
+    response = {
+        "url": resource_uri,
+        "invites_url": invites_uri,
+        "players_url": players_uri,
+    }
+    return response, response_header
 
 
 @endpoints.register
