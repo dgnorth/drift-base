@@ -95,7 +95,6 @@ def set_player_party(player_id, party_id):
             pipe.set(scoped_player_party_key, party_id)
             pipe.sadd(scoped_party_players_key, player_id)
             result = pipe.execute()
-            log.warning(result)
             return result[0]
     except WatchError:
         abort(http_client.CONFLICT)
@@ -160,7 +159,6 @@ def accept_party_invite(party_id, invite_id, player_id):
         with g.redis.conn.pipeline() as pipe:
             pipe.watch(scoped_party_players_key, scoped_player_party_key)
             invite = pipe.hgetall(scoped_party_invite_key)
-            log.debug("invite {}".format(invite))
             inviter = invite.get(b"inviter")
             if not inviter:
                 pipe.delete(scoped_party_invite_key)
@@ -334,7 +332,6 @@ class PartyInvitesAPI(MethodView):
                      })
         resource_uri = url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True)
         response_header = {"Location": resource_uri}
-        log.info("Added player {} to party {}".format(player_id, party_id))
         return { "url": resource_uri }, http_client.CREATED, response_header
 
 
