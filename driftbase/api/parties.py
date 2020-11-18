@@ -108,9 +108,12 @@ def leave_player_party(player_id, party_id):
         with g.redis.conn.pipeline() as pipe:
             pipe.watch(scoped_party_players_key, scoped_player_party_key)
             current_party = pipe.get(scoped_player_party_key)
+
+            # Can't leave a party you're not a member of
             if current_party != party_id:
                 abort(http_client.BAD_REQUEST, message="You're not a member of this party")
 
+            # If the player has already left, do nothing
             if not pipe.sismember(scoped_party_players_key, player_id):
                 return
 
@@ -129,13 +132,16 @@ def create_party_invite(party_id, inviter_id, invited_id):
     try:
         with g.redis.conn.pipeline() as pipe:
             pipe.watch(scoped_party_players_key)
+
             # You can't invite someone to a party you're not member of
             if not pipe.sismember(scoped_party_players_key, inviter_id):
                 abort(http_client.FORBIDDEN, message="The inviting player has left the party")
+
             # If the player is already a member, just return
             if pipe.sismember(scoped_party_players_key, invited_id):
                 log.debug("Player {} is already a member of party {}".format(invited_id, party_id))
                 return
+
             invite_id = pipe.incr("party:{}:invite:id:")
             scoped_party_invite_key = g.redis.make_key("party:{}:invite:{}:".format(party_id, invite_id))
             r = pipe.hset(scoped_party_invite_key, mapping={ b"inviter": inviter_id, b"invited": invited_id })
@@ -343,10 +349,11 @@ class PartyInviteAPI(MethodView):
             abort(http_client.NOT_FOUND)
         resource_uri = url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True)
         response_header = {"Location": resource_uri}
-        return {
-                   "url": resource_uri,
-                   "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-               }, http_client.OK, response_header
+        response = {
+            "url": resource_uri,
+            "party_url": url_for("parties.entry", party_id=party_id, _external=True),
+        }
+        return response, http_client.OK, response_header
 
     def patch(self, party_id, invite_id):
         player_id = current_user['player_id']
@@ -360,10 +367,14 @@ class PartyInviteAPI(MethodView):
                              "player_id": player_id,
                              "party_url": url_for("parties.entry", party_id=party_id, _external=True)
                          })
-        return {
+        resource_uri = url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True)
+        response_header = {"Location": resource_uri}
+        response = {
+            "url": resource_uri,
             "player_url": url_for("parties.player", party_id=party_id, player_id=player_id, _external=True),
-            "party_url": url_for("parties.entry", party_id=party_id, _external=True)
+            "party_url": url_for("parties.entry", party_id=party_id, _external=True),
         }
+        return response, http_client.OK, response_header
 
     def delete(self, party_id, invite_id):
         player_id = current_user['player_id']
