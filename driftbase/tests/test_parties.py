@@ -51,11 +51,17 @@ class PartiesTest(BaseCloudkitTest):
             self.assertEqual(payload['invite_url'], invite_url)
             self.assertEqual(payload['inviting_player_id'], p2)
 
-        notification = self.check_party_notification('invite', validator)
-        self.assertIsNotNone(notification)
+        invite_notification = self.check_party_notification('invite', validator)
+
+        # The invite contains details about the party
+        invite_resp = self.get(invite_notification['invite_url'], expected_status_code=http_client.OK).json()
+        self.assertEqual(invite_resp['party_url'], party_url)
 
         # Accept the invite
-        resp = self.patch(notification['invite_url'], data={}, expected_status_code=http_client.OK).json()
+        resp = self.patch(invite_notification['invite_url'], data={}, expected_status_code=http_client.OK).json()
+
+        # Accepting the invite deletes it
+        self.get(invite_notification['invite_url'], expected_status_code=http_client.NOT_FOUND)
 
         # Check that the information returned matches
         party_player = self.get(resp['player_url']).json()
@@ -109,7 +115,7 @@ class PartiesTest(BaseCloudkitTest):
         # Declining again fails
         self.delete(invite_notification['invite_url'], expected_status_code=http_client.NOT_FOUND)
 
-        # Getting invite details fails
+        # Getting declined invite details fails
         self.get(invite_notification['invite_url'], expected_status_code=http_client.NOT_FOUND)
 
     def get_party_notification(self, event):
