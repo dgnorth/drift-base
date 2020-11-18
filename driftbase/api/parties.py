@@ -109,7 +109,7 @@ def leave_player_party(player_id, party_id):
             pipe.watch(scoped_party_players_key, scoped_player_party_key)
             current_party = pipe.get(scoped_player_party_key)
             if current_party != party_id:
-                return
+                abort(http_client.BAD_REQUEST, message="You're not a member of this party")
 
             if not pipe.sismember(scoped_party_players_key, player_id):
                 return
