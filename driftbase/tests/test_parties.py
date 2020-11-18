@@ -55,7 +55,14 @@ class PartiesTest(BaseCloudkitTest):
         self.assertIsNotNone(notification)
 
         # Accept the invite
-        self.patch(notification['invite_url'], data={}, expected_status_code=http_client.OK)
+        resp = self.patch(notification['invite_url'], data={}, expected_status_code=http_client.OK).json()
+
+        # Check that the information returned matches
+        party_player = self.get(resp['player_url']).json()
+        self.assertEqual(party_player['player_id'], p1)
+        party = self.get(resp['party_url']).json()
+        self.assertEqual(len(party['players']), 2)
+        self.assertIn(resp['player_url'], party['players'])
 
         # Check that player 2 gets a notification when player 1 accepts the invite
         self.auth(username="Number two user")

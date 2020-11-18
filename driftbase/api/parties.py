@@ -271,6 +271,15 @@ class PartyPlayerAPI(MethodView):
     """
     Manage a player in a party
     """
+    def get(self, party_id, player_id):
+        return {
+            "party_id": party_id,
+            "player_id": player_id,
+            "party_url": url_for("parties.entry", party_id=party_id, _external=True),
+            "players_url": url_for("parties.players", party_id=party_id, _external=True),
+            "invites_url": url_for("parties.invites", party_id=party_id, _external=True),
+        }, http_client.OK
+
     def delete(self, party_id, player_id):
         if player_id != current_user['player_id']:
             abort(http_client.FORBIDDEN, message="You can only remove yourself from a party")
@@ -331,7 +340,10 @@ class PartyInviteAPI(MethodView):
                              "player_id": player_id,
                              "party_url": url_for("parties.entry", party_id=party_id, _external=True)
                          })
-        return {}
+        return {
+            "player_url": url_for("parties.player", party_id=party_id, player_id=player_id, _external=True),
+            "party_url": url_for("parties.entry", party_id=party_id, _external=True)
+        }
 
     def delete(self, party_id, invite_id):
         player_id = current_user['player_id']
@@ -395,7 +407,11 @@ class PartyAPI(MethodView):
     Manage party of players.
     """
     def get(self, party_id):
-        pass
+        members = get_party_members(party_id)
+        return {
+            "url": url_for("parties.entry", party_id=party_id, _external=True),
+            "players": [url_for("parties.player", party_id=party_id, player_id=member, _external=True) for member in members]
+        }, http_client.OK
 
 
 @endpoints.register
