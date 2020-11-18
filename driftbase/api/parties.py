@@ -4,6 +4,7 @@ import marshmallow as ma
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from drift.utils import Url
+from driftbase.models.db import CorePlayer
 from flask import url_for, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort, utils
@@ -316,6 +317,11 @@ class PartyInvitesAPI(MethodView):
     def post(self, args, party_id):
         my_player_id = current_user['player_id']
         player_id = args.get("player_id")
+        player = g.db.query(CorePlayer).filter(CorePlayer.player_id == player_id).first()
+        if player is None:
+            log.debug("Player {} tried to invite non-existing player {} to party {}".format(my_player_id, player_id, party_id))
+            abort(http_client.BAD_REQUEST, message="Player doesn't exist")
+
         invite_id = create_party_invite(party_id, my_player_id, player_id)
         log.debug("Player {} invited player {} to party {}".format(my_player_id, player_id, party_id))
         _add_message("players", player_id, "party_notification",

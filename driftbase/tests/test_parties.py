@@ -120,6 +120,18 @@ class PartiesTest(BaseCloudkitTest):
         # Getting declined invite details fails
         self.get(invite_notification['invite_url'], expected_status_code=http_client.NOT_FOUND)
 
+    def test_invite_non_existing_player(self):
+        # Create players for test
+        self.auth(username="Last user")
+        p1 = self.player_id
+
+        # Create a party
+        result = self.post(self.endpoints["parties"], expected_status_code=http_client.CREATED).json()
+        party_url = result['url']
+
+        # Player invites player p1 + 1 to the party (which shouldn't exist)
+        self.post(result['invites_url'], data={"player_id": p1 + 1}, expected_status_code=http_client.BAD_REQUEST)
+
     def get_party_notification(self, event):
         notification = None
         messages = self.get(self.endpoints["my_messages"]).json()
