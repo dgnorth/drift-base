@@ -269,8 +269,7 @@ class PartyPlayersAPI(MethodView):
         resource_uri = url_for("parties.player", party_id=party_id, player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Added player {} to party {}".format(player_id, party_id))
-        utils.get_appcontext().setdefault('headers', {}).update(response_header)
-        return { "url": resource_uri }
+        return { "url": resource_uri }, http_client.OK, response_header
 
 
 @bp.route("/<int:party_id>/players/<int:player_id>", endpoint="player")
@@ -329,8 +328,7 @@ class PartyInvitesAPI(MethodView):
         resource_uri = url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Added player {} to party {}".format(player_id, party_id))
-        utils.get_appcontext().setdefault('headers', {}).update(response_header)
-        return { "url": resource_uri }, http_client.CREATED
+        return { "url": resource_uri }, http_client.CREATED, response_header
 
 
 @bp.route("/<int:party_id>/invites/<int:invite_id>", endpoint="invite")
@@ -343,7 +341,7 @@ class PartyInviteAPI(MethodView):
         return {
                    "url": url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True),
                    "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-               }, http_client.OK
+               }, http_client.OK, resource_uri
 
     def patch(self, party_id, invite_id):
         player_id = current_user['player_id']
@@ -425,10 +423,12 @@ class PartyAPI(MethodView):
     """
     def get(self, party_id):
         members = get_party_members(party_id)
+        resource_uri = url_for("parties.entry", party_id=party_id, _external=True)
+        response_header = {"Location": resource_uri}
         return {
             "url": url_for("parties.entry", party_id=party_id, _external=True),
             "players": [url_for("parties.player", party_id=party_id, player_id=member, _external=True) for member in members]
-        }, http_client.OK
+        }, http_client.OK, response_header
 
 
 @endpoints.register
