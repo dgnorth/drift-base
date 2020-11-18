@@ -204,7 +204,9 @@ def decline_party_invite(party_id, invite_id, player_id):
         with g.redis.conn.pipeline() as pipe:
             pipe.watch(scoped_player_party_key)
             invite = pipe.hgetall(scoped_party_invite_key)
-            log.debug("invite {}".format(invite))
+            if not invite:
+                abort(http_client.NOT_FOUND)
+
             inviter = invite.get(b"inviter")
             if not inviter:
                 pipe.delete(scoped_party_invite_key)

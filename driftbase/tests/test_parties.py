@@ -92,8 +92,8 @@ class PartiesTest(BaseCloudkitTest):
 
         # Player 1 declines the invite
         self.auth(username="Number one user")
-        notification = self.get_party_notification('invite')
-        self.delete(notification['invite_url'], expected_status_code=http_client.OK)
+        invite_notification = self.get_party_notification('invite')
+        self.delete(invite_notification['invite_url'], expected_status_code=http_client.OK)
 
         # Check that player 2 gets a notification when player 1 declines
         self.auth(username="Number two user")
@@ -103,8 +103,11 @@ class PartiesTest(BaseCloudkitTest):
             self.assertEqual(payload['player_id'], p1)
             return True
 
-        notification = self.check_party_notification('invite_declined', validator)
-        self.assertIsNotNone(notification)
+        decline_notification = self.check_party_notification('invite_declined', validator)
+        self.assertIsNotNone(decline_notification)
+
+        # Declining again fails
+        self.delete(invite_notification['invite_url'], expected_status_code=http_client.NOT_FOUND)
 
     def get_party_notification(self, event):
         notification = None
