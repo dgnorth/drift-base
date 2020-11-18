@@ -338,10 +338,11 @@ class PartyInviteAPI(MethodView):
         if not invite:
             abort(http_client.NOT_FOUND)
         resource_uri = url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True)
+        response_header = {"Location": resource_uri}
         return {
-                   "url": url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True),
+                   "url": resource_uri,
                    "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-               }, http_client.OK, resource_uri
+               }, http_client.OK, response_header
 
     def patch(self, party_id, invite_id):
         player_id = current_user['player_id']
