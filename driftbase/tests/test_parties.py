@@ -109,6 +109,9 @@ class PartiesTest(BaseCloudkitTest):
         # Declining again fails
         self.delete(invite_notification['invite_url'], expected_status_code=http_client.NOT_FOUND)
 
+        # Getting invite details fails
+        self.get(invite_notification['invite_url'], expected_status_code=http_client.NOT_FOUND)
+
     def get_party_notification(self, event):
         notification = None
         messages = self.get(self.endpoints["my_messages"]).json()

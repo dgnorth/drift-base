@@ -144,6 +144,11 @@ def create_party_invite(party_id, inviter_id, invited_id):
         abort(http_client.CONFLICT)
 
 
+def get_party_invite(party_id, invite_id):
+    scoped_party_invite_key = make_party_invite_key(invite_id, party_id)
+    return g.redis.conn.hgetall(scoped_party_invite_key)
+
+
 def accept_party_invite(party_id, invite_id, player_id):
     scoped_party_players_key = make_party_players_key(party_id)
     scoped_player_party_key = make_player_party_key(player_id)
@@ -330,6 +335,12 @@ class PartyInvitesAPI(MethodView):
 
 @bp.route("/<int:party_id>/invites/<int:invite_id>", endpoint="invite")
 class PartyInviteAPI(MethodView):
+    def get(self, party_id, invite_id):
+        invite = get_party_invite(party_id, invite_id)
+        if not invite:
+            abort(http_client.NOT_FOUND)
+        return {}, http_client.OK
+
     def patch(self, party_id, invite_id):
         player_id = current_user['player_id']
         members = get_party_members(party_id)
