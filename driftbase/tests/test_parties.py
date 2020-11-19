@@ -195,19 +195,6 @@ class PartiesTest(BaseCloudkitTest):
         # Check party no longer exists
         self.get(party_url, expected_status_code=http_client.NOT_FOUND)
 
-    # def test_invite_to_deleted_party(self):
-    #     # Create players for test
-    #     self.auth(username="Number two user")
-    #     player_id = self.player_id
-    #     self.auth(username="Number one user")
-    #
-    #     # Create a party
-    #     result = self.post(self.endpoints["parties"], expected_status_code=http_client.CREATED).json()
-    #     self.delete(result['url'])
-    #
-    #     # Invite a player to the now deleted party
-    #     self.post(result['invites_url'], data={"player_id": player_id}, expected_status_code=http_client.NOT_FOUND)
-
     def get_party_notification(self, event, messages_after=None):
         notification = None
         args = "?messages_after={}".format(messages_after) if messages_after else ""
