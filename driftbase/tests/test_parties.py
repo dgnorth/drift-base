@@ -94,6 +94,14 @@ class PartiesTest(BaseCloudkitTest):
                                                                          messages_after=g2_message_number)
         self.assertIsNone(g2_notification)
 
+    def test_invite_non_existing_player(self):
+        # Create players for test
+        host_user = self.make_user_name("Host")
+        self.auth(username=host_user)
+        host_id = self.player_id
+        self.post(self.endpoints["party_invites"], data={'player_id': host_id + 1},
+                           expected_status_code=http_client.BAD_REQUEST).json()
+
     def test_decline_invite(self):
         # Create players for test
         host_user = self.make_user_name("Host")
