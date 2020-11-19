@@ -28,10 +28,6 @@ class PartyGetRequestSchema(ma.Schema):
     secret = ma.fields.String(description="Shared secret for this group")
 
 
-class PartyPostRequestSchema(ma.Schema):
-    player_ids = ma.fields.List(ma.fields.Integer(), required=False)
-
-
 class PartyInvitesSchema(ma.Schema):
     inviter_id = ma.fields.Integer()
 
@@ -580,31 +576,8 @@ class PartiesAPI(MethodView):
     Manage player parties.
     """
 
-    @bp.arguments(PartyPostRequestSchema, location='json')
-    @bp.response(PartyResponseSchema)
-    def post(self, args):
-        """
-        Create a player party
-
-        Creates a new party and puts the player in it. Can only be called by the
-        player. If the player is already in a party, he will leave the old party.
-        """
-        player_id = current_user['player_id']
-
-        party_id = create_party()
-        if party_id is None:
-            log.error("Failed to create party for player {}".format(player_id))
-            abort(http_client.INTERNAL_SERVER_ERROR)
-
-        party_players = set_player_party(player_id, party_id)
-        if party_players is None:
-            log.error("Failed to add player {} to new party {}".format(player_id, party_id))
-            abort(http_client.INTERNAL_SERVER_ERROR)
-
-        log.info("Created party {} with player {}".format(party_id, player_id))
-
-        response, response_header = make_party_response(party_id)
-        return response, http_client.CREATED, response_header
+    def get(self):
+        return {}
 
 
 @bp.route("/<int:party_id>/", endpoint="entry")
