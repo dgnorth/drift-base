@@ -100,7 +100,7 @@ class PartiesTest(BaseCloudkitTest):
         self.auth(username=host_user)
         host_id = self.player_id
         self.post(self.endpoints["party_invites"], data={'player_id': host_id + 1},
-                           expected_status_code=http_client.BAD_REQUEST).json()
+                  expected_status_code=http_client.BAD_REQUEST).json()
 
     def test_decline_invite(self):
         # Create players for test
@@ -130,7 +130,8 @@ class PartiesTest(BaseCloudkitTest):
         self.assertEqual(host_notification['player_id'], g1_id)
 
         # Check trying to accept the deleted invite fails
-        self.patch(g1_notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.NOT_FOUND)
+        self.patch(g1_notification['invite_url'], data={'inviter_id': host_id},
+                   expected_status_code=http_client.NOT_FOUND)
 
     def test_leave_party(self):
         # Create players for test
@@ -147,10 +148,10 @@ class PartiesTest(BaseCloudkitTest):
 
         # Invite g1 to a new party
         g1_invite = self.post(self.endpoints["party_invites"], data={'player_id': g1_id},
-                           expected_status_code=http_client.CREATED).json()
+                              expected_status_code=http_client.CREATED).json()
 
         g2_invite = self.post(self.endpoints["party_invites"], data={'player_id': g2_id},
-                           expected_status_code=http_client.CREATED).json()
+                              expected_status_code=http_client.CREATED).json()
 
         # Accept the g1 invite
         self.auth(username=guest_user_1)
@@ -169,7 +170,8 @@ class PartiesTest(BaseCloudkitTest):
         self.auth(username=host_user)
         host_notification, host_message_number = self.get_party_notification('player_joined')
         party_url = host_notification['party_url']
-        host_notification, host_message_number = self.get_party_notification('player_left', messages_after=host_message_number)
+        host_notification, host_message_number = self.get_party_notification('player_left',
+                                                                             messages_after=host_message_number)
         self.assertEqual(host_notification['player_id'], g2_id)
 
         # Check g1 gets a notification
@@ -189,7 +191,8 @@ class PartiesTest(BaseCloudkitTest):
 
         # Check host gets a notification
         self.auth(username=host_user)
-        host_notification, host_message_number = self.get_party_notification('player_left', messages_after=host_message_number)
+        host_notification, host_message_number = self.get_party_notification('player_left',
+                                                                             messages_after=host_message_number)
         self.assertEqual(host_notification['player_id'], g1_id)
 
         # Check party no longer exists
