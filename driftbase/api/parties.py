@@ -614,9 +614,6 @@ class PartyAPI(MethodView):
     """
 
     def get(self, party_id):
-        import pdb
-        pdb.set_trace()
-
         members = get_party_members(party_id)
         if not members:
             abort(http_client.NOT_FOUND)
