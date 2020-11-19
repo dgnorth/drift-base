@@ -245,43 +245,7 @@ def make_party_players_key(party_id):
     return g.redis.make_key("party:{}:players:".format(party_id))
 
 
-def decline_party_invite(party_id, invite_id, player_id):
-    scoped_party_players_key = make_party_players_key(party_id)
-    scoped_player_party_key = make_player_party_key(player_id)
-    scoped_party_invite_key = make_party_invite_key(invite_id, party_id)
-
-    try:
-        with g.redis.conn.pipeline() as pipe:
-            pipe.watch(scoped_player_party_key)
-            invite = pipe.hgetall(scoped_party_invite_key)
-            if not invite:
-                abort(http_client.NOT_FOUND)
-
-            inviter = invite.get(b"inviter")
-            if not inviter:
-                pipe.delete(scoped_party_invite_key)
-                pipe.execute()
-                log.debug("Invite {} for party {} contains no inviting player".format(invite_id, party_id))
-                abort(http_client.FORBIDDEN, message="Inviting player doesn't match the invite")
-
-            invited = invite.get(b"invited")
-            if not invited:
-                log.debug("Invite {} for party {} does not contain the invited player".format(invite_id, party_id))
-                abort(http_client.FORBIDDEN, message="Inviting player doesn't match the invite")
-
-            if pipe.sismember(scoped_party_players_key, player_id):
-                pipe.delete(scoped_party_invite_key)
-                pipe.execute()
-                return int(inviter)
-
-            pipe.delete(scoped_party_invite_key)
-            pipe.execute()
-            return int(inviter)
-    except WatchError:
-        abort(http_client.CONFLICT)
-
-
-def new_decline_party_invite(invite_id, declining_player_id):
+def decline_party_invite(invite_id, declining_player_id):
     scoped_player_party_key = make_player_party_key(declining_player_id)
     scoped_party_invite_key = make_new_party_invite_key(invite_id)
 
@@ -466,7 +430,7 @@ class PartyInviteAPI(MethodView):
 
     def delete(self, invite_id):
         player_id = current_user['player_id']
-        inviter_id = new_decline_party_invite(invite_id, player_id)
+        inviter_id = decline_party_invite(invite_id, player_id)
         log.debug("Player {} declined a party invite from {}".format(player_id, inviter_id))
         _add_message("players", inviter_id, "party_notification",
                      {
