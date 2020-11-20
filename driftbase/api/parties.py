@@ -229,22 +229,6 @@ def get_party_invite(party_id, invite_id):
     return g.redis.conn.hgetall(scoped_party_invite_key)
 
 
-def make_new_party_invite_key(invite_id):
-    return g.redis.make_key("party_invite:{}:".format(invite_id))
-
-
-def make_party_invite_key(invite_id, party_id):
-    return g.redis.make_key("party:{}:invite:{}:".format(party_id, invite_id))
-
-
-def make_player_party_key(player_id):
-    return g.redis.make_key("player:{}:party:".format(player_id))
-
-
-def make_party_players_key(party_id):
-    return g.redis.make_key("party:{}:players:".format(party_id))
-
-
 def decline_party_invite(invite_id, declining_player_id):
     scoped_player_party_key = make_player_party_key(declining_player_id)
     scoped_party_invite_key = make_new_party_invite_key(invite_id)
@@ -277,6 +261,20 @@ def decline_party_invite(invite_id, declining_player_id):
             abort(http_client.CONFLICT)
 
 
+def make_new_party_invite_key(invite_id):
+    return g.redis.make_key("party_invite:{}:".format(invite_id))
+
+
+def make_party_invite_key(invite_id, party_id):
+    return g.redis.make_key("party:{}:invite:{}:".format(party_id, invite_id))
+
+
+def make_player_party_key(player_id):
+    return g.redis.make_key("player:{}:party:".format(player_id))
+
+
+def make_party_players_key(party_id):
+    return g.redis.make_key("party:{}:players:".format(party_id))
 
 
 @bp.route("/<int:party_id>/players/", endpoint="players")
