@@ -116,7 +116,7 @@ def accept_party_invite(invite_id, sending_player, accepting_player):
             # Get all the members
             pipe.smembers(party_players_key)
             result = pipe.execute()
-            return int(sending_player_party_id),[int(entry) for entry in result[-1]]
+            return int(sending_player_party_id), [int(entry) for entry in result[-1]]
         except WatchError:
             abort(http_client.CONFLICT)
 
@@ -217,7 +217,7 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
             invite_id = pipe.incr(scoped_invite_id_key)
             scoped_invite_key = make_new_party_invite_key(invite_id)
             pipe.multi()
-            pipe.hset(scoped_invite_key, mapping={ b"from": sending_player_id, b"to": invited_player_id})
+            pipe.hset(scoped_invite_key, mapping={b"from": sending_player_id, b"to": invited_player_id})
             pipe.execute()
             return invite_id
         except WatchError:
@@ -282,6 +282,7 @@ class PartyPlayersAPI(MethodView):
     """
     Manage players in a party
     """
+
     @bp.response(PartyPlayerSchema(many=True))
     def get(self, party_id):
         player_id = current_user['player_id']
@@ -295,7 +296,7 @@ class PartyPlayersAPI(MethodView):
 
         players = []
         for member in members:
-            players.append({ "player_id": member })
+            players.append({"player_id": member})
         return players
 
     @bp.arguments(PartyPlayerPostRequestSchema, location='json')
@@ -304,13 +305,13 @@ class PartyPlayersAPI(MethodView):
         player_id = current_user['player_id']
         _add_message("players", player_id, "party_notification",
                      {
-                         "event":"created",
-                         "party_id":party_id,
+                         "event": "created",
+                         "party_id": party_id,
                      })
         resource_uri = url_for("parties.player", party_id=party_id, player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Added player {} to party {}".format(player_id, party_id))
-        return { "url": resource_uri }, http_client.CREATED, response_header
+        return {"url": resource_uri}, http_client.CREATED, response_header
 
 
 @bp.route("/<int:party_id>/players/<int:player_id>", endpoint="player")
@@ -318,14 +319,15 @@ class PartyPlayerAPI(MethodView):
     """
     Manage a player in a party
     """
+
     def get(self, party_id, player_id):
         return {
-            "party_id": party_id,
-            "player_id": player_id,
-            "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-            "players_url": url_for("parties.players", party_id=party_id, _external=True),
-            "invites_url": url_for("parties.invites", party_id=party_id, _external=True),
-        }, http_client.OK
+                   "party_id": party_id,
+                   "player_id": player_id,
+                   "party_url": url_for("parties.entry", party_id=party_id, _external=True),
+                   "players_url": url_for("parties.players", party_id=party_id, _external=True),
+                   "invites_url": url_for("parties.invites", party_id=party_id, _external=True),
+               }, http_client.OK
 
     def delete(self, party_id, player_id):
         if player_id != current_user['player_id']:
@@ -347,17 +349,17 @@ class PartyPlayerAPI(MethodView):
         else:
             disband_party(party_id)
             _add_message("players", members[0], "party_notification",
-                     {
-                         "event": "player_left",
-                         "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-                         "player_id": player_id,
-                         "player_url": url_for("players.entry", player_id=player_id, _external=True),
-                     })
+                         {
+                             "event": "player_left",
+                             "party_url": url_for("parties.entry", party_id=party_id, _external=True),
+                             "player_id": player_id,
+                             "player_url": url_for("players.entry", player_id=player_id, _external=True),
+                         })
             _add_message("players", members[0], "party_notification",
-                     {
-                         "event": "disbanded",
-                         "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-                     })
+                         {
+                             "event": "disbanded",
+                             "party_url": url_for("parties.entry", party_id=party_id, _external=True),
+                         })
         return {}, http_client.NO_CONTENT
 
 
@@ -393,7 +395,7 @@ class PartyInvitesAPI(MethodView):
                          "invite_url": resource_uri,
                      })
         response_header = {"Location": resource_uri}
-        return { "url": resource_uri }, http_client.CREATED, response_header
+        return {"url": resource_uri}, http_client.CREATED, response_header
 
 
 @bp.route("/invites/<int:invite_id>", endpoint="invite")
