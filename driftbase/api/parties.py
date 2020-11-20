@@ -154,8 +154,8 @@ def leave_party(player_id, party_id):
     scoped_party_players_key = make_party_players_key(party_id)
     scoped_player_party_key = make_player_party_key(player_id)
 
-    try:
-        with g.redis.conn.pipeline() as pipe:
+    with g.redis.conn.pipeline() as pipe:
+        try:
             pipe.watch(scoped_party_players_key, scoped_player_party_key)
             current_party = pipe.get(scoped_player_party_key)
 
@@ -172,15 +172,15 @@ def leave_party(player_id, party_id):
             pipe.delete(scoped_player_party_key)
             result = pipe.execute()
             return result
-    except WatchError:
-        abort(http_client.CONFLICT)
+        except WatchError:
+            abort(http_client.CONFLICT)
 
 
 def disband_party(party_id):
     scoped_party_players_key = make_party_players_key(party_id)
 
-    try:
-        with g.redis.conn.pipeline() as pipe:
+    with g.redis.conn.pipeline() as pipe:
+        try:
             pipe.watch(scoped_party_players_key)
             players = pipe.smembers(scoped_party_players_key)
             pipe.multi()
@@ -189,8 +189,8 @@ def disband_party(party_id):
             pipe.delete(scoped_party_players_key)
             result = pipe.execute()
             return result
-    except WatchError:
-        abort(http_client.CONFLICT)
+        except WatchError:
+            abort(http_client.CONFLICT)
 
 
 def create_party_invite(party_id, sending_player_id, invited_player_id):
@@ -198,8 +198,8 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
     invited_player_party_key = make_player_party_key(invited_player_id)
     scoped_invite_id_key = g.redis.make_key("party_invite:id:")
 
-    try:
-        with g.redis.conn.pipeline() as pipe:
+    with g.redis.conn.pipeline() as pipe:
+        try:
             pipe.watch(invited_player_party_key)
 
             inviting_player_party_id = pipe.get(inviting_player_party_key)
@@ -220,8 +220,8 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
             pipe.hset(scoped_invite_key, mapping={ b"from": sending_player_id, b"to": invited_player_id})
             pipe.execute()
             return invite_id
-    except WatchError:
-        abort(http_client.CONFLICT)
+        except WatchError:
+            abort(http_client.CONFLICT)
 
 
 def get_party_invite(party_id, invite_id):
@@ -249,8 +249,8 @@ def decline_party_invite(invite_id, declining_player_id):
     scoped_player_party_key = make_player_party_key(declining_player_id)
     scoped_party_invite_key = make_new_party_invite_key(invite_id)
 
-    try:
-        with g.redis.conn.pipeline() as pipe:
+    with g.redis.conn.pipeline() as pipe:
+        try:
             pipe.watch(scoped_player_party_key)
 
             # Get invite details
@@ -273,8 +273,10 @@ def decline_party_invite(invite_id, declining_player_id):
             pipe.delete(scoped_party_invite_key)
             pipe.execute()
             return int(invite_sender_id)
-    except WatchError:
-        abort(http_client.CONFLICT)
+        except WatchError:
+            abort(http_client.CONFLICT)
+
+
 
 
 @bp.route("/<int:party_id>/players/", endpoint="players")
