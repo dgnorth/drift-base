@@ -242,6 +242,13 @@ class PartiesTest(BaseCloudkitTest):
         g2_accept = self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}).json()
         self.assertNotEqual(g1_accept['party_url'], g2_accept['party_url'])
 
+        # Check host and g2 are in the party
+        party = self.get(g2_accept['party_url']).json()
+        player_ids = [entry['id'] for entry in party['players']]
+        self.assertEqual(len(player_ids), 2)
+        self.assertIn(host_id, player_ids)
+        self.assertIn(g2_id, player_ids)
+
 
     def get_party_notification(self, event, messages_after=None):
         """
