@@ -305,7 +305,7 @@ class PartyPlayersAPI(MethodView):
         _add_message("players", player_id, "party_notification",
                      {
                          "event":"created",
-                         "party_id":party_id
+                         "party_id":party_id,
                      })
         resource_uri = url_for("parties.player", party_id=party_id, player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
@@ -342,7 +342,7 @@ class PartyPlayerAPI(MethodView):
                                  "event": "player_left",
                                  "party_url": url_for("parties.entry", party_id=party_id, _external=True),
                                  "player_id": player_id,
-                                 "player_url": url_for("players.entry", player_id=player_id, _external=True)
+                                 "player_url": url_for("players.entry", player_id=player_id, _external=True),
                              })
         else:
             disband_party(party_id)
@@ -351,7 +351,12 @@ class PartyPlayerAPI(MethodView):
                          "event": "player_left",
                          "party_url": url_for("parties.entry", party_id=party_id, _external=True),
                          "player_id": player_id,
-                         "player_url": url_for("players.entry", player_id=player_id, _external=True)
+                         "player_url": url_for("players.entry", player_id=player_id, _external=True),
+                     })
+            _add_message("players", members[0], "party_notification",
+                     {
+                         "event": "disbanded",
+                         "party_url": url_for("parties.entry", party_id=party_id, _external=True),
                      })
         return {}, http_client.NO_CONTENT
 
@@ -412,6 +417,7 @@ class PartyInviteAPI(MethodView):
         party_id, party_members = accept_party_invite(invite_id, inviter_id, player_id)
         log.debug("Player {} accepted invite from player {} to party {}".format(player_id, inviter_id, party_id))
         player_url = url_for("parties.player", party_id=party_id, player_id=player_id, _external=True)
+        inviting_player_url = url_for("parties.player", party_id=party_id, player_id=inviter_id, _external=True)
         for member in party_members:
             if member == player_id:
                 continue
@@ -421,6 +427,7 @@ class PartyInviteAPI(MethodView):
                              "party_url": url_for("parties.entry", party_id=party_id, _external=True),
                              "player_id": player_id,
                              "player_url": player_url,
+                             "inviting_player_url": inviting_player_url,
                          })
         response = {
             "party_url": url_for("parties.entry", party_id=party_id, _external=True),

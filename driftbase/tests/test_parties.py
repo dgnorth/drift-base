@@ -199,7 +199,54 @@ class PartiesTest(BaseCloudkitTest):
         # Check party no longer exists
         self.get(party_url, expected_status_code=http_client.NOT_FOUND)
 
+    def test_outstanding_invites_will_form_a_new_party_if_the_host_is_left_in_a_disbanded_party(self):
+        # Create players for test
+        host_user = self.make_user_name("Host")
+        guest_user_1 = self.make_user_name("Guest 1")
+        guest_user_2 = self.make_user_name("Guest 2")
+
+        self.auth(username=guest_user_1)
+        g1_id = self.player_id
+        self.auth(username=guest_user_2)
+        g2_id = self.player_id
+        self.auth(username=host_user)
+        host_id = self.player_id
+
+        # Invite g1 to a new party
+        g1_invite = self.post(self.endpoints["party_invites"], data={'player_id': g1_id},
+                              expected_status_code=http_client.CREATED).json()
+
+        g2_invite = self.post(self.endpoints["party_invites"], data={'player_id': g2_id},
+                              expected_status_code=http_client.CREATED).json()
+
+        # Accept the g1 invite
+        self.auth(username=guest_user_1)
+        g1_notification, g1_message_number = self.get_party_notification('invite')
+        g1_accept = self.patch(g1_notification['invite_url'], data={'inviter_id': host_id}).json()
+
+        # Leave the party with g1
+        self.delete(g1_accept['player_url'], expected_status_code=http_client.NO_CONTENT)
+
+        # Verify the party is gone as there's only one player left
+        self.auth(username=host_user)
+        host_notification, host_message_number = self.get_party_notification('player_joined')
+        self.get(host_notification['party_url'], expected_status_code=http_client.NOT_FOUND)
+        host_notification, host_message_number = self.get_party_notification('player_left')
+        self.assertIsNotNone(host_notification)
+        host_notification, host_message_number = self.get_party_notification('disbanded')
+        self.assertIsNotNone(host_notification)
+
+        # Accept the g2 invite
+        self.auth(username=guest_user_2)
+        g2_notification, g2_message_number = self.get_party_notification('invite')
+        g2_accept = self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}).json()
+        self.assertNotEqual(g1_accept['party_url'], g2_accept['party_url'])
+
+
     def get_party_notification(self, event, messages_after=None):
+        """
+        Return the first notification matching the event
+        """
         notification = None
         args = "?messages_after={}".format(messages_after) if messages_after else ""
         messages = self.get(self.endpoints["my_messages"] + args).json()
