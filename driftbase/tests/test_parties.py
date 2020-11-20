@@ -42,10 +42,7 @@ class PartiesTest(BaseCloudkitTest):
         # Accept the invite, and check that both players are in the party
         accept = self.patch(g1_notification['invite_url'], data={'inviter_id': host_id}).json()
         party = self.get(accept['party_url']).json()
-        player_ids = [entry['id'] for entry in party['players']]
-        self.assertEqual(len(player_ids), 2)
-        self.assertIn(g1_id, player_ids)
-        self.assertIn(host_id, player_ids)
+        self.check_expected_players_in_party(party, [host_id, g1_id])
 
         # Check g1 doesn't get a notification about joining
         g1_notification, g1_message_number = self.get_party_notification('player_joined',
@@ -70,11 +67,7 @@ class PartiesTest(BaseCloudkitTest):
         # Accept the invite, and check that all three players are in the party
         accept = self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}).json()
         party = self.get(accept['party_url']).json()
-        player_ids = [entry['id'] for entry in party['players']]
-        self.assertEqual(len(player_ids), 3)
-        self.assertIn(host_id, player_ids)
-        self.assertIn(g1_id, player_ids)
-        self.assertIn(g2_id, player_ids)
+        self.check_expected_players_in_party(party, [host_id, g1_id, g2_id])
 
         # Check host gets a notification about the joining player
         self.auth(username=host_user)
@@ -182,10 +175,7 @@ class PartiesTest(BaseCloudkitTest):
 
         # Check party still contains host and g1
         party = self.get(party_url).json()
-        player_ids = [entry['id'] for entry in party['players']]
-        self.assertEqual(len(player_ids), 2)
-        self.assertIn(host_id, player_ids)
-        self.assertIn(g1_id, player_ids)
+        self.check_expected_players_in_party(party, [host_id, g1_id])
 
         # Leave the party with g1
         self.delete(g1_accept['player_url'], expected_status_code=http_client.NO_CONTENT)
@@ -244,11 +234,16 @@ class PartiesTest(BaseCloudkitTest):
 
         # Check host and g2 are in the party
         party = self.get(g2_accept['party_url']).json()
-        player_ids = [entry['id'] for entry in party['players']]
-        self.assertEqual(len(player_ids), 2)
-        self.assertIn(host_id, player_ids)
-        self.assertIn(g2_id, player_ids)
+        self.check_expected_players_in_party(party, [host_id, g2_id])
 
+    def check_expected_players_in_party(self, party, expected_ids):
+        """
+        Check that all players in expected_ids are in the party, and nobody else
+        """
+        player_ids = [entry['id'] for entry in party['players']]
+        self.assertEqual(len(player_ids), len(expected_ids))
+        for expected in expected_ids:
+            self.assertIn(expected, player_ids)
 
     def get_party_notification(self, event, messages_after=None):
         """
