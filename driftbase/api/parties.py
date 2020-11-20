@@ -264,7 +264,7 @@ def decline_party_invite(invite_id, declining_player_id):
             invite_receiver_id = invite.get(b"to")
             if not invite_receiver_id:
                 log.debug("Party invite {} does not contain the invited player".format(invite_id))
-                abort(http_client.FORBIDDEN, message="Inviting player doesn't match the invite")
+                abort(http_client.BAD_REQUEST, message="Inviting player doesn't match the invite")
 
             if int(invite_receiver_id) != declining_player_id:
                 log.debug("Party invite {} does not belong to the declining player".format(invite_id))
@@ -288,7 +288,7 @@ class PartyPlayersAPI(MethodView):
         members = get_party_members(party_id)
 
         if members is None:
-            abort(http_client.NOT_FOUND, message="The party no longer exists")
+            abort(http_client.NOT_FOUND, message="Party not found")
 
         if player_id not in members:
             abort(http_client.FORBIDDEN, message="Player is not a member of the party")
@@ -310,7 +310,7 @@ class PartyPlayersAPI(MethodView):
         resource_uri = url_for("parties.player", party_id=party_id, player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Added player {} to party {}".format(player_id, party_id))
-        return { "url": resource_uri }, http_client.OK, response_header
+        return { "url": resource_uri }, http_client.CREATED, response_header
 
 
 @bp.route("/<int:party_id>/players/<int:player_id>", endpoint="player")
@@ -332,7 +332,7 @@ class PartyPlayerAPI(MethodView):
             abort(http_client.FORBIDDEN, message="You can only remove yourself from a party")
 
         if leave_party(player_id, party_id) is None:
-            abort(http_client.FORBIDDEN, message="You're not a member of this party")
+            abort(http_client.BAD_REQUEST, message="You're not a member of this party")
 
         members = get_party_members(party_id)
         if len(members) > 1:
@@ -353,7 +353,7 @@ class PartyPlayerAPI(MethodView):
                          "player_id": player_id,
                          "player_url": url_for("players.entry", player_id=player_id, _external=True)
                      })
-        return {}, http_client.OK
+        return {}, http_client.NO_CONTENT
 
 
 @bp.route("/party_invites/", endpoint="invites")
@@ -370,7 +370,7 @@ class PartyInvitesAPI(MethodView):
         player = g.db.query(CorePlayer).filter(CorePlayer.player_id == player_id).first()
         if player is None:
             log.debug("Player {} tried to invite non-existing player {} to a party".format(my_player_id, player_id))
-            abort(http_client.BAD_REQUEST, message="Player doesn't exist")
+            abort(http_client.BAD_REQUEST, message="Invited player doesn't exist")
 
         party_id = args.get('party_id')
         invite_id = create_party_invite(party_id, my_player_id, player_id)
@@ -437,7 +437,7 @@ class PartyInviteAPI(MethodView):
                          "event": "invite_declined",
                          "player_id": player_id,
                      })
-        return {}, http_client.OK
+        return {}, http_client.NO_CONTENT
 
 
 @bp.route("/", endpoint="list")
@@ -478,7 +478,7 @@ class PartyAPI(MethodView):
         members = get_party_members(party_id)
         for member in members:
             leave_party(party_id, member)
-        return {}, http_client.OK
+        return {}, http_client.NO_CONTENT
 
 
 def make_party_response(party_id):

@@ -122,7 +122,8 @@ class PartiesTest(BaseCloudkitTest):
         # Decline the invite
         self.auth(username=guest_user_1)
         g1_notification, g1_message_number = self.get_party_notification('invite')
-        self.delete(g1_notification['invite_url'], data={'inviter_id': host_id})
+        self.delete(g1_notification['invite_url'],
+                    expected_status_code=http_client.NO_CONTENT)
 
         # Check host gets a notification about the player declining
         self.auth(username=host_user)
@@ -164,7 +165,7 @@ class PartiesTest(BaseCloudkitTest):
         g2_accept = self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}).json()
 
         # Leave the party with g2
-        self.delete(g2_accept['player_url'])
+        self.delete(g2_accept['player_url'], expected_status_code=http_client.NO_CONTENT)
 
         # Check host gets a notification
         self.auth(username=host_user)
@@ -187,7 +188,7 @@ class PartiesTest(BaseCloudkitTest):
         self.assertIn(g1_id, player_ids)
 
         # Leave the party with g1
-        self.delete(g1_accept['player_url'])
+        self.delete(g1_accept['player_url'], expected_status_code=http_client.NO_CONTENT)
 
         # Check host gets a notification
         self.auth(username=host_user)
