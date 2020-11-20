@@ -185,7 +185,7 @@ def disband_party(party_id):
             players = pipe.smembers(scoped_party_players_key)
             pipe.multi()
             for player in players:
-                pipe.delete(make_player_party_key(player))
+                pipe.delete(make_player_party_key(int(player)))
             pipe.delete(scoped_party_players_key)
             result = pipe.execute()
             return result
@@ -204,7 +204,7 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
 
             inviting_player_party_id = pipe.get(inviting_player_party_key)
             if inviting_player_party_id:
-                party_players_key = make_party_players_key(inviting_player_party_id)
+                party_players_key = make_party_players_key(int(inviting_player_party_id))
                 pipe.multi()
                 pipe.sismember(party_players_key, invited_player_id)
                 pipe.get(invited_player_party_key)
