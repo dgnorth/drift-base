@@ -160,6 +160,9 @@ class FriendInvitesAPI(MethodView):
         player_id = current_user["player_id"]
 
         token = str(uuid.uuid4())
+        # Temp hack to have only 4 digit codes until we have better UX
+        token = token[:4]
+
         expires_seconds = DEFAULT_INVITE_EXPIRATION_TIME_SECONDS
         config = g.conf.tenant.get('friends')
         if config:
@@ -208,9 +211,10 @@ class FriendInviteAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {}
-    ret["my_friends"] = None
-    ret["friend_invites"] = url_for("friendships.invites", _external=True)
+    ret = {
+        "my_friends": None,
+        "friend_invites": url_for("friendships.invites", _external=True)
+    }
     if current_user:
         ret["my_friends"] = url_for("friendships.list", player_id=current_user["player_id"], _external=True)
     return ret
