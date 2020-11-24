@@ -224,8 +224,8 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
             invite_id = pipe.incr(scoped_invite_id_key)
             scoped_invite_key = make_party_invite_key(invite_id)
             pipe.multi()
-            pipe.hset(scoped_invite_key, mapping={b"from": sending_player_id, b"to": invited_player_id})
-            pipe.zadd(sending_player_invites_key, mapping={ invite_id: invited_player_id })
+            pipe.hset(scoped_invite_key, mapping={b'from': sending_player_id, b'to': invited_player_id})
+            pipe.zadd(sending_player_invites_key, mapping={invite_id: invited_player_id})
             pipe.execute()
             return invite_id
         except WatchError:
@@ -252,8 +252,8 @@ def decline_party_invite(invite_id, declining_player_id):
             if not invite:
                 abort(http_client.NOT_FOUND)
 
-            invite_sender_id = invite.get(b"from")
-            invite_receiver_id = invite.get(b"to")
+            invite_sender_id = invite.get(b'from')
+            invite_receiver_id = invite.get(b'to')
             if not invite_receiver_id:
                 log.debug("Party invite {} does not contain the invited player".format(invite_id))
                 abort(http_client.BAD_REQUEST, message="Inviting player doesn't match the invite")
@@ -349,24 +349,16 @@ class PartyPlayerAPI(MethodView):
             abort(http_client.BAD_REQUEST, message="You're not a member of this party")
 
         members = get_party_members(party_id)
-        if len(members) > 1:
-            for member in members:
-                _add_message("players", member, "party_notification",
-                             {
-                                 "event": "player_left",
-                                 "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-                                 "player_id": player_id,
-                                 "player_url": url_for("players.entry", player_id=player_id, _external=True),
-                             })
-        else:
-            disband_party(party_id)
-            _add_message("players", members[0], "party_notification",
+        for member in members:
+            _add_message("players", member, "party_notification",
                          {
                              "event": "player_left",
                              "party_url": url_for("parties.entry", party_id=party_id, _external=True),
                              "player_id": player_id,
                              "player_url": url_for("players.entry", player_id=player_id, _external=True),
                          })
+        if len(members) <= 1:
+            disband_party(party_id)
             _add_message("players", members[0], "party_notification",
                          {
                              "event": "disbanded",
@@ -399,15 +391,17 @@ class PartyInvitesAPI(MethodView):
             else:
                 log.debug("Player {} invited player {} to form a new party".format(my_player_id, player_id))
 
-        resource_uri = url_for("parties.invite", invite_id=invite_id, _external=True)
-        _add_message("players", player_id, "party_notification",
-                     {
-                         "event": "invite",
-                         "inviting_player_id": my_player_id,
-                         "invite_url": resource_uri,
-                     })
-        response_header = {"Location": resource_uri}
-        return {"url": resource_uri}, http_client.CREATED, response_header
+            resource_uri = url_for("parties.invite", invite_id=invite_id, _external=True)
+            _add_message("players", player_id, "party_notification",
+                         {
+                             "event": "invite",
+                             "inviting_player_id": my_player_id,
+                             "invite_url": resource_uri,
+                         })
+            response_header = {"Location": resource_uri}
+            return {"url": resource_uri}, http_client.CREATED, response_header
+        else:
+            abort(http_client.BAD_REQUEST, message="Player is already in the team")
 
 
 @bp.route("/invites/<int:invite_id>", endpoint="invite")
