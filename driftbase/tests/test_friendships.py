@@ -11,8 +11,6 @@ class FriendTokensTest(BaseCloudkitTest):
     Tests for the /friend_tokens endpoint
     """
     def test_create_token(self):
-        # Temporarily bypass this test; revert to normal behavior once friend request flow is done
-        self.skipTest("Temporarily skipping this test while using 4 letter codes for tests/demos")
         # Create player for test
         self.auth(username="Number one user")
 

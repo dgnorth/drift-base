@@ -157,8 +157,6 @@ class MessagesExchangeAPI(MethodView):
                   message="Only service users can use exchange '%s'" % exchange)
 
         exchange_full_name = "{}-{}".format(exchange, exchange_id)
-
-        messages = collections.defaultdict(list)
         start_time = utcnow()
         poll_timeout = utcnow()
 
@@ -277,10 +275,8 @@ class MessageQueueAPI(MethodView):
 
         key = "messages:%s-%s:%s:%s" % (exchange, exchange_id, queue, message_id)
         val = g.redis.get(key)
-        message = {}
         if val:
-            message = json.loads(val)
-            return jsonify(message)
+            return jsonify(json.loads(val))
         else:
             abort(http_client.NOT_FOUND)
 

@@ -158,11 +158,7 @@ class FriendInvitesAPI(MethodView):
         New Friend token
         """
         player_id = current_user["player_id"]
-
         token = str(uuid.uuid4())
-        # Temp hack to have only 4 digit codes until we have better UX
-        token = token[:4]
-
         expires_seconds = DEFAULT_INVITE_EXPIRATION_TIME_SECONDS
         config = g.conf.tenant.get('friends')
         if config:
@@ -179,12 +175,29 @@ class FriendInvitesAPI(MethodView):
         g.db.add(invite)
         g.db.commit()
 
+        # NOTE: next iteration of this, consider adding 'issued_to' column to ck_friend_invites so we can check if
+        # there's already an outstanding invitation between either of the players towards the other.
+        receiving_player_id = request.args.get("player_id", None)
+        if receiving_player_id is not None:
+            self._post_friend_request_message(player_id, request.args.get("player_id", None), token)
+
         ret = jsonify({
             "token": token,
             "expires": expires,
             "url": url_for("friendships.invite", invite_id=invite.id, _external=True)
         }), http_client.CREATED
         return ret
+
+    @staticmethod
+    def _post_friend_request_message(sender_player_id, receiving_player_id, token):
+        """ Insert a 'friend_request' event into the 'friendevent' queue of the 'players' exchange. """
+        from driftbase.api.messages import _add_message
+        if receiving_player_id is None:
+            log.warning("Not creating a friend_request event for a non-specific invite from player id %s" % sender_player_id)
+            return
+        payload = {"token": token, "event": "friend_request"}
+        _add_message("players", int(receiving_player_id), "friendevent", payload)
+
 
 
 @bp.route('/invites/<int:invite_id>', endpoint='invite')
