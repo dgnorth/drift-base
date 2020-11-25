@@ -72,10 +72,19 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     messages = []
     key = "messages:%s-%s" % (exchange, exchange_id)
     redis_key = g.redis.make_key(key)
+    seen_key = "messages:seen:%s-%s" % (exchange, exchange_id)
+    redis_seen_key = g.redis.make_key(seen_key)
     my_player_id = None
     if current_user:
         my_player_id = current_user["player_id"]
     i = 1
+
+    seen_message_number = g.redis.conn.get(redis_seen_key)
+    if min_message_number == 1 and seen_message_number:
+        min_message_number = int(seen_message_number)
+    else:
+        g.redis.conn.set(redis_seen_key, min_message_number)
+
     curr_message_number = sys.maxsize
     while curr_message_number >= min_message_number:
         all_contents = g.redis.conn.lrange(redis_key, -i, -i)
