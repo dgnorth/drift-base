@@ -36,6 +36,8 @@ expect {
 }
 EOF
 
+dconf set --location tiers.LOCAL --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"customuser\", \"password\": \"custompassword\" }}}"
+
 # This should be done by the tool, but isn't for some reason
 dconf set --location products.mw-dev --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
