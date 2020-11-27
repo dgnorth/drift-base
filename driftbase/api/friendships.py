@@ -178,6 +178,8 @@ class FriendInvitesAPI(MethodView):
         # NOTE: next iteration of this, consider adding 'issued_to' column to ck_friend_invites so we can check if
         # there's already an outstanding invitation between either of the players towards the other.
         receiving_player_id = request.args.get("player_id", None)
+        if receiving_player_id == player_id:
+            abort(http_client.CONFLICT)
         if receiving_player_id is not None:
             self._post_friend_request_message(player_id, request.args.get("player_id", None), token)
 
