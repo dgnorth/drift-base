@@ -3,7 +3,7 @@
 #docker-compose -p backend -f compose-backend.yml up -d
 
 set -a
-source dev.config
+source local.config
 set +a
 
 rm -rf $CONFIG_ORIGIN $CONFIG_STORE
@@ -16,7 +16,7 @@ driftconfig create --display-name "Local Development" "$CONFIG" "file://$CONFIG_
 dconf tier add $TIER --is-dev
 
 dconf organization add monkeyworks mw -d "Monkey Works"
-dconf product add mw-dev
+dconf product add $PRODUCT
 driftconfig push -f $CONFIG >/dev/null
 
 driftconfig register >/dev/null
@@ -37,14 +37,14 @@ expect {
 EOF
 
 # driftconfig is missing an assign-product command, so we do this manually for now
-dconf set --location products.mw-dev --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
+dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
 
-driftconfig create-tenant $TENANT mw-dev $TIER >/dev/null
+driftconfig create-tenant $TENANT $PRODUCT $TIER >/dev/null
 
 driftconfig provision-tenant $TENANT $DEPLOYABLE >/dev/null
 
-dconf set --location tiers.LOCAL --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG" >/dev/null
+dconf set --location tiers.$TIER --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
 
 driftconfig cache $CONFIG

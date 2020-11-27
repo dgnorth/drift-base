@@ -5,7 +5,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - dev.env
+      - local.env
     networks:
       - app
       - backend

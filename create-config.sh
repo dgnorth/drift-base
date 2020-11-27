@@ -1,10 +1,8 @@
 #!/bin/bash
 
-TIER=LOCAL
-CONFIG=dev
-CONFIG_STORE=~/.drift/config/$CONFIG
-CONFIG_ORIGIN=~/.drift/origin/$CONFIG
-DEPLOYABLE=drift-base
+set -a
+source local.config
+set +a
 
 rm -rf $CONFIG_ORIGIN $CONFIG_STORE
 
@@ -16,7 +14,7 @@ driftconfig create --display-name "Local Development" "$CONFIG" "file://$CONFIG_
 dconf tier add $TIER --is-dev
 
 dconf organization add monkeyworks mw -d "Monkey Works"
-dconf product add mw-dev
+dconf product add $PRODUCT
 driftconfig push -f $CONFIG >/dev/null
 
 driftconfig register >/dev/null
@@ -36,17 +34,17 @@ expect {
 }
 EOF
 
-dconf set --location tiers.LOCAL --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"customuser\", \"password\": \"custompassword\" }}}"
+dconf set --location tiers.$TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"local_user\", \"password\": \"abcdef\" }}}"
 
 # This should be done by the tool, but isn't for some reason
-dconf set --location products.mw-dev --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
+dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
 
-driftconfig create-tenant mw-dev mw-dev $TIER >/dev/null
+driftconfig create-tenant $TENANT $PRODUCT $TIER >/dev/null
 
-driftconfig provision-tenant mw-dev $DEPLOYABLE >/dev/null
+driftconfig provision-tenant $TENANT $DEPLOYABLE >/dev/null
 
-dconf set --location tiers.LOCAL --raw cache="redis://127.0.0.1:6379?prefix=dev" >/dev/null
+dconf set --location tiers.$TIER --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
 
 driftconfig cache $CONFIG
