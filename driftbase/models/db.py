@@ -564,6 +564,7 @@ class FriendInvite(ModelBase):
     token = Column(String(50), nullable=False, index=True)
     expiry_date = Column(DateTime, nullable=False)
     deleted = Column(Boolean, nullable=True, default=False)
+    issued_to = Column(Integer, ForeignKey("ck_players.player_id"), nullable=True, index=True)
 
 
 event.listen(
