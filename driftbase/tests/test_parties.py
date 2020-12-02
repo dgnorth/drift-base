@@ -53,6 +53,7 @@ class PartiesTest(BaseCloudkitTest):
         self.auth(username=host_user)
         host_notification, host_message_number = self.get_party_notification('player_joined')
         self.assertEqual(host_notification['party_url'], accept['party_url'])
+        self.assertEqual(host_notification['party_url'], accept['party_url'])
 
         # Invite g2 as well
         invite = self.post(self.endpoints["party_invites"], data={'player_id': g2_id},
@@ -93,6 +94,14 @@ class PartiesTest(BaseCloudkitTest):
         self.auth(username=host_user)
         host_id = self.player_id
         self.post(self.endpoints["party_invites"], data={'player_id': host_id + 1},
+                  expected_status_code=http_client.BAD_REQUEST).json()
+
+    def test_invite_self(self):
+        # Create players for test
+        host_user = self.make_user_name("Host")
+        self.auth(username=host_user)
+        host_id = self.player_id
+        self.post(self.endpoints["party_invites"], data={'player_id': host_id},
                   expected_status_code=http_client.BAD_REQUEST).json()
 
     def test_decline_invite(self):
@@ -264,7 +273,7 @@ class PartiesTest(BaseCloudkitTest):
         # Leave the party with host
         self.auth(username=host_user)
         host_notification, host_message_number = self.get_party_notification('player_joined')
-        self.delete(host_notification['inviting_player_url'], expected_status_code=http_client.NO_CONTENT)
+        self.delete(host_notification['inviting_member_url'], expected_status_code=http_client.NO_CONTENT)
 
         self.auth(username=guest_user_2)
         g2_notification, g2_message_number = self.get_party_notification('invite')
@@ -274,7 +283,7 @@ class PartiesTest(BaseCloudkitTest):
         """
         Check that all players in expected_ids are in the party, and nobody else
         """
-        player_ids = [entry['id'] for entry in party['players']]
+        player_ids = [entry['id'] for entry in party['members']]
         self.assertEqual(len(player_ids), len(expected_ids))
         for expected in expected_ids:
             self.assertIn(expected, player_ids)
