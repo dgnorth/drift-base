@@ -1,16 +1,27 @@
 import re
 import uuid
-
 from six.moves import http_client
 
 from driftbase.utils.test_utils import BaseCloudkitTest
 
+class _BaseFriendsTest(BaseCloudkitTest):
+    def tearDown(self):
+        if self.endpoints:
+            for friend in self.get(self.endpoints["my_friends"]).json():
+                self.delete(friend["friendship_url"], expected_status_code=http_client.NO_CONTENT)
+            invite_url = self.endpoints["friend_invites"]
+            for invite in self.get(invite_url).json():
+                self.delete("%s/%d" % (invite_url, invite["id"]), expected_status_code=http_client.NO_CONTENT)
 
-class FriendTokensTest(BaseCloudkitTest):
+    def make_token(self):
+        return self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()["token"]
+
+
+class FriendTokensTest(_BaseFriendsTest):
     """
-    Tests for the /friend_tokens endpoint
+    Tests for the /friend_invites endpoint
     """
-    def test_create_token(self):
+    def test_create_global_token(self):
         # Create player for test
         self.auth(username="Number one user")
 
@@ -45,8 +56,81 @@ class FriendTokensTest(BaseCloudkitTest):
         # delete the token
         self.delete(invite_url, expected_status_code=http_client.FORBIDDEN)
 
+    def test_create_friend_request(self):
+        # Create players for test
+        self.auth(username="Number one user")
+        receiving_player_id = self.player_id
+        self.auth(username="Number two user")
+        # Test basic success case
+        result = self.post(self.endpoints["friend_invites"],
+                           params={"player_id": receiving_player_id},
+                           expected_status_code=http_client.CREATED).json()
+        self.assertIsInstance(result, dict)
+        pattern = re.compile('^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$', re.IGNORECASE)
+        self.assertTrue(pattern.match(result["token"]), "Token '{}' doesn't match the expected uuid format".format(result["token"]))
 
-class FriendsTest(BaseCloudkitTest):
+    def test_cannot_send_request_to_self(self):
+        self.auth(username="Number one user")
+        self.post(self.endpoints["friend_invites"],
+                  params={"player_id": self.player_id},
+                  expected_status_code=http_client.CONFLICT,
+                  check=True)
+
+    def test_cannot_send_friend_request_to_friend(self):
+        # Create friendship
+        self.auth(username="Number one user")
+        player1_id = self.player_id
+        token1 = self.make_token()
+        self.auth(username="Number two user")
+        self.post(self.endpoints["my_friends"], data={"token": token1}, expected_status_code=http_client.CREATED, check=True)
+        # Try to send a friend_request to our new friend
+        self.post(self.endpoints["friend_invites"],
+                  params={"player_id": player1_id},
+                  expected_status_code=http_client.CONFLICT,
+                  check=True)
+
+    def test_cannot_have_multiple_pending_invites_to_same_player(self):
+        self.auth(username="Number one user")
+        player1_id = self.player_id
+        self.auth(username="Number two user")
+        # Create invite from 2 to 1
+        self.post(self.endpoints["friend_invites"],
+                  params={"player_id": player1_id},
+                  expected_status_code=http_client.CREATED,
+                  check=True)
+        # Try to create another one to him
+        self.post(self.endpoints["friend_invites"],
+                  params={"player_id": player1_id},
+                  expected_status_code=http_client.CONFLICT,
+                  check=True)
+
+    def test_cannot_send_request_to_non_existent_player(self):
+        from sqlalchemy import exc
+        self.auth(username="Number one user")
+        self.assertRaises(exc.IntegrityError, self.post, self.endpoints["friend_invites"],
+                                               params={"player_id": 1234567890},
+                                               expected_status_code=http_client.CREATED,
+                                               check=True)
+
+    def test_cannot_have_reciprocal_invites(self):
+        self.auth(username="Number one user")
+        player1_id = self.player_id
+        self.auth(username="Number two user")
+        player2_id = self.player_id
+        # Create invite from 2 to 1
+        self.post(self.endpoints["friend_invites"],
+                  params={"player_id": player1_id},
+                  expected_status_code=http_client.CREATED,
+                  check=True)
+        self.auth(username="Number one user")
+        # Should fail at creating invite from 1 to 2
+        self.post(self.endpoints["friend_invites"],
+                  params={"player_id": player2_id},
+                  expected_status_code=http_client.CONFLICT,
+                  check=True)
+
+
+class FriendsTest(_BaseFriendsTest):
     """
     Tests for the /friends endpoint
     """
@@ -109,7 +193,6 @@ class FriendsTest(BaseCloudkitTest):
     def test_delete_friend(self):
         # Create players for test
         self.auth(username="Number seven user")
-        self.player_id
         token = self.make_token()
 
         self.auth(username="Number six user")
@@ -148,7 +231,6 @@ class FriendsTest(BaseCloudkitTest):
         self.assertEqual(len(friends), 1)
 
     def test_cannot_add_self_as_friend(self):
-
         # Create player for test
         self.auth(username="Number four user")
         token = self.make_token()
@@ -190,6 +272,3 @@ class FriendsTest(BaseCloudkitTest):
         self.assertIsInstance(friends, list)
         self.assertEqual(len(friends), 1)
         self.assertEqual(friends[0]["friend_id"], p1)
-
-    def make_token(self):
-        return self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()["token"]

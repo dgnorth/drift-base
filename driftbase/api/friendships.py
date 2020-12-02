@@ -14,6 +14,10 @@ from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.models.db import Friendship, FriendInvite, CorePlayer
 
+import marshmallow as ma
+from marshmallow_sqlalchemy import ModelSchema
+
+
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
@@ -39,6 +43,14 @@ def drift_init_extension(app, api, **kwargs):
 def get_player(player_id):
     player = g.db.query(CorePlayer).get(player_id)
     return player
+
+
+class InviteSchema(ModelSchema):
+    class Meta:
+        model = FriendInvite
+        strict = True
+    invite_url = ma.fields.Str()
+
 
 
 @bp.route('/players/<int:player_id>', endpoint='list')
@@ -153,11 +165,27 @@ class FriendshipAPI(MethodView):
 @bp.route('/invites', endpoint='invites')
 class FriendInvitesAPI(MethodView):
 
+    @bp.response(InviteSchema(many=True))
+    def get(self):
+        """ List invites sent by current player """
+        return [
+            dict(invite_url=url_for("friendships.invite", invite_id=row.id), **row.as_dict())
+            for row in g.db.query(FriendInvite).filter(FriendInvite.issued_by_player_id == int(current_user["player_id"]),
+                                                       FriendInvite.expiry_date > datetime.datetime.utcnow(),
+                                                       FriendInvite.deleted.is_(False))
+        ]
+
     def post(self):
         """
         New Friend token
         """
-        player_id = current_user["player_id"]
+        sending_player_id = int(current_user["player_id"])
+        try:
+            receiving_player_id = int(request.args.get("player_id"))
+            self._validate_friend_request(receiving_player_id)
+        except TypeError:
+            receiving_player_id = None
+
         token = str(uuid.uuid4())
         expires_seconds = DEFAULT_INVITE_EXPIRATION_TIME_SECONDS
         config = g.conf.tenant.get('friends')
@@ -168,20 +196,16 @@ class FriendInvitesAPI(MethodView):
 
         invite = FriendInvite(
             token=token,
-            issued_by_player_id=player_id,
+            issued_by_player_id=sending_player_id,
+            issued_to=receiving_player_id,
             expiry_date=expires
         )
 
         g.db.add(invite)
         g.db.commit()
 
-        # NOTE: next iteration of this, consider adding 'issued_to' column to ck_friend_invites so we can check if
-        # there's already an outstanding invitation between either of the players towards the other.
-        receiving_player_id = request.args.get("player_id", None)
-        if receiving_player_id == player_id:
-            abort(http_client.CONFLICT)
         if receiving_player_id is not None:
-            self._post_friend_request_message(player_id, request.args.get("player_id", None), token)
+            self._post_friend_request_message(sending_player_id, receiving_player_id, token)
 
         ret = jsonify({
             "token": token,
@@ -191,6 +215,35 @@ class FriendInvitesAPI(MethodView):
         return ret
 
     @staticmethod
+    def _validate_friend_request(receiving_player_id):
+        sending_player_id = int(current_user["player_id"])
+        if receiving_player_id == sending_player_id:
+            log.warning("player %s tried to make friends with self" % sending_player_id)
+            abort(http_client.CONFLICT)  # Can't send requests to yourself
+
+        player1_id, player2_id = min(sending_player_id, receiving_player_id), max(sending_player_id, receiving_player_id)
+        existing_friendship = g.db.query(Friendship).filter(
+            Friendship.player1_id == player1_id,
+            Friendship.player2_id == player2_id
+        ).first()
+        if existing_friendship and existing_friendship.status == "active":
+            log.warning("player %d tried to make friends with existing friend %s while already" % (sending_player_id, receiving_player_id))
+            abort(http_client.CONFLICT)  # Already friends
+        pending_invite = g.db.query(FriendInvite).\
+            filter(FriendInvite.issued_by_player_id == sending_player_id, FriendInvite.issued_to == receiving_player_id).\
+            filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).\
+            first()
+        if pending_invite:
+            log.warning("player %d tried to send friend request to %s while having a pending valid invite" % (sending_player_id, receiving_player_id))
+            abort(http_client.CONFLICT)  # Valid request exists with same from/to values
+        reciprocal_invite = g.db.query(FriendInvite).\
+            filter(FriendInvite.issued_by_player_id == receiving_player_id, FriendInvite.issued_to == sending_player_id).\
+            filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).first()
+        if reciprocal_invite:
+            log.warning("player %d tried to send friend request to %s while the latter has a valid pending request to the former" % (sending_player_id, receiving_player_id))
+            abort(http_client.CONFLICT)  # Valid request exists from receiver to sender
+
+    @staticmethod
     def _post_friend_request_message(sender_player_id, receiving_player_id, token):
         """ Insert a 'friend_request' event into the 'friendevent' queue of the 'players' exchange. """
         from driftbase.api.messages import _add_message
@@ -198,7 +251,7 @@ class FriendInvitesAPI(MethodView):
             log.warning("Not creating a friend_request event for a non-specific invite from player id %s" % sender_player_id)
             return
         payload = {"token": token, "event": "friend_request"}
-        _add_message("players", int(receiving_player_id), "friendevent", payload)
+        _add_message("players", receiving_player_id, "friendevent", payload)
 
 
 
