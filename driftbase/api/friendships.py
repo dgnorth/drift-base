@@ -202,7 +202,7 @@ class FriendInvitesAPI(MethodView):
         sending_player_id = int(current_user["player_id"])
         if receiving_player_id == sending_player_id:
             log.warning("player %s tried to make friends with self" % sending_player_id)
-            abort(http_client.CONFLICT)  # Can't send requests to yourself
+            abort(http_client.CONFLICT)
 
         player1_id, player2_id = min(sending_player_id, receiving_player_id), max(sending_player_id, receiving_player_id)
         existing_friendship = g.db.query(Friendship).filter(
@@ -210,21 +210,21 @@ class FriendInvitesAPI(MethodView):
             Friendship.player2_id == player2_id
         ).first()
         if existing_friendship and existing_friendship.status == "active":
-            log.warning("player %d tried to make friends with existing friend %s while already" % (sending_player_id, receiving_player_id))
+            log.warning("player %d tried to make friends with existing friend %s" % (sending_player_id, receiving_player_id))
             abort(http_client.CONFLICT)  # Already friends
         pending_invite = g.db.query(FriendInvite).\
             filter(FriendInvite.issued_by_player_id == sending_player_id, FriendInvite.issued_to == receiving_player_id).\
             filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).\
             first()
         if pending_invite:
-            log.warning("player %d tried to send friend request to %s while having a pending valid invite" % (sending_player_id, receiving_player_id))
-            abort(http_client.CONFLICT)  # Valid request exists with same from/to values
+            log.warning("player %d tried to send friend request to %s while having a pending and valid invite" % (sending_player_id, receiving_player_id))
+            abort(http_client.CONFLICT)
         reciprocal_invite = g.db.query(FriendInvite).\
             filter(FriendInvite.issued_by_player_id == receiving_player_id, FriendInvite.issued_to == sending_player_id).\
             filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).first()
         if reciprocal_invite:
             log.warning("player %d tried to send friend request to %s while the latter has a valid pending request to the former" % (sending_player_id, receiving_player_id))
-            abort(http_client.CONFLICT)  # Valid request exists from receiver to sender
+            abort(http_client.CONFLICT)
 
     @staticmethod
     def _post_friend_request_message(sender_player_id, receiving_player_id, token):

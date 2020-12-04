@@ -24,34 +24,26 @@ class FriendRequestsTest(_BaseFriendsTest):
     def test_create_global_token(self):
         # Create player for test
         self.auth(username="Number one user")
-        result = self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()
+        result = self.make_token()
         self.assertIsInstance(result, dict)
-
         pattern = re.compile('^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$', re.IGNORECASE)
-
         self.assertTrue(pattern.match(result["token"]), "Token '{}' doesn't match the expected uuid format".format(result["token"]))
 
     def test_delete_token(self):
         self.auth(username="Number one user")
-
         # create a token
         result = self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()
-
         # delete the token
         self.delete(result['url'], expected_status_code=http_client.NO_CONTENT)
-
         # delete it again
         self.delete(result['url'], expected_status_code=http_client.GONE)
 
     def test_other_player_may_not_delete_token(self):
         self.auth(username="Number one user")
-
         # create a token
         result = self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()
         invite_url = result['url']
-
         self.auth(username="Number two user")
-
         # delete the token
         self.delete(invite_url, expected_status_code=http_client.FORBIDDEN)
 
