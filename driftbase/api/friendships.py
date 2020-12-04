@@ -13,17 +13,11 @@ from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
 from driftbase.models.db import Friendship, FriendInvite, CorePlayer
-
-import marshmallow as ma
-from marshmallow_sqlalchemy import ModelSchema
-
-
+from driftbase.schemas.friendships import InviteSchema, FriendRequestSchema
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
-
 log = logging.getLogger(__name__)
-
 
 bp = Blueprint("friendships", __name__, url_prefix="/friendships", description="Player to player relationships")
 endpoints = Endpoints()
@@ -43,14 +37,6 @@ def drift_init_extension(app, api, **kwargs):
 def get_player(player_id):
     player = g.db.query(CorePlayer).get(player_id)
     return player
-
-
-class InviteSchema(ModelSchema):
-    class Meta:
-        model = FriendInvite
-        strict = True
-    invite_url = ma.fields.Str()
-
 
 
 @bp.route('/players/<int:player_id>', endpoint='list')
@@ -168,12 +154,9 @@ class FriendInvitesAPI(MethodView):
     @bp.response(InviteSchema(many=True))
     def get(self):
         """ List invites sent by current player """
-        return [
-            dict(invite_url=url_for("friendships.invite", invite_id=row.id), **row.as_dict())
-            for row in g.db.query(FriendInvite).filter(FriendInvite.issued_by_player_id == int(current_user["player_id"]),
-                                                       FriendInvite.expiry_date > datetime.datetime.utcnow(),
-                                                       FriendInvite.deleted.is_(False))
-        ]
+        return g.db.query(FriendInvite).filter(FriendInvite.issued_by_player_id == int(current_user["player_id"]),
+                                            FriendInvite.expiry_date > datetime.datetime.utcnow(),
+                                            FriendInvite.deleted.is_(False))
 
     def post(self):
         """
@@ -254,7 +237,6 @@ class FriendInvitesAPI(MethodView):
         _add_message("players", receiving_player_id, "friendevent", payload)
 
 
-
 @bp.route('/invites/<int:invite_id>', endpoint='invite')
 class FriendInviteAPI(MethodView):
 
@@ -277,11 +259,24 @@ class FriendInviteAPI(MethodView):
         return "{}", http_client.NO_CONTENT
 
 
+@bp.route('/requests/', endpoint='requests')
+class FriendRequestsAPI(MethodView):
+    @bp.response(FriendRequestSchema(many=True))
+    def get(self):
+        """
+        Return pending friend requests sent to current player
+        """
+        return g.db.query(FriendInvite).filter(FriendInvite.issued_to == int(current_user["player_id"]),
+                                               FriendInvite.expiry_date > datetime.datetime.utcnow(),
+                                               FriendInvite.deleted.is_(False))
+
+
 @endpoints.register
 def endpoint_info(*args):
     ret = {
         "my_friends": None,
-        "friend_invites": url_for("friendships.invites", _external=True)
+        "friend_invites": url_for("friendships.invites", _external=True),
+        "friend_requests": url_for("friendships.requests", _external=True)
     }
     if current_user:
         ret["my_friends"] = url_for("friendships.list", player_id=current_user["player_id"], _external=True)

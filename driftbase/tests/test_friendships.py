@@ -17,14 +17,13 @@ class _BaseFriendsTest(BaseCloudkitTest):
         return self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()["token"]
 
 
-class FriendTokensTest(_BaseFriendsTest):
+class FriendRequestsTest(_BaseFriendsTest):
     """
     Tests for the /friend_invites endpoint
     """
     def test_create_global_token(self):
         # Create player for test
         self.auth(username="Number one user")
-
         result = self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()
         self.assertIsInstance(result, dict)
 
@@ -128,6 +127,39 @@ class FriendTokensTest(_BaseFriendsTest):
                   params={"player_id": player2_id},
                   expected_status_code=http_client.CONFLICT,
                   check=True)
+
+    def test_get_issued_tokens(self):
+        self.auth(username="Number one user")
+        player1_id = self.player_id
+        self.auth(username="Number two user")
+        player2_id = self.player_id
+        # Create invite from 2 to 1
+        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        result = self.get(self.endpoints["friend_invites"], expected_status_code=http_client.OK).json()
+        self.assertIsInstance(result, list)
+        self.assertTrue(len(result) == 1)
+        self.assertIsInstance(result[0], dict)
+        invite = result[0]
+        self.assertTrue(invite["issued_by_player_id"].endswith(str(player2_id)))
+        self.assertTrue(invite["issued_to"].endswith(str(player1_id)))
+
+    def test_get_pending_requests(self):
+        self.auth(username="Number one user")
+        player1_id = self.player_id
+        self.auth(username="Number two user")
+        player2_id = self.player_id
+        # Create invite from 2 to 1
+        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        # auth as player 1 and fetch its friend requests
+        self.auth(username="Number one user")
+        result = self.get(self.endpoints["friend_requests"], expected_status_code=http_client.OK).json()
+        self.assertIsInstance(result, list)
+        self.assertTrue(len(result) == 1)
+        self.assertIsInstance(result[0], dict)
+        request = result[0]
+        self.assertTrue(request["issued_by_player_id"].endswith(str(player2_id)))
+        self.assertTrue(request["issued_to"].endswith(str(self.player_id)))
+        self.assertEqual(request["accept_url"], "/friendships/players/%d" % self.player_id)
 
 
 class FriendsTest(_BaseFriendsTest):
