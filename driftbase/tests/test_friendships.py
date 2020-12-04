@@ -24,7 +24,7 @@ class FriendRequestsTest(_BaseFriendsTest):
     def test_create_global_token(self):
         # Create player for test
         self.auth(username="Number one user")
-        result = self.make_token()
+        result = self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()
         self.assertIsInstance(result, dict)
         pattern = re.compile('^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$', re.IGNORECASE)
         self.assertTrue(pattern.match(result["token"]), "Token '{}' doesn't match the expected uuid format".format(result["token"]))
@@ -151,7 +151,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         request = result[0]
         self.assertTrue(request["issued_by_player_id"].endswith(str(player2_id)))
         self.assertTrue(request["issued_to"].endswith(str(self.player_id)))
-        self.assertEqual(request["accept_url"], "/friendships/players/%d" % self.player_id)
+        self.assertTrue(request["accept_url"].endswith("/friendships/players/%d" % self.player_id))
 
 
 class FriendsTest(_BaseFriendsTest):
