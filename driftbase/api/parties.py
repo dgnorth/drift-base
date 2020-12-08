@@ -143,6 +143,7 @@ class PartyPlayerAPI(MethodView):
             _add_message("players", member, "party_notification",
                          {
                              "event": "player_left",
+                             "party_id": party_id,
                              "party_url": url_for("parties.entry", party_id=party_id, _external=True),
                              "player_id": player_id,
                              "player_url": url_for("players.entry", player_id=player_id, _external=True),
@@ -152,6 +153,7 @@ class PartyPlayerAPI(MethodView):
             _add_message("players", members[0], "party_notification",
                          {
                              "event": "disbanded",
+                             "party_id": party_id,
                              "party_url": url_for("parties.entry", party_id=party_id, _external=True),
                          })
         return {}, http_client.NO_CONTENT
@@ -191,9 +193,13 @@ class PartyInvitesAPI(MethodView):
                              "invite_id": invite_id,
                              "invite_url": resource_uri,
                              "inviting_player_id": my_player_id,
+                             "inviting_player_url": url_for("players.entry", player_id=my_player_id, _external=True),
                          })
             response_header = {"Location": resource_uri}
-            return {"url": resource_uri}, http_client.CREATED, response_header
+            return {
+                       "id": invite_id,
+                       "url": resource_uri,
+                   }, http_client.CREATED, response_header
         else:
             abort(http_client.BAD_REQUEST, message="Player is already in the party")
 
@@ -230,26 +236,39 @@ class PartyInviteAPI(MethodView):
                              "player_id": player_id,
                              "member_url": member_url,
                              "player_url": url_for("players.entry", player_id=player_id, _external=True),
-                             "inviting_member_url": url_for("parties.member", party_id=party_id, player_id=inviter_id, _external=True),
+                             "inviting_member_url": url_for("parties.member", party_id=party_id, player_id=inviter_id,
+                                                            _external=True),
                              "inviting_player_url": url_for("players.entry", player_id=inviter_id, _external=True),
                          })
         response = {
             "party_id": party_id,
             "party_url": url_for("parties.entry", party_id=party_id, _external=True),
             "player_id": player_id,
-            "player_url": member_url,
+            "member_url": member_url,
+            "player_url": url_for("players.entry", player_id=player_id, _external=True),
         }
         return response, http_client.OK
 
     def delete(self, invite_id):
         player_id = current_user['player_id']
-        inviter_id = decline_party_invite(invite_id, player_id)
-        log.debug("Player {} declined a party invite from {}".format(player_id, inviter_id))
-        _add_message("players", inviter_id, "party_notification",
-                     {
-                         "event": "invite_declined",
-                         "player_id": player_id,
-                     })
+        inviter_id, invited_id = decline_party_invite(invite_id, player_id)
+        if inviter_id == player_id:
+            log.debug("Player {} canceled a party invite to {}".format(inviter_id, invited_id))
+            _add_message("players", invited_id, "party_notification",
+                         {
+                             "event": "invite_canceled",
+                             "invite_id": invite_id,
+                             "inviting_player_id": inviter_id,
+                             "inviting_player_url": url_for("players.entry", player_id=inviter_id, _external=True),
+                         })
+        else:
+            log.debug("Player {} declined a party invite from {}".format(player_id, inviter_id))
+            _add_message("players", inviter_id, "party_notification",
+                         {
+                             "event": "invite_declined",
+                             "player_id": invited_id,
+                             "player_url": url_for("players.entry", player_id=invited_id, _external=True),
+                         })
         return {}, http_client.NO_CONTENT
 
 

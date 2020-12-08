@@ -167,7 +167,7 @@ class PartiesTest(BaseCloudkitTest):
         g2_accept = self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}).json()
 
         # Leave the party with g2
-        self.delete(g2_accept['player_url'], expected_status_code=http_client.NO_CONTENT)
+        self.delete(g2_accept['member_url'], expected_status_code=http_client.NO_CONTENT)
 
         # Check host gets a notification
         self.auth(username=host_user)
@@ -187,7 +187,7 @@ class PartiesTest(BaseCloudkitTest):
         self.check_expected_players_in_party(party, [host_id, g1_id])
 
         # Leave the party with g1
-        self.delete(g1_accept['player_url'], expected_status_code=http_client.NO_CONTENT)
+        self.delete(g1_accept['member_url'], expected_status_code=http_client.NO_CONTENT)
 
         # Check host gets a notification
         self.auth(username=host_user)
@@ -224,7 +224,7 @@ class PartiesTest(BaseCloudkitTest):
         g1_accept = self.patch(g1_notification['invite_url'], data={'inviter_id': host_id}).json()
 
         # Leave the party with g1
-        self.delete(g1_accept['player_url'], expected_status_code=http_client.NO_CONTENT)
+        self.delete(g1_accept['member_url'], expected_status_code=http_client.NO_CONTENT)
 
         # Verify the party is gone as there's only one player left
         self.auth(username=host_user)

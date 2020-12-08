@@ -215,7 +215,7 @@ def decline_party_invite(invite_id, declining_player_id):
             pipe.delete(scoped_party_invite_key)
             pipe.zrem(sending_player_invites_key, invite_id)
             pipe.execute()
-            return int(invite_sender_id)
+            return int(invite_sender_id), int(invite_receiver_id)
         except WatchError:
             abort(http_client.CONFLICT)
 
