@@ -203,6 +203,10 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.assertIsInstance(response, list)
         self.assertTrue(len(response) == 1)
         request = response[0]
+        expected_keys = {"id", "create_date", "expiry_date", "modify_date", "token",
+                         "issued_by_player_id", "issued_by_player_url", "issued_by_name",
+                         "issued_to", "issued_to_url", "issued_to_name", "accept_url"}
+        self.assertSetEqual(expected_keys, set(request.keys()))
         self.assertTrue(request["issued_by_player_id"] == player2_id)
         self.assertTrue(request["issued_by_name"] == player2_name)
         self.assertTrue(request["issued_to"] == self.player_id)
