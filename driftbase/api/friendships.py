@@ -158,7 +158,7 @@ class FriendInvitesAPI(MethodView):
         """ List invites sent by current player """
         CorePlayer2 = aliased(CorePlayer)
         return g.db.query(FriendInvite, CorePlayer.player_name, CorePlayer2.player_name).\
-                            join(CorePlayer, CorePlayer.player_id==FriendInvite.issued_to).\
+                            join(CorePlayer, CorePlayer.player_id==FriendInvite.issued_to_player_id).\
                             join(CorePlayer2, CorePlayer2.player_id==FriendInvite.issued_by_player_id).\
             filter(FriendInvite.issued_by_player_id == int(current_user["player_id"]),
                                             FriendInvite.expiry_date > datetime.datetime.utcnow(),
@@ -186,7 +186,7 @@ class FriendInvitesAPI(MethodView):
         invite = FriendInvite(
             token=token,
             issued_by_player_id=sending_player_id,
-            issued_to=receiving_player_id,
+            issued_to_player_id=receiving_player_id,
             expiry_date=expires
         )
 
@@ -219,14 +219,14 @@ class FriendInvitesAPI(MethodView):
             log.warning("player %d tried to make friends with existing friend %s" % (sending_player_id, receiving_player_id))
             abort(http_client.CONFLICT)  # Already friends
         pending_invite = g.db.query(FriendInvite).\
-            filter(FriendInvite.issued_by_player_id == sending_player_id, FriendInvite.issued_to == receiving_player_id).\
+            filter(FriendInvite.issued_by_player_id == sending_player_id, FriendInvite.issued_to_player_id == receiving_player_id).\
             filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).\
             first()
         if pending_invite:
             log.warning("player %d tried to send friend request to %s while having a pending and valid invite" % (sending_player_id, receiving_player_id))
             abort(http_client.CONFLICT)
         reciprocal_invite = g.db.query(FriendInvite).\
-            filter(FriendInvite.issued_by_player_id == receiving_player_id, FriendInvite.issued_to == sending_player_id).\
+            filter(FriendInvite.issued_by_player_id == receiving_player_id, FriendInvite.issued_to_player_id == sending_player_id).\
             filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).first()
         if reciprocal_invite:
             log.warning("player %d tried to send friend request to %s while the latter has a valid pending request to the former" % (sending_player_id, receiving_player_id))
@@ -274,9 +274,9 @@ class FriendRequestsAPI(MethodView):
         """
         CorePlayer2 = aliased(CorePlayer)
         return g.db.query(FriendInvite, CorePlayer.player_name, CorePlayer2.player_name). \
-            join(CorePlayer, CorePlayer.player_id == FriendInvite.issued_to).\
+            join(CorePlayer, CorePlayer.player_id == FriendInvite.issued_to_player_id).\
             join(CorePlayer2, CorePlayer2.player_id == FriendInvite.issued_by_player_id). \
-                filter(FriendInvite.issued_to == int(current_user["player_id"]),
+                filter(FriendInvite.issued_to_player_id == int(current_user["player_id"]),
                    FriendInvite.expiry_date > datetime.datetime.utcnow(),
                    FriendInvite.deleted.is_(False))
 

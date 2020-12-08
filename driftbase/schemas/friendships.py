@@ -12,18 +12,18 @@ class InviteSchema(SQLAlchemyAutoSchema):
         ordered = True
         exclude = ("deleted", )
     issued_by_player_url = AbsoluteUrlFor("players.entry", player_id='<issued_by_player_id>')
-    issued_by_name = fields.String()
-    issued_to_url = AbsoluteUrlFor("players.entry", player_id='<issued_to>')
-    issued_to_name = fields.String()
+    issued_by_player_name = fields.String()
+    issued_to_player_url = AbsoluteUrlFor("players.entry", player_id='<issued_to_player_id>')
+    issued_to_player_name = fields.String()
 
     @pre_dump
     def _populate_names(self, obj, many, **kwargs):
-        obj, issued_to_name, issued_by_name = obj
-        obj.issued_to_name = issued_to_name
-        obj.issued_by_name = issued_by_name
+        obj, issued_to_player_name, issued_by_player_name = obj
+        obj.issued_to_player_name = issued_to_player_name
+        obj.issued_by_player_name = issued_by_player_name
         return obj
 
 
 class FriendRequestSchema(InviteSchema):
-    accept_url = AbsoluteUrlFor("friendships.list", player_id='<issued_to>')
+    accept_url = AbsoluteUrlFor("friendships.list", player_id='<issued_to_player_id>')
 
