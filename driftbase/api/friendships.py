@@ -194,7 +194,7 @@ class FriendInvitesAPI(MethodView):
         g.db.commit()
 
         if receiving_player_id is not None:
-            self._post_friend_request_message(sending_player_id, receiving_player_id, token)
+            self._post_friend_request_message(sending_player_id, receiving_player_id, token, expires_seconds)
 
         ret = jsonify({
             "token": token,
@@ -233,14 +233,14 @@ class FriendInvitesAPI(MethodView):
             abort(http_client.CONFLICT)
 
     @staticmethod
-    def _post_friend_request_message(sender_player_id, receiving_player_id, token):
+    def _post_friend_request_message(sender_player_id, receiving_player_id, token, expiry):
         """ Insert a 'friend_request' event into the 'friendevent' queue of the 'players' exchange. """
         from driftbase.api.messages import _add_message
         if receiving_player_id is None:
             log.warning("Not creating a friend_request event for a non-specific invite from player id %s" % sender_player_id)
             return
         payload = {"token": token, "event": "friend_request"}
-        _add_message("players", receiving_player_id, "friendevent", payload)
+        _add_message("players", receiving_player_id, "friendevent", payload, expiry)
 
 
 @bp.route('/invites/<int:invite_id>', endpoint='invite')
