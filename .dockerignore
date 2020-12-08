@@ -22,6 +22,7 @@ README.md
 VERSION
 docker-compose.yml
 example.env
+local*
 notes-on-sls.md
 pytest.ini
 settings.ini
