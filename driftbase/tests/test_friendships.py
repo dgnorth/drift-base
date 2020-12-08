@@ -5,13 +5,25 @@ from six.moves import http_client
 from driftbase.utils.test_utils import BaseCloudkitTest
 
 class _BaseFriendsTest(BaseCloudkitTest):
+    def __init__(self, *args, **kwargs):
+        super(_BaseFriendsTest, self).__init__(*args, **kwargs)
+        self._logged_in = []
+
     def tearDown(self):
-        if self.endpoints:
+        for player in self._logged_in[:]:
+            self.auth(player)
             for friend in self.get(self.endpoints["my_friends"]).json():
                 self.delete(friend["friendship_url"], expected_status_code=http_client.NO_CONTENT)
             invite_url = self.endpoints["friend_invites"]
             for invite in self.get(invite_url).json():
                 self.delete("%s/%d" % (invite_url, invite["id"]), expected_status_code=http_client.NO_CONTENT)
+        self._logged_in = []
+
+    def auth(self, username=None, player_name=None):
+        super(_BaseFriendsTest, self).auth(username, player_name)
+        if player_name is not None:
+            self.patch(self.endpoints["my_player"], data={"name": player_name})
+        self._logged_in.append(username)
 
     def make_token(self):
         return self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()["token"]
@@ -132,8 +144,8 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.assertTrue(len(result) == 1)
         self.assertIsInstance(result[0], dict)
         invite = result[0]
-        self.assertTrue(invite["issued_by_player_id"].endswith(str(player2_id)))
-        self.assertTrue(invite["issued_to"].endswith(str(player1_id)))
+        self.assertTrue(invite["issued_by_player_id"] == player2_id)
+        self.assertTrue(invite["issued_to"] == player1_id)
 
     def test_get_pending_requests(self):
         self.auth(username="Number one user")
@@ -149,8 +161,52 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.assertTrue(len(result) == 1)
         self.assertIsInstance(result[0], dict)
         request = result[0]
-        self.assertTrue(request["issued_by_player_id"].endswith(str(player2_id)))
-        self.assertTrue(request["issued_to"].endswith(str(self.player_id)))
+        self.assertTrue(request["issued_by_player_id"] == player2_id)
+        self.assertTrue(request["issued_to"] == self.player_id)
+        self.assertTrue(request["accept_url"].endswith("/friendships/players/%d" % self.player_id))
+
+    def test_invite_response_schema(self):
+        self.auth(username="Number one user", player_name="Dr. Evil")
+        player1_id = self.player_id
+        player1_name = self.player_name
+        self.auth(username="Number two user", player_name="Mini Me")
+        player2_id = self.player_id
+        player2_name = self.player_name
+        # Create invite from 2 to 1
+        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        response = self.get(self.endpoints["friend_invites"], expected_status_code=http_client.OK).json()
+        self.assertIsInstance(response, list)
+        self.assertTrue(len(response) == 1)
+        invite = response[0]
+        expected_keys = {"id", "create_date", "expiry_date", "modify_date", "token",
+                         "issued_by_player_id", "issued_by_player_url", "issued_by_name",
+                         "issued_to", "issued_to_url", "issued_to_name"}
+        self.assertSetEqual(expected_keys, set(invite.keys()))
+        self.assertTrue(invite["issued_by_player_id"] == player2_id)
+        self.assertTrue(invite["issued_by_name"] == player2_name)
+        self.assertTrue(invite["issued_to"] == player1_id)
+        self.assertTrue(invite["issued_to_name"] == player1_name)
+
+
+    def test_request_response_schema(self):
+        self.auth(username="Number one user", player_name="Dr. Evil")
+        player1_id = self.player_id
+        player1_name = self.player_name
+        self.auth(username="Number two user", player_name="Mini Me")
+        player2_id = self.player_id
+        player2_name = self.player_name
+        # Create invite from 2 to 1
+        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        # Relog as 1
+        self.auth(username="Number one user", player_name=player1_name)
+        response = self.get(self.endpoints["friend_requests"], expected_status_code=http_client.OK).json()
+        self.assertIsInstance(response, list)
+        self.assertTrue(len(response) == 1)
+        request = response[0]
+        self.assertTrue(request["issued_by_player_id"] == player2_id)
+        self.assertTrue(request["issued_by_name"] == player2_name)
+        self.assertTrue(request["issued_to"] == self.player_id)
+        self.assertTrue(request["issued_to_name"] == player1_name)
         self.assertTrue(request["accept_url"].endswith("/friendships/players/%d" % self.player_id))
 
 

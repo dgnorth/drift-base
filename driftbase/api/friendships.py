@@ -15,6 +15,8 @@ from drift.core.extensions.schemachecker import simple_schema_request
 from driftbase.models.db import Friendship, FriendInvite, CorePlayer
 from driftbase.schemas.friendships import InviteSchema, FriendRequestSchema
 
+from sqlalchemy.orm import aliased
+
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
 log = logging.getLogger(__name__)
@@ -154,7 +156,11 @@ class FriendInvitesAPI(MethodView):
     @bp.response(InviteSchema(many=True))
     def get(self):
         """ List invites sent by current player """
-        return g.db.query(FriendInvite).filter(FriendInvite.issued_by_player_id == int(current_user["player_id"]),
+        CorePlayer2 = aliased(CorePlayer)
+        return g.db.query(FriendInvite, CorePlayer.player_name, CorePlayer2.player_name).\
+                            join(CorePlayer, CorePlayer.player_id==FriendInvite.issued_to).\
+                            join(CorePlayer2, CorePlayer2.player_id==FriendInvite.issued_by_player_id).\
+            filter(FriendInvite.issued_by_player_id == int(current_user["player_id"]),
                                             FriendInvite.expiry_date > datetime.datetime.utcnow(),
                                             FriendInvite.deleted.is_(False))
 
@@ -266,9 +272,13 @@ class FriendRequestsAPI(MethodView):
         """
         Return pending friend requests sent to current player
         """
-        return g.db.query(FriendInvite).filter(FriendInvite.issued_to == int(current_user["player_id"]),
-                                               FriendInvite.expiry_date > datetime.datetime.utcnow(),
-                                               FriendInvite.deleted.is_(False))
+        CorePlayer2 = aliased(CorePlayer)
+        return g.db.query(FriendInvite, CorePlayer.player_name, CorePlayer2.player_name). \
+            join(CorePlayer, CorePlayer.player_id == FriendInvite.issued_to).\
+            join(CorePlayer2, CorePlayer2.player_id == FriendInvite.issued_by_player_id). \
+                filter(FriendInvite.issued_to == int(current_user["player_id"]),
+                   FriendInvite.expiry_date > datetime.datetime.utcnow(),
+                   FriendInvite.deleted.is_(False))
 
 
 @endpoints.register
