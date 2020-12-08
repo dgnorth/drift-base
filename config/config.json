@@ -36,7 +36,6 @@
         "driftbase.analytics"
     ],
     "resources": [
-        "drift.core.resources.awsdeploy",
         "drift.core.resources.postgres",
         "drift.core.resources.redis",
         "drift.core.resources.apitarget",
