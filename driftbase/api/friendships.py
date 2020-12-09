@@ -137,9 +137,9 @@ class FriendshipAPI(MethodView):
 
         friendship = g.db.query(Friendship).filter_by(id=friendship_id).first()
         if friendship is None:
-            abort(http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, description="Unknown friendship")
         elif friendship.player1_id != player_id and friendship.player2_id != player_id:
-            abort(http_client.FORBIDDEN)
+            abort(http_client.FORBIDDEN, description="You are not friends")
         elif friendship.status == "deleted":
             return jsonify("{}"), http_client.GONE
 
@@ -207,8 +207,7 @@ class FriendInvitesAPI(MethodView):
     def _validate_friend_request(receiving_player_id):
         sending_player_id = int(current_user["player_id"])
         if receiving_player_id == sending_player_id:
-            log.warning("player %s tried to make friends with self" % sending_player_id)
-            abort(http_client.CONFLICT)
+            abort(http_client.CONFLICT, description="Cannot send friend requests to yourself")
 
         player1_id, player2_id = min(sending_player_id, receiving_player_id), max(sending_player_id, receiving_player_id)
         existing_friendship = g.db.query(Friendship).filter(
@@ -216,21 +215,18 @@ class FriendInvitesAPI(MethodView):
             Friendship.player2_id == player2_id
         ).first()
         if existing_friendship and existing_friendship.status == "active":
-            log.warning("player %d tried to make friends with existing friend %s" % (sending_player_id, receiving_player_id))
-            abort(http_client.CONFLICT)  # Already friends
+            abort(http_client.CONFLICT, description="You are already friends")  # Already friends
         pending_invite = g.db.query(FriendInvite).\
             filter(FriendInvite.issued_by_player_id == sending_player_id, FriendInvite.issued_to_player_id == receiving_player_id).\
             filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).\
             first()
         if pending_invite:
-            log.warning("player %d tried to send friend request to %s while having a pending and valid invite" % (sending_player_id, receiving_player_id))
-            abort(http_client.CONFLICT)
+            abort(http_client.CONFLICT, description="Cannot issue multiple friend requests to the same receiver")
         reciprocal_invite = g.db.query(FriendInvite).\
             filter(FriendInvite.issued_by_player_id == receiving_player_id, FriendInvite.issued_to_player_id == sending_player_id).\
             filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).first()
         if reciprocal_invite:
-            log.warning("player %d tried to send friend request to %s while the latter has a valid pending request to the former" % (sending_player_id, receiving_player_id))
-            abort(http_client.CONFLICT)
+            abort(http_client.CONFLICT, description="The receiver has already sent you a friend request")
 
     @staticmethod
     def _post_friend_request_message(sender_player_id, receiving_player_id, token, expiry):
@@ -254,9 +250,9 @@ class FriendInviteAPI(MethodView):
 
         invite = g.db.query(FriendInvite).filter_by(id=invite_id).first()
         if not invite:
-            abort(http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, description="Invite not found")
         elif invite.issued_by_player_id != player_id:
-            abort(http_client.FORBIDDEN)
+            abort(http_client.FORBIDDEN, desciption="Not your invite")
         elif invite.deleted:
             return "{}", http_client.GONE
 
