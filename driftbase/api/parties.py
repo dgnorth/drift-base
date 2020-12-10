@@ -16,12 +16,14 @@ from driftbase.parties import accept_party_invite, get_player_party, get_party_m
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("parties", __name__, url_prefix='/parties')
+bp_parties = Blueprint("parties", __name__, url_prefix='/parties')
+bp_party_invites = Blueprint("party_invites", __name__, url_prefix='/party_invites')
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+    api.register_blueprint(bp_parties)
+    api.register_blueprint(bp_party_invites)
     endpoints.init_app(app)
 
 
@@ -71,13 +73,13 @@ class PartyPlayerSchema(ma.Schema):
     player_id = ma.fields.Integer()
 
 
-@bp.route("/<int:party_id>/members/", endpoint="members")
+@bp_parties.route("/<int:party_id>/members/", endpoint="members")
 class PartyPlayersAPI(MethodView):
     """
     Manage players in a party
     """
 
-    @bp.response(PartyPlayerSchema(many=True))
+    @bp_parties.response(PartyPlayerSchema(many=True))
     def get(self, party_id):
         player_id = current_user['player_id']
         members = get_party_members(party_id)
@@ -99,8 +101,8 @@ class PartyPlayersAPI(MethodView):
         }
         return response
 
-    @bp.arguments(PartyPlayerPostRequestSchema, location='json')
-    @bp.response(PartyPlayerResponseSchema)
+    @bp_parties.arguments(PartyPlayerPostRequestSchema, location='json')
+    @bp_parties.response(PartyPlayerResponseSchema)
     def post(self, args, party_id):
         player_id = current_user['player_id']
         resource_uri = url_for("parties.member", party_id=party_id, player_id=player_id, _external=True)
@@ -115,7 +117,7 @@ class PartyPlayersAPI(MethodView):
         return {"url": resource_uri}, http_client.CREATED, response_header
 
 
-@bp.route("/<int:party_id>/members/<int:player_id>", endpoint="member")
+@bp_parties.route("/<int:party_id>/members/<int:player_id>", endpoint="member")
 class PartyPlayerAPI(MethodView):
     """
     Manage a player in a party
@@ -159,14 +161,14 @@ class PartyPlayerAPI(MethodView):
         return {}, http_client.NO_CONTENT
 
 
-@bp.route("/party_invites/", endpoint="invites")
+@bp_party_invites.route("/", endpoint="list")
 class PartyInvitesAPI(MethodView):
     """
     Manage invites for a party
     """
 
-    @bp.arguments(PartyInvitesPostRequestSchema, location='json')
-    @bp.response(PartyInvitesResponseSchema)
+    @bp_parties.arguments(PartyInvitesPostRequestSchema, location='json')
+    @bp_parties.response(PartyInvitesResponseSchema)
     def post(self, args):
         my_player_id = current_user['player_id']
         player_id = args.get('player_id')
@@ -186,7 +188,7 @@ class PartyInvitesAPI(MethodView):
             else:
                 log.debug("Player {} invited player {} to form a new party".format(my_player_id, player_id))
 
-            resource_uri = url_for("parties.invite", invite_id=invite_id, _external=True)
+            resource_uri = url_for("party_invites.entry", invite_id=invite_id, _external=True)
             _add_message("players", player_id, "party_notification",
                          {
                              "event": "invite",
@@ -204,7 +206,7 @@ class PartyInvitesAPI(MethodView):
             abort(http_client.BAD_REQUEST, message="Player is already in the party")
 
 
-@bp.route("/invites/<int:invite_id>", endpoint="invite")
+@bp_party_invites.route("/<int:invite_id>", endpoint="entry")
 class PartyInviteAPI(MethodView):
     # def get(self, party_id, invite_id):
     #     invite = get_party_invite(party_id, invite_id)
@@ -218,7 +220,7 @@ class PartyInviteAPI(MethodView):
     #     }
     #     return response, http_client.OK, response_header
 
-    @bp.arguments(PartyInvitesSchema)
+    @bp_parties.arguments(PartyInvitesSchema)
     def patch(self, args, invite_id):
         player_id = current_user['player_id']
         inviter_id = args.get('inviter_id')
@@ -272,13 +274,13 @@ class PartyInviteAPI(MethodView):
         return {}, http_client.NO_CONTENT
 
 
-@bp.route("/", endpoint="list")
+@bp_parties.route("/", endpoint="list")
 class PartiesAPI(MethodView):
     """
     Return the party for the current player
     """
 
-    @bp.arguments(PartyGetSchema)
+    @bp_parties.arguments(PartyGetSchema)
     def get(self, args):
         player_id = current_user['player_id']
         party_id = get_player_party(player_id)
@@ -292,7 +294,7 @@ class PartiesAPI(MethodView):
         return response, http_client.OK, response_header
 
 
-@bp.route("/<int:party_id>/", endpoint="entry")
+@bp_parties.route("/<int:party_id>/", endpoint="entry")
 class PartyAPI(MethodView):
     """
     Manage party of players.
@@ -319,7 +321,7 @@ class PartyAPI(MethodView):
 
 def make_party_response(party_id, party_members):
     resource_uri = url_for("parties.entry", party_id=party_id, _external=True)
-    invites_uri = url_for("parties.invites", party_id=party_id, _external=True)
+    invites_uri = url_for("party_invites.list", _external=True)
     members_uri = url_for("parties.members", party_id=party_id, _external=True)
     response_header = {"Location": resource_uri}
     response = {
@@ -342,6 +344,6 @@ def make_party_response(party_id, party_members):
 def endpoint_info(*args):
     ret = {
         "parties": url_for("parties.list", _external=True),
-        "party_invites": url_for("parties.invites", _external=True),
+        "party_invites": url_for("party_invites.list", _external=True),
     }
     return ret
