@@ -332,7 +332,7 @@ def make_party_response(party_id, party_members):
         "members": [
             {
                 'id': player_id,
-                'url': url_for("parties.members", party_id=party_id, player_id=player_id, _external=True),
+                'url': url_for("parties.member", party_id=party_id, player_id=player_id, _external=True),
                 'player_url': url_for("players.entry", player_id=player_id, _external=True),
             }
             for player_id in party_members]
