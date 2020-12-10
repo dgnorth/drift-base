@@ -290,7 +290,8 @@ class PartiesAPI(MethodView):
 
         party_id = int(party_id)
         party_members = get_party_members(party_id)
-        response, response_header = make_party_response(party_id, party_members)
+        member_query = g.db.query(CorePlayer.player_id, CorePlayer.player_name).filter(CorePlayer.player_id.in_(party_members))
+        response, response_header = make_party_response(party_id, member_query.all())
         return response, http_client.OK, response_header
 
 
@@ -309,7 +310,8 @@ class PartyAPI(MethodView):
         if player_id not in members:
             abort(http_client.FORBIDDEN, message="This is not your party")
 
-        response, response_header = make_party_response(party_id, members)
+        member_query = g.db.query(CorePlayer.player_id, CorePlayer.player_name).filter(CorePlayer.player_id.in_(members))
+        response, response_header = make_party_response(party_id, member_query.all())
         return response, http_client.OK, response_header
 
     def delete(self, party_id):
@@ -331,11 +333,12 @@ def make_party_response(party_id, party_members):
         "members_url": members_uri,
         "members": [
             {
-                'id': player_id,
-                'url': url_for("parties.member", party_id=party_id, player_id=player_id, _external=True),
-                'player_url': url_for("players.entry", player_id=player_id, _external=True),
+                'id': player[0],
+                'url': url_for("parties.member", party_id=party_id, player_id=player[0], _external=True),
+                'player_url': url_for("players.entry", player_id=player[0], _external=True),
+                'player_name': player[1],
             }
-            for player_id in party_members]
+            for player in party_members]
     }
     return response, response_header
 
