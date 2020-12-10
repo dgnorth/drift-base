@@ -76,8 +76,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.auth(username="Number one user")
         self.post(self.endpoints["friend_invites"],
                   params={"player_id": self.player_id},
-                  expected_status_code=http_client.CONFLICT,
-                  check=True)
+                  expected_status_code=http_client.CONFLICT)
 
     def test_cannot_send_friend_request_to_friend(self):
         # Create friendship
@@ -85,12 +84,11 @@ class FriendRequestsTest(_BaseFriendsTest):
         player1_id = self.player_id
         token1 = self.make_token()
         self.auth(username="Number two user")
-        self.post(self.endpoints["my_friends"], data={"token": token1}, expected_status_code=http_client.CREATED, check=True)
+        self.post(self.endpoints["my_friends"], data={"token": token1}, expected_status_code=http_client.CREATED)
         # Try to send a friend_request to our new friend
         self.post(self.endpoints["friend_invites"],
                   params={"player_id": player1_id},
-                  expected_status_code=http_client.CONFLICT,
-                  check=True)
+                  expected_status_code=http_client.CONFLICT)
 
     def test_cannot_have_multiple_pending_invites_to_same_player(self):
         self.auth(username="Number one user")
@@ -99,21 +97,18 @@ class FriendRequestsTest(_BaseFriendsTest):
         # Create invite from 2 to 1
         self.post(self.endpoints["friend_invites"],
                   params={"player_id": player1_id},
-                  expected_status_code=http_client.CREATED,
-                  check=True)
+                  expected_status_code=http_client.CREATED)
         # Try to create another one to him
         self.post(self.endpoints["friend_invites"],
                   params={"player_id": player1_id},
-                  expected_status_code=http_client.CONFLICT,
-                  check=True)
+                  expected_status_code=http_client.CONFLICT)
 
     def test_cannot_send_request_to_non_existent_player(self):
         from sqlalchemy import exc
         self.auth(username="Number one user")
-        self.assertRaises(exc.IntegrityError, self.post, self.endpoints["friend_invites"],
+        self.post(self.endpoints["friend_invites"],
                                                params={"player_id": 1234567890},
-                                               expected_status_code=http_client.CREATED,
-                                               check=True)
+                                               expected_status_code=http_client.BAD_REQUEST)
 
     def test_cannot_have_reciprocal_invites(self):
         self.auth(username="Number one user")
@@ -123,14 +118,12 @@ class FriendRequestsTest(_BaseFriendsTest):
         # Create invite from 2 to 1
         self.post(self.endpoints["friend_invites"],
                   params={"player_id": player1_id},
-                  expected_status_code=http_client.CREATED,
-                  check=True)
+                  expected_status_code=http_client.CREATED)
         self.auth(username="Number one user")
         # Should fail at creating invite from 1 to 2
         self.post(self.endpoints["friend_invites"],
                   params={"player_id": player2_id},
-                  expected_status_code=http_client.CONFLICT,
-                  check=True)
+                  expected_status_code=http_client.CONFLICT)
 
     def test_get_issued_tokens(self):
         self.auth(username="Number one user")

@@ -16,6 +16,7 @@ from driftbase.models.db import Friendship, FriendInvite, CorePlayer
 from driftbase.schemas.friendships import InviteSchema, FriendRequestSchema
 
 from sqlalchemy.orm import aliased
+from sqlalchemy.exc import IntegrityError
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
@@ -157,12 +158,12 @@ class FriendInvitesAPI(MethodView):
     def get(self):
         """ List invites sent by current player """
         CorePlayer2 = aliased(CorePlayer)
-        return g.db.query(FriendInvite, CorePlayer.player_name, CorePlayer2.player_name).\
-                            join(CorePlayer, CorePlayer.player_id==FriendInvite.issued_to_player_id).\
-                            join(CorePlayer2, CorePlayer2.player_id==FriendInvite.issued_by_player_id).\
+        return g.db.query(FriendInvite, CorePlayer.player_name, CorePlayer2.player_name). \
+            join(CorePlayer, CorePlayer.player_id == FriendInvite.issued_to_player_id). \
+            join(CorePlayer2, CorePlayer2.player_id == FriendInvite.issued_by_player_id). \
             filter(FriendInvite.issued_by_player_id == int(current_user["player_id"]),
-                                            FriendInvite.expiry_date > datetime.datetime.utcnow(),
-                                            FriendInvite.deleted.is_(False))
+                   FriendInvite.expiry_date > datetime.datetime.utcnow(),
+                   FriendInvite.deleted.is_(False))
 
     def post(self):
         """
@@ -183,15 +184,18 @@ class FriendInvitesAPI(MethodView):
         expires_seconds = expires_seconds
         expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_seconds)
 
-        invite = FriendInvite(
-            token=token,
-            issued_by_player_id=sending_player_id,
-            issued_to_player_id=receiving_player_id,
-            expiry_date=expires
-        )
+        try:
+            invite = FriendInvite(
+                token=token,
+                issued_by_player_id=sending_player_id,
+                issued_to_player_id=receiving_player_id,
+                expiry_date=expires
+            )
 
-        g.db.add(invite)
-        g.db.commit()
+            g.db.add(invite)
+            g.db.commit()
+        except IntegrityError as e:
+            abort(http_client.BAD_REQUEST, description="Invalid player IDs provided with request.")
 
         if receiving_player_id is not None:
             self._post_friend_request_message(sending_player_id, receiving_player_id, token, expires_seconds)
@@ -252,7 +256,7 @@ class FriendInviteAPI(MethodView):
         if not invite:
             abort(http_client.NOT_FOUND, description="Invite not found")
         elif invite.issued_by_player_id != player_id:
-            abort(http_client.FORBIDDEN, desciption="Not your invite")
+            abort(http_client.FORBIDDEN, description="Not your invite")
         elif invite.deleted:
             return "{}", http_client.GONE
 
