@@ -3,12 +3,10 @@ import logging
 import marshmallow as ma
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
-from drift.utils import Url
 from flask import g, url_for
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from marshmallow import validates, ValidationError, pre_dump
-from marshmallow_sqlalchemy import ModelSchema
+from marshmallow import validates, ValidationError
 from six.moves import http_client
 
 from driftbase.api.players import (
@@ -22,6 +20,7 @@ from driftbase.api.players import (
 from driftbase.models.db import CorePlayer
 from driftbase.players import get_playergroup_ids
 from driftbase.utils import url_player
+from driftbase.schemas.players import PlayerSchema
 
 log = logging.getLogger(__name__)
 
@@ -31,80 +30,6 @@ bp = Blueprint(
 )
 
 endpoints = Endpoints()
-
-
-class PlayerSchema(ModelSchema):
-    class Meta:
-        strict = True
-        include_fk = True # required to expose the 'user_id' field
-        model = CorePlayer
-        exclude = ('player_summary', 'user', 'clients')
-
-    is_online = ma.fields.Boolean()
-
-    player_url = Url(
-        'players.entry',
-        doc="Fully qualified URL of the player resource",
-        player_id='<player_id>',
-    )
-
-    gamestates_url = Url(
-        'player_gamestate.list',
-        doc="Fully qualified URL of the players' gamestate resource",
-        player_id='<player_id>',
-    )
-    journal_url = Url(
-        'player_journal.list',
-        doc="Fully qualified URL of the players' journal resource",
-        player_id='<player_id>',
-    )
-    user_url = Url(
-        'users.entry',
-        doc="Fully qualified URL of the players' user resource",
-        user_id='<user_id>',
-    )
-    messagequeue_url = ma.fields.Str(
-        description="Fully qualified URL of the players' message queue resource"
-    )
-    messages_url = Url(
-        'messages.exchange',
-        doc="Fully qualified URL of the players' messages resource",
-        exchange='players',
-        exchange_id='<player_id>',
-    )
-    summary_url = Url(
-        'player_summary.list',
-        doc="Fully qualified URL of the players' summary resource",
-        player_id='<player_id>',
-    )
-    countertotals_url = Url(
-        'player_counters.totals',
-        doc="Fully qualified URL of the players' counter totals resource",
-        player_id='<player_id>',
-    )
-    counter_url = Url(
-        'player_counters.list',
-        doc="Fully qualified URL of the players' counter resource",
-        player_id='<player_id>',
-    )
-    tickets_url = Url(
-        'player_tickets.list',
-        doc="Fully qualified URL of the players' tickets resource",
-        player_id='<player_id>',
-    )
-
-    @pre_dump
-    def populate_urls(self, obj, many=False):
-        obj.messagequeue_url = (
-            url_for(
-                'messages.exchange',
-                exchange='players',
-                exchange_id=obj.player_id,
-                _external=True,
-            )
-            + '/{queue}'
-        )
-        return obj
 
 
 class PlayersListArgs(ma.Schema):
