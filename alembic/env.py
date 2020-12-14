@@ -3,6 +3,7 @@ import socket
 import logging
 from logging.config import fileConfig
 
+import os
 from click import echo, secho
 from alembic import context
 from sqlalchemy import pool, create_engine
@@ -80,7 +81,8 @@ def get_engines():
         if not conn_info.get("database"):
             echo('skipping tenant %s as db name is null' % tenant_config["tenant_name"])
             continue
-        username = os.environ.get('DRIFT_POSTGRES_MASTER_USER', MASTER_USER)
+
+        username = os.environ.get('DRIFT_POSTGRES_MASTER_USER', MASTER_USERNAME)
         password = os.environ.get('DRIFT_POSTGRES_MASTER_PASSWORD', MASTER_PASSWORD)
         conn_info["username"] = username
         conn_info["password"] = password
