@@ -38,10 +38,10 @@ class MessagesTest(BaseCloudkitTest):
         receiver_headers = self.headers
 
         player_receiver_endpoint = self.endpoints["my_player"]
-        r = self.get(player_receiver_endpoint)
-        messagequeue_url_template = r.json()["messagequeue_url"]
+        r = self.get(player_receiver_endpoint).json()
+        messagequeue_url_template = r["messagequeue_url"]
         messagequeue_url_template = urllib.parse.unquote(messagequeue_url_template)
-        messages_url = r.json()["messages_url"]
+        messages_url = r["messages_url"]
 
         # send a message from another player
         player_sender = self.make_player()
@@ -49,31 +49,32 @@ class MessagesTest(BaseCloudkitTest):
         data = {
             "message" : {"Hello": "World"}
         }
-        r = self.post(messagequeue_url, data=data)
-        message_url = r.json()["url"]
+        r = self.post(messagequeue_url, data=data).json()
+        message_url = r["url"]
 
         # switch to the receiver player
         self.headers = receiver_headers
 
+        # Attempt to fetch just the message we just sent
+        # NOTE: Fetching a particular message simply does not work and probably hasn't for a while
+        #r = self.get(message_url).json()
+
         # get all the messages for the player
-        r = self.get(messages_url)
-        js = r.json()
-        self.assertIn("testqueue", r.json())
-        self.assertEqual(len(r.json()["testqueue"]), 1)
-        self.assertIn("payload", r.json()["testqueue"][0])
-        self.assertIn("Hello", r.json()["testqueue"][0]["payload"])
+        r = self.get(messages_url).json()
+        self.assertIn("testqueue", r)
+        self.assertEqual(len(r["testqueue"]), 1)
+        self.assertIn("payload", r["testqueue"][0])
+        self.assertIn("Hello", r["testqueue"][0]["payload"])
 
         # get all the messages for the player again and make sure we're receiving the same thing
-        r = self.get(messages_url)
-        self.assertEqual(r.json(), js)
+        self.assertEqual(self.get(messages_url).json(), r)
 
         # get the messages and this time clear them as well
-        r = self.get(messages_url + "?delete=true")
-        js = r.json()
-        self.assertIn("testqueue", r.json())
-        self.assertEqual(len(r.json()["testqueue"]), 1)
-        self.assertIn("payload", r.json()["testqueue"][0])
-        self.assertIn("Hello", r.json()["testqueue"][0]["payload"])
+        r = self.get(messages_url + "?delete=true").json()
+        self.assertIn("testqueue", r)
+        self.assertEqual(len(r["testqueue"]), 1)
+        self.assertIn("payload", r["testqueue"][0])
+        self.assertIn("Hello", r["testqueue"][0]["payload"])
 
     def test_messages_rows(self):
         player_receiver = self.make_player()
