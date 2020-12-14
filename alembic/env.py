@@ -80,9 +80,11 @@ def get_engines():
         if not conn_info.get("database"):
             echo('skipping tenant %s as db name is null' % tenant_config["tenant_name"])
             continue
+        username = os.environ.get('DRIFT_POSTGRES_MASTER_USER', MASTER_USER)
+        password = os.environ.get('DRIFT_POSTGRES_MASTER_PASSWORD', MASTER_PASSWORD)
+        conn_info["username"] = username
+        conn_info["password"] = password
 
-        conn_info["username"] = MASTER_USERNAME
-        conn_info["password"] = MASTER_PASSWORD
         this_conn_string = format_connection_string(conn_info)
         echo(this_conn_string)
 
