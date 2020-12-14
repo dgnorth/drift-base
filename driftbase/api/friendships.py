@@ -115,6 +115,10 @@ class FriendshipsAPI(MethodView):
         else:
             friendship = Friendship(player1_id=left_id, player2_id=right_id)
             g.db.add(friendship)
+
+        if invite.issued_to_player_id is not None:
+            invite.deleted = True
+
         g.db.commit()
 
         ret = {

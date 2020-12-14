@@ -292,9 +292,6 @@ class MessageQueueAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {}
-    ret["my_messages"] = None
-    if current_user:
-        ret["my_messages"] = url_for("messages.exchange", exchange="players",
-                                     exchange_id=current_user["player_id"], _external=True)
-    return ret
+    return {
+        "my_messages": url_for("messages.exchange", exchange="players", exchange_id=current_user["player_id"], _external=True) if current_user else None
+    }
