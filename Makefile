@@ -7,7 +7,7 @@ REF ?= $(shell git rev-parse --abbrev-ref HEAD)
 BRANCH ?= $(subst refs/heads/,,$(REF))
 
 # VERSION is the semantic version, and will use the latest version-like tag if one exists
-VERSION ?= $(shell git tag --sort=committerdate | grep -E '^[0-9]' | tail -1)
+VERSION ?= $(shell git tag --sort=committerdate | grep -E '^v[0-9]' | tail -1)
 
 CI_COMMIT_REF_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
 CI_COMMIT_SHORT_SHA ?= $(shell git rev-parse --short=8 HEAD)
