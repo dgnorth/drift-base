@@ -88,7 +88,6 @@ def get_engines():
         conn_info["password"] = password
 
         this_conn_string = format_connection_string(conn_info)
-        echo(this_conn_string)
 
         if this_conn_string not in [e["url"] for e in engines.values()]:
             engines["{}.{}".format(tenant_config["tier_name"],
@@ -123,7 +122,6 @@ def get_engines():
     for key in engines.keys():
         rec = engines[key]
         connection_string = rec["url"]
-        logger.info("Connecting '{}'...".format(connection_string))
         rec['engine'] = create_engine(connection_string,
                                       echo=False,
                                       poolclass=pool.NullPool)
