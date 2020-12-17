@@ -34,7 +34,7 @@ expect {
 }
 EOF
 
-dconf set --location tiers.$TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"local_user\", \"password\": \"abcdef\" }}}"
+dconf set --location tiers.$TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"postgres\", \"password\": \"\" }}}"
 
 # This should be done by the tool, but isn't for some reason
 dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
