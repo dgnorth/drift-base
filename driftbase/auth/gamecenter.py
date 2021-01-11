@@ -2,6 +2,7 @@ import OpenSSL
 import struct
 import base64
 import httplib
+from urlparse import urlparse
 
 from flask_restful import abort
 
@@ -11,7 +12,8 @@ from driftbase.auth import get_provider_config
 from driftbase.auth.util import fetch_url
 
 
-TRUSTED_ORGANIZATIONS = ["Apple Inc."]
+# We make the assumption that a public key stored on this web site is a trusted one.
+TRUSTED_KEY_URL_HOST = ".apple.com"
 
 
 def abort_unauthorized(description):
@@ -72,6 +74,11 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
     if app_bundles and gc_token["app_bundle_id"] not in app_bundles:
         abort_unauthorized(error_title + ". 'app_bundle_id' not one of %s" % app_bundles)
 
+    # Verify that the certificate url is at Apple
+    url_parts = urlparse(gc_token['public_key_url'])
+    if not all([url_parts.scheme == "https", url_parts.hostname and url_parts.hostname.endswith(TRUSTED_KEY_URL_HOST)]):
+        abort_unauthorized(error_title + ". Public key url points to unknown host: %s" % (gc_token['public_key_url']))
+
     # Fetch public key, use cache if available.
     try:
         content = fetch_url(gc_token['public_key_url'], error_title)
@@ -83,11 +90,6 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, content)
     except OpenSSL.crypto.Error as e:
         abort_unauthorized(error_title + ". Can't load certificate: %s" % str(e))
-
-    # Verify that the key is issued to someone we trust and is not expired.
-    org_name = cert.get_subject().organizationName
-    if org_name not in TRUSTED_ORGANIZATIONS:
-        abort_unauthorized(error_title + ". Certificate is issued to '%s' which is not one of %s." % (org_name, TRUSTED_ORGANIZATIONS))
 
     if cert.has_expired():
         abort_unauthorized(error_title + ". Certificate is expired, 'notAfter' is '%s'" % cert.get_notAfter())
