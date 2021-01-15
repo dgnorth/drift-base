@@ -318,6 +318,7 @@ class PartyAPI(MethodView):
         members = get_party_members(party_id)
         for member in members:
             leave_party(party_id, member)
+        disband_party(party_id)
         return {}, http_client.NO_CONTENT
 
 
