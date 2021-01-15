@@ -210,14 +210,13 @@ def get_party_invite(invite_id):
 
 
 def decline_party_invite(invite_id, declining_player_id):
-    scoped_player_party_key = make_player_party_key(declining_player_id)
     scoped_party_invite_key = make_party_invite_key(invite_id)
     end = time() + OPERATION_TIMEOUT
 
     with g.redis.conn.pipeline() as pipe:
         while time() < end:
             try:
-                pipe.watch(scoped_player_party_key)
+                pipe.watch(scoped_party_invite_key)
 
                 # Get invite details
                 invite = pipe.hgetall(scoped_party_invite_key)
