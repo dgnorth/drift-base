@@ -14,9 +14,6 @@ aws/
 deployment/
 scripts/
 
-config/python-requirements.txt
-config/uwsgi_local.ini
-
 Dockerfile
 LICENSE
 MANIFEST.in
