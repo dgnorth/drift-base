@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-drift = "0.3.17"
+python-drift = "0.3.19"
 gevent = "*"
 requests = "*"
 "boto3" = "*"
@@ -13,6 +13,7 @@ python-decouple = "*"
 flask-restx = "*"
 python-driftconfig = "*"
 psycogreen = "*"
+importlib-metadata = "<2"
 
 [dev-packages]
 pytest = "*"
