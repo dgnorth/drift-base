@@ -101,21 +101,6 @@ class PartyPlayersAPI(MethodView):
         }
         return response
 
-    @bp_parties.arguments(PartyPlayerPostRequestSchema, location='json')
-    @bp_parties.response(PartyPlayerResponseSchema)
-    def post(self, args, party_id):
-        player_id = current_user['player_id']
-        resource_uri = url_for("parties.member", party_id=party_id, player_id=player_id, _external=True)
-        _add_message("players", player_id, "party_notification",
-                     {
-                         "event": "created",
-                         "party_id": party_id,
-                         "party_url": resource_uri,
-                     })
-        response_header = {"Location": resource_uri}
-        log.info("Added player {} to party {}".format(player_id, party_id))
-        return {"url": resource_uri}, http_client.CREATED, response_header
-
 
 @bp_parties.route("/<int:party_id>/members/<int:player_id>", endpoint="member")
 class PartyPlayerAPI(MethodView):
@@ -208,17 +193,9 @@ class PartyInvitesAPI(MethodView):
 
 @bp_party_invites.route("/<int:invite_id>", endpoint="entry")
 class PartyInviteAPI(MethodView):
-    # def get(self, party_id, invite_id):
-    #     invite = get_party_invite(party_id, invite_id)
-    #     if not invite:
-    #         abort(http_client.NOT_FOUND)
-    #     resource_uri = url_for("parties.invite", party_id=party_id, invite_id=invite_id, _external=True)
-    #     response_header = {"Location": resource_uri}
-    #     response = {
-    #         "url": resource_uri,
-    #         "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-    #     }
-    #     return response, http_client.OK, response_header
+    """
+    Manage a single party invite
+    """
 
     @bp_parties.arguments(PartyInvitesSchema)
     def patch(self, args, invite_id):
@@ -298,7 +275,7 @@ class PartiesAPI(MethodView):
 @bp_parties.route("/<int:party_id>/", endpoint="entry")
 class PartyAPI(MethodView):
     """
-    Manage party of players.
+    Manage party of players
     """
 
     def get(self, party_id):
@@ -313,13 +290,6 @@ class PartyAPI(MethodView):
         member_query = g.db.query(CorePlayer.player_id, CorePlayer.player_name).filter(CorePlayer.player_id.in_(members))
         response, response_header = make_party_response(party_id, member_query.all())
         return response, http_client.OK, response_header
-
-    def delete(self, party_id):
-        members = get_party_members(party_id)
-        for member in members:
-            leave_party(party_id, member)
-        disband_party(party_id)
-        return {}, http_client.NO_CONTENT
 
 
 def make_party_response(party_id, party_members):
