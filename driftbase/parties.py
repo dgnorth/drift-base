@@ -12,6 +12,15 @@ log = logging.getLogger(__name__)
 OPERATION_TIMEOUT = 10
 
 
+# Redis keys used:
+# party_invite:id: NEXT_PARTY_INVITE_ID - The next available party invite ID
+# party:id: NEXT_PARTY_ID - The next available party ID
+# party_invite:INVITE_ID: (from:PLAYER_ID to:PLAYER_ID) - HSET from which player to which player
+# party_players:PARTY_ID: [PLAYER_ID, ...] - SET of players
+# player:PLAYER_ID:invites: [INVITE_ID, ...] - ZSET of invite ID by invited player ID
+# player:PLAYER_ID:party: PARTY_ID - Current player party ID
+
+
 def accept_party_invite(invite_id, sending_player, accepting_player):
     sending_player_party_key = make_player_party_key(sending_player)
     accepting_player_party_key = make_player_party_key(accepting_player)
