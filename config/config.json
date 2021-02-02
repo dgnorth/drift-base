@@ -19,6 +19,7 @@
         "driftbase.api.matches",
         "driftbase.api.servers",
         "driftbase.api.machines",
+        "driftbase.api.parties",
         "driftbase.api.staticdata",
         "driftbase.api.runconfigs",
         "driftbase.api.machinegroups",
@@ -35,7 +36,6 @@
         "driftbase.analytics"
     ],
     "resources": [
-        "drift.core.resources.awsdeploy",
         "drift.core.resources.postgres",
         "drift.core.resources.redis",
         "drift.core.resources.apitarget",

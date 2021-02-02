@@ -24,7 +24,6 @@ from driftbase.schemas.players import PlayerSchema
 
 log = logging.getLogger(__name__)
 
-
 bp = Blueprint(
     'players', __name__, url_prefix='/players', description='Player Management'
 )
@@ -169,11 +168,13 @@ class PlayerAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {"players": url_for("players.list", _external=True)}
-    ret["my_player"] = None
-    ret["my_gamestates"] = None
-    ret["my_player_groups"] = None
-    ret["my_summary"] = None
+    ret = {
+        "players": url_for("players.list", _external=True),
+        "my_player": None,
+        "my_gamestates": None,
+        "my_player_groups": None,
+        "my_summary": None,
+    }
     if current_user:
         player_id = current_user["player_id"]
         ret["my_player"] = url_player(player_id)
@@ -182,8 +183,8 @@ def endpoint_info(current_user):
             "player_gamestate.list", player_id=player_id, _external=True
         )
         ret["my_gamestate"] = (
-            url_for("player_gamestate.list", player_id=player_id, _external=True)
-            + "/{namespace}"
+                url_for("player_gamestate.list", player_id=player_id, _external=True)
+                + "/{namespace}"
         )
         url = url_for(
             "playergroups.group",
