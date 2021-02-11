@@ -259,7 +259,8 @@ class FriendInviteAPI(MethodView):
         invite = g.db.query(FriendInvite).filter_by(id=invite_id).first()
         if not invite:
             abort(http_client.NOT_FOUND, description="Invite not found")
-        elif invite.issued_by_player_id != player_id:
+        elif invite.issued_by_player_id != player_id and invite.issued_to_player_id != player_id:
+            # You may only delete invites sent by you or directly to you.
             abort(http_client.FORBIDDEN, description="Not your invite")
         elif invite.deleted:
             return "{}", http_client.GONE
