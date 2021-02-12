@@ -263,11 +263,11 @@ class FriendInviteAPI(MethodView):
             # You may only delete invites sent by you or directly to you.
             abort(http_client.FORBIDDEN, description="Not your invite")
         elif invite.deleted:
-            return "{}", http_client.GONE
+            return jsonify("{}"), http_client.GONE
 
         invite.deleted = True
         g.db.commit()
-        return "{}", http_client.NO_CONTENT
+        return jsonify("{}"), http_client.NO_CONTENT
 
 
 @bp.route('/requests/', endpoint='requests')
