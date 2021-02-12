@@ -50,7 +50,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         # delete it again
         self.delete(result['url'], expected_status_code=http_client.GONE)
 
-    def test_other_player_may_not_delete_token(self):
+    def test_other_player_may_not_delete_global_token(self):
         self.auth(username="Number one user")
         # create a token
         result = self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()
@@ -58,6 +58,28 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.auth(username="Number two user")
         # delete the token
         self.delete(invite_url, expected_status_code=http_client.FORBIDDEN)
+
+    def test_other_player_may_not_delete_token_to_third_party(self):
+        self.auth(username="Number one user")
+        receiving_player_id = self.player_id
+        self.auth(username="Number two user")
+        # create a invite from user two to user one
+        result = self.post(self.endpoints["friend_invites"], params = {"player_id": receiving_player_id}, expected_status_code=http_client.CREATED).json()
+        invite_url = result['url']
+        self.auth(username="Number three user")
+        # delete the token as user three
+        self.delete(invite_url, expected_status_code=http_client.FORBIDDEN)
+
+    def test_receiving_player_can_delete_token(self):
+        self.auth(username="Number one user")
+        receiving_player_id = self.player_id
+        self.auth(username="Number two user")
+        # create a invite from two to one
+        result = self.post(self.endpoints["friend_invites"], params={"player_id": receiving_player_id}, expected_status_code=http_client.CREATED).json()
+        invite_url = result['url']
+        self.auth(username="Number one user")
+        # delete the token as user one
+        self.delete(invite_url, expected_status_code=http_client.NO_CONTENT)
 
     def test_create_friend_request(self):
         # Create players for test
