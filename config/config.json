@@ -7,8 +7,7 @@
     "OPENAPI_SWAGGER_UI_PATH": "/swagger",
     "OPENAPI_SWAGGER_UI_VERSION": "3.19.4",
     "SQLALCHEMY_ENGINE_OPTIONS": {
-        "pool_pre_ping": true,
-        "pool_size": 1
+        "pool_pre_ping": true
     },
     "apps": [
         "driftbase.api.players",
