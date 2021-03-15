@@ -22,6 +22,7 @@ OPERATION_TIMEOUT = 10
 
 
 def accept_party_invite(invite_id, sending_player, accepting_player):
+    max_players_per_party = 4 # FIXME: Probably belongs in the product config
     sending_player_party_key = make_player_party_key(sending_player)
     accepting_player_party_key = make_player_party_key(accepting_player)
     sending_player_invites_key = make_player_invites_key(sending_player)
@@ -50,6 +51,12 @@ def accept_party_invite(invite_id, sending_player, accepting_player):
 
                 if accepting_player_party_id and sending_player_party_id != accepting_player_party_id:
                     abort(http_client.BAD_REQUEST, message="You must leave your current party first")
+
+                if sending_player_party_id and len(get_party_members(int(sending_player_party_id))) >= max_players_per_party:
+                    log.debug("deleting invite {} since party is full".format(invite_key))
+                    pipe.delete(invite_key)
+                    pipe.execute()
+                    abort(http_client.CONFLICT, message="Party is full")
 
                 pipe.watch(invite_key, accepting_player_party_key, sending_player_party_key, sending_player_invites_key)
 

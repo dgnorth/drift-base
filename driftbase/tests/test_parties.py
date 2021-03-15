@@ -283,6 +283,31 @@ class PartiesTest(BaseCloudkitTest):
         g2_notification, g2_message_number = self.get_party_notification('invite')
         self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.NOT_FOUND)
 
+    def test_party_is_capped_at_4_members(self):
+        # Create players for test
+        guest_ids = []
+        guest_names = []
+        for guest_name in [self.make_user_name(f"Guest_{i}") for i in range(4)]:
+            self.make_named_player(username=guest_name)
+            guest_ids.append(self.player_id)
+            guest_names.append(guest_name)
+        host_user_name = self.make_user_name("Host")
+        self.make_named_player(host_user_name)
+        host_id = self.player_id
+
+        # Invite all the guests
+        invites = [self.post(self.endpoints["party_invites"], data={'player_id': guest_id}, expected_status_code=http_client.CREATED).json() for guest_id in guest_ids]
+        # First 3 accept the invite
+        for guest_name in guest_names[:-1]:
+            self.auth(username=guest_name)
+            notification, message_number = self.get_party_notification('invite')
+            self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK).json()
+
+        # Now attempt to accept as the 5th party member
+        self.auth(username=guest_names[-1])
+        notification, message_number = self.get_party_notification('invite')
+        self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.CONFLICT).json()
+
     def check_expected_players_in_party(self, party, expected_players):
         """
         Check that all players in expected_players are in the party, and nobody else
