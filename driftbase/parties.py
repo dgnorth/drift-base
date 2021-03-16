@@ -6,6 +6,8 @@ from redis import WatchError
 from six.moves import http_client
 from webargs.flaskparser import abort
 
+from driftbase.resources.parties import TIER_DEFAULTS
+
 log = logging.getLogger(__name__)
 
 
@@ -21,8 +23,18 @@ OPERATION_TIMEOUT = 10
 # player:PLAYER_ID:party: PARTY_ID - Current player party ID
 
 
+def get_max_players_per_party():
+    tenant = g.conf.tenant
+    if tenant and 'parties' in tenant:
+        parties_config = tenant['parties']
+        max_players = parties_config.get('max_players_per_party')
+        return max_players
+
+    return TIER_DEFAULTS['max_players_per_party']
+
+
 def accept_party_invite(invite_id, sending_player, accepting_player):
-    max_players_per_party = 4 # FIXME: Probably belongs in the product config
+    max_players_per_party = get_max_players_per_party()
     sending_player_party_key = make_player_party_key(sending_player)
     accepting_player_party_key = make_player_party_key(accepting_player)
     sending_player_invites_key = make_player_invites_key(sending_player)

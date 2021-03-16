@@ -46,6 +46,7 @@
         "drift.core.resources.sentry",
         "driftbase.resources.staticdata",
         "driftbase.resources.gameserver",
+        "driftbase.resources.parties",
         "driftbase.auth"
     ],
     "resource_attributes": {
