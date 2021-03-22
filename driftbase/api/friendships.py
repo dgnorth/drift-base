@@ -158,7 +158,7 @@ class FriendshipAPI(MethodView):
 @bp.route('/invites', endpoint='invites')
 class FriendInvitesAPI(MethodView):
 
-    @bp.response(InviteSchema(many=True))
+    @bp.response(http_client.OK, InviteSchema(many=True))
     def get(self):
         """ List invites sent by current player """
         CorePlayer2 = aliased(CorePlayer)
@@ -272,7 +272,7 @@ class FriendInviteAPI(MethodView):
 
 @bp.route('/requests/', endpoint='requests')
 class FriendRequestsAPI(MethodView):
-    @bp.response(FriendRequestSchema(many=True))
+    @bp.response(http_client.OK, FriendRequestSchema(many=True))
     def get(self):
         """
         Return pending friend requests sent to current player

@@ -103,7 +103,7 @@ class Summary(MethodView):
         return jsonify(ret)
 
     # TODO: schema
-    @bp.response(PlayerSummarySchema(many=True))
+    @bp.response(http_client.OK, PlayerSummarySchema(many=True))
     def patch(self, player_id):
         """
         Partial update of summary fields

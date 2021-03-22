@@ -86,7 +86,7 @@ MAX_NAME_LEN = 20
 @bp.route('', endpoint='list')
 class PlayersListAPI(MethodView):
     @bp.arguments(PlayersListArgs, location='query')
-    @bp.response(PlayerSchema(many=True))
+    @bp.response(http_client.OK, PlayerSchema(many=True))
     def get(self, args):
         """
         List Players
@@ -120,7 +120,7 @@ class PlayersListAPI(MethodView):
 
 @bp.route('/<int:player_id>', endpoint='entry')
 class PlayerAPI(MethodView):
-    @bp.response(PlayerSchema(many=False))
+    @bp.response(http_client.OK, PlayerSchema(many=False))
     def get(self, player_id):
         """
         Single Player
@@ -134,7 +134,7 @@ class PlayerAPI(MethodView):
         return player
 
     @bp.arguments(PlayerPatchArgs)
-    @bp.response(PlayerSchema(many=False))
+    @bp.response(http_client.OK, PlayerSchema(many=False))
     def patch(self, args, player_id):
         """
         Update player name
@@ -142,7 +142,7 @@ class PlayerAPI(MethodView):
         return self._patch(player_id, args)
 
     @bp.arguments(PlayerPatchArgs)
-    @bp.response(PlayerSchema(many=False))
+    @bp.response(http_client.OK, PlayerSchema(many=False))
     def put(self, args, player_id):
         """
         Update player name

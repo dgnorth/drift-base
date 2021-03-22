@@ -79,7 +79,7 @@ class PartyPlayersAPI(MethodView):
     Manage players in a party
     """
 
-    @bp_parties.response(PartyPlayerSchema(many=True))
+    @bp_parties.response(http_client.OK, PartyPlayerSchema(many=True))
     def get(self, party_id):
         player_id = current_user['player_id']
         members = get_party_members(party_id)
@@ -153,7 +153,7 @@ class PartyInvitesAPI(MethodView):
     """
 
     @bp_parties.arguments(PartyInvitesPostRequestSchema, location='json')
-    @bp_parties.response(PartyInvitesResponseSchema)
+    @bp_parties.response(http_client.CREATED, PartyInvitesResponseSchema)
     def post(self, args):
         my_player_id = current_user['player_id']
         player_id = args.get('player_id')

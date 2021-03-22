@@ -174,7 +174,7 @@ def check_and_update_player_counter(player_counter, timestamp):
 @bp.route("/<int:player_id>/counters", endpoint="list")
 class CountersApi(MethodView):
 
-    @bp.response(PlayerCounterSchema(many=True))
+    @bp.response(http_client.OK, PlayerCounterSchema(many=True))
     def get(self, player_id):
         """
         Counters for player

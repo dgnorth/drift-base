@@ -56,7 +56,7 @@ def drift_init_extension(app, api, **kwargs):
 class UserIdentitiesAPI(MethodView):
 
     @bp.arguments(UserIdentitiesGetSchema, location='query')
-    @bp.response(UserIdentitiesGetResponseSchema(many=True))
+    @bp.response(http_client.OK, UserIdentitiesGetResponseSchema(many=True))
     def get(self, args):
         """
         Convert user identities to player_ids

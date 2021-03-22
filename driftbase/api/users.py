@@ -55,7 +55,7 @@ def drift_init_extension(app, api, **kwargs):
 #@bp.route('', endpoint='users')
 @bp.route('', endpoint='list')
 class UsersListAPI(MethodView):
-    @bp.response(UserSchema(many=True))
+    @bp.response(http_client.OK, UserSchema(many=True))
     def get(self):
         """List Users
 
@@ -78,7 +78,7 @@ class UsersAPI(MethodView):
     """
 
     """
-    @bp.response(UserSchema(many=False))
+    @bp.response(http_client.OK, UserSchema(many=False))
     def get(self, user_id):
         """Single user
 
