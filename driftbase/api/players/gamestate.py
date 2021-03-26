@@ -54,7 +54,7 @@ class GameStateHistorySchema(ModelSchema):
 @bp.route("/<int:player_id>/gamestates", endpoint="list")
 class GameStatesAPI(MethodView):
 
-    @bp.response(GameStateSchema(many=True))
+    @bp.response(http_client.OK, GameStateSchema(many=True))
     def get(self, player_id):
         """
         Get a list of all gamestates for the player
@@ -70,7 +70,7 @@ class GameStatesAPI(MethodView):
 @bp.route("/<int:player_id>/gamestates/<string:namespace>", endpoint="entry")
 class GameStateAPI(MethodView):
 
-    @bp.response(GameStateSchema())
+    @bp.response(http_client.OK, GameStateSchema())
     def get(self, player_id, namespace):
         """
         Get full dump of game state
@@ -96,7 +96,7 @@ class GameStateAPI(MethodView):
         return gamestate
 
     @bp.arguments(GameStateRequestSchema())
-    @bp.response(GameStateSchema())
+    @bp.response(http_client.OK, GameStateSchema())
     def put(self, args, player_id, namespace):
         """
         Upload the gamestate state to the server
@@ -178,7 +178,7 @@ class GameStateAPI(MethodView):
 @bp.route("/<int:player_id>/gamestates/<string:namespace>/history", endpoint="historylist")
 class GameStateHistoryListAPI(MethodView):
 
-    @bp.response(GameStateHistorySchema(many=True))
+    @bp.response(http_client.OK, GameStateHistorySchema(many=True))
     def get(self, player_id, namespace):
         can_edit_player(player_id)
 
@@ -195,7 +195,7 @@ class GameStateHistoryListAPI(MethodView):
                  endpoint="historyentry")
 class GameStateHistoryEntryAPI(MethodView):
 
-    @bp.response(GameStateHistorySchema())
+    @bp.response(http_client.OK, GameStateHistorySchema())
     def get(self, player_id, namespace, gamestatehistory_id):
         can_edit_player(player_id)
 

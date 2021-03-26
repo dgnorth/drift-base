@@ -58,7 +58,7 @@ class TicketSchema(ModelSchema):
 @bp.route("/<int:player_id>/tickets", endpoint="list")
 class TicketsEndpoint(MethodView):
 
-    @bp.response(TicketSchema(many=True))
+    @bp.response(http_client.OK, TicketSchema(many=True))
     def get(self, player_id):
         """
         List of tickets
@@ -113,7 +113,7 @@ def get_ticket(player_id, ticket_id):
 @bp.route("/<int:player_id>/tickets/<int:ticket_id>", endpoint="entry")
 class TicketEndpoint(MethodView):
 
-    @bp.response(TicketSchema())
+    @bp.response(http_client.OK, TicketSchema())
     def get(self, player_id, ticket_id):
         """
         Get specific ticket
@@ -131,7 +131,7 @@ class TicketEndpoint(MethodView):
         return ticket
 
     @bp.arguments(TicketPatchRequestSchema)
-    @bp.response(TicketSchema())
+    @bp.response(http_client.OK, TicketSchema())
     def patch(self, args, player_id, ticket_id):
         """
         Claim ticket
@@ -139,7 +139,7 @@ class TicketEndpoint(MethodView):
         return self._patch(args, player_id, ticket_id)
 
     @bp.arguments(TicketPatchRequestSchema)
-    @bp.response(TicketSchema())
+    @bp.response(http_client.OK, TicketSchema())
     def put(self, args, player_id, ticket_id):
         """
         Claim ticket

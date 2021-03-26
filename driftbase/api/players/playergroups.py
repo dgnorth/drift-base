@@ -49,7 +49,7 @@ class PlayerGroupsAPI(MethodView):
     """
 
     @bp.arguments(PlayerGroupGetRequestSchema, location='query')
-    @bp.response(PlayerGroupResponseSchema)
+    @bp.response(http_client.OK, PlayerGroupResponseSchema)
     def get(self, args, player_id, group_name):
         """
         Get group for player
@@ -69,7 +69,7 @@ class PlayerGroupsAPI(MethodView):
         return pg
 
     @bp.arguments(PlayerGroupPutRequestSchema, location='json')
-    @bp.response(PlayerGroupResponseSchema)
+    @bp.response(http_client.OK, PlayerGroupResponseSchema)
     def put(self, args, player_id, group_name):
         """
         Create a player group

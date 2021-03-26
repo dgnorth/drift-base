@@ -112,7 +112,7 @@ class ClientsAPI(MethodView):
         'player_id', type=int,
         help="Optional ID of a player to return sessions for")
 
-    @bp.response(ClientSchema(many=True))
+    @bp.response(http_client.OK, ClientSchema(many=True))
     def get(self):
         """
         Retrieve all active clients.
@@ -132,7 +132,7 @@ class ClientsAPI(MethodView):
         return rows
 
     @bp.arguments(ClientPostRequestSchema)
-    @bp.response(ClientPostSchema, code=201)
+    @bp.response(http_client.CREATED, ClientPostSchema)
     def post(self, args):
         """
         Register a client
@@ -262,7 +262,7 @@ class ClientAPI(MethodView):
     register themselves as connected-to-the-backend and to heartbeat
     to let the backend know that they are still connected.
     """
-    @bp.response(ClientSchema())
+    @bp.response(http_client.OK, ClientSchema())
     def get(self, client_id):
         """
         Find client by ID
@@ -275,7 +275,7 @@ class ClientAPI(MethodView):
 
         return client
 
-    @bp.response(ClientHeartbeatSchema())
+    @bp.response(http_client.OK, ClientHeartbeatSchema())
     def put(self, client_id):
         """
         Client heartbeat
