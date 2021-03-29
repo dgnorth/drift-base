@@ -29,6 +29,18 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
+class MachineGroupsPostRequestArgs(ma.Schema):
+    name = ma.fields.Str()
+    description = ma.fields.Str(required=False)
+    runconfig_id = ma.fields.Number(required=False)
+
+
+class MachineGroupsPatchRequestArgs(ma.Schema):
+    name = ma.fields.Str(required=False)
+    description = ma.fields.Str(required=False)
+    runconfig_id = ma.fields.Number(required=False)
+
+
 @bp.route('/', endpoint='list')
 class MachineGroupsAPI(MethodView):
     get_args = reqparse.RequestParser()
@@ -58,16 +70,11 @@ class MachineGroupsAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "name": {"type": "string", },
-        "description": {"type": "string", },
-        "runconfig_id": {"type": "number", },
-    }, required=["name"])
-    def post(self):
+    @bp.arguments(MachineGroupsPostRequestArgs, location='json')
+    def post(self, args):
         """
         Create machine group
         """
-        args = request.json
         log.info("creating a new machine group")
 
         machinegroup = MachineGroup(name=args.get("name"),
@@ -116,17 +123,11 @@ class MachineGroupAPI(MethodView):
         return jsonify(record)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "name": {"type": "string", },
-        "description": {"type": "string", },
-        "runconfig_id": {"type": "number", },
-    }, required=[])
-    def patch(self, machinegroup_id):
+    @bp.arguments(MachineGroupsPatchRequestArgs, location='json')
+    def patch(self, args, machinegroup_id):
         """
         Update machine group
         """
-        args = request.json
-
         machinegroup = g.db.query(MachineGroup).get(machinegroup_id)
         if args.get("name"):
             machinegroup.name = args["name"]
