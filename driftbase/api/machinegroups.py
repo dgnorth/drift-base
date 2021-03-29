@@ -4,23 +4,21 @@
 
 import logging
 
-from six.moves import http_client
-
-from flask import request, url_for, g, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
+from flask import url_for, g, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from drift.core.extensions.urlregistry import Endpoints
-
-from drift.core.extensions.schemachecker import simple_schema_request
-from drift.core.extensions.jwt import requires_roles
+from six.moves import http_client
 
 from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("machinegroups", __name__, url_prefix="/machinegroups", description="Battleserver machine instance groups")
+bp = Blueprint("machinegroups", __name__, url_prefix="/machinegroups",
+               description="Battleserver machine instance groups")
 endpoints = Endpoints()
 
 
@@ -93,8 +91,8 @@ class MachineGroupsAPI(MethodView):
                  machinegroup_id, args.get("name"))
 
         return jsonify({"machinegroup_id": machinegroup_id,
-                "url": resource_uri
-                }), http_client.CREATED, response_header
+                        "url": resource_uri
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:machinegroup_id>', endpoint='entry')
@@ -102,6 +100,7 @@ class MachineGroupAPI(MethodView):
     """
     Information about specific machines
     """
+
     @requires_roles("service")
     def get(self, machinegroup_id):
         """
