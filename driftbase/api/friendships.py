@@ -1,23 +1,19 @@
+import datetime
 import logging
 import uuid
-import datetime
 
-from six.moves import http_client
-
+import marshmallow as ma
+from drift.core.extensions.jwt import current_user
+from drift.core.extensions.urlregistry import Endpoints
 from flask import request, g, abort, url_for, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
-from drift.core.extensions.urlregistry import Endpoints
-
-from drift.core.extensions.jwt import current_user
-from drift.core.extensions.schemachecker import simple_schema_request
+from six.moves import http_client
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from driftbase.models.db import Friendship, FriendInvite, CorePlayer
 from driftbase.schemas.friendships import InviteSchema, FriendRequestSchema
-
-from sqlalchemy.orm import aliased
-from sqlalchemy.exc import IntegrityError
-import marshmallow as ma
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
@@ -63,8 +59,10 @@ class FriendshipsAPI(MethodView):
         if player_id != current_user["player_id"]:
             abort(http_client.FORBIDDEN, description="That is not your player!")
 
-        left = g.db.query(Friendship.id, Friendship.player1_id, Friendship.player2_id).filter_by(player1_id=player_id, status="active")
-        right = g.db.query(Friendship.id, Friendship.player2_id, Friendship.player1_id).filter_by(player2_id=player_id, status="active")
+        left = g.db.query(Friendship.id, Friendship.player1_id, Friendship.player2_id).filter_by(player1_id=player_id,
+                                                                                                 status="active")
+        right = g.db.query(Friendship.id, Friendship.player2_id, Friendship.player1_id).filter_by(player2_id=player_id,
+                                                                                                  status="active")
         friend_rows = left.union_all(right)
         friends = []
         for row in friend_rows:
@@ -226,21 +224,24 @@ class FriendInvitesAPI(MethodView):
         if receiving_player_id == sending_player_id:
             abort(http_client.CONFLICT, description="Cannot send friend requests to yourself")
 
-        player1_id, player2_id = min(sending_player_id, receiving_player_id), max(sending_player_id, receiving_player_id)
+        player1_id, player2_id = min(sending_player_id, receiving_player_id), max(sending_player_id,
+                                                                                  receiving_player_id)
         existing_friendship = g.db.query(Friendship).filter(
             Friendship.player1_id == player1_id,
             Friendship.player2_id == player2_id
         ).first()
         if existing_friendship and existing_friendship.status == "active":
             abort(http_client.CONFLICT, description="You are already friends")  # Already friends
-        pending_invite = g.db.query(FriendInvite).\
-            filter(FriendInvite.issued_by_player_id == sending_player_id, FriendInvite.issued_to_player_id == receiving_player_id).\
-            filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).\
+        pending_invite = g.db.query(FriendInvite). \
+            filter(FriendInvite.issued_by_player_id == sending_player_id,
+                   FriendInvite.issued_to_player_id == receiving_player_id). \
+            filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)). \
             first()
         if pending_invite:
             abort(http_client.CONFLICT, description="Cannot issue multiple friend requests to the same receiver")
-        reciprocal_invite = g.db.query(FriendInvite).\
-            filter(FriendInvite.issued_by_player_id == receiving_player_id, FriendInvite.issued_to_player_id == sending_player_id).\
+        reciprocal_invite = g.db.query(FriendInvite). \
+            filter(FriendInvite.issued_by_player_id == receiving_player_id,
+                   FriendInvite.issued_to_player_id == sending_player_id). \
             filter(FriendInvite.expiry_date > datetime.datetime.utcnow(), FriendInvite.deleted.is_(False)).first()
         if reciprocal_invite:
             abort(http_client.CONFLICT, description="The receiver has already sent you a friend request")
@@ -250,7 +251,8 @@ class FriendInvitesAPI(MethodView):
         """ Insert a 'friend_request' event into the 'friendevent' queue of the 'players' exchange. """
         from driftbase.api.messages import _add_message
         if receiving_player_id is None:
-            log.warning("Not creating a friend_request event for a non-specific invite from player id %s" % sender_player_id)
+            log.warning(
+                "Not creating a friend_request event for a non-specific invite from player id %s" % sender_player_id)
             return
         payload = {"token": token, "event": "friend_request"}
         _add_message("players", receiving_player_id, "friendevent", payload, expiry)
@@ -288,9 +290,9 @@ class FriendRequestsAPI(MethodView):
         """
         CorePlayer2 = aliased(CorePlayer)
         return g.db.query(FriendInvite, CorePlayer.player_name, CorePlayer2.player_name). \
-            join(CorePlayer, CorePlayer.player_id == FriendInvite.issued_to_player_id).\
+            join(CorePlayer, CorePlayer.player_id == FriendInvite.issued_to_player_id). \
             join(CorePlayer2, CorePlayer2.player_id == FriendInvite.issued_by_player_id). \
-                filter(FriendInvite.issued_to_player_id == int(current_user["player_id"]),
+            filter(FriendInvite.issued_to_player_id == int(current_user["player_id"]),
                    FriendInvite.expiry_date > datetime.datetime.utcnow(),
                    FriendInvite.deleted.is_(False))
 
