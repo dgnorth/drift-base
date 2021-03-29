@@ -32,6 +32,29 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
+class MachinesPostRequestSchema(ma.Schema):
+    realm = ma.fields.String()
+    instance_name = ma.fields.String()
+
+    instance_id = ma.fields.String(required=False)
+    instance_type = ma.fields.String(required=False)
+    placement = ma.fields.String(required=False)
+    public_ip = ma.fields.IPv4(required=False)
+    private_ip = ma.fields.IPv4(required=False)
+    machine_info = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+    group_name = ma.fields.String(required=False)
+
+class MachinePutRequestSchema(ma.Schema):
+    machine_info = ma.fields.Dict(required=False)
+    config = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+    status = ma.fields.Dict(required=False)
+    statistics = ma.fields.Dict(required=False)
+    group_name = ma.fields.String(required=False)
+    events = ma.fields.List(ma.fields.Dict(), required=False)
+
+
 @bp.route('', endpoint='list')
 class MachinesAPI(MethodView):
     """The interface to battleserver machines. Each physical machine
@@ -95,33 +118,24 @@ class MachinesAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "realm": {"type": "string", },
-        "instance_id": {"type": "string", },
-        "instance_type": {"type": "string", },
-        "instance_name": {"type": "string", },
-        "placement": {"type": "string", },
-        "public_ip": {"format": "ip-address", },
-        "private_ip": {"format": "ip-address", },
-        "machine_info": {"type": "object", },
-        "details": {"type": "object", },
-        "group_name": {"type": "string", },
-    }, required=["realm", "instance_name"])
-    def post(self):
+    @bp.arguments(MachinesPostRequestSchema)
+    def post(self, args):
         """
         Register a machine
         """
-        args = request.json
         log.info("registering a battleserver machine for realm %s from ip %s",
                  args.get("realm"), args.get("public_ip"))
+
+        def get_or_null(ip):
+            return ip and str(ip) or None
 
         machine = Machine(realm=args.get("realm"),
                           instance_id=args.get("instance_id"),
                           instance_type=args.get("instance_type"),
                           instance_name=args.get("instance_name"),
                           placement=args.get("placement"),
-                          public_ip=args.get("public_ip"),
-                          private_ip=args.get("private_ip"),
+                          public_ip=get_or_null(args.get("public_ip")),
+                          private_ip=get_or_null(args.get("private_ip")),
                           machine_info=args.get("machine_info"),
                           details=args.get("details"),
                           group_name=args.get("group_name")
@@ -168,22 +182,13 @@ class MachineAPI(MethodView):
         return jsonify(record)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "machine_info": {"type": "object", },
-        "status": {"type": "object", },
-        "details": {"type": "object", },
-        "config": {"type": "object", },
-        "statistics": {"type": "object", },
-        "group_name": {"type": "string"},
-        "events": {"type": "array"}
-    }, required=[])
-    def put(self, machine_id):
+    @bp.arguments(MachinePutRequestSchema)
+    def put(self, args, machine_id):
         """
         Update machine
 
         Heartbeat and update the machine reference
         """
-        args = request.json
         row = g.db.query(Machine).get(machine_id)
         if not row:
             abort(http_client.NOT_FOUND, description="Machine not found")
