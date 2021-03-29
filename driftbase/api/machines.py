@@ -1,23 +1,19 @@
-import logging
 import datetime
+import logging
 
-from six.moves import http_client
-
-from flask import request, url_for, g, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from dateutil import parser
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
+from flask import url_for, g, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from drift.core.extensions.urlregistry import Endpoints
-from dateutil import parser
-
-from drift.core.extensions.schemachecker import simple_schema_request
-from drift.core.extensions.jwt import requires_roles
+from six.moves import http_client
 
 from driftbase.models.db import Machine, MachineEvent
 
 log = logging.getLogger(__name__)
-
 
 bp = Blueprint("machines", __name__, url_prefix="/machines", description="Battleserver machine instances")
 endpoints = Endpoints()
@@ -44,6 +40,7 @@ class MachinesPostRequestSchema(ma.Schema):
     machine_info = ma.fields.Dict(required=False)
     details = ma.fields.Dict(required=False)
     group_name = ma.fields.String(required=False)
+
 
 class MachinePutRequestSchema(ma.Schema):
     machine_info = ma.fields.Dict(required=False)
@@ -77,7 +74,7 @@ class MachinesAPI(MethodView):
     get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
-    #@namespace.expect(get_args)
+    # @namespace.expect(get_args)
     def get(self):
         """
         Get a list of machines
@@ -151,8 +148,8 @@ class MachinesAPI(MethodView):
                  machine_id, args.get("public_ip"))
 
         return jsonify({"machine_id": machine_id,
-                "url": resource_uri
-                }), http_client.CREATED, response_header
+                        "url": resource_uri
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:machine_id>', endpoint='entry')
@@ -160,6 +157,7 @@ class MachineAPI(MethodView):
     """
     Information about specific machines
     """
+
     @requires_roles("service")
     def get(self, machine_id):
         """
