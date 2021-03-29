@@ -23,6 +23,9 @@ from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.schemachecker import simple_schema_request
 
+import marshmallow as ma
+
+
 log = logging.getLogger(__name__)
 
 bp = Blueprint("messages", "messages", url_prefix="/messages", description="Message box, mostly meant for client-to-client communication")
@@ -201,17 +204,16 @@ class MessagesExchangeAPI(MethodView):
             messages = fetch_messages(exchange, exchange_id, min_message_number, rows)
             return jsonify(messages)
 
+class MessagesQueuePostArgs(ma.Schema):
+    message = ma.fields.Dict()
+    expire = ma.fields.Integer(required=False)
 
 @bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='queue')
 class MessagesQueueAPI(MethodView):
 
-    @simple_schema_request({
-        "message": {"type": "object", },
-        "expire": {"type": "integer", },
-    }, required=["message"])
-    def post(self, exchange, exchange_id, queue):
+    @bp.arguments(MessagesQueuePostArgs)
+    def post(self, args, exchange, exchange_id, queue):
         check_can_use_exchange(exchange, exchange_id, read=False)
-        args = request.json
         expire_seconds = args.get("expire") or DEFAULT_EXPIRE_SECONDS
 
         message = _add_message(
