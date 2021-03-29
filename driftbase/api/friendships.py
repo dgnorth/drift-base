@@ -17,6 +17,7 @@ from driftbase.schemas.friendships import InviteSchema, FriendRequestSchema
 
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import IntegrityError
+import marshmallow as ma
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
@@ -40,6 +41,16 @@ def drift_init_extension(app, api, **kwargs):
 def get_player(player_id):
     player = g.db.query(CorePlayer).get(player_id)
     return player
+
+
+class FriendshipsPostRequestSchema(ma.Schema):
+    token = ma.fields.Str()
+
+
+class FriendshipsResponseSchema(ma.Schema):
+    friend_id = ma.fields.Integer()
+    url = ma.fields.Url()
+    messagequeue_url = ma.fields.Url()
 
 
 @bp.route('/players/<int:player_id>', endpoint='list')
@@ -69,17 +80,15 @@ class FriendshipsAPI(MethodView):
         ret = friends
         return jsonify(ret)
 
-    @simple_schema_request({
-        "token": {"type": "string", },
-    }, required=["token"])
-    def post(self, player_id):
+    @bp.arguments(FriendshipsPostRequestSchema, location='json')
+    @bp.response(http_client.CREATED, FriendshipsResponseSchema)
+    def post(self, args, player_id):
         """
         New friend
         """
         if player_id != current_user["player_id"]:
             abort(http_client.FORBIDDEN, description="That is not your player!")
 
-        args = request.json
         invite_token = args.get("token")
 
         invite = g.db.query(FriendInvite).filter_by(token=invite_token).first()
@@ -128,7 +137,7 @@ class FriendshipsAPI(MethodView):
                                         _external=True) + "/{queue}",
         }
 
-        return jsonify(ret), http_client.CREATED
+        return ret, http_client.CREATED
 
 
 @bp.route('/<int:friendship_id>', endpoint='entry')
