@@ -68,7 +68,7 @@ class MachineGroupsAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @bp.arguments(MachineGroupsPostRequestArgs, location='json')
+    @bp.arguments(MachineGroupsPostRequestArgs)
     def post(self, args):
         """
         Create machine group
@@ -122,7 +122,7 @@ class MachineGroupAPI(MethodView):
         return jsonify(record)
 
     @requires_roles("service")
-    @bp.arguments(MachineGroupsPatchRequestArgs, location='json')
+    @bp.arguments(MachineGroupsPatchRequestArgs)
     def patch(self, args, machinegroup_id):
         """
         Update machine group

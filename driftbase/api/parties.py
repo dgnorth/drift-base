@@ -152,7 +152,7 @@ class PartyInvitesAPI(MethodView):
     Manage invites for a party
     """
 
-    @bp_parties.arguments(PartyInvitesPostRequestSchema, location='json')
+    @bp_parties.arguments(PartyInvitesPostRequestSchema)
     @bp_parties.response(http_client.CREATED, PartyInvitesResponseSchema)
     def post(self, args):
         my_player_id = current_user['player_id']

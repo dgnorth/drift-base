@@ -78,7 +78,7 @@ class FriendshipsAPI(MethodView):
         ret = friends
         return jsonify(ret)
 
-    @bp.arguments(FriendshipsPostRequestSchema, location='json')
+    @bp.arguments(FriendshipsPostRequestSchema)
     @bp.response(http_client.CREATED, FriendshipsResponseSchema)
     def post(self, args, player_id):
         """
