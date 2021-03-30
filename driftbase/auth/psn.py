@@ -1,19 +1,17 @@
-
 import logging
-from six.moves import http_client
-
-import requests
-from werkzeug.exceptions import Unauthorized
-from flask import request, escape
-from flask_smorest import abort
-from driftbase.auth import get_provider_config
 from base64 import urlsafe_b64encode
 
-from drift.core.extensions.schemachecker import check_schema
+import marshmallow as ma
+import requests
+from flask import request, escape
+from flask_smorest import abort
+from six.moves import http_client
+from werkzeug.exceptions import Unauthorized
+
+from driftbase.auth import get_provider_config
 from .authenticate import authenticate as base_authenticate
 
 log = logging.getLogger(__name__)
-
 
 # TODO: While these are very much static, putting them in some global config might be better
 psn_issuer_urls = {
@@ -22,26 +20,36 @@ psn_issuer_urls = {
     "live": "https://auth.api.sonyentertainmentnetwork.com/2.0/oauth/token",
 }
 
-
 # PSN provider details schema
 psn_provider_schema = {
     'type': 'object',
     'properties':
-    {
-        'provider_details':
         {
-            'type': 'object',
-            'properties':
-            {
-                'psn_id': {'type': 'string'},
-                'auth_code': {'type': 'string'},
-                'issuer': {'type': 'string'},
-            },
-            'required': ['psn_id', 'auth_code', 'issuer'],
+            'provider_details':
+                {
+                    'type': 'object',
+                    'properties':
+                        {
+                            'psn_id': {'type': 'string'},
+                            'auth_code': {'type': 'string'},
+                            'issuer': {'type': 'string'},
+                        },
+                    'required': ['psn_id', 'auth_code', 'issuer'],
+                },
         },
-    },
     'required': ['provider_details'],
 }
+
+
+class PsnProviderAuthDetailsSchema(ma.Schema):
+    psn_id = ma.fields.String(required=True)
+    auth_code = ma.fields.String(required=True)
+    Issuer = ma.fields.String(required=True)
+
+
+class PsnProviderAuthSchema(ma.Schema):
+    provider = ma.fields.String(required=True)
+    provider_details = ma.fields.Nested(PsnProviderAuthDetailsSchema, required=True)
 
 
 def authenticate(auth_info):
@@ -56,7 +64,11 @@ def validate_psn_ticket():
     """Validate PSN ticket from /auth call."""
 
     ob = request.get_json()
-    check_schema(ob, psn_provider_schema, "Error in request body.")
+    try:
+        PsnProviderAuthSchema().load(ob)
+    except ma.ValidationError as e:
+        abort_unauthorized("PSN token property %s is invalid or missing" % e.field_name)
+
     provider_details = ob['provider_details']
     # Get PSN authentication config
     psn_config = get_provider_config('psn')
