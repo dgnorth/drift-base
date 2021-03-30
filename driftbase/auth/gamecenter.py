@@ -1,19 +1,17 @@
-import OpenSSL
-import struct
 import base64
+import struct
 
+import OpenSSL
+import marshmallow as ma
+from flask_smorest import abort
 from six.moves import http_client
 from six.moves.urllib.parse import urlparse
-
-from flask_smorest import abort
-
 from werkzeug.exceptions import Unauthorized
 from werkzeug.security import pbkdf2_hex
 
 from driftbase.auth import get_provider_config
 from driftbase.auth.util import fetch_url
 from .authenticate import authenticate as base_authenticate
-
 
 # We make the assumption that a public key stored on this web site is a trusted one.
 TRUSTED_KEY_URL_HOST = ".apple.com"
@@ -35,6 +33,15 @@ def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
     raise Unauthorized(description=description)
+
+
+class GameCenterProviderAuthDetailsSchema(ma.Schema):
+    app_bundle_id = ma.fields.String(required=True)
+    player_id = ma.fields.String(required=True)
+    public_key_url = ma.fields.String(required=True)
+    salt = ma.fields.String(required=True)
+    signature = ma.fields.String(required=True)
+    timestamp = ma.fields.Integer(required=True)
 
 
 def validate_gamecenter_token(gc_token):
@@ -64,7 +71,8 @@ def validate_gamecenter_token(gc_token):
 
     gamecenter_config = get_provider_config('gamecenter')
     if not gamecenter_config:
-        abort(http_client.SERVICE_UNAVAILABLE, description="Game Center authentication not configured for current tenant")
+        abort(http_client.SERVICE_UNAVAILABLE,
+              description="Game Center authentication not configured for current tenant")
 
     app_bundles = gamecenter_config.get("bundle_ids", None)
     return run_gamecenter_token_validation(gc_token=gc_token, app_bundles=app_bundles)
@@ -75,15 +83,10 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
     token_desc["signature"] = token_desc.get("signature", "?")[:10]
     error_title = 'Invalid Game Center token: %s' % token_desc
 
-    # Verify required fields
-    required_fields = [
-        'app_bundle_id', 'player_id', 'public_key_url',
-        'salt', 'signature', 'timestamp'
-    ]
-
-    missing_fields = list(set(required_fields) - set(gc_token.keys()))
-    if missing_fields:
-        abort_unauthorized(error_title + ". The token is missing required fields: %s." % ', '.join(missing_fields))
+    try:
+        GameCenterProviderAuthDetailsSchema().load(gc_token)
+    except ma.ValidationError as e:
+        abort_unauthorized(error_title + "The token is missing required fields: %s." % ','.join(e.field_name))
 
     # Verify that the token is issued to the appropriate app.
     if app_bundles and gc_token["app_bundle_id"] not in app_bundles:
