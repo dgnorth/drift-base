@@ -3,9 +3,8 @@ import logging
 
 import marshmallow as ma
 from drift.core.extensions.jwt import requires_roles
-from drift.core.extensions.schemachecker import simple_schema_request
 from drift.utils import Url
-from flask import url_for, request, g, jsonify
+from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from marshmallow import pre_dump
@@ -19,13 +18,15 @@ log = logging.getLogger(__name__)
 
 bp = Blueprint("player_tickets", __name__, url_prefix='/players')
 
+
 class TicketPatchRequestSchema(ma.Schema):
     journal_id = ma.fields.Integer()
+
 
 class TicketSchema(ModelSchema):
     class Meta:
         model = Ticket
-        #exclude = ('player_summary',)
+        # exclude = ('player_summary',)
 
     player_url = Url(
         'players.entry',
@@ -49,10 +50,11 @@ class TicketSchema(ModelSchema):
                 url_for(
                     'players.entry',
                     player_id=obj.issuer_id,
-                   _external=True
+                    _external=True
                 )
             )
         return obj
+
 
 class TicketsPostRequestSchema(ma.Schema):
     ticket_type = ma.fields.String()
@@ -73,7 +75,7 @@ class TicketsEndpoint(MethodView):
         Get a list of outstanding tickets for the player
         """
         can_edit_player(player_id)
-        tickets = g.db.query(Ticket)\
+        tickets = g.db.query(Ticket) \
             .filter(Ticket.player_id == player_id, Ticket.used_date == None)  # noqa: E711
         return tickets
 
@@ -105,9 +107,9 @@ class TicketsEndpoint(MethodView):
 
 def get_ticket(player_id, ticket_id):
     ticket = g.db.query(Ticket) \
-                 .filter(Ticket.player_id == player_id,
-                         Ticket.ticket_id == ticket_id) \
-                 .first()
+        .filter(Ticket.player_id == player_id,
+                Ticket.ticket_id == ticket_id) \
+        .first()
     return ticket
 
 

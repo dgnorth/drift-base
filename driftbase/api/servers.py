@@ -1,23 +1,19 @@
-import logging
 import datetime
+import logging
 import uuid
 
-from six.moves import http_client
-
-from flask import request, url_for, g, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from drift.core.extensions.jwt import current_user, requires_roles
+from drift.core.extensions.urlregistry import Endpoints
+from flask import url_for, g, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from drift.core.extensions.urlregistry import Endpoints
-
-from drift.core.extensions.schemachecker import simple_schema_request
-from drift.core.extensions.jwt import current_user, requires_roles
+from six.moves import http_client
 
 from driftbase.models.db import Machine, Server, Match, ServerDaemonCommand
 
 log = logging.getLogger(__name__)
-
 
 bp = Blueprint("servers", __name__, url_prefix="/servers", description="Battleserver processes")
 endpoints = Endpoints()
@@ -38,7 +34,7 @@ def utcnow():
 class ServersPostRequestSchema(ma.Schema):
     machine_id = ma.fields.Integer(required=False)
     version = ma.fields.String(required=False)
-    public_ip =  ma.fields.IPv4(required=False)
+    public_ip = ma.fields.IPv4(required=False)
     port = ma.fields.Integer(required=False)
     command_line = ma.fields.String(required=False)
     command_line_custom = ma.fields.String(required=False)
@@ -58,12 +54,13 @@ class ServersPostRequestSchema(ma.Schema):
     build_info = ma.fields.Dict(required=False)
     placement = ma.fields.String(required=False)
 
+
 class ServerPutRequestSchema(ma.Schema):
     status = ma.fields.String()
 
     machine_id = ma.fields.Integer(required=False)
     version = ma.fields.String(required=False)
-    public_ip =  ma.fields.IPv4(required=False)
+    public_ip = ma.fields.IPv4(required=False)
     port = ma.fields.Integer(required=False)
     command_line = ma.fields.String(required=False)
     command_line_custom = ma.fields.String(required=False)
@@ -193,13 +190,13 @@ class ServersAPI(MethodView):
         }
         log.info("Server %s has been registered on machine_id %s", server_id, machine_id)
         return jsonify({"server_id": server_id,
-                "url": resource_url,
-                "machine_id": machine_id,
-                "machine_url": machine_url,
-                "heartbeat_url": heartbeat_url,
-                "commands_url": commands_url,
-                "token": token,
-                }), http_client.CREATED, response_header
+                        "url": resource_url,
+                        "machine_id": machine_id,
+                        "machine_url": machine_url,
+                        "heartbeat_url": heartbeat_url,
+                        "commands_url": commands_url,
+                        "token": token,
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:server_id>', endpoint='entry')
@@ -210,6 +207,7 @@ class ServerAPI(MethodView):
     have a single battle on it. You should never have a battle resource
     without an associated battleserver resource.
     """
+
     @requires_roles("service")
     def get(self, server_id):
         """
@@ -291,12 +289,12 @@ class ServerAPI(MethodView):
             machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
 
         return jsonify({"server_id": server_id,
-                "url": url_for("servers.entry", server_id=server_id, _external=True),
-                "machine_id": machine_id,
-                "machine_url": machine_url,
-                "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
-                "next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT,
-                }), http_client.OK, None
+                        "url": url_for("servers.entry", server_id=server_id, _external=True),
+                        "machine_id": machine_id,
+                        "machine_url": machine_url,
+                        "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
+                        "next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT,
+                        }), http_client.OK, None
 
 
 @bp.route('/<int:server_id>/heartbeat', endpoint='heartbeat')
@@ -304,6 +302,7 @@ class ServerHeartbeatAPI(MethodView):
     """
     Thin heartbeat API
     """
+
     @requires_roles("service")
     def put(self, server_id):
         """
@@ -330,6 +329,7 @@ class ServerCommandsAPI(MethodView):
     """
     Commands for the battleserver daemon
     """
+
     @requires_roles("service")
     @bp.arguments(ServerCommandsPostSchema)
     def post(self, args, server_id):
@@ -353,15 +353,15 @@ class ServerCommandsAPI(MethodView):
         resource_url = url_for("servers.command", server_id=server_id,
                                command_id=command.command_id, _external=True)
         return jsonify({"command_id": command.command_id,
-                "url": resource_url,
-                "status": status,
-                }), http_client.CREATED, None
+                        "url": resource_url,
+                        "status": status,
+                        }), http_client.CREATED, None
 
     @requires_roles("service")
     def get(self, server_id):
         rows = g.db.query(ServerDaemonCommand) \
-                   .filter(ServerDaemonCommand.server_id == server_id) \
-                   .all()
+            .filter(ServerDaemonCommand.server_id == server_id) \
+            .all()
         ret = []
         for r in rows:
             command = r.as_dict()

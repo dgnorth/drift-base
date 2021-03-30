@@ -1,12 +1,14 @@
 import copy
-from six.moves import http_client
+
 from drift.systesthelper import DriftBaseTestCase
+from six.moves import http_client
 
 
 class ServersTest(DriftBaseTestCase):
     """
     Tests for the /servers service endpoints
     """
+
     def test_access(self):
         self.auth()
         resp = self.get("/servers", expected_status_code=http_client.UNAUTHORIZED)
