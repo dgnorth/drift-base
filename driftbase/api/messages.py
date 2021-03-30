@@ -202,8 +202,8 @@ class MessagesExchangeAPI(MethodView):
 
 
 class MessagesQueuePostArgs(ma.Schema):
-    message = ma.fields.Dict()
-    expire = ma.fields.Integer(required=False)
+    message = ma.fields.Dict(required=True)
+    expire = ma.fields.Integer()
 
 
 @bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='queue')

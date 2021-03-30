@@ -156,30 +156,30 @@ def lock(redis):
 
 
 class MatchesPostRequestSchema(ma.Schema):
-    server_id = ma.fields.Integer()
+    server_id = ma.fields.Integer(required=True)
 
-    num_players = ma.fields.Integer(required=False)
-    max_players = ma.fields.Integer(required=False)
-    map_name = ma.fields.String(required=False)
-    game_mode = ma.fields.String(required=False)
-    status = ma.fields.String(required=False)
-    unique_key = ma.fields.String(required=False)
-    match_statistics = ma.fields.Dict(required=False)
-    details = ma.fields.Dict(required=False)
-    num_teams = ma.fields.Integer(required=False)
+    num_players = ma.fields.Integer()
+    max_players = ma.fields.Integer()
+    map_name = ma.fields.String()
+    game_mode = ma.fields.String()
+    status = ma.fields.String()
+    unique_key = ma.fields.String()
+    match_statistics = ma.fields.Dict()
+    details = ma.fields.Dict()
+    num_teams = ma.fields.Integer()
 
 
 class MatchPutRequestSchema(ma.Schema):
-    status = ma.fields.String()
+    status = ma.fields.String(required=True)
 
-    server_id = ma.fields.Integer(required=False)
-    num_players = ma.fields.Integer(required=False)
-    max_players = ma.fields.Integer(required=False)
-    map_name = ma.fields.String(required=False)
-    game_mode = ma.fields.String(required=False)
-    unique_key = ma.fields.String(required=False)
-    match_statistics = ma.fields.Dict(required=False)
-    details = ma.fields.Dict(required=False)
+    server_id = ma.fields.Integer()
+    num_players = ma.fields.Integer()
+    max_players = ma.fields.Integer()
+    map_name = ma.fields.String()
+    game_mode = ma.fields.String()
+    unique_key = ma.fields.String()
+    match_statistics = ma.fields.Dict()
+    details = ma.fields.Dict()
 
 
 @bp.route('', endpoint='list')
@@ -408,15 +408,15 @@ class MatchAPI(MethodView):
 
 
 class MatchTeamsPostRequestSchema(ma.Schema):
-    name = ma.fields.String(required=False)
-    statistics = ma.fields.Dict(required=False)
-    details = ma.fields.Dict(required=False)
+    name = ma.fields.String()
+    statistics = ma.fields.Dict()
+    details = ma.fields.Dict()
 
 
 class MatchTeamPutRequestSchema(ma.Schema):
-    name = ma.fields.String(required=False)
-    statistics = ma.fields.Dict(required=False)
-    details = ma.fields.Dict(required=False)
+    name = ma.fields.String()
+    statistics = ma.fields.Dict()
+    details = ma.fields.Dict()
 
 
 @bp.route('/<int:match_id>/teams', endpoint='teams')
@@ -523,8 +523,8 @@ class MatchTeamAPI(MethodView):
 
 
 class MatchPlayerPostSchema(ma.Schema):
-    player_id = ma.fields.Integer()
-    team_id = ma.fields.Integer(required=False)
+    player_id = ma.fields.Integer(required=True)
+    team_id = ma.fields.Integer()
 
 
 @bp.route('/<int:match_id>/players', endpoint='players')

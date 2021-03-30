@@ -57,11 +57,11 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
 
 
 class MatchQueuePostSchema(ma.Schema):
-    player_id = ma.fields.Integer()
-    criteria = ma.fields.Dict(required=False)
-    placement = ma.fields.String(required=False)
-    ref = ma.fields.String(required=False)
-    token = ma.fields.String(required=False)
+    player_id = ma.fields.Integer(required=True)
+    criteria = ma.fields.Dict()
+    placement = ma.fields.String()
+    ref = ma.fields.String()
+    token = ma.fields.String()
 
 
 @bp.route('', endpoint='queue')

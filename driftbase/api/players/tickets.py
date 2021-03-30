@@ -20,7 +20,7 @@ bp = Blueprint("player_tickets", __name__, url_prefix='/players')
 
 
 class TicketPatchRequestSchema(ma.Schema):
-    journal_id = ma.fields.Integer()
+    journal_id = ma.fields.Integer(required=True)
 
 
 class TicketSchema(ModelSchema):
@@ -57,11 +57,11 @@ class TicketSchema(ModelSchema):
 
 
 class TicketsPostRequestSchema(ma.Schema):
-    ticket_type = ma.fields.String()
+    ticket_type = ma.fields.String(required=True)
 
-    issuer_id = ma.fields.Integer(required=False)
-    external_id = ma.fields.String(required=False)
-    details = ma.fields.Dict(required=False)
+    issuer_id = ma.fields.Integer()
+    external_id = ma.fields.String()
+    details = ma.fields.Dict()
 
 
 @bp.route("/<int:player_id>/tickets", endpoint="list")

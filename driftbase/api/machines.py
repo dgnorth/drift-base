@@ -29,27 +29,27 @@ def utcnow():
 
 
 class MachinesPostRequestSchema(ma.Schema):
-    realm = ma.fields.String()
-    instance_name = ma.fields.String()
+    realm = ma.fields.String(required=True)
+    instance_name = ma.fields.String(required=True)
 
-    instance_id = ma.fields.String(required=False)
-    instance_type = ma.fields.String(required=False)
-    placement = ma.fields.String(required=False)
-    public_ip = ma.fields.IPv4(required=False)
-    private_ip = ma.fields.IPv4(required=False)
-    machine_info = ma.fields.Dict(required=False)
-    details = ma.fields.Dict(required=False)
-    group_name = ma.fields.String(required=False)
+    instance_id = ma.fields.String()
+    instance_type = ma.fields.String()
+    placement = ma.fields.String()
+    public_ip = ma.fields.IPv4()
+    private_ip = ma.fields.IPv4()
+    machine_info = ma.fields.Dict()
+    details = ma.fields.Dict()
+    group_name = ma.fields.String()
 
 
 class MachinePutRequestSchema(ma.Schema):
-    machine_info = ma.fields.Dict(required=False)
-    config = ma.fields.Dict(required=False)
-    details = ma.fields.Dict(required=False)
-    status = ma.fields.Dict(required=False)
-    statistics = ma.fields.Dict(required=False)
-    group_name = ma.fields.String(required=False)
-    events = ma.fields.List(ma.fields.Dict(), required=False)
+    machine_info = ma.fields.Dict()
+    config = ma.fields.Dict()
+    details = ma.fields.Dict()
+    status = ma.fields.Dict()
+    statistics = ma.fields.Dict()
+    group_name = ma.fields.String()
+    events = ma.fields.List(ma.fields.Dict())
 
 
 @bp.route('', endpoint='list')
