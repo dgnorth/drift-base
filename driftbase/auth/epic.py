@@ -1,11 +1,9 @@
-
 import logging
-from six.moves import http_client
 
+import marshmallow as ma
 from flask import request
 
-from drift.core.extensions.schemachecker import check_schema
-from .authenticate import authenticate as base_authenticate
+from .authenticate import authenticate as base_authenticate, abort_unauthorized
 
 log = logging.getLogger(__name__)
 
@@ -18,36 +16,25 @@ def authenticate(auth_info):
     return base_authenticate(username, "", True or automatic_account_creation)
 
 
-# Epic provider details schema
-epic_provider_schema = {
-    'type': 'object',
-    'properties':
-    {
-        'provider_details':
-        {
-            'type': 'object',
-            'properties':
-            {
-                'account_id': {'type': 'string'},
-            },
-            'required': ['account_id'],
-        },
-    },
-    'required': ['provider_details'],
-}
+class EpicProviderAuthDetailsSchema(ma.Schema):
+    account_id = ma.fields.String(required=True)
 
 
 def validate_epic_ticket():
     """Validate Epic ticket from /auth call."""
 
     ob = request.get_json()
-    check_schema(ob, epic_provider_schema, "Error in request body.")
     provider_details = ob['provider_details']
 
-       # Call validation and authenticate if ticket is good
+    # Call validation and authenticate if ticket is good
     identity_id = run_ticket_validation(provider_details)
     return identity_id
 
 
 def run_ticket_validation(provider_details):
+    error_title = 'Invalid Epic token: '
+    try:
+        EpicProviderAuthDetailsSchema().load(provider_details)
+    except ma.ValidationError as e:
+        abort_unauthorized(error_title + "The token is missing required fields: %s." % ','.join(e.field_name))
     return provider_details['account_id']
