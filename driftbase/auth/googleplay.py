@@ -1,38 +1,26 @@
-
 import logging
 
-from six.moves import http_client
-
+import marshmallow as ma
 import requests
-from werkzeug.exceptions import Unauthorized
 from flask import request
 from flask_smorest import abort
-from driftbase.auth import get_provider_config
+from six.moves import http_client
+from werkzeug.exceptions import Unauthorized
 
-from drift.core.extensions.schemachecker import check_schema
+from driftbase.auth import get_provider_config
 from .authenticate import authenticate as base_authenticate
 
 log = logging.getLogger(__name__)
 
 
-# Google Play provider details schema
-googleplay_provider_schema = {
-    'type': 'object',
-    'properties':
-    {
-        'provider_details':
-        {
-            'type': 'object',
-            'properties':
-            {
-                'user_id': {'type': 'string'},
-                'id_token': {'type': 'string'},
-            },
-            'required': ['user_id', 'id_token'],
-        },
-    },
-    'required': ['provider_details'],
-}
+class GooglePlayProviderAuthDetailsSchema(ma.Schema):
+    user_id = ma.fields.String(required=True)
+    id_token = ma.fields.String(required=True)
+
+
+class GooglePlayProviderAuthSchema(ma.Schema):
+    provider = ma.fields.String(required=True)
+    provider_details = ma.fields.Nested(GooglePlayProviderAuthDetailsSchema, required=True)
 
 
 def authenticate(auth_info):
@@ -55,13 +43,17 @@ def validate_googleplay_token():
     """Validate Google Play token from /auth call."""
 
     ob = request.get_json()
-    check_schema(ob, googleplay_provider_schema, "Error in request body.")
+    try:
+        GooglePlayProviderAuthSchema().load(ob)
+    except ma.ValidationError as e:
+        abort_unauthorized("Google Play token property %s is invalid" % e.field_name)
     provider_details = ob['provider_details']
     # Get Google Play authentication config
     gp_config = get_provider_config('googleplay')
 
     if not gp_config:
-        abort(http_client.SERVICE_UNAVAILABLE, description="Google Play authentication not configured for current tenant")
+        abort(http_client.SERVICE_UNAVAILABLE,
+              description="Google Play authentication not configured for current tenant")
 
     app_client_ids = gp_config.get("client_ids", None)
 
