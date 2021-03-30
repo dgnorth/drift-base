@@ -12,7 +12,6 @@ from flask_smorest import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import url_player
-from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import current_user, requires_roles
 
 from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
@@ -159,6 +158,31 @@ def lock(redis):
     return redis.lock("ensure_match_unique_key")
 
 
+class MatchesPostRequestSchema(ma.Schema):
+    server_id = ma.fields.Integer()
+
+    num_players = ma.fields.Integer(required=False)
+    max_players = ma.fields.Integer(required=False)
+    map_name = ma.fields.String(required=False)
+    game_mode = ma.fields.String(required=False)
+    status = ma.fields.String(required=False)
+    unique_key = ma.fields.String(required=False)
+    match_statistics = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+    num_teams = ma.fields.Integer(required=False)
+
+class MatchPutRequestSchema(ma.Schema):
+    status = ma.fields.String()
+
+    server_id = ma.fields.Integer(required=False)
+    num_players = ma.fields.Integer(required=False)
+    max_players = ma.fields.Integer(required=False)
+    map_name = ma.fields.String(required=False)
+    game_mode = ma.fields.String(required=False)
+    unique_key = ma.fields.String(required=False)
+    match_statistics = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+
 @bp.route('', endpoint='list')
 class MatchesAPI(MethodView):
     """UE4 match
@@ -190,19 +214,8 @@ class MatchesAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "server_id": {"type": "number", },
-        "num_players": {"type": "number", },
-        "max_players": {"type": "number", },
-        "map_name": {"type": "string", },
-        "game_mode": {"type": "string", },
-        "status": {"type": "string", },
-        "unique_key": {"type": "string", },
-        "match_statistics": {"type": "object", },
-        "details": {"type": "object", },
-        "num_teams": {"type": "number", },
-    }, required=["server_id"])
-    def post(self):
+    @bp.arguments(MatchesPostRequestSchema)
+    def post(self, args):
         """Register a new battle on the passed in match server.
         Each match server should always have a single battle.
         A match server will have zero matches only when it doesn't start up.
@@ -210,7 +223,6 @@ class MatchesAPI(MethodView):
         match server unreal process (in local development mode) will call
         this endpoint to create the battle resource.
         """
-        args = request.json
         server_id = args.get("server_id")
         unique_key = args.get("unique_key")
         details = args.get("details")
@@ -334,18 +346,8 @@ class MatchAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "server_id": {"type": "number", },
-        "num_players": {"type": "number", },
-        "max_players": {"type": "number", },
-        "map_name": {"type": "string", },
-        "game_mode": {"type": "string", },
-        "status": {"type": "string", },
-        "unique_key": {"type": "string", },
-        "match_statistics": {"type": "object", },
-        "details": {"type": "object", },
-    }, required=["status"])
-    def put(self, match_id):
+    @bp.arguments(MatchPutRequestSchema)
+    def put(self, args, match_id):
         """
         Update battle status
 
@@ -354,7 +356,6 @@ class MatchAPI(MethodView):
         """
 
         log.debug("Updating battle %s", match_id)
-        args = request.json
         unique_key = args.get("unique_key")
 
         with ExitStack() as stack:
@@ -406,6 +407,16 @@ class MatchAPI(MethodView):
             return jsonify(ret), http_client.OK, response_header
 
 
+class MatchTeamsPostRequestSchema(ma.Schema):
+    name = ma.fields.String(required=False)
+    statistics = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+
+class MatchTeamPutRequestSchema(ma.Schema):
+    name = ma.fields.String(required=False)
+    statistics = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+
 @bp.route('/<int:match_id>/teams', endpoint='teams')
 class MatchTeamsAPI(MethodView):
     """
@@ -431,16 +442,11 @@ class MatchTeamsAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "name": {"type": "string", },
-        "statistics": {"type": "object", },
-        "details": {"type": "object", },
-    }, required=[])
-    def post(self, match_id):
+    @bp.arguments(MatchTeamsPostRequestSchema)
+    def post(self, args, match_id):
         """
         Add a team to a match
         """
-        args = request.json
         team = MatchTeam(match_id=match_id,
                          name=args.get("name"),
                          statistics=args.get("statistics"),
@@ -500,13 +506,8 @@ class MatchTeamAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "name": {"type": "string", },
-        "statistics": {"type": "object", },
-        "details": {"type": "object", },
-    }, required=[])
-    def put(self, match_id, team_id):
-        args = request.json
+    @bp.arguments(MatchTeamPutRequestSchema)
+    def put(self, args, match_id, team_id):
         team = g.db.query(MatchTeam).get(team_id)
         if not team:
             abort(http_client.NOT_FOUND)
@@ -515,6 +516,11 @@ class MatchTeamAPI(MethodView):
         g.db.commit()
         ret = team.as_dict()
         return jsonify(ret)
+
+
+class MatchPlayerPostSchema(ma.Schema):
+    player_id = ma.fields.Integer()
+    team_id = ma.fields.Integer(required=False)
 
 
 @bp.route('/<int:match_id>/players', endpoint='players')
@@ -543,17 +549,14 @@ class MatchPlayersAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "player_id": {"type": "number"},
-        "team_id": {"type": "number"},
-    }, required=["player_id"])
-    def post(self, match_id):
+    @bp.arguments(MatchPlayerPostSchema)
+    def post(self, args, match_id):
         """
         Add a player to a match
         """
 
-        player_id = request.json["player_id"]
-        team_id = request.json.get("team_id", None)
+        player_id = args["player_id"]
+        team_id = args.get("team_id", None)
 
         match = g.db.query(Match).get(match_id)
         if not match:
