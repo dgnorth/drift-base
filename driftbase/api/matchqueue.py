@@ -15,7 +15,6 @@ from flask_smorest import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
-from drift.core.extensions.schemachecker import simple_schema_request
 from drift.utils import json_response
 
 from driftbase.utils import url_player
@@ -59,25 +58,25 @@ def make_matchqueueplayer_response(player, matchqueue_entry, server=None):
     return ret
 
 
+class MatchQueuePostSchema(ma.Schema):
+    player_id = ma.fields.Integer()
+    criteria = ma.fields.Dict(required=False)
+    placement = ma.fields.String(required=False)
+    ref = ma.fields.String(required=False)
+    token = ma.fields.String(required=False)
+
 @bp.route('', endpoint='queue')
 class MatchQueueAPI(MethodView):
 
     no_jwt_check = ["GET"]
 
-    @simple_schema_request({
-        "player_id": {"type": "number", },
-        "criteria": {"type": "object", },
-        "placement": {"type": "string", },
-        "ref": {"type": "string", },
-        "token": {"type": "string", },
-    }, required=["player_id"])
-    def post(self):
+    @bp.arguments(MatchQueuePostSchema)
+    def post(self, args):
         """
         Add a player to the queue
 
         Registers the current player into the match queue ready for a match
         """
-        args = request.json
         criteria = args.get("criteria")
         placement = args.get("placement")
         ref = args.get("ref")
