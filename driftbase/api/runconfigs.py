@@ -5,16 +5,14 @@
 
 import logging
 
-from six.moves import http_client
-
-from flask import request, url_for, g, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
+from flask import url_for, g, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from drift.core.extensions.urlregistry import Endpoints
-
-from drift.core.extensions.jwt import requires_roles
+from six.moves import http_client
 
 from driftbase.models.db import RunConfig
 
@@ -92,8 +90,8 @@ class RunConfigsAPI(MethodView):
                  runconfig_id, args.get("name"))
 
         return jsonify({"runconfig_id": runconfig_id,
-                "url": resource_uri
-                }), http_client.CREATED, response_header
+                        "url": resource_uri
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:runconfig_id>', endpoint='entry')
@@ -101,6 +99,7 @@ class RunConfigAPI(MethodView):
     """
     Information about specific machines
     """
+
     @requires_roles("service")
     def get(self, runconfig_id):
         """
