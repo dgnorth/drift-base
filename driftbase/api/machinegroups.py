@@ -30,13 +30,13 @@ def drift_init_extension(app, api, **kwargs):
 class MachineGroupsPostRequestArgs(ma.Schema):
     name = ma.fields.Str()
     description = ma.fields.Str(required=False)
-    runconfig_id = ma.fields.Number(required=False)
+    runconfig_id = ma.fields.Integer(required=False)
 
 
 class MachineGroupsPatchRequestArgs(ma.Schema):
     name = ma.fields.Str(required=False)
     description = ma.fields.Str(required=False)
-    runconfig_id = ma.fields.Number(required=False)
+    runconfig_id = ma.fields.Integer(required=False)
 
 
 @bp.route('/', endpoint='list')
