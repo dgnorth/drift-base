@@ -54,6 +54,13 @@ class TicketSchema(ModelSchema):
             )
         return obj
 
+class TicketsPostRequestSchema(ma.Schema):
+    ticket_type = ma.fields.String()
+
+    issuer_id = ma.fields.Integer(required=False)
+    external_id = ma.fields.String(required=False)
+    details = ma.fields.Dict(required=False)
+
 
 @bp.route("/<int:player_id>/tickets", endpoint="list")
 class TicketsEndpoint(MethodView):
@@ -71,19 +78,13 @@ class TicketsEndpoint(MethodView):
         return tickets
 
     @requires_roles("service")
-    @simple_schema_request({
-        "issuer_id": {"type": "number"},
-        "ticket_type": {"type": "string"},
-        "external_id": {"type": "string"},
-        "details": {"type": "object"},
-    }, required=["ticket_type"])
-    def post(self, player_id):
+    @bp.arguments(TicketsPostRequestSchema)
+    def post(self, args, player_id):
         """
         Create ticket
 
         Create a ticket for a player. Only available to services
         """
-        args = request.json
         issuer_id = args.get("issuer_id")
         ticket_type = args.get("ticket_type")
         details = args.get("details")
