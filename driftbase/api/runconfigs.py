@@ -14,7 +14,6 @@ from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
-from drift.core.extensions.schemachecker import simple_schema_request
 from drift.core.extensions.jwt import requires_roles
 
 from driftbase.models.db import RunConfig
@@ -28,6 +27,16 @@ endpoints = Endpoints()
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     endpoints.init_app(app)
+
+
+class RunConfigsPostSchema(ma.Schema):
+    name = ma.fields.String()
+    repository = ma.fields.String()
+    ref = ma.fields.String()
+    build = ma.fields.String()
+    num_processes = ma.fields.Integer(required=False)
+    command_line = ma.fields.String(required=False)
+    details = ma.fields.Dict(required=False)
 
 
 @bp.route('', endpoint='list')
@@ -56,17 +65,8 @@ class RunConfigsAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "name": {"type": "string", },
-        "repository": {"type": "string", },
-        "ref": {"type": "string", },
-        "build": {"type": "string", },
-        "num_processes": {"type": "number", },
-        "command_line": {"type": "string", },
-        "details": {"type": "object", },
-    }, required=["name", "repository", "ref", "build"])
-    def post(self):
-        args = request.json
+    @bp.arguments(RunConfigsPostSchema)
+    def post(self, args):
         log.info("creating a new runconfig")
 
         rows = g.db.query(RunConfig).filter(RunConfig.name.ilike(args["name"])).all()
