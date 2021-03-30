@@ -136,7 +136,7 @@ class ServersTest(DriftBaseTestCase):
         server_id = resp.json()["server_id"]
         self.assertGreater(server_id, 0)
         url = resp.json()["url"]
-        self.put(url, data={"bla": "ble"}, expected_status_code=http_client.BAD_REQUEST)
+        self.put(url, data={"bla": "ble"}, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
 
         new_data = copy.copy(data)
         new_data["details"] = {"entirely_new_details": "yes"}

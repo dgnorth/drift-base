@@ -35,6 +35,53 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
+class ServersPostRequestSchema(ma.Schema):
+    machine_id = ma.fields.Integer(required=False)
+    version = ma.fields.String(required=False)
+    public_ip =  ma.fields.IPv4(required=False)
+    port = ma.fields.Integer(required=False)
+    command_line = ma.fields.String(required=False)
+    command_line_custom = ma.fields.String(required=False)
+    pid = ma.fields.Integer(required=False)
+    status = ma.fields.String(required=False)
+    image_name = ma.fields.String(required=False)
+    instance_name = ma.fields.String(required=False)
+    branch = ma.fields.String(required=False)
+    commit_id = ma.fields.String(required=False)
+    process_info = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+    repository = ma.fields.String(required=False)
+    ref = ma.fields.String(required=False)
+    build = ma.fields.String(required=False)
+    build_number = ma.fields.Integer(required=False)
+    target_platform = ma.fields.String(required=False)
+    build_info = ma.fields.Dict(required=False)
+    placement = ma.fields.String(required=False)
+
+class ServerPutRequestSchema(ma.Schema):
+    status = ma.fields.String()
+
+    machine_id = ma.fields.Integer(required=False)
+    version = ma.fields.String(required=False)
+    public_ip =  ma.fields.IPv4(required=False)
+    port = ma.fields.Integer(required=False)
+    command_line = ma.fields.String(required=False)
+    command_line_custom = ma.fields.String(required=False)
+    pid = ma.fields.Integer(required=False)
+    image_name = ma.fields.String(required=False)
+    error = ma.fields.String(required=False)
+    branch = ma.fields.String(required=False)
+    commit_id = ma.fields.String(required=False)
+    process_info = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+    repository = ma.fields.String(required=False)
+    ref = ma.fields.String(required=False)
+    build = ma.fields.String(required=False)
+    build_number = ma.fields.Integer(required=False)
+    target_platform = ma.fields.String(required=False)
+    build_info = ma.fields.Dict(required=False)
+
+
 @bp.route('', endpoint='list')
 class ServersAPI(MethodView):
     get_args = reqparse.RequestParser()
@@ -64,36 +111,13 @@ class ServersAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "machine_id": {"type": "number", },
-        "version": {"type": "string", },
-        "public_ip": {"format": "ip-address", },
-        "port": {"type": "number", },
-        "command_line": {"type": "string", },
-        "command_line_custom": {"type": "string", },
-        "pid": {"type": "number", },
-        "status": {"type": "string", },
-        "image_name": {"type": "string", },
-        "instance_name": {"type": "string", },
-        "branch": {"type": "string", },
-        "commit_id": {"type": "string", },
-        "process_info": {"type": "object", },
-        "details": {"type": "object", },
-        "repository": {"type": "string", },
-        "ref": {"type": "string", },
-        "build": {"type": "string", },
-        "build_number": {"type": "number", },
-        "target_platform": {"type": "string", },
-        "build_info": {"type": "object", },
-        "placement": {"type": "string", },
-    }, required=[])
-    def post(self):
+    @bp.arguments(ServersPostRequestSchema)
+    def post(self, args):
         """
         The daemon process (and server, for local development) post here
         to register the server instance with the backend. You need to
         register the server before you can register a battle.
         """
-        args = request.json
         machine_id = args.get("machine_id")
         log.info("registering a server on machine_id %s, realm %s and public_ip %s",
                  machine_id, args.get("realm"), args.get("public_ip"))
@@ -128,9 +152,12 @@ class ServersAPI(MethodView):
 
         token = str(uuid.uuid4()).replace("-", "")[:20]
 
+        def get_or_null(ip):
+            return ip and str(ip) or None
+
         server = Server(machine_id=machine_id,
                         version=args.get("version"),
-                        public_ip=args.get("public_ip"),
+                        public_ip=get_or_null(args.get("public_ip")),
                         port=args.get("port"),
                         command_line=args.get("command_line"),
                         command_line_custom=args.get("command_line_custom"),
@@ -238,34 +265,12 @@ class ServerAPI(MethodView):
         return jsonify(record)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "machine_id": {"type": "number", },
-        "status": {"type": "string", },
-        "version": {"type": "string", },
-        "public_ip": {"format": "ip-address", },
-        "port": {"type": "number", },
-        "command_line": {"type": "string", },
-        "command_line_custom": {"type": "string", },
-        "pid": {"type": "number", },
-        "image_name": {"type": "string", },
-        "error": {"type": "string", },
-        "branch": {"type": "string", },
-        "commit_id": {"type": "string", },
-        "process_info": {"type": "object", },
-        "details": {"type": "object", },
-        "repository": {"type": "string", },
-        "ref": {"type": "string", },
-        "build": {"type": "string", },
-        "build_number": {"type": "number", },
-        "target_platform": {"type": "string", },
-        "build_info": {"type": "object", },
-    }, required=["status"])
-    def put(self, server_id):
+    @bp.arguments(ServerPutRequestSchema)
+    def put(self, args, server_id):
         """
         The battleserver management (celery) process calls this to update
         the status of running a specific battleserver task
         """
-        args = request.json
         log.info("Updating battleserver %s", server_id)
         server = g.db.query(Server).get(server_id)
         if not server:
@@ -273,6 +278,9 @@ class ServerAPI(MethodView):
         if args.get("status"):
             log.info("Changing status of server %s from '%s' to '%s'",
                      server_id, server.status, args["status"])
+        public_ip = args.pop("public_ip", None)
+        if public_ip:
+            server.public_ip = str(public_ip)
         for arg in args:
             setattr(server, arg, args[arg])
         g.db.commit()
@@ -311,18 +319,20 @@ class ServerHeartbeatAPI(MethodView):
         return jsonify({"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }), http_client.OK, None
 
 
+class ServerCommandsPostSchema(ma.Schema):
+    command = ma.fields.String()
+    arguments = ma.fields.Dict(required=False)
+    details = ma.fields.Dict(required=False)
+
+
 @bp.route('/<int:server_id>/commands', endpoint='commands')
 class ServerCommandsAPI(MethodView):
     """
     Commands for the battleserver daemon
     """
     @requires_roles("service")
-    @simple_schema_request({
-        "command": {"type": "string", },
-        "arguments": {"type": "object", },
-        "details": {"type": "object", },
-    }, required=["command"])
-    def post(self, server_id):
+    @bp.arguments(ServerCommandsPostSchema)
+    def post(self, args, server_id):
         """
         Add a new command for the daemon to execute
         """
@@ -330,7 +340,6 @@ class ServerCommandsAPI(MethodView):
         if not server:
             abort(http_client.NOT_FOUND)
 
-        args = request.json
         status = "pending"
         command = ServerDaemonCommand(server_id=server_id,
                                       command=args["command"],
@@ -364,25 +373,24 @@ class ServerCommandsAPI(MethodView):
         return jsonify(ret)
 
 
+class ServerCommandPatchSchema(ma.Schema):
+    status = ma.fields.String()
+    details = ma.fields.Dict(required=False)
+
+
 @bp.route('/<int:server_id>/commands/<int:command_id>', endpoint='command')
 class ServerCommandAPI(MethodView):
     @requires_roles("service")
-    @simple_schema_request({
-        "status": {"type": "string", },
-        "details": {"type": "object", },
-    }, required=["status"])
-    def patch(self, server_id, command_id):
-        return self._patch(server_id, command_id)
+    @bp.arguments(ServerCommandPatchSchema)
+    def patch(self, args, server_id, command_id):
+        return self._patch(args, server_id, command_id)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "status": {"type": "string", },
-        "details": {"type": "object", },
-    }, required=["status"])
-    def put(self, server_id, command_id):
-        return self._patch(server_id, command_id)
+    @bp.arguments(ServerCommandPatchSchema)
+    def put(self, args, server_id, command_id):
+        return self._patch(args, server_id, command_id)
 
-    def _patch(self, server_id, command_id):
+    def _patch(self, args, server_id, command_id):
         """
         Add a new command for the daemon to execute
         """
@@ -390,7 +398,6 @@ class ServerCommandAPI(MethodView):
         if not server:
             abort(http_client.NOT_FOUND)
 
-        args = request.json
         row = g.db.query(ServerDaemonCommand).get(command_id)
         row.status = args["status"]
         row.status_date = utcnow()
