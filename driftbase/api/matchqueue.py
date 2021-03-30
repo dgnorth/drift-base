@@ -5,21 +5,19 @@
 import datetime
 import logging
 
-from six.moves import http_client
-
-from flask import g, url_for, request, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from drift.core.extensions.jwt import current_user
+from drift.core.extensions.urlregistry import Endpoints
+from drift.utils import json_response
+from flask import g, url_for, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
+from six.moves import http_client
 
-from drift.core.extensions.urlregistry import Endpoints
-from drift.core.extensions.jwt import current_user
-from drift.utils import json_response
-
-from driftbase.utils import url_player
-from driftbase.models.db import CorePlayer, MatchQueuePlayer, Match, Client, Server
 from driftbase.matchqueue import process_match_queue
+from driftbase.models.db import CorePlayer, MatchQueuePlayer, Match, Client, Server
+from driftbase.utils import url_player
 
 log = logging.getLogger(__name__)
 
@@ -65,9 +63,9 @@ class MatchQueuePostSchema(ma.Schema):
     ref = ma.fields.String(required=False)
     token = ma.fields.String(required=False)
 
+
 @bp.route('', endpoint='queue')
 class MatchQueueAPI(MethodView):
-
     no_jwt_check = ["GET"]
 
     @bp.arguments(MatchQueuePostSchema)
@@ -91,8 +89,8 @@ class MatchQueueAPI(MethodView):
 
         # if we already have an outstanding match request, delete it
         my_matchqueueplayer = g.db.query(MatchQueuePlayer) \
-                                  .filter(MatchQueuePlayer.player_id == player_id,
-                                          MatchQueuePlayer.status.in_(["waiting", "matched"]))
+            .filter(MatchQueuePlayer.player_id == player_id,
+                    MatchQueuePlayer.status.in_(["waiting", "matched"]))
         if my_matchqueueplayer.count() > 0:
             log.info("Removing old request from %s", my_matchqueueplayer[0].create_date)
             for r in my_matchqueueplayer:
@@ -104,7 +102,7 @@ class MatchQueueAPI(MethodView):
                 # out of queues for more than 2 players!
                 if r.match_id:
                     other_matchqueueplayer = g.db.query(MatchQueuePlayer) \
-                                                 .filter(MatchQueuePlayer.match_id == r.match_id)
+                        .filter(MatchQueuePlayer.match_id == r.match_id)
                     for r_other in other_matchqueueplayer:
                         g.db.delete(r_other)
 
@@ -127,8 +125,8 @@ class MatchQueueAPI(MethodView):
             # if we were unable to process the match queue remove our player and return an error
             log.exception("Unable to process match queue")
             my_matchqueueplayer = g.db.query(MatchQueuePlayer) \
-                                      .filter(MatchQueuePlayer.player_id == player_id,
-                                              MatchQueuePlayer.status == "waiting")
+                .filter(MatchQueuePlayer.player_id == player_id,
+                        MatchQueuePlayer.status == "waiting")
             if my_matchqueueplayer.count() > 0:
                 for r in my_matchqueueplayer:
                     r.status = "error"
@@ -167,12 +165,12 @@ class MatchQueueAPI(MethodView):
             statuses = args.status
 
         matchqueue_players = g.db.query(CorePlayer, MatchQueuePlayer, Client) \
-                                 .filter(CorePlayer.player_id == MatchQueuePlayer.player_id,
-                                         MatchQueuePlayer.status.in_(statuses),
-                                         Client.client_id == MatchQueuePlayer.client_id,
-                                         Client.heartbeat >= datetime.datetime.utcnow() -
-                                         datetime.timedelta(seconds=30)) \
-                                 .all()
+            .filter(CorePlayer.player_id == MatchQueuePlayer.player_id,
+                    MatchQueuePlayer.status.in_(statuses),
+                    Client.client_id == MatchQueuePlayer.client_id,
+                    Client.heartbeat >= datetime.datetime.utcnow() -
+                    datetime.timedelta(seconds=30)) \
+            .all()
         ret = []
         for player in matchqueue_players:
             entry = make_matchqueueplayer_response(player[0], player[1])
@@ -182,7 +180,6 @@ class MatchQueueAPI(MethodView):
 
 @bp.route('/<int:player_id>', endpoint='player')
 class MatchQueueEntryAPI(MethodView):
-
     no_jwt_check = ["GET"]
 
     def get(self, player_id):
@@ -199,8 +196,8 @@ class MatchQueueEntryAPI(MethodView):
         server = None
         my_matchqueueplayer, my_player = result
         if current_user and \
-           current_user["player_id"] == my_matchqueueplayer.player_id and \
-           my_matchqueueplayer.match_id:
+                current_user["player_id"] == my_matchqueueplayer.player_id and \
+                my_matchqueueplayer.match_id:
             match = g.db.query(Match).get(my_matchqueueplayer.match_id)
             log.debug("Looking for %s" % match.server_id)
             server = g.db.query(Server).get(match.server_id)

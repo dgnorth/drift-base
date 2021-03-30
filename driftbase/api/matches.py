@@ -2,24 +2,21 @@ import datetime
 import logging
 from contextlib import ExitStack
 
-from six.moves import http_client
-
-from flask import request, url_for, g, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from drift.core.extensions.jwt import current_user, requires_roles
+from drift.core.extensions.urlregistry import Endpoints
+from flask import url_for, g, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
+from six.moves import http_client
 
-from drift.core.extensions.urlregistry import Endpoints
-from driftbase.utils import url_player
-from drift.core.extensions.jwt import current_user, requires_roles
-
+from driftbase.matchqueue import process_match_queue
 from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
 from driftbase.utils import log_match_event
-from driftbase.matchqueue import process_match_queue
+from driftbase.utils import url_player
 
 log = logging.getLogger(__name__)
-
 
 bp = Blueprint("matches", __name__, url_prefix="/matches", description="Realtime matches")
 endpoints = Endpoints()
@@ -121,9 +118,9 @@ class ActiveMatchesAPI(MethodView):
                                                        server.token)
             player_array = []
             players = g.db.query(MatchPlayer) \
-                          .filter(MatchPlayer.match_id == match.match_id,
-                                  MatchPlayer.status.in_(["active"])) \
-                          .all()
+                .filter(MatchPlayer.match_id == match.match_id,
+                        MatchPlayer.status.in_(["active"])) \
+                .all()
             for player in players:
                 player_array.append({
                     "player_id": player.player_id,
@@ -171,6 +168,7 @@ class MatchesPostRequestSchema(ma.Schema):
     details = ma.fields.Dict(required=False)
     num_teams = ma.fields.Integer(required=False)
 
+
 class MatchPutRequestSchema(ma.Schema):
     status = ma.fields.String()
 
@@ -182,6 +180,7 @@ class MatchPutRequestSchema(ma.Schema):
     unique_key = ma.fields.String(required=False)
     match_statistics = ma.fields.Dict(required=False)
     details = ma.fields.Dict(required=False)
+
 
 @bp.route('', endpoint='list')
 class MatchesAPI(MethodView):
@@ -278,9 +277,9 @@ class MatchesAPI(MethodView):
                 log.exception("Unable to process match queue")
 
             return jsonify({"match_id": match_id,
-                    "url": resource_uri,
-                    "players_url": players_resource_uri,
-                    }), http_client.CREATED, response_header
+                            "url": resource_uri,
+                            "players_url": players_resource_uri,
+                            }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:match_id>', endpoint='entry')
@@ -288,6 +287,7 @@ class MatchAPI(MethodView):
     """
     Information about specific matches
     """
+
     @requires_roles("service")
     def get(self, match_id):
         """
@@ -412,16 +412,19 @@ class MatchTeamsPostRequestSchema(ma.Schema):
     statistics = ma.fields.Dict(required=False)
     details = ma.fields.Dict(required=False)
 
+
 class MatchTeamPutRequestSchema(ma.Schema):
     name = ma.fields.String(required=False)
     statistics = ma.fields.Dict(required=False)
     details = ma.fields.Dict(required=False)
+
 
 @bp.route('/<int:match_id>/teams', endpoint='teams')
 class MatchTeamsAPI(MethodView):
     """
     All teams in a match
     """
+
     @requires_roles("service")
     def get(self, match_id):
         """
@@ -465,8 +468,8 @@ class MatchTeamsAPI(MethodView):
                         details={"team_id": team_id})
 
         return jsonify({"team_id": team_id,
-                "url": resource_uri,
-                }), http_client.CREATED, response_header
+                        "url": resource_uri,
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:match_id>/teams/<int:team_id>', endpoint='team')
@@ -474,6 +477,7 @@ class MatchTeamAPI(MethodView):
     """
     A specific team in a match
     """
+
     @requires_roles("service")
     def get(self, match_id, team_id):
         """
@@ -529,13 +533,14 @@ class MatchPlayersAPI(MethodView):
     Players in a specific match. The UE4 server will post to this endpoint
     to add a player to a match.
     """
+
     def get(self, match_id):
         """
         Get players from a match
         """
         rows = g.db.query(MatchPlayer) \
-                   .filter(MatchPlayer.match_id == match_id) \
-                   .all()
+            .filter(MatchPlayer.match_id == match_id) \
+            .all()
         ret = []
         for r in rows:
             player = r.as_dict()
@@ -581,9 +586,9 @@ class MatchPlayersAPI(MethodView):
                       description="Team %s is not in match %s" % (team_id, match_id))
 
         match_player = g.db.query(MatchPlayer) \
-                           .filter(MatchPlayer.match_id == match_id,
-                                   MatchPlayer.player_id == player_id) \
-                           .first()
+            .filter(MatchPlayer.match_id == match_id,
+                    MatchPlayer.player_id == player_id) \
+            .first()
         if not match_player:
             match_player = MatchPlayer(match_id=match_id,
                                        player_id=player_id,
@@ -616,10 +621,10 @@ class MatchPlayersAPI(MethodView):
                         details={"team_id": team_id})
 
         return jsonify({"match_id": match_id,
-                "player_id": player_id,
-                "team_id": team_id,
-                "url": resource_uri,
-                }), http_client.CREATED, response_header
+                        "player_id": player_id,
+                        "team_id": team_id,
+                        "url": resource_uri,
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:match_id>/players/<int:player_id>', endpoint='player')
@@ -627,13 +632,14 @@ class MatchPlayerAPI(MethodView):
     """
     A specific player in a specific match
     """
+
     def get(self, match_id, player_id):
         """
         Get a specific player from a battle
         """
         player = g.db.query(MatchPlayer) \
-                     .filter(MatchPlayer.match_id == match_id, MatchPlayer.player_id == player_id) \
-                     .first()
+            .filter(MatchPlayer.match_id == match_id, MatchPlayer.player_id == player_id) \
+            .first()
         if not player:
             abort(http_client.NOT_FOUND)
 
@@ -651,15 +657,15 @@ class MatchPlayerAPI(MethodView):
         A player has left an ongoing battle
         """
         match_player = g.db.query(MatchPlayer) \
-                           .filter(MatchPlayer.match_id == match_id,
-                                   MatchPlayer.player_id == player_id) \
-                           .first()
+            .filter(MatchPlayer.match_id == match_id,
+                    MatchPlayer.player_id == player_id) \
+            .first()
         if not match_player:
             abort(http_client.NOT_FOUND)
 
         if match_player.status != "active":
             abort(http_client.BAD_REQUEST, description="Player status must be active, not '%s'" %
-                  match_player.status)
+                                                       match_player.status)
 
         match = g.db.query(Match).get(match_id)
         if not match:
