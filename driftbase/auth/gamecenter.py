@@ -81,12 +81,12 @@ def validate_gamecenter_token(gc_token):
 def run_gamecenter_token_validation(gc_token, app_bundles):
     token_desc = dict(gc_token)
     token_desc["signature"] = token_desc.get("signature", "?")[:10]
-    error_title = 'Invalid Game Center token: %s' % token_desc
+    error_title = 'Invalid Game Center token: '
 
     try:
         GameCenterProviderAuthDetailsSchema().load(gc_token)
     except ma.ValidationError as e:
-        abort_unauthorized(error_title + "The token is missing required fields: %s." % ','.join(e.field_name))
+        abort_unauthorized(error_title + "The token is missing required fields: {}.".format(e))
 
     # Verify that the token is issued to the appropriate app.
     if app_bundles and gc_token["app_bundle_id"] not in app_bundles:
@@ -95,7 +95,7 @@ def run_gamecenter_token_validation(gc_token, app_bundles):
     # Verify that the certificate url is at Apple
     url_parts = urlparse(gc_token['public_key_url'])
     if not all([url_parts.scheme == "https", url_parts.hostname and url_parts.hostname.endswith(TRUSTED_KEY_URL_HOST)]):
-        abort_unauthorized(error_title + ". Public key url points to unknown host: %s" % (gc_token['public_key_url']))
+        abort_unauthorized(error_title + ". Public key url points to unknown host: '%s'" % (gc_token['public_key_url']))
 
     # Fetch public key, use cache if available.
     try:

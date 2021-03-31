@@ -56,7 +56,7 @@ class OculusCase(unittest.TestCase):
         # Verify that broken key url is caught
         with self.assertRaises(Unauthorized) as context:
             run_ticket_validation(user_id=123, access_token='broken-url', nonce=self.nonce)
-            self.assertIn("Oculus ticket validation failed", context.exception.description)
+        self.assertIn("Oculus ticket validation failed", context.exception.description)
 
     def test_oculus(self):
         # Test success
@@ -66,12 +66,12 @@ class OculusCase(unittest.TestCase):
         # Test bogus token
         with self.assertRaises(Unauthorized) as context:
             oculus_id = run_ticket_validation(user_id=123, access_token='fail-token', nonce=self.nonce)
-            self.assertIn("User 123 not authenticated on Oculus platform.", context.exception.description)
+        self.assertIn("User 123 not authenticated on Oculus platform.", context.exception.description)
 
         # Test bogus args
         with self.assertRaises(Unauthorized) as context:
             oculus_id = run_ticket_validation(user_id=123, access_token='badargs-token', nonce=self.nonce)
-            self.assertIn("User 123 not authenticated on Oculus platform.", context.exception.description)
+        self.assertIn("User 123 not authenticated on Oculus platform.", context.exception.description)
 
 if __name__ == "__main__":
     import logging
