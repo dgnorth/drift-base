@@ -20,27 +20,6 @@ psn_issuer_urls = {
     "live": "https://auth.api.sonyentertainmentnetwork.com/2.0/oauth/token",
 }
 
-# PSN provider details schema
-psn_provider_schema = {
-    'type': 'object',
-    'properties':
-        {
-            'provider_details':
-                {
-                    'type': 'object',
-                    'properties':
-                        {
-                            'psn_id': {'type': 'string'},
-                            'auth_code': {'type': 'string'},
-                            'issuer': {'type': 'string'},
-                        },
-                    'required': ['psn_id', 'auth_code', 'issuer'],
-                },
-        },
-    'required': ['provider_details'],
-}
-
-
 class PsnProviderAuthDetailsSchema(ma.Schema):
     psn_id = ma.fields.String(required=True)
     auth_code = ma.fields.String(required=True)
