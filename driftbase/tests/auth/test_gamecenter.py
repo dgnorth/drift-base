@@ -80,9 +80,7 @@ class GameCenterCase(unittest.TestCase):
     def setUp(self):
 
         def requests_get_mock(url, *args, **kw):
-            if url == 'broken url':
-                raise requests.exceptions.RequestException('Url broken - unittest.')
-            elif 'broken_cert' in url:
+            if 'broken_cert' in url:
                 broken_cert = collections.namedtuple('Response', 'content status_code')
                 broken_cert.content = 'not a valid cert'
                 broken_cert.status_code = 200
