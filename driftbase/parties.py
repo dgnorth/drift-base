@@ -25,12 +25,12 @@ OPERATION_TIMEOUT = 10
 
 def get_max_players_per_party():
     tenant = g.conf.tenant
+    max_players = TIER_DEFAULTS['max_players_per_party']
     if tenant and 'parties' in tenant:
         parties_config = tenant['parties']
-        max_players = parties_config.get('max_players_per_party')
-        return max_players
+        max_players = parties_config.get('max_players_per_party', max_players)
+    return max_players
 
-    return TIER_DEFAULTS['max_players_per_party']
 
 
 def accept_party_invite(invite_id, sending_player, accepting_player):
