@@ -56,6 +56,16 @@ class ServersPostRequestSchema(ma.Schema):
     placement = ma.fields.String()
 
 
+class ServersPostResponseSchema(ma.Schema):
+    server_id = ma.fields.Integer()
+    machine_id = ma.fields.Integer()
+    url = ma.fields.Url()
+    machine_url = ma.fields.Url()
+    heartbeat_url = ma.fields.Url()
+    commands_url = ma.fields.Url()
+    token = ma.fields.String()
+
+
 class ServerPutRequestSchema(ma.Schema):
     status = ma.fields.String(required=True)
 
@@ -110,6 +120,7 @@ class ServersAPI(MethodView):
 
     @requires_roles("service")
     @bp.arguments(ServersPostRequestSchema)
+    @bp.response(http_client.CREATED, ServersPostResponseSchema)
     def post(self, args):
         """
         The daemon process (and server, for local development) post here
@@ -190,14 +201,14 @@ class ServersAPI(MethodView):
             "Location": resource_url,
         }
         log.info("Server %s has been registered on machine_id %s", server_id, machine_id)
-        return jsonify({"server_id": server_id,
+        return {"server_id": server_id,
                         "url": resource_url,
                         "machine_id": machine_id,
                         "machine_url": machine_url,
                         "heartbeat_url": heartbeat_url,
                         "commands_url": commands_url,
                         "token": token,
-                        }), http_client.CREATED, response_header
+                        }, http_client.CREATED, response_header
 
 
 @bp.route('/<int:server_id>', endpoint='entry')
