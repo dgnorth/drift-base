@@ -28,13 +28,13 @@ def drift_init_extension(app, api, **kwargs):
 
 
 class RunConfigsPostSchema(ma.Schema):
-    name = ma.fields.String()
-    repository = ma.fields.String()
-    ref = ma.fields.String()
-    build = ma.fields.String()
-    num_processes = ma.fields.Integer(required=False)
-    command_line = ma.fields.String(required=False)
-    details = ma.fields.Dict(required=False)
+    name = ma.fields.String(required=True)
+    repository = ma.fields.String(required=True)
+    ref = ma.fields.String(required=True)
+    build = ma.fields.String(required=True)
+    num_processes = ma.fields.Integer()
+    command_line = ma.fields.String()
+    details = ma.fields.Dict()
 
 
 @bp.route('', endpoint='list')
