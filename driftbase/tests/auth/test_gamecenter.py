@@ -82,14 +82,10 @@ class GameCenterCase(unittest.TestCase):
         def requests_get_mock(url, *args, **kw):
             if 'broken_cert' in url:
                 broken_cert = collections.namedtuple('Response', 'content status_code')
-                broken_cert.content = 'not a valid cert'
-                broken_cert.status_code = 200
-                return broken_cert
+                return broken_cert(content='not a valid cert', status_code=200)
             elif url == template['public_key_url']:
                 cert = collections.namedtuple('Response', 'content status_code')
-                cert.content = gc_prod_2_cer
-                cert.status_code = 200
-                return cert
+                return cert(content=gc_prod_2_cer, status_code=200)
             else:
                 self.assertTrue(False, "Unexpected url fetch: %s" % url)
 
