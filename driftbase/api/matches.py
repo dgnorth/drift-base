@@ -21,6 +21,8 @@ log = logging.getLogger(__name__)
 bp = Blueprint("matches", __name__, url_prefix="/matches", description="Realtime matches")
 endpoints = Endpoints()
 
+MATCH_HEARTBEAT_TIMEOUT_SECONDS = 60
+
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
@@ -58,7 +60,8 @@ class ActiveMatchesAPI(MethodView):
                              Match.server_id == Server.server_id,
                              Match.status.notin_(["ended", "completed"]),
                              Server.status.in_(["started", "running", "active", "ready"]),
-                             Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
+                             Server.heartbeat_date >= utcnow() - datetime.timedelta(
+                                 seconds=MATCH_HEARTBEAT_TIMEOUT_SECONDS)
                              )
         if args.get("ref"):
             query = query.filter(Server.ref == args.get("ref"))
@@ -144,7 +147,8 @@ def unique_key_in_use(unique_key):
                                              Match.status.notin_(["ended", "completed"]),
                                              Match.unique_key == unique_key,
                                              Server.status.in_(["started", "running", "active", "ready"]),
-                                             Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60)
+                                             Server.heartbeat_date >= utcnow() - datetime.timedelta(
+                                                 seconds=MATCH_HEARTBEAT_TIMEOUT_SECONDS)
                                              ).first()
         return existing_unique_match is not None
     return False

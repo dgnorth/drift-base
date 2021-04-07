@@ -25,6 +25,7 @@ def drift_init_extension(app, api, **kwargs):
 
 
 SECONDS_BETWEEN_HEARTBEAT = 30
+SERVER_HEARTBEAT_TIMEOUT_SECONDS = 60
 
 
 def utcnow():

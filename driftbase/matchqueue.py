@@ -3,9 +3,11 @@ import collections
 
 from flask import g
 
+from driftbase.api.servers import SERVER_HEARTBEAT_TIMEOUT_SECONDS
 from driftbase.models.db import Match, MatchQueuePlayer, Client, Server, Machine
 
 import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -39,18 +41,19 @@ def process_match_queue(redis=None, db_session=None):
     with lock(redis):
         # find all valid players waiting in the queue
         queued_players = db_session.query(MatchQueuePlayer, Client) \
-                                   .filter(Client.client_id == MatchQueuePlayer.client_id,
-                                           MatchQueuePlayer.status == "waiting",
-                                           MatchQueuePlayer.match_id == None) \
-                                   .order_by(MatchQueuePlayer.id) \
-                                   .all()  # noqa: E711
+            .filter(Client.client_id == MatchQueuePlayer.client_id,
+                    MatchQueuePlayer.status == "waiting",
+                    MatchQueuePlayer.match_id == None) \
+            .order_by(MatchQueuePlayer.id) \
+            .all()  # noqa: E711
         query = db_session.query(Machine, Server, Match)
         query = query.filter(Match.server_id == Server.server_id,
                              Server.machine_id == Machine.machine_id,
                              Match.num_players == 0,
                              Match.status == "idle",
                              Server.server_id == Match.server_id,
-                             Server.heartbeat_date >= utcnow() - datetime.timedelta(seconds=60))
+                             Server.heartbeat_date >= utcnow() - datetime.timedelta(
+                                 seconds=SERVER_HEARTBEAT_TIMEOUT_SECONDS))
         idle_matches = query.all()
 
         eligible_players = []
