@@ -78,16 +78,16 @@ class SteamCase(unittest.TestCase):
         # a single field, we should only be notified of that one missing.
         with self.assertRaises(Unauthorized) as context:
             run_ticket_validation({})
-            # The order of missing fields isn't fixed
-            self.assertIn("The token is missing required fields:", context.exception.description)
-            self.assertIn("ticket", context.exception.description)
-            self.assertIn("appid", context.exception.description)
+        # The order of missing fields isn't fixed
+        self.assertIn("Missing data for required field.", context.exception.description)
+        self.assertIn("ticket", context.exception.description)
+        self.assertIn("appid", context.exception.description)
 
     def test_broken_url(self):
         # Verify that broken key url is caught
         with self.assertRaises(ServiceUnavailable) as context:
             run_ticket_validation({'ticket': self.ticket, 'appid': 123}, key_url='http://localhost:1/')
-            self.assertIn("The server is temporarily unable", context.exception.description)
+        self.assertIn("The server is temporarily unable", context.exception.description)
 
     def test_steam(self):
         # Can't really test this. Just mock success cases from api.steampowered.com.

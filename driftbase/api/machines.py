@@ -1,23 +1,19 @@
-import logging
 import datetime
+import logging
 
-from six.moves import http_client
-
-from flask import request, url_for, g, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from dateutil import parser
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
+from flask import url_for, g, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from drift.core.extensions.urlregistry import Endpoints
-from dateutil import parser
-
-from drift.core.extensions.schemachecker import simple_schema_request
-from drift.core.extensions.jwt import requires_roles
+from six.moves import http_client
 
 from driftbase.models.db import Machine, MachineEvent
 
 log = logging.getLogger(__name__)
-
 
 bp = Blueprint("machines", __name__, url_prefix="/machines", description="Battleserver machine instances")
 endpoints = Endpoints()
@@ -30,6 +26,30 @@ def drift_init_extension(app, api, **kwargs):
 
 def utcnow():
     return datetime.datetime.utcnow()
+
+
+class MachinesPostRequestSchema(ma.Schema):
+    realm = ma.fields.String(required=True)
+    instance_name = ma.fields.String(required=True)
+
+    instance_id = ma.fields.String()
+    instance_type = ma.fields.String()
+    placement = ma.fields.String()
+    public_ip = ma.fields.IPv4()
+    private_ip = ma.fields.IPv4()
+    machine_info = ma.fields.Dict()
+    details = ma.fields.Dict()
+    group_name = ma.fields.String()
+
+
+class MachinePutRequestSchema(ma.Schema):
+    machine_info = ma.fields.Dict()
+    config = ma.fields.Dict()
+    details = ma.fields.Dict()
+    status = ma.fields.Dict()
+    statistics = ma.fields.Dict()
+    group_name = ma.fields.String()
+    events = ma.fields.List(ma.fields.Dict())
 
 
 @bp.route('', endpoint='list')
@@ -54,7 +74,7 @@ class MachinesAPI(MethodView):
     get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
-    #@namespace.expect(get_args)
+    # @namespace.expect(get_args)
     def get(self):
         """
         Get a list of machines
@@ -95,33 +115,24 @@ class MachinesAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "realm": {"type": "string", },
-        "instance_id": {"type": "string", },
-        "instance_type": {"type": "string", },
-        "instance_name": {"type": "string", },
-        "placement": {"type": "string", },
-        "public_ip": {"format": "ip-address", },
-        "private_ip": {"format": "ip-address", },
-        "machine_info": {"type": "object", },
-        "details": {"type": "object", },
-        "group_name": {"type": "string", },
-    }, required=["realm", "instance_name"])
-    def post(self):
+    @bp.arguments(MachinesPostRequestSchema)
+    def post(self, args):
         """
         Register a machine
         """
-        args = request.json
         log.info("registering a battleserver machine for realm %s from ip %s",
                  args.get("realm"), args.get("public_ip"))
+
+        def get_or_null(ip):
+            return ip and str(ip) or None
 
         machine = Machine(realm=args.get("realm"),
                           instance_id=args.get("instance_id"),
                           instance_type=args.get("instance_type"),
                           instance_name=args.get("instance_name"),
                           placement=args.get("placement"),
-                          public_ip=args.get("public_ip"),
-                          private_ip=args.get("private_ip"),
+                          public_ip=get_or_null(args.get("public_ip")),
+                          private_ip=get_or_null(args.get("private_ip")),
                           machine_info=args.get("machine_info"),
                           details=args.get("details"),
                           group_name=args.get("group_name")
@@ -137,8 +148,8 @@ class MachinesAPI(MethodView):
                  machine_id, args.get("public_ip"))
 
         return jsonify({"machine_id": machine_id,
-                "url": resource_uri
-                }), http_client.CREATED, response_header
+                        "url": resource_uri
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:machine_id>', endpoint='entry')
@@ -146,6 +157,7 @@ class MachineAPI(MethodView):
     """
     Information about specific machines
     """
+
     @requires_roles("service")
     def get(self, machine_id):
         """
@@ -168,22 +180,13 @@ class MachineAPI(MethodView):
         return jsonify(record)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "machine_info": {"type": "object", },
-        "status": {"type": "object", },
-        "details": {"type": "object", },
-        "config": {"type": "object", },
-        "statistics": {"type": "object", },
-        "group_name": {"type": "string"},
-        "events": {"type": "array"}
-    }, required=[])
-    def put(self, machine_id):
+    @bp.arguments(MachinePutRequestSchema)
+    def put(self, args, machine_id):
         """
         Update machine
 
         Heartbeat and update the machine reference
         """
-        args = request.json
         row = g.db.query(Machine).get(machine_id)
         if not row:
             abort(http_client.NOT_FOUND, description="Machine not found")

@@ -68,7 +68,7 @@ class PlayerGroupsAPI(MethodView):
                 abort(http_client.FORBIDDEN, message=message)
         return pg
 
-    @bp.arguments(PlayerGroupPutRequestSchema, location='json')
+    @bp.arguments(PlayerGroupPutRequestSchema)
     @bp.response(http_client.OK, PlayerGroupResponseSchema)
     def put(self, args, player_id, group_name):
         """

@@ -67,7 +67,7 @@ class AuthTests(DriftBaseTestCase):
             "provider_details": {
                 "ticket": "tick",
                 "appid": 12345,
-                "steam_id": "steamdude"
+                "steamid": "steamtester"
             }
         }
         with patch('driftbase.auth.steam._call_authenticate_user_ticket') as mock_auth:
@@ -77,3 +77,39 @@ class AuthTests(DriftBaseTestCase):
             with patch('driftbase.auth.steam._call_check_app_ownership') as mock_own:
                 mock_own.return_value.status_code = 200
                 self.post('/auth', data=data)
+
+    def test_steam_authentication_ignores_legacy_id(self):
+        # Steam normal authentication check
+        data = {
+            "provider": "steam",
+            "provider_details": {
+                "ticket": "tick",
+                "appid": 12345,
+                "steam_id": "this_is_ignored_for_now"
+            }
+        }
+        with patch('driftbase.auth.steam._call_authenticate_user_ticket') as mock_auth:
+            mock_auth.return_value.status_code = 200
+            mock_auth.return_value.json = MagicMock()
+            mock_auth.return_value.json.return_value = {'response': {'params': {'steamid': u'steamtester'}}}
+            with patch('driftbase.auth.steam._call_check_app_ownership') as mock_own:
+                mock_own.return_value.status_code = 200
+                self.post('/auth', data=data)
+
+    def test_steam_authentication_must_match_steamid(self):
+        # Steam failed authentication check
+        data = {
+            "provider": "steam",
+            "provider_details": {
+                "ticket": "tick",
+                "appid": 12345,
+                "steamid": "steamdude"
+            }
+        }
+        with patch('driftbase.auth.steam._call_authenticate_user_ticket') as mock_auth:
+            mock_auth.return_value.status_code = 200
+            mock_auth.return_value.json = MagicMock()
+            mock_auth.return_value.json.return_value = {'response': {'params': {'steamid': u'steamtester'}}}
+            with patch('driftbase.auth.steam._call_check_app_ownership') as mock_own:
+                mock_own.return_value.status_code = 200
+                self.post('/auth', data=data, expected_status_code=http_client.UNAUTHORIZED)

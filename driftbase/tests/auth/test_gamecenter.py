@@ -80,18 +80,12 @@ class GameCenterCase(unittest.TestCase):
     def setUp(self):
 
         def requests_get_mock(url, *args, **kw):
-            if url == 'broken url':
-                raise requests.exceptions.RequestException('Url broken - unittest.')
-            elif url == 'broken cert':
+            if 'broken_cert' in url:
                 broken_cert = collections.namedtuple('Response', 'content status_code')
-                broken_cert.content = 'not a valid cert'
-                broken_cert.status_code = 200
-                return broken_cert
+                return broken_cert(content='not a valid cert', status_code=200)
             elif url == template['public_key_url']:
                 cert = collections.namedtuple('Response', 'content status_code')
-                cert.content = gc_prod_2_cer
-                cert.status_code = 200
-                return cert
+                return cert(content=gc_prod_2_cer, status_code=200)
             else:
                 self.assertTrue(False, "Unexpected url fetch: %s" % url)
 
@@ -118,47 +112,43 @@ class GameCenterCase(unittest.TestCase):
             t = template.copy()
             del t['salt']
             run_gamecenter_token_validation(t, app_bundles=app_bundles)
-            self.assertIn("The token is missing required fields: salt.", context.exception.description)
+        self.assertIn("The token is missing required fields:", context.exception.description)
+        self.assertIn("'salt'", context.exception.description)
 
     def test_app_bundles(self):
         # Verify that the token is issued to the appropriate app.
         with self.assertRaises(Unauthorized) as context:
             run_gamecenter_token_validation(template, app_bundles=['dummy'])
-            self.assertIn("'app_bundle_id' not one of ['dummy']", context.exception.description)
+        self.assertIn("'app_bundle_id' not one of ['dummy']", context.exception.description)
 
     def test_broken_url(self):
-        # Verify that broken public key url is caught
-        with self.assertRaises(Unauthorized) as context:
-            t = template.copy()
-            t['public_key_url'] = 'broken url'
-            run_gamecenter_token_validation(t, app_bundles=app_bundles)
-            self.assertIn("Can't fetch url 'broken url'", context.exception.description)
-
-        with self.assertRaises(Unauthorized) as context:
-            t = template.copy()
-            t['public_key_url'] = ''
-            run_gamecenter_token_validation(t, app_bundles=app_bundles)
-            self.assertIn("Can't fetch url 'broken url'", context.exception.description)
-
-        with self.assertRaises(Unauthorized) as context:
-            t = template.copy()
-            t['public_key_url'] = "https://static.gc.mapple.com/public-key/gc-prod-2.cer"
-            run_gamecenter_token_validation(t, app_bundles=app_bundles)
-            self.assertIn("Can't fetch url 'broken url'", context.exception.description)
+        test_urls = [
+            '',
+            'http://wrong_scheme.apple.com/public-key/gc-prod-2.cer',
+            'https://wrong_domain.notapple.com/public-key/gc-prod-2.cer',
+            'https://wrong_domain.apple.org/public-key/gc-prod-2.cer'
+        ]
+        for url in test_urls:
+            # Verify that broken public key url is caught
+            with self.assertRaises(Unauthorized) as context:
+                t = template.copy()
+                t['public_key_url'] = url
+                run_gamecenter_token_validation(t, app_bundles=app_bundles)
+            self.assertIn("Public key url points to unknown host: '{}'".format(url), context.exception.description)
 
     def test_broken_cert(self):
         # Verify that broken certs fail.
         with self.assertRaises(Unauthorized) as context:
             t = template.copy()
-            t['public_key_url'] = 'broken cert'
+            t['public_key_url'] = 'https://broken_cert.apple.com'
             run_gamecenter_token_validation(t, app_bundles=app_bundles)
-            self.assertIn("Can't load certificate", context.exception.description)
+        self.assertIn("Can't load certificate", context.exception.description)
 
     @mock.patch('datetime.datetime', DateOutside)
     def test_cert_expiration(self):
         with self.assertRaises(Unauthorized) as context:
             run_gamecenter_token_validation(template, app_bundles=app_bundles)
-            self.assertIn("Certificate is expired", context.exception.description)
+        self.assertIn("Certificate is expired", context.exception.description)
 
     def test_signature(self):
         # Check signature of token by corrupting the signature
@@ -166,16 +156,16 @@ class GameCenterCase(unittest.TestCase):
             t = template.copy()
             t['signature'] = t['signature'][:84] + '5' + t['signature'][85:]  # Just modify one random letter.
             run_gamecenter_token_validation(t, app_bundles=app_bundles)
-            self.assertIn("Can't verify signature:", context.exception.description)
-            self.assertIn("'padding check failed'", context.exception.description)
+        self.assertIn("Can't verify signature:", context.exception.description)
+        self.assertIn("'padding check failed'", context.exception.description)
 
         # Check signature of token by modifying the payload
         with self.assertRaises(Unauthorized) as context:
             t = template.copy()
             t['player_id'] = 'G:5637867917'
             run_gamecenter_token_validation(t, app_bundles=app_bundles)
-            self.assertIn("Can't verify signature:", context.exception.description)
-            self.assertIn("'bad signature'", context.exception.description)
+        self.assertIn("Can't verify signature:", context.exception.description)
+        self.assertIn("'bad signature'", context.exception.description)
 
     # For requests library mock
     def requests_get(self, url, *args, **kw):

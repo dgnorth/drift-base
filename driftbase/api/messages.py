@@ -2,30 +2,29 @@
     Message box, mostly meant for client-to-client communication
 """
 
-import datetime
-import logging
-import json
 import collections
-import gevent
-import uuid
 import copy
+import datetime
+import json
+import logging
 import operator
 import sys
+import uuid
 
-from six.moves import http_client
-
-from flask import g, url_for, request, stream_with_context, Response, jsonify
+import gevent
+import marshmallow as ma
+from drift.core.extensions.jwt import current_user
+from drift.core.extensions.urlregistry import Endpoints
+from flask import g, url_for, stream_with_context, Response, jsonify
 from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-
-from drift.core.extensions.urlregistry import Endpoints
-from drift.core.extensions.jwt import current_user
-from drift.core.extensions.schemachecker import simple_schema_request
+from six.moves import http_client
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("messages", "messages", url_prefix="/messages", description="Message box, mostly meant for client-to-client communication")
+bp = Blueprint("messages", "messages", url_prefix="/messages",
+               description="Message box, mostly meant for client-to-client communication")
 endpoints = Endpoints()
 
 
@@ -138,7 +137,6 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
 
 @bp.route('/<string:exchange>/<int:exchange_id>', endpoint='exchange')
 class MessagesExchangeAPI(MethodView):
-
     no_jwt_check = ["GET"]
 
     get_args = reqparse.RequestParser()
@@ -196,22 +194,24 @@ class MessagesExchangeAPI(MethodView):
                     except Exception as e:
                         log.error("[%s/%s] Exception %s", my_player_id, exchange_full_name, repr(e))
                         yield json.dumps({})
+
             return Response(stream_with_context(streamer()), mimetype="application/json")
         else:
             messages = fetch_messages(exchange, exchange_id, min_message_number, rows)
             return jsonify(messages)
 
 
+class MessagesQueuePostArgs(ma.Schema):
+    message = ma.fields.Dict(required=True)
+    expire = ma.fields.Integer()
+
+
 @bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='queue')
 class MessagesQueueAPI(MethodView):
 
-    @simple_schema_request({
-        "message": {"type": "object", },
-        "expire": {"type": "integer", },
-    }, required=["message"])
-    def post(self, exchange, exchange_id, queue):
+    @bp.arguments(MessagesQueuePostArgs)
+    def post(self, args, exchange, exchange_id, queue):
         check_can_use_exchange(exchange, exchange_id, read=False)
-        args = request.json
         expire_seconds = args.get("expire") or DEFAULT_EXPIRE_SECONDS
 
         message = _add_message(
@@ -293,5 +293,6 @@ class MessageQueueAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     return {
-        "my_messages": url_for("messages.exchange", exchange="players", exchange_id=current_user["player_id"], _external=True) if current_user else None
+        "my_messages": url_for("messages.exchange", exchange="players", exchange_id=current_user["player_id"],
+                               _external=True) if current_user else None
     }

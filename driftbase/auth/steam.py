@@ -1,17 +1,16 @@
-
 import logging
 
-from six.moves import http_client
-
+import marshmallow as ma
 import requests
-from werkzeug.exceptions import Unauthorized
 from flask import request
 from flask_smorest import abort
+from six.moves import http_client
+from werkzeug.exceptions import Unauthorized
 
 from driftbase.auth import get_provider_config
 from driftbase.auth.util import fetch_url
-from drift.core.extensions.schemachecker import check_schema
 from .authenticate import authenticate as base_authenticate
+from ..utils.custom_fields import UnionField
 
 log = logging.getLogger(__name__)
 
@@ -30,32 +29,24 @@ def abort_unauthorized(description):
     raise Unauthorized(description=description)
 
 
-# Steam provider details schema
-steam_provider_schema = {
-    'type': 'object',
-    'properties':
-    {
-        'provider_details':
-        {
-            'type': 'object',
-            'properties':
-            {
-                'ticket': {'type': 'string'},
-                'appid': {'type': ['number', 'string']},
-                'steam_id': {'type': 'string'},
-            },
-            'required': ['ticket', 'appid'],
-        },
-    },
-    'required': ['provider_details'],
-}
+class SteamProviderAuthDetailsSchema(ma.Schema):
+    ticket = ma.fields.String(required=True)
+    appid = UnionField([ma.fields.String(), ma.fields.Number()], required=True)
+    steamid = ma.fields.String()
+    # We've got code in the wild passing this instead of steamid, and with the stricter validation we have to
+    # include it. It will never be checked however, as that may introduce rejected tickets.
+    steam_id = ma.fields.String()
+
+
+class SteamProviderAuthSchema(ma.Schema):
+    provider = ma.fields.String(required=True)
+    provider_details = ma.fields.Nested(SteamProviderAuthDetailsSchema, required=True)
 
 
 def validate_steam_ticket():
     """Validate steam ticket from /auth call."""
 
     ob = request.get_json()
-    check_schema(ob, steam_provider_schema, "Error in request body.")
     provider_details = ob['provider_details']
 
     # Get Steam authentication config
@@ -102,12 +93,10 @@ def run_ticket_validation(provider_details, key_url=None, key=None, appid=None):
 
     error_title = 'Steam ticket validation failed for app %s. ' % appid
 
-    # Verify required fields
-    # NOTE: This is actually redundant because schema validation is made in validate_steam_ticket().
-    required_fields = ['ticket', 'appid']
-    missing_fields = list(set(required_fields) - set(provider_details.keys()))
-    if missing_fields:
-        abort_unauthorized(error_title + "The token is missing required fields: %s." % ', '.join(missing_fields))
+    try:
+        SteamProviderAuthDetailsSchema().load(provider_details)
+    except ma.ValidationError as e:
+        abort_unauthorized(error_title + str(e))
 
     if not key_url and not key:
         raise RuntimeError("validate_steam_ticket: 'key' or 'key_url' must be specified.")
@@ -162,7 +151,7 @@ def run_ticket_validation(provider_details, key_url=None, key=None, appid=None):
     # If the client provided its own steamid, make sure it matches the token
     if provider_details.get('steamid', steamid) != steamid:
         msg = error_title + "'steamid' from client does not match the one from the token."
-        msg += " (%s != %s)." % provider_details['steamid'], steamid
+        msg += " (%s != %s)." % (provider_details['steamid'], steamid)
         abort_unauthorized(error_title + "'steamid' from client does not match the one from the token.")
 
     # Check app ownership

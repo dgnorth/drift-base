@@ -10,7 +10,6 @@ patcher = None
 
 
 def setUpModule():
-
     def requests_post_mock(url, *args, **kw):
 
         class Response(object):
@@ -26,13 +25,13 @@ def setUpModule():
             response.content = dumps({'error': 'invalid auth_code'})
         elif not 'grant_type=authorization_code' in body:
             response.status_code = 403
-            response.content = dumps({'error':'missing grant type'})
+            response.content = dumps({'error': 'missing grant type'})
         elif not 'redirect_uri=orbis://games' in body:
             response.status_code = 403
-            response.content = dumps({'error':'missing redirect_uri'})
+            response.content = dumps({'error': 'missing redirect_uri'})
         elif not 'code=abcdef' in body and not 'code=test_' in body:
             response.status_code = 403
-            response.content = dumps({'error':'missing auth_code'})
+            response.content = dumps({'error': 'missing auth_code'})
         else:
             token = "valid_token"
             code = body.split('&')[-1].split('=')[-1]
@@ -114,7 +113,7 @@ class PsnCase(unittest.TestCase):
     def test_unknown_issuer(self):
         with self.assertRaises(Unauthorized) as context:
             run_ticket_validation(user_id=123, auth_code='abcdef', issuer='foo', client_id='', client_secret='')
-            self.assertIn("Unknown issuer", context.exception.description)
+        self.assertIn("Unknown issuer", context.exception.description)
 
     def test_success(self):
         psn_id = run_ticket_validation(user_id=123, auth_code='abcdef', issuer='dev', client_id='', client_secret='')
@@ -122,25 +121,25 @@ class PsnCase(unittest.TestCase):
 
     def test_invalid_auth_code(self):
         with self.assertRaises(Unauthorized) as context:
-            psn_id = run_ticket_validation(user_id=123, auth_code='invalid', issuer='dev', client_id='',
-                                           client_secret='')
-            self.assertIn("User 123 not authenticated on PSN platform.", context.exception.description)
+            run_ticket_validation(user_id=123, auth_code='invalid', issuer='dev', client_id='',
+                                  client_secret='')
+        self.assertIn("User 123 not authenticated on PSN platform.", context.exception.description)
 
     def test_wrong_user(self):
         with self.assertRaises(Unauthorized) as context:
-            psn_id = run_ticket_validation(user_id=123, auth_code='test_wrong_user', issuer='dev', client_id='',
-                                           client_secret='')
-            self.assertIn("User ID 123 doesn't match", context.exception.description)
-
+            run_ticket_validation(user_id=123, auth_code='test_wrong_user', issuer='dev', client_id='',
+                                  client_secret='')
+        self.assertIn("User ID 123 doesn't match", context.exception.description)
 
     def test_validation_fail(self):
         with self.assertRaises(Unauthorized) as context:
-            psn_id = run_ticket_validation(user_id=123, auth_code='test_validation_fail', issuer='dev', client_id='',
-                                       client_secret='')
-            self.assertIn("User 123 not validated on PSN platform.", context.exception.description)
+            run_ticket_validation(user_id=123, auth_code='test_validation_fail', issuer='dev', client_id='',
+                                  client_secret='')
+        self.assertIn("User 123 not validated on PSN platform.", context.exception.description)
 
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level='INFO')
     unittest.main()

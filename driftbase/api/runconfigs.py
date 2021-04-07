@@ -5,17 +5,14 @@
 
 import logging
 
-from six.moves import http_client
-
-from flask import request, url_for, g, jsonify
-from flask.views import MethodView
 import marshmallow as ma
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
+from flask import url_for, g, jsonify
+from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from drift.core.extensions.urlregistry import Endpoints
-
-from drift.core.extensions.schemachecker import simple_schema_request
-from drift.core.extensions.jwt import requires_roles
+from six.moves import http_client
 
 from driftbase.models.db import RunConfig
 
@@ -28,6 +25,16 @@ endpoints = Endpoints()
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     endpoints.init_app(app)
+
+
+class RunConfigsPostSchema(ma.Schema):
+    name = ma.fields.String(required=True)
+    repository = ma.fields.String(required=True)
+    ref = ma.fields.String(required=True)
+    build = ma.fields.String(required=True)
+    num_processes = ma.fields.Integer()
+    command_line = ma.fields.String()
+    details = ma.fields.Dict()
 
 
 @bp.route('', endpoint='list')
@@ -56,17 +63,8 @@ class RunConfigsAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @simple_schema_request({
-        "name": {"type": "string", },
-        "repository": {"type": "string", },
-        "ref": {"type": "string", },
-        "build": {"type": "string", },
-        "num_processes": {"type": "number", },
-        "command_line": {"type": "string", },
-        "details": {"type": "object", },
-    }, required=["name", "repository", "ref", "build"])
-    def post(self):
-        args = request.json
+    @bp.arguments(RunConfigsPostSchema)
+    def post(self, args):
         log.info("creating a new runconfig")
 
         rows = g.db.query(RunConfig).filter(RunConfig.name.ilike(args["name"])).all()
@@ -92,8 +90,8 @@ class RunConfigsAPI(MethodView):
                  runconfig_id, args.get("name"))
 
         return jsonify({"runconfig_id": runconfig_id,
-                "url": resource_uri
-                }), http_client.CREATED, response_header
+                        "url": resource_uri
+                        }), http_client.CREATED, response_header
 
 
 @bp.route('/<int:runconfig_id>', endpoint='entry')
@@ -101,6 +99,7 @@ class RunConfigAPI(MethodView):
     """
     Information about specific machines
     """
+
     @requires_roles("service")
     def get(self, runconfig_id):
         """

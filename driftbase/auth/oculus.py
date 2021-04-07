@@ -1,39 +1,26 @@
-
 import logging
 
-from six.moves import http_client
-
+import marshmallow as ma
 import requests
-from werkzeug.exceptions import Unauthorized
 from flask import request
 from flask_smorest import abort
+from six.moves import http_client
+from werkzeug.exceptions import Unauthorized
+
 from driftbase.auth import get_provider_config
-
-from drift.core.extensions.schemachecker import check_schema
-
 from .authenticate import authenticate as base_authenticate
 
 log = logging.getLogger(__name__)
 
 
-# Oculus provider details schema
-oculus_provider_schema = {
-    'type': 'object',
-    'properties':
-    {
-        'provider_details':
-        {
-            'type': 'object',
-            'properties':
-            {
-                'user_id': {'type': 'string'},
-                'nonce': {'type': 'string'},
-            },
-            'required': ['user_id', 'nonce'],
-        },
-    },
-    'required': ['provider_details'],
-}
+class OculusProviderAuthDetailsSchema(ma.Schema):
+    user_id = ma.fields.String(required=True)
+    nonce = ma.fields.String(required=True)
+
+
+class OculusProviderAuthSchema(ma.Schema):
+    provider = ma.fields.String(required=True)
+    provider_details = ma.fields.Nested(OculusProviderAuthDetailsSchema, required=True)
 
 
 def authenticate(auth_info):
@@ -56,7 +43,11 @@ def validate_oculus_ticket():
     """Validate Oculus ticket from /auth call."""
 
     ob = request.get_json()
-    check_schema(ob, oculus_provider_schema, "Error in request body.")
+    try:
+        OculusProviderAuthSchema().load(ob)
+    except ma.ValidationError as e:
+        abort_unauthorized("Oculus token property %s is invalid" % e.field_name)
+
     provider_details = ob['provider_details']
     # Get Oculus authentication config
     oculus_config = get_provider_config('oculus')
