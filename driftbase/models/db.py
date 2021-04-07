@@ -75,7 +75,7 @@ class User(ModelBase):
         doc="The last client that the user had when logged in.",
     )
 
-    roles = relationship("UserRole", backref="users")
+    roles = relationship("UserRole", backref="user")
     clients = relationship("Client", lazy="dynamic", backref="user")
 
     @hybrid_property
@@ -88,8 +88,6 @@ class UserRole(ModelBase):
     role_id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("ck_users.user_id", ondelete="CASCADE"))
     role = Column(String(20), nullable=False)
-
-    user = relationship("User")
 
 
 class UserIdentity(ModelBase):
