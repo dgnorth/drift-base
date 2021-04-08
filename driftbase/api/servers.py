@@ -5,13 +5,16 @@ import uuid
 import marshmallow as ma
 from drift.core.extensions.jwt import current_user, requires_roles
 from drift.core.extensions.urlregistry import Endpoints
-from flask import url_for, g, jsonify
+from flask import url_for, g, jsonify, current_app
 from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 from six.moves import http_client
 
-from driftbase.models.db import Machine, Server, Match, ServerDaemonCommand
+from driftbase.models.db import (
+    Machine, Server, Match, ServerDaemonCommand,
+    DEFAULT_HEARTBEAT_PERIOD, DEFAULT_HEARTBEAT_TIMEOUT
+)
 
 log = logging.getLogger(__name__)
 
@@ -24,8 +27,10 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-SECONDS_BETWEEN_HEARTBEAT = 30
-SERVER_HEARTBEAT_TIMEOUT_SECONDS = 60
+def get_heartbeat_config():
+    heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
+    heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
+    return heartbeat_period, heartbeat_timeout
 
 
 def utcnow():
@@ -57,13 +62,15 @@ class ServersPostRequestSchema(ma.Schema):
 
 
 class ServersPostResponseSchema(ma.Schema):
-    server_id = ma.fields.Integer()
-    machine_id = ma.fields.Integer()
-    url = ma.fields.Url()
-    machine_url = ma.fields.Url()
-    heartbeat_url = ma.fields.Url()
-    commands_url = ma.fields.Url()
-    token = ma.fields.String()
+    server_id = ma.fields.Integer(required=True)
+    machine_id = ma.fields.Integer(required=True)
+    url = ma.fields.Url(required=True)
+    machine_url = ma.fields.Url(required=True)
+    heartbeat_url = ma.fields.Url(required=True)
+    commands_url = ma.fields.Url(required=True)
+    token = ma.fields.String(required=True)
+    next_heartbeat_seconds = ma.fields.Number(required=True)
+    heartbeat_timeout = ma.fields.Str(required=True)
 
 
 class ServerPutRequestSchema(ma.Schema):
@@ -88,6 +95,23 @@ class ServerPutRequestSchema(ma.Schema):
     build_number = ma.fields.Integer()
     target_platform = ma.fields.String()
     build_info = ma.fields.Dict()
+
+
+class ServerPutResponseSchema(ma.Schema):
+    server_id = ma.fields.Integer()
+    machine_id = ma.fields.Integer()
+    url = ma.fields.Url()
+    machine_url = ma.fields.Url()
+    heartbeat_url = ma.fields.Url()
+    commands_url = ma.fields.Url()
+    token = ma.fields.String()
+
+
+class ServerHeartbeatPutResponseSchema(ma.Schema):
+    server_id = ma.fields.Integer(required=True)
+    heartbeat_url = ma.fields.Url(required=True)
+    next_heartbeat_seconds = ma.fields.Number(required=True)
+    heartbeat_timeout = ma.fields.Str(required=True)
 
 
 @bp.route('', endpoint='list')
@@ -201,14 +225,17 @@ class ServersAPI(MethodView):
             "Location": resource_url,
         }
         log.info("Server %s has been registered on machine_id %s", server_id, machine_id)
+        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
         return {"server_id": server_id,
-                        "url": resource_url,
-                        "machine_id": machine_id,
-                        "machine_url": machine_url,
-                        "heartbeat_url": heartbeat_url,
-                        "commands_url": commands_url,
-                        "token": token,
-                        }, http_client.CREATED, response_header
+                "url": resource_url,
+                "machine_id": machine_id,
+                "machine_url": machine_url,
+                "heartbeat_url": heartbeat_url,
+                "commands_url": commands_url,
+                "token": token,
+                "next_heartbeat_seconds": heartbeat_period,
+                "heartbeat_timeout": utcnow() + datetime.timedelta(seconds=heartbeat_timeout),
+                }, None, response_header
 
 
 @bp.route('/<int:server_id>', endpoint='entry')
@@ -276,6 +303,7 @@ class ServerAPI(MethodView):
 
     @requires_roles("service")
     @bp.arguments(ServerPutRequestSchema)
+    @bp.response(http_client.OK, ServerPutResponseSchema)
     def put(self, args, server_id):
         """
         The battleserver management (celery) process calls this to update
@@ -300,13 +328,12 @@ class ServerAPI(MethodView):
         if machine_id:
             machine_url = url_for("machines.entry", machine_id=machine_id, _external=True)
 
-        return jsonify({"server_id": server_id,
-                        "url": url_for("servers.entry", server_id=server_id, _external=True),
-                        "machine_id": machine_id,
-                        "machine_url": machine_url,
-                        "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
-                        "next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT,
-                        }), http_client.OK, None
+        return {"server_id": server_id,
+                "url": url_for("servers.entry", server_id=server_id, _external=True),
+                "machine_id": machine_id,
+                "machine_url": machine_url,
+                "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
+                }
 
 
 @bp.route('/<int:server_id>/heartbeat', endpoint='heartbeat')
@@ -316,6 +343,7 @@ class ServerHeartbeatAPI(MethodView):
     """
 
     @requires_roles("service")
+    @bp.response(http_client.OK, ServerHeartbeatPutResponseSchema)
     def put(self, server_id):
         """
         Battleserver heartbeat
@@ -323,11 +351,27 @@ class ServerHeartbeatAPI(MethodView):
         log.debug("%s is heartbeating battleserver %s",
                   current_user.get("user_name", "unknown"), server_id)
         server = g.db.query(Server).get(server_id)
+        if not server:
+            abort(http_client.NOT_FOUND, description="Server not found")
+
+        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
+
+        now = utcnow()
+        last_heartbeat = server.heartbeat_date
+        if last_heartbeat + datetime.timedelta(seconds=heartbeat_timeout) < now:
+            msg = "Heartbeat timeout. Last heartbeat was at {} and now we are at {}" \
+                .format(last_heartbeat, now)
+            log.info(msg)
+            abort(http_client.NOT_FOUND, message=msg)
         server.heartbeat_count += 1
-        server.heartbeat_date = utcnow()
+        server.heartbeat_date = now
         g.db.commit()
 
-        return jsonify({"next_heartbeat_seconds": SECONDS_BETWEEN_HEARTBEAT, }), http_client.OK, None
+        return {
+                   "server_id": server_id,
+                   "next_heartbeat_seconds": heartbeat_period,
+                   "heartbeat_timeout": now + datetime.timedelta(seconds=heartbeat_timeout),
+               }
 
 
 class ServerCommandsPostSchema(ma.Schema):

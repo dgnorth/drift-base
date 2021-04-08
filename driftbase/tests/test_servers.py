@@ -1,7 +1,11 @@
 import copy
+import datetime
+from unittest.mock import patch
 
 from drift.systesthelper import DriftBaseTestCase
 from six.moves import http_client
+
+from driftbase.api.servers import ServersPostResponseSchema
 
 
 class ServersTest(DriftBaseTestCase):
@@ -50,6 +54,7 @@ class ServersTest(DriftBaseTestCase):
                                            "instance_name": instance_name,
                                            "placement": placement},
                          expected_status_code=http_client.CREATED)
+        self.assertDictEqual(ServersPostResponseSchema().validate(resp.json()), {})
         url = resp.json()["url"]
         resp = self.get(url)
         machine_id = resp.json()["machine_id"]
@@ -112,6 +117,7 @@ class ServersTest(DriftBaseTestCase):
         data = self._get_server_data(machine_id)
 
         resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
+        self.assertDictEqual(ServersPostResponseSchema().validate(resp.json()), {})
         server_id = resp.json()["server_id"]
         self.assertEqual(machine_id, resp.json()["machine_id"])
         self.assertEqual(machine_url, resp.json()["machine_url"])
@@ -158,10 +164,23 @@ class ServersTest(DriftBaseTestCase):
         heartbeat_url = self.get(url).json()["heartbeat_url"]
         resp = self.put(heartbeat_url)
         self.assertIn("next_heartbeat_seconds", resp.json())
+        self.assertIn("heartbeat_timeout", resp.json())
 
         resp = self.get(url)
         self.assertEqual(resp.json()["heartbeat_count"], 1)
         self.assertTrue(resp.json()["heartbeat_date"] > heartbeat_date)
+
+    def test_server_heartbeat_timeout(self):
+        self.auth_service()
+        machine_id = self._create_machine()["machine_id"]
+        data = self._get_server_data(machine_id)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
+        url = resp.json()["url"]
+        heartbeat_timeout = resp.json()["heartbeat_timeout"]
+        heartbeat_url = self.get(url).json()["heartbeat_url"]
+        with patch("driftbase.api.servers.utcnow") as mock_date:
+            mock_date.return_value = datetime.datetime.fromisoformat(heartbeat_timeout) + datetime.timedelta(seconds=5)
+            self.put(heartbeat_url, expected_status_code=http_client.NOT_FOUND)
 
     def test_newdaemoncommand(self):
         """

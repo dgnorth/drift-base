@@ -3,7 +3,7 @@ import collections
 
 from flask import g
 
-from driftbase.api.servers import SERVER_HEARTBEAT_TIMEOUT_SECONDS
+from driftbase.api.servers import get_heartbeat_config
 from driftbase.models.db import Match, MatchQueuePlayer, Client, Server, Machine
 
 import logging
@@ -46,6 +46,7 @@ def process_match_queue(redis=None, db_session=None):
                     MatchQueuePlayer.match_id == None) \
             .order_by(MatchQueuePlayer.id) \
             .all()  # noqa: E711
+        _, heartbeat_timeout = get_heartbeat_config()
         query = db_session.query(Machine, Server, Match)
         query = query.filter(Match.server_id == Server.server_id,
                              Server.machine_id == Machine.machine_id,
@@ -53,7 +54,7 @@ def process_match_queue(redis=None, db_session=None):
                              Match.status == "idle",
                              Server.server_id == Match.server_id,
                              Server.heartbeat_date >= utcnow() - datetime.timedelta(
-                                 seconds=SERVER_HEARTBEAT_TIMEOUT_SECONDS))
+                                 seconds=heartbeat_timeout))
         idle_matches = query.all()
 
         eligible_players = []
