@@ -68,9 +68,9 @@ class MachinePutResponseSchema(ma.Schema):
 
 @bp.route('', endpoint='list')
 class MachinesAPI(MethodView):
-    """The interface to battleserver machines. Each physical machine
+    """The interface to battle server machines. Each physical machine
     (for example ec2 instance) has a machine resource here. Each
-    machine resource has zero or more battleserver resources.
+    machine resource has zero or more battle server resources.
     A machine is defined as a set of the parameters for the post call below.
     If an instance gets a new publicIP address for example, it will
     get a new machine resource.
@@ -135,7 +135,7 @@ class MachinesAPI(MethodView):
         """
         Register a machine
         """
-        log.info("registering a battleserver machine for realm %s from ip %s",
+        log.info("registering a battle server machine for realm %s from ip %s",
                  args.get("realm"), args.get("public_ip"))
 
         def get_or_null(ip):
@@ -159,7 +159,7 @@ class MachinesAPI(MethodView):
         response_header = {
             "Location": resource_uri,
         }
-        log.info("Battleserver machine %s has been registered on public ip %s",
+        log.info("Battle server machine %s has been registered on public ip %s",
                  machine_id, args.get("public_ip"))
 
         heartbeat_period, heartbeat_timeout = get_machine_heartbeat_config()
