@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-drift = "==0.5.0"
+python-drift = "==0.6.0"
 #python-drift = {editable = true, extras = ["aws", "test"], path = "../drift"}
 gevent = "*"
 requests = "*"
