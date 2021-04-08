@@ -5,7 +5,7 @@ from unittest.mock import patch
 from drift.systesthelper import DriftBaseTestCase
 from six.moves import http_client
 
-from driftbase.api.servers import ServersPostResponseSchema
+from driftbase.api.servers import ServersPostResponseSchema, ServerPutResponseSchema, ServerHeartbeatPutResponseSchema
 
 
 class ServersTest(DriftBaseTestCase):
@@ -148,7 +148,8 @@ class ServersTest(DriftBaseTestCase):
 
         new_data = copy.copy(data)
         new_data["details"] = {"entirely_new_details": "yes"}
-        self.put(url, data=new_data)
+        resp = self.put(url, data=new_data)
+        self.assertDictEqual(ServerPutResponseSchema().validate(resp.json()), {})
         resp = self.get(url)
         self.assertEqual(resp.json()["details"].keys(), new_data["details"].keys())
 
@@ -163,8 +164,7 @@ class ServersTest(DriftBaseTestCase):
         heartbeat_date = resp.json()["heartbeat_date"]
         heartbeat_url = self.get(url).json()["heartbeat_url"]
         resp = self.put(heartbeat_url)
-        self.assertIn("next_heartbeat_seconds", resp.json())
-        self.assertIn("heartbeat_timeout", resp.json())
+        self.assertDictEqual(ServerHeartbeatPutResponseSchema().validate(resp.json()), {})
 
         resp = self.get(url)
         self.assertEqual(resp.json()["heartbeat_count"], 1)

@@ -98,13 +98,11 @@ class ServerPutRequestSchema(ma.Schema):
 
 
 class ServerPutResponseSchema(ma.Schema):
-    server_id = ma.fields.Integer()
-    machine_id = ma.fields.Integer()
-    url = ma.fields.Url()
-    machine_url = ma.fields.Url()
-    heartbeat_url = ma.fields.Url()
-    commands_url = ma.fields.Url()
-    token = ma.fields.String()
+    server_id = ma.fields.Integer(required=True)
+    machine_id = ma.fields.Integer(required=True)
+    url = ma.fields.Url(required=True)
+    machine_url = ma.fields.Url(required=True)
+    heartbeat_url = ma.fields.Url(required=True)
 
 
 class ServerHeartbeatPutResponseSchema(ma.Schema):
@@ -368,10 +366,11 @@ class ServerHeartbeatAPI(MethodView):
         g.db.commit()
 
         return {
-                   "server_id": server_id,
-                   "next_heartbeat_seconds": heartbeat_period,
-                   "heartbeat_timeout": now + datetime.timedelta(seconds=heartbeat_timeout),
-               }
+            "server_id": server_id,
+            "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
+            "next_heartbeat_seconds": heartbeat_period,
+            "heartbeat_timeout": now + datetime.timedelta(seconds=heartbeat_timeout),
+        }
 
 
 class ServerCommandsPostSchema(ma.Schema):
