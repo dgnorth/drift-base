@@ -209,8 +209,16 @@ class MachineAPI(MethodView):
         row = g.db.query(Machine).get(machine_id)
         if not row:
             abort(http_client.NOT_FOUND, description="Machine not found")
+
         now = utcnow()
+        heartbeat_period, heartbeat_timeout = get_machine_heartbeat_config()
         last_heartbeat = row.heartbeat_date
+        if last_heartbeat + datetime.timedelta(seconds=heartbeat_timeout) < now:
+            msg = "Heartbeat timeout. Last heartbeat was at {} and now we are at {}" \
+                .format(last_heartbeat, now)
+            log.info(msg)
+            abort(http_client.NOT_FOUND, message=msg)
+
         row.heartbeat_date = now
         if args.get("status"):
             row.status = args["status"]
@@ -232,7 +240,6 @@ class MachineAPI(MethodView):
                 g.db.add(event_row)
 
         g.db.commit()
-        heartbeat_period, heartbeat_timeout = get_machine_heartbeat_config()
         return {
             "last_heartbeat": last_heartbeat,
             "next_heartbeat_seconds": heartbeat_period,
