@@ -1,5 +1,7 @@
 import datetime
 
+from drift.orm import ModelBase, utc_now, Base
+from sqlalchemy import CheckConstraint
 from sqlalchemy import (
     Column,
     Integer,
@@ -11,21 +13,17 @@ from sqlalchemy import (
     Float,
     Boolean,
 )
-from sqlalchemy import CheckConstraint
-from sqlalchemy.dialects.postgresql import ENUM, INET, JSON
-from sqlalchemy.schema import Sequence, Index
-from sqlalchemy.orm import relationship, backref
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy import DDL, event
-
+from sqlalchemy.dialects.postgresql import ENUM, INET, JSON
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship, backref
+from sqlalchemy.schema import Sequence, Index
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from flask import current_app
+from driftbase.config import get_client_heartbeat_config
 
-from drift.orm import ModelBase, utc_now, Base
-
-DEFAULT_HEARTBEAT_PERIOD = 30
-DEFAULT_HEARTBEAT_TIMEOUT = 300
+DEFAULT_MACHINE_HEARTBEAT_PERIOD = 30
+DEFAULT_MACHINE_HEARTBEAT_TIMEOUT_SECONDS = 300
 
 
 def utcnow():
@@ -173,13 +171,11 @@ class Client(ModelBase):
 
     @hybrid_property
     def is_online(self):
-        heartbeat_timeout = current_app.config.get(
-            "heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT
-        )
+        _, heartbeat_timeout = get_client_heartbeat_config()
         if (
-            self.status == "active"
-            and self.heartbeat + datetime.timedelta(seconds=heartbeat_timeout)
-            >= utcnow()
+                self.status == "active"
+                and self.heartbeat + datetime.timedelta(seconds=heartbeat_timeout)
+                >= utcnow()
         ):
             return True
         return False

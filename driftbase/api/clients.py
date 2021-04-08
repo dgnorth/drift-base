@@ -8,38 +8,30 @@
     deregistered automatically (by a timestamp check in sql returning clients).
 """
 
-import logging
 import datetime
 import json
+import logging
 
-from six.moves import http_client
-
+import marshmallow as ma
+from drift.core.extensions.jwt import current_user, issue_token
+from drift.core.extensions.urlregistry import Endpoints
+from drift.utils import json_response, Url
 from flask import request, url_for, g, current_app
 from flask.views import MethodView
-import marshmallow as ma
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 from marshmallow_sqlalchemy import ModelSchema
-from marshmallow import pre_dump, validates, ValidationError
+from six.moves import http_client
 
-from drift.utils import json_response, Url
-from drift.core.extensions.urlregistry import Endpoints
-from drift.core.extensions.jwt import current_user, issue_token
-from driftbase.utils import url_client
+from driftbase.config import get_client_heartbeat_config
 from driftbase.models.db import (
-    User, CorePlayer, Client, UserIdentity,
-    DEFAULT_HEARTBEAT_PERIOD, DEFAULT_HEARTBEAT_TIMEOUT
+    User, CorePlayer, Client, UserIdentity
 )
+from driftbase.utils import url_client
 
 log = logging.getLogger(__name__)
 bp = Blueprint("clients", __name__, url_prefix="/clients", description="Client registration")
 endpoints = Endpoints()
-
-
-def get_heartbeat_config():
-    heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
-    heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
-    return heartbeat_period, heartbeat_timeout
 
 
 def drift_init_extension(app, api, **kwargs):
@@ -69,6 +61,7 @@ class ClientSchema(ModelSchema):
         strict = True
         model = Client
         exclude = ()
+
     client_url = Url('clients.entry',
                      doc="Fully qualified URL of the client resource",
                      client_id='<client_id>')
@@ -99,6 +92,7 @@ class ClientPostSchema(ma.Schema):
     jwt = ma.fields.Str()
     url = ma.fields.Str(metadata=dict(description="Fully qualified URL of the client resource"))
 
+
 class ClientHeartbeatSchema(ma.Schema):
     num_heartbeats = ma.fields.Integer(metadata=dict(description=client_descriptions['num_heartbeats']))
     last_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of the previous heartbeat"))
@@ -128,7 +122,7 @@ class ClientsAPI(MethodView):
         """
         args = self.get_parser.parse_args()
 
-        _, heartbeat_timeout = get_heartbeat_config()
+        _, heartbeat_timeout = get_client_heartbeat_config()
         min_heartbeat_time = utcnow() - datetime.timedelta(seconds=heartbeat_timeout)
         query = g.db.query(Client).filter(Client.heartbeat >= min_heartbeat_time)
         if args["player_id"]:
@@ -218,7 +212,7 @@ class ClientsAPI(MethodView):
         }
         log.info("Client %s for user %s / player %s has been registered",
                  client_id, user_id, player_id)
-        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
+        heartbeat_period, heartbeat_timeout = get_client_heartbeat_config()
         ret = {
             "client_id": client_id,
             "player_id": player_id,
@@ -249,12 +243,12 @@ def get_client(client_id):
     if not client:
         log.warning("User attempted to retrieve a client that is not registered: %s" %
                     player_id)
-        abort(http_client.NOT_FOUND, description="This client is not registered",)
+        abort(http_client.NOT_FOUND, description="This client is not registered", )
     if client.player_id != player_id:
         log.error("User attempted to update/delete a client that is "
                   "registered to another player, %s vs %s",
                   player_id, client.player_id)
-        abort(http_client.NOT_FOUND, description="This is not your client",)
+        abort(http_client.NOT_FOUND, description="This is not your client", )
 
     return client
 
@@ -266,6 +260,7 @@ class ClientAPI(MethodView):
     register themselves as connected-to-the-backend and to heartbeat
     to let the backend know that they are still connected.
     """
+
     @bp.response(http_client.OK, ClientSchema())
     def get(self, client_id):
         """
@@ -289,12 +284,12 @@ class ClientAPI(MethodView):
         client = get_client(client_id)
 
         now = utcnow()
-        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
+        heartbeat_period, heartbeat_timeout = get_client_heartbeat_config()
 
         last_heartbeat = client.heartbeat
         if last_heartbeat + datetime.timedelta(seconds=heartbeat_timeout) < now:
             msg = "Heartbeat timeout. Last heartbeat was at {} and now we are at {}" \
-                  .format(last_heartbeat, now)
+                .format(last_heartbeat, now)
             log.info(msg)
             abort(http_client.NOT_FOUND, message=msg)
 
@@ -309,7 +304,7 @@ class ClientAPI(MethodView):
             "next_heartbeat_seconds": heartbeat_period,
             "heartbeat_timeout": utcnow() + datetime.timedelta(seconds=heartbeat_timeout),
             "heartbeat_timeout_seconds": heartbeat_timeout,
-            }
+        }
 
         log.debug("player %s has updated heartbeat for client %s. Heartbeat count is %s",
                   current_user["player_id"], client_id, client.num_heartbeats)

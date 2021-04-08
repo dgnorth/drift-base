@@ -5,15 +5,15 @@ import uuid
 import marshmallow as ma
 from drift.core.extensions.jwt import current_user, requires_roles
 from drift.core.extensions.urlregistry import Endpoints
-from flask import url_for, g, jsonify, current_app
+from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 from six.moves import http_client
 
+from driftbase.config import get_server_heartbeat_config
 from driftbase.models.db import (
-    Machine, Server, Match, ServerDaemonCommand,
-    DEFAULT_HEARTBEAT_PERIOD, DEFAULT_HEARTBEAT_TIMEOUT
+    Machine, Server, Match, ServerDaemonCommand
 )
 
 log = logging.getLogger(__name__)
@@ -25,12 +25,6 @@ endpoints = Endpoints()
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     endpoints.init_app(app)
-
-
-def get_heartbeat_config():
-    heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
-    heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
-    return heartbeat_period, heartbeat_timeout
 
 
 def utcnow():
@@ -223,7 +217,7 @@ class ServersAPI(MethodView):
             "Location": resource_url,
         }
         log.info("Server %s has been registered on machine_id %s", server_id, machine_id)
-        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
+        heartbeat_period, heartbeat_timeout = get_server_heartbeat_config()
         return {"server_id": server_id,
                 "url": resource_url,
                 "machine_id": machine_id,
@@ -352,7 +346,7 @@ class ServerHeartbeatAPI(MethodView):
         if not server:
             abort(http_client.NOT_FOUND, description="Server not found")
 
-        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
+        heartbeat_period, heartbeat_timeout = get_server_heartbeat_config()
 
         now = utcnow()
         last_heartbeat = server.heartbeat_date
@@ -478,3 +472,5 @@ class ServerCommandAPI(MethodView):
 def endpoint_info(*args):
     ret = {"servers": url_for("servers.list", _external=True), }
     return ret
+
+
