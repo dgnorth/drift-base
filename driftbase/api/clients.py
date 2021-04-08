@@ -70,13 +70,13 @@ class ClientSchema(ModelSchema):
 
 
 class ClientPostRequestSchema(ma.Schema):
-    client_type = ma.fields.Str(description=client_descriptions['client_type'])
-    build = ma.fields.Str(description=client_descriptions['build'])
-    platform_type = ma.fields.Str(description=client_descriptions['platform_type'])
-    app_guid = ma.fields.Str(description=client_descriptions['app_guid'])
-    version = ma.fields.Str(description=client_descriptions['version'])
-    platform_version = ma.fields.Str(description=client_descriptions['platform_version'])
-    platform_info = ma.fields.Raw(description=client_descriptions['platform_info'])
+    client_type = ma.fields.Str(metadata=dict(description=client_descriptions['client_type']))
+    build = ma.fields.Str(metadata=dict(description=client_descriptions['build']))
+    platform_type = ma.fields.Str(metadata=dict(description=client_descriptions['platform_type']))
+    app_guid = ma.fields.Str(metadata=dict(description=client_descriptions['app_guid']))
+    version = ma.fields.Str(metadata=dict(description=client_descriptions['version']))
+    platform_version = ma.fields.Str(metadata=dict(description=client_descriptions['platform_version']))
+    platform_info = ma.fields.Raw(metadata=dict(description=client_descriptions['platform_info']))
 
 
 class ClientPostSchema(ma.Schema):
@@ -92,16 +92,16 @@ class ClientPostSchema(ma.Schema):
     heartbeat_timeout = ma.fields.Str()
     jti = ma.fields.Str()
     jwt = ma.fields.Str()
-    url = ma.fields.Str(description="Fully qualified URL of the client resource")
+    url = ma.fields.Str(metadata=dict(description="Fully qualified URL of the client resource"))
 
 class ClientHeartbeatSchema(ma.Schema):
-    num_heartbeats = ma.fields.Integer(description=client_descriptions['num_heartbeats'])
-    last_heartbeat = ma.fields.DateTime(description="Timestamp of the previous heartbeat")
-    this_heartbeat = ma.fields.DateTime(description="Timestamp of this heartbeat")
-    next_heartbeat = ma.fields.DateTime(description="Timestamp when the next heartbeat is expected")
-    next_heartbeat_seconds = ma.fields.Integer(description="Number of seconds until the next heartbeat is expected")
-    heartbeat_timeout = ma.fields.DateTime(description="Timestamp when the client times out if no heartbeat is received")
-    heartbeat_timeout_seconds = ma.fields.Integer(description="Number of seconds until the client times out if no heartbeat is received")
+    num_heartbeats = ma.fields.Integer(metadata=dict(description=client_descriptions['num_heartbeats']))
+    last_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of the previous heartbeat"))
+    this_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of this heartbeat"))
+    next_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp when the next heartbeat is expected"))
+    next_heartbeat_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the next heartbeat is expected"))
+    heartbeat_timeout = ma.fields.DateTime(metadata=dict(description="Timestamp when the client times out if no heartbeat is received"))
+    heartbeat_timeout_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the client times out if no heartbeat is received"))
 
 @bp.route('/', endpoint='list')
 class ClientsAPI(MethodView):

@@ -22,7 +22,7 @@ class UserPlayerSchema(ModelSchema):
         model = CorePlayer
         exclude = ('num_logons', )
         strict = True
-    player_url = ma.fields.Str(description="Hello")
+    player_url = ma.fields.Str(metadata=dict(description="Hello"))
 
 
 class UserIdentitySchema(ModelSchema):
@@ -35,7 +35,7 @@ class UserSchema(ModelSchema):
     class Meta:
         model = User
         strict = True
-    user_url = ma.fields.Str(description="Hello")
+    user_url = ma.fields.Str(metadata=dict(description="Hello"))
     client_url = ma.fields.Str()
     user_url = ma.fields.Str()
     players = ma.fields.List(ma.fields.Nested(UserPlayerSchema))

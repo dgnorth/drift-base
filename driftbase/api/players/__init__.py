@@ -36,15 +36,15 @@ class PlayersListArgs(ma.Schema):
         strict = True
 
     player_id = ma.fields.List(
-        ma.fields.Integer(), description="Player ID's to filter for"
-    )
-    rows = ma.fields.Integer(description="Number of rows to return, maximum of 100")
+        ma.fields.Integer(), metadata=dict(description="Player ID's to filter for"
+    ))
+    rows = ma.fields.Integer(metadata=dict(description="Number of rows to return, maximum of 100"))
     player_group = ma.fields.String(
-        description="The player group the players should belong to (see player-group api)"
-    )
-    key = ma.fields.List(ma.fields.String(), description="Only return these columns")
+        metadata=dict(description="The player group the players should belong to (see player-group api)"
+    ))
+    key = ma.fields.List(ma.fields.String(), metadata=dict(description="Only return these columns"))
     player_name = ma.fields.String(
-        description="Player name to search for"
+        metadata=dict(description="Player name to search for")
     )
 
 
@@ -52,7 +52,7 @@ class PlayerPatchArgs(ma.Schema):
     class Meta:
         strict = True
 
-    name = ma.fields.String(description="New name for the player. Can be between 1 and 20 characters long.")
+    name = ma.fields.String(metadata=dict(description="New name for the player. Can be between 1 and 20 characters long."))
 
     @validates('name')
     def validate(self, s):

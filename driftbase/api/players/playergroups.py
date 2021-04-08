@@ -18,7 +18,7 @@ bp = Blueprint("playergroups", __name__, url_prefix='/players/<int:player_id>/pl
 
 
 class PlayerGroupGetRequestSchema(ma.Schema):
-    secret = ma.fields.String(description="Shared secret for this group")
+    secret = ma.fields.String(metadata=dict(description="Shared secret for this group"))
 
 
 class PlayerGroupPutRequestSchema(ma.Schema):
