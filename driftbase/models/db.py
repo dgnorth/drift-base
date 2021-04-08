@@ -22,9 +22,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from driftbase.config import get_client_heartbeat_config
 
-DEFAULT_MACHINE_HEARTBEAT_PERIOD = 30
-DEFAULT_MACHINE_HEARTBEAT_TIMEOUT_SECONDS = 300
-
 
 def utcnow():
     return datetime.datetime.utcnow()
