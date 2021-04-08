@@ -18,7 +18,7 @@ from driftbase.models.db import (
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("servers", __name__, url_prefix="/servers", description="Battleserver processes")
+bp = Blueprint("servers", __name__, url_prefix="/servers", description="Battle server processes")
 endpoints = Endpoints()
 
 
@@ -241,10 +241,10 @@ class ServersAPI(MethodView):
 @bp.route('/<int:server_id>', endpoint='entry')
 class ServerAPI(MethodView):
     """
-    Interface to battle servers instances. A battleserver instance is
-    a single run of a battleserver executable. The battleserver will
+    Interface to battle servers instances. A battle server instance is
+    a single run of a battle server executable. The battle server will
     have a single battle on it. You should never have a battle resource
-    without an associated battleserver resource.
+    without an associated battle server resource.
     """
 
     @requires_roles("service")
@@ -257,7 +257,7 @@ class ServerAPI(MethodView):
         server = g.db.query(Server).get(server_id)
 
         if not server:
-            log.warning("Requested a non-existant battleserver: %s", server_id)
+            log.warning("Requested a non-existant battle server: %s", server_id)
             abort(http_client.NOT_FOUND, description="Server not found")
 
         machine_id = server.machine_id
@@ -298,7 +298,7 @@ class ServerAPI(MethodView):
             commands.append(command)
         record["pending_commands"] = commands
 
-        log.debug("Returning info for battleserver %s", server_id)
+        log.debug("Returning info for battle server %s", server_id)
         return jsonify(record)
 
     @requires_roles("service")
@@ -306,15 +306,15 @@ class ServerAPI(MethodView):
     @bp.response(http_client.OK, ServerPutResponseSchema)
     def put(self, args, server_id):
         """
-        The battleserver management (celery) process calls this to update
-        the status of running a specific battleserver task
+        The battle server management (celery) process calls this to update
+        the status of running a specific battle server task
         """
-        log.info("Updating battleserver %s", server_id)
+        log.info("Updating battle server %s", server_id)
         server = g.db.query(Server).get(server_id)
         if not server:
             abort(http_client.NOT_FOUND)
         if args.get("status"):
-            log.info("Changing status of server %s from '%s' to '%s'",
+            log.info("Changing status of battle server %s from '%s' to '%s'",
                      server_id, server.status, args["status"])
         public_ip = args.pop("public_ip", None)
         if public_ip:
@@ -346,9 +346,9 @@ class ServerHeartbeatAPI(MethodView):
     @bp.response(http_client.OK, ServerHeartbeatPutResponseSchema)
     def put(self, server_id):
         """
-        Battleserver heartbeat
+        Battle server heartbeat
         """
-        log.debug("%s is heartbeating battleserver %s",
+        log.debug("%s is heart beating battle server %s",
                   current_user.get("user_name", "unknown"), server_id)
         server = g.db.query(Server).get(server_id)
         if not server:
@@ -383,7 +383,7 @@ class ServerCommandsPostSchema(ma.Schema):
 @bp.route('/<int:server_id>/commands', endpoint='commands')
 class ServerCommandsAPI(MethodView):
     """
-    Commands for the battleserver daemon
+    Commands for the battle server daemon
     """
 
     @requires_roles("service")
