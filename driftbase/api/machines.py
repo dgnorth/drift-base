@@ -61,9 +61,14 @@ class MachinePutRequestSchema(ma.Schema):
 
 
 class MachinePutResponseSchema(ma.Schema):
-    last_heartbeat = ma.fields.Str(required=True)
-    next_heartbeat_seconds = ma.fields.Number(required=True)
-    heartbeat_timeout = ma.fields.Str(required=True)
+    last_heartbeat = ma.fields.DateTime(description="Timestamp of the previous heartbeat")
+    this_heartbeat = ma.fields.DateTime(description="Timestamp of this heartbeat")
+    next_heartbeat = ma.fields.DateTime(description="Timestamp when the next heartbeat is expected")
+    next_heartbeat_seconds = ma.fields.Integer(description="Number of seconds until the next heartbeat is expected")
+    heartbeat_timeout = ma.fields.DateTime(
+        description="Timestamp when the machine times out if no heartbeat is received")
+    heartbeat_timeout_seconds = ma.fields.Integer(
+        description="Number of seconds until the machine times out if no heartbeat is received")
 
 
 @bp.route('', endpoint='list')
@@ -242,8 +247,11 @@ class MachineAPI(MethodView):
         g.db.commit()
         return {
             "last_heartbeat": last_heartbeat,
+            "this_heartbeat": row.heartbeat_date,
+            "next_heartbeat": row.heartbeat_date + datetime.timedelta(seconds=heartbeat_period),
             "next_heartbeat_seconds": heartbeat_period,
             "heartbeat_timeout": now + datetime.timedelta(seconds=heartbeat_timeout),
+            "heartbeat_timeout_seconds": heartbeat_timeout,
         }
 
 

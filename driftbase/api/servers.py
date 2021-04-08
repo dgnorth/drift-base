@@ -100,10 +100,14 @@ class ServerPutResponseSchema(ma.Schema):
 
 
 class ServerHeartbeatPutResponseSchema(ma.Schema):
-    server_id = ma.fields.Integer(required=True)
-    heartbeat_url = ma.fields.Url(required=True)
-    next_heartbeat_seconds = ma.fields.Number(required=True)
-    heartbeat_timeout = ma.fields.Str(required=True)
+    last_heartbeat = ma.fields.DateTime(description="Timestamp of the previous heartbeat")
+    this_heartbeat = ma.fields.DateTime(description="Timestamp of this heartbeat")
+    next_heartbeat = ma.fields.DateTime(description="Timestamp when the next heartbeat is expected")
+    next_heartbeat_seconds = ma.fields.Integer(description="Number of seconds until the next heartbeat is expected")
+    heartbeat_timeout = ma.fields.DateTime(
+        description="Timestamp when the server times out if no heartbeat is received")
+    heartbeat_timeout_seconds = ma.fields.Integer(
+        description="Number of seconds until the server times out if no heartbeat is received")
 
 
 @bp.route('', endpoint='list')
@@ -360,10 +364,12 @@ class ServerHeartbeatAPI(MethodView):
         g.db.commit()
 
         return {
-            "server_id": server_id,
-            "heartbeat_url": url_for("servers.heartbeat", server_id=server_id, _external=True),
+            "last_heartbeat": last_heartbeat,
+            "this_heartbeat": server.heartbeat_date,
+            "next_heartbeat": server.heartbeat_date + datetime.timedelta(seconds=heartbeat_period),
             "next_heartbeat_seconds": heartbeat_period,
             "heartbeat_timeout": now + datetime.timedelta(seconds=heartbeat_timeout),
+            "heartbeat_timeout_seconds": heartbeat_timeout,
         }
 
 
