@@ -1,6 +1,8 @@
 from six.moves import http_client
 from drift.systesthelper import DriftBaseTestCase
 
+from driftbase.api.machines import MachinesPostResponseSchema, MachinePutResponseSchema
+
 
 class MachinesTest(DriftBaseTestCase):
     """
@@ -42,6 +44,8 @@ class MachinesTest(DriftBaseTestCase):
         self.assertEqual(resp.json()["realm"], data["realm"])
         self.assertEqual(resp.json()["instance_name"], data["instance_name"])
         resp.json()["machine_id"]
+        resp = self.put(url)
+        self.assertDictEqual(MachinePutResponseSchema().validate(resp.json()), {})
         # ! TODO: System tests are currently offline. Will continue this later and add PUT tests
 
     def test_get_awsmachine(self):
@@ -62,6 +66,7 @@ class MachinesTest(DriftBaseTestCase):
 
         data = {"realm": "local", "instance_name": "local"}
         resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
+        self.assertDictEqual(MachinesPostResponseSchema().validate(resp.json()), {})
         url = resp.json()["url"]
         resp = self.get(url)
         self.assertEqual(resp.json()["realm"], data["realm"])
@@ -83,6 +88,7 @@ class MachinesTest(DriftBaseTestCase):
                 "public_ip": "8.8.8.8",
                 }
         resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
+        self.assertDictEqual(MachinesPostResponseSchema().validate(resp.json()), {})
         url = resp.json()["url"]
         resp = self.get(url)
         self.assertEqual(resp.json()["realm"], data["realm"])

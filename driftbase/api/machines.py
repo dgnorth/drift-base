@@ -11,6 +11,7 @@ from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 from six.moves import http_client
 
+from driftbase.config import get_machine_heartbeat_config
 from driftbase.models.db import Machine, MachineEvent
 
 log = logging.getLogger(__name__)
@@ -42,6 +43,13 @@ class MachinesPostRequestSchema(ma.Schema):
     group_name = ma.fields.String()
 
 
+class MachinesPostResponseSchema(ma.Schema):
+    machine_id = ma.fields.Integer(required=True)
+    url = ma.fields.Url(required=True)
+    next_heartbeat_seconds = ma.fields.Number(required=True)
+    heartbeat_timeout = ma.fields.Str(required=True)
+
+
 class MachinePutRequestSchema(ma.Schema):
     machine_info = ma.fields.Dict()
     config = ma.fields.Dict()
@@ -50,6 +58,12 @@ class MachinePutRequestSchema(ma.Schema):
     statistics = ma.fields.Dict()
     group_name = ma.fields.String()
     events = ma.fields.List(ma.fields.Dict())
+
+
+class MachinePutResponseSchema(ma.Schema):
+    last_heartbeat = ma.fields.Str(required=True)
+    next_heartbeat_seconds = ma.fields.Number(required=True)
+    heartbeat_timeout = ma.fields.Str(required=True)
 
 
 @bp.route('', endpoint='list')
@@ -116,6 +130,7 @@ class MachinesAPI(MethodView):
 
     @requires_roles("service")
     @bp.arguments(MachinesPostRequestSchema)
+    @bp.response(http_client.CREATED, MachinesPostResponseSchema)
     def post(self, args):
         """
         Register a machine
@@ -147,9 +162,12 @@ class MachinesAPI(MethodView):
         log.info("Battleserver machine %s has been registered on public ip %s",
                  machine_id, args.get("public_ip"))
 
-        return jsonify({"machine_id": machine_id,
-                        "url": resource_uri
-                        }), http_client.CREATED, response_header
+        heartbeat_period, heartbeat_timeout = get_machine_heartbeat_config()
+        return {"machine_id": machine_id,
+                "url": resource_uri,
+                "next_heartbeat_seconds": heartbeat_period,
+                "heartbeat_timeout": utcnow() + datetime.timedelta(seconds=heartbeat_timeout),
+                }, None, response_header
 
 
 @bp.route('/<int:machine_id>', endpoint='entry')
@@ -175,12 +193,13 @@ class MachineAPI(MethodView):
         record["servers_url"] = url_for("servers.list", machine_id=machine_id, _external=True)
         record["matches_url"] = url_for("matches.list", machine_id=machine_id, _external=True)
 
-        log.debug("Returning info for battleserver machine %s", machine_id)
+        log.debug("Returning info for battle server machine %s", machine_id)
 
         return jsonify(record)
 
     @requires_roles("service")
     @bp.arguments(MachinePutRequestSchema)
+    @bp.response(http_client.OK, MachinePutResponseSchema)
     def put(self, args, machine_id):
         """
         Update machine
@@ -190,8 +209,9 @@ class MachineAPI(MethodView):
         row = g.db.query(Machine).get(machine_id)
         if not row:
             abort(http_client.NOT_FOUND, description="Machine not found")
+        now = utcnow()
         last_heartbeat = row.heartbeat_date
-        row.heartbeat_date = utcnow()
+        row.heartbeat_date = now
         if args.get("status"):
             row.status = args["status"]
         if args.get("details"):
@@ -212,7 +232,12 @@ class MachineAPI(MethodView):
                 g.db.add(event_row)
 
         g.db.commit()
-        return jsonify({"last_heartbeat": last_heartbeat})
+        heartbeat_period, heartbeat_timeout = get_machine_heartbeat_config()
+        return {
+            "last_heartbeat": last_heartbeat,
+            "next_heartbeat_seconds": heartbeat_period,
+            "heartbeat_timeout": now + datetime.timedelta(seconds=heartbeat_timeout),
+        }
 
 
 @endpoints.register
