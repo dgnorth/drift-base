@@ -26,15 +26,20 @@ from drift.utils import json_response, Url
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user, issue_token
 from driftbase.utils import url_client
-from driftbase.models.db import User, CorePlayer, Client, UserIdentity
-
+from driftbase.models.db import (
+    User, CorePlayer, Client, UserIdentity,
+    DEFAULT_HEARTBEAT_PERIOD, DEFAULT_HEARTBEAT_TIMEOUT
+)
 
 log = logging.getLogger(__name__)
 bp = Blueprint("clients", __name__, url_prefix="/clients", description="Client registration")
 endpoints = Endpoints()
 
-DEFAULT_HEARTBEAT_PERIOD = 30
-DEFAULT_HEARTBEAT_TIMEOUT = 300
+
+def get_heartbeat_config():
+    heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
+    heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
+    return heartbeat_period, heartbeat_timeout
 
 
 def drift_init_extension(app, api, **kwargs):
@@ -123,7 +128,7 @@ class ClientsAPI(MethodView):
         """
         args = self.get_parser.parse_args()
 
-        heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
+        _, heartbeat_timeout = get_heartbeat_config()
         min_heartbeat_time = utcnow() - datetime.timedelta(seconds=heartbeat_timeout)
         query = g.db.query(Client).filter(Client.heartbeat >= min_heartbeat_time)
         if args["player_id"]:
@@ -213,8 +218,7 @@ class ClientsAPI(MethodView):
         }
         log.info("Client %s for user %s / player %s has been registered",
                  client_id, user_id, player_id)
-        heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
-        heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
+        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
         ret = {
             "client_id": client_id,
             "player_id": player_id,
@@ -285,8 +289,7 @@ class ClientAPI(MethodView):
         client = get_client(client_id)
 
         now = utcnow()
-        heartbeat_period = current_app.config.get("heartbeat_period", DEFAULT_HEARTBEAT_PERIOD)
-        heartbeat_timeout = current_app.config.get("heartbeat_timeout", DEFAULT_HEARTBEAT_TIMEOUT)
+        heartbeat_period, heartbeat_timeout = get_heartbeat_config()
 
         last_heartbeat = client.heartbeat
         if last_heartbeat + datetime.timedelta(seconds=heartbeat_timeout) < now:
