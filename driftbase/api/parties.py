@@ -32,7 +32,7 @@ class PartyGetSchema(ma.Schema):
 
 
 class PartyGetRequestSchema(ma.Schema):
-    secret = ma.fields.String(description="Shared secret for this group")
+    secret = ma.fields.String(metadata=dict(description="Shared secret for this group"))
 
 
 class PartyInvitesSchema(ma.Schema):

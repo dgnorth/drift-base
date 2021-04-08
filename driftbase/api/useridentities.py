@@ -35,16 +35,16 @@ class UserIdentitiesGetSchema(ma.Schema):
     class Meta:
         strict = True
         ordered = True
-    name = ma.fields.List(ma.fields.Str(), description="Filter by these names")
-    player_id = ma.fields.List(ma.fields.Integer(), description="Filter by these player ID's")
+    name = ma.fields.List(ma.fields.Str(), metadata=dict(description="Filter by these names"))
+    player_id = ma.fields.List(ma.fields.Integer(), metadata=dict(description="Filter by these player ID's"))
 
 
 class UserIdentitiesPostSchema(ma.Schema):
     class Meta:
         strict = True
         ordered = True
-    link_with_user_id = ma.fields.Integer(description="User ID to link the current player with")
-    link_with_user_jti = ma.fields.Str(description="User JTI to link the current player with")
+    link_with_user_id = ma.fields.Integer(metadata=dict(description="User ID to link the current player with"))
+    link_with_user_jti = ma.fields.Str(metadata=dict(description="User JTI to link the current player with"))
 
 
 def drift_init_extension(app, api, **kwargs):

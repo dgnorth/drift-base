@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "5740471553731700b0870d7452537146e2a267c45d2459357adecb2cf9564236"
+            "sha256": "7013c796d0d61cd611ee85f3759df8dc3bacb061aa5fc594ab801c1419da1439"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -467,11 +467,11 @@
         },
         "pyjwt": {
             "hashes": [
-                "sha256:5c6eca3c2940464d106b99ba83b00c6add741c9becaec087fb7ccdefea71350e",
-                "sha256:8d59a976fb773f3e6a39c85636357c4f0e242707394cadadd9814f5cbaa20e96"
+                "sha256:a5c70a06e1f33d81ef25eecd50d50bd30e34de1ca8b2b9fa3fe0daaabcf69bf7",
+                "sha256:b70b15f89dc69b993d8a8d32c299032d5355c82f9b5b7e851d1a6d706dffe847"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==1.7.1"
+            "version": "==2.0.1"
         },
         "pyopenssl": {
             "hashes": [
@@ -506,11 +506,11 @@
         },
         "python-drift": {
             "hashes": [
-                "sha256:1377b8bd5621b72ef8a8d8d97ef0748292eb2e716b879972ef3bb7c3f22d5bf8",
-                "sha256:d05d351824a147d777441539e9cc2e3c0940eec7fa3411bfd7e207b2b393fe81"
+                "sha256:14a3fb220fa2d4449b9cc6caa29f57be3af8e64c3350ef3f98d9a4164c6305d9",
+                "sha256:85156ff7ae1ed18b8eb70c3da58301e6aa66fe4b1b582598a7a21d574e9560ac"
             ],
             "index": "pypi",
-            "version": "==0.5.0"
+            "version": "==0.6.0"
         },
         "python-driftconfig": {
             "hashes": [
