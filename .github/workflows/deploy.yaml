@@ -2,10 +2,7 @@ name: Build and Publish
 
 on:
   push:
-    tags:
-      - '*'
-  workflow_dispatch:
-    inputs:
+  pull_request:
 
 jobs:
   test:
@@ -49,10 +46,21 @@ jobs:
     needs: test
 
     steps:
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.9
+        with:
+          versionSpec: '5.x'
+
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+
+      - name: Determine version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.9.9
+        with:
+          useConfigFile: true
 
       - name: Setup Python
         uses: actions/setup-python@v2
@@ -82,4 +90,4 @@ jobs:
 
       - name: Build and push image
         run: |
-          make build push REGISTRY=${{ steps.login-ecr.outputs.registry }} REF=${{ github.ref }}
+          make build push REGISTRY=${{ steps.login-ecr.outputs.registry }} REF=${{ github.ref }} VERSION=${{ steps.gitversion.outputs.semVer }}
