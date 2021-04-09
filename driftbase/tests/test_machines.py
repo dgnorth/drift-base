@@ -1,11 +1,17 @@
-from six.moves import http_client
+import datetime
+from unittest.mock import patch
+
 from drift.systesthelper import DriftBaseTestCase
+from six.moves import http_client
+
+from driftbase.api.machines import MachinesPostResponseSchema, MachinePutResponseSchema
 
 
 class MachinesTest(DriftBaseTestCase):
     """
     Tests for the /machines service endpoints
     """
+
     def test_access(self):
         self.auth()
         resp = self.get("/machines?realm=local&instance_name=dummy",
@@ -41,8 +47,20 @@ class MachinesTest(DriftBaseTestCase):
         resp = self.get(url)
         self.assertEqual(resp.json()["realm"], data["realm"])
         self.assertEqual(resp.json()["instance_name"], data["instance_name"])
-        resp.json()["machine_id"]
+        resp = self.put(url)
+        self.assertDictEqual(MachinePutResponseSchema().validate(resp.json()), {})
         # ! TODO: System tests are currently offline. Will continue this later and add PUT tests
+
+    def test_heartbeat_timeout(self):
+        self.auth_service()
+
+        data = {"realm": "local", "instance_name": "local"}
+        resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
+        url = resp.json()["url"]
+        heartbeat_timeout = resp.json()["heartbeat_timeout"]
+        with patch("driftbase.api.machines.utcnow") as mock_date:
+            mock_date.return_value = datetime.datetime.fromisoformat(heartbeat_timeout) + datetime.timedelta(seconds=5)
+            self.put(url, expected_status_code=http_client.NOT_FOUND)
 
     def test_get_awsmachine(self):
         self.auth_service()
@@ -62,6 +80,7 @@ class MachinesTest(DriftBaseTestCase):
 
         data = {"realm": "local", "instance_name": "local"}
         resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
+        self.assertDictEqual(MachinesPostResponseSchema().validate(resp.json()), {})
         url = resp.json()["url"]
         resp = self.get(url)
         self.assertEqual(resp.json()["realm"], data["realm"])
@@ -83,6 +102,7 @@ class MachinesTest(DriftBaseTestCase):
                 "public_ip": "8.8.8.8",
                 }
         resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
+        self.assertDictEqual(MachinesPostResponseSchema().validate(resp.json()), {})
         url = resp.json()["url"]
         resp = self.get(url)
         self.assertEqual(resp.json()["realm"], data["realm"])
