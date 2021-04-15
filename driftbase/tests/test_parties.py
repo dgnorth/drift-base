@@ -41,6 +41,7 @@ class PartiesTest(BaseCloudkitTest):
         # Check g1 gets a notification about the invite
         self.auth(username=guest_user_1)
         g1_notification, g1_message_number = self.get_party_notification('invite')
+        self.assertEqual(g1_notification['inviting_player_name'], host_user)
         self.assertEqual(g1_notification['inviting_player_id'], host_id)
         self.assertEqual(g1_notification['invite_url'], invite['url'])
 
@@ -67,6 +68,7 @@ class PartiesTest(BaseCloudkitTest):
         # Check g2 gets a notification about the invite
         self.auth(username=guest_user_2)
         g2_notification, g2_message_number = self.get_party_notification('invite')
+        self.assertEqual(g2_notification['inviting_player_name'], host_user)
         self.assertEqual(g2_notification['inviting_player_id'], host_id)
         self.assertEqual(g2_notification['invite_url'], invite['url'])
 
