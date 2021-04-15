@@ -69,8 +69,7 @@ def incr_message_number(exchange, exchange_id):
 
 def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     messages = []
-    key = "messages:%s-%s" % (exchange, exchange_id)
-    redis_key = g.redis.make_key(key)
+    redis_key = g.redis.make_key("messages:%s-%s" % (exchange, exchange_id))
     seen_key = "messages:seen:%s-%s" % (exchange, exchange_id)
     redis_seen_key = g.redis.make_key(seen_key)
     my_player_id = None
