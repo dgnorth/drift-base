@@ -95,7 +95,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
         i += 1
         if curr_message_number < min_message_number:
             break
-        expires = datetime.datetime.fromisoformat(message["expires"][:-1])
+        expires = datetime.datetime.fromisoformat(message["expires"][:-1]) # remove trailing 'Z'
         if expires > utcnow():
             messages.append(message)
             log.info("Message %s ('%s') has been retrieved from queue '%s' in "
@@ -106,7 +106,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
             if rows and len(messages) >= rows:
                 break
         else:
-            log.info("Message %s ('%s') has been expired from queue '%s' in "
+            log.info("Expired message %s ('%s') was removed from queue '%s' in "
                      "exchange '%s-%s' by player %s",
                      message["message_number"], message["message_id"],
                      message["queue"], exchange, exchange_id, my_player_id)
