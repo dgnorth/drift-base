@@ -1,6 +1,7 @@
-from six.moves import http_client
-from driftbase.utils.test_utils import BaseCloudkitTest
 import urllib
+from six.moves import http_client
+
+from driftbase.utils.test_utils import BaseCloudkitTest
 
 
 class MessagesTest(BaseCloudkitTest):
@@ -93,12 +94,12 @@ class MessagesTest(BaseCloudkitTest):
         data = {"message": {"Hello": "World"}}
         otherqueue = "othertestqueue"
         othermessagequeue_url = messagequeue_url_template.format(queue=otherqueue)
-        data = {"message": {"Hello": "World"}}
+        otherdata = {"message": {"Hello": "OtherWorld"}}
 
         r = self.post(messagequeue_url, data=data)
-        r = self.post(othermessagequeue_url, data=data)
+        r = self.post(othermessagequeue_url, data=otherdata)
         r = self.post(messagequeue_url, data=data)
-        r = self.post(othermessagequeue_url, data=data)
+        r = self.post(othermessagequeue_url, data=otherdata)
 
         top_message_number = r.json()["message_number"]
 
@@ -145,11 +146,11 @@ class MessagesTest(BaseCloudkitTest):
         data = {"message": {"Hello": "World"}}
         otherqueue = "othertestqueue"
         othermessagequeue_url = messagequeue_url_template.format(queue=otherqueue)
-        data = {"message": {"Hello": "World"}}
+        otherdata = {"message": {"Hello": "OtherWorld"}}
         r = self.post(messagequeue_url, data=data)
-        r = self.post(othermessagequeue_url, data=data)
+        r = self.post(othermessagequeue_url, data=otherdata)
         r = self.post(messagequeue_url, data=data)
-        r = self.post(othermessagequeue_url, data=data)
+        r = self.post(othermessagequeue_url, data=otherdata)
 
         top_message_number = int(r.json()["message_number"])
         top_message_id = r.json()["message_id"]
@@ -157,19 +158,56 @@ class MessagesTest(BaseCloudkitTest):
         # switch to the receiver player
         self.headers = receiver_headers
 
-        # get only the top row and verify that it is correct
-        r = self.get(messages_url + "?messages_after=%s" %
-                     (top_message_number - 1))
-        js = r.json()
-        self.assertEqual(len(js), 1)
-        self.assertEqual(len(js[otherqueue]), 1)
-        self.assertEqual(js[otherqueue][0]["message_number"], top_message_number)
-        self.assertEqual(js[otherqueue][0]["message_id"], top_message_id)
+        # get only the top row and verify that it is correct, each time
+        for i in range(0, 2):
+            r = self.get(messages_url + "?messages_after=%s" % (top_message_number - 1))
+            js = r.json()
+            # Check we got one queue
+            self.assertEqual(len(js), 1)
+            # Check we got one message in the queue
+            self.assertEqual(len(js[otherqueue]), 1)
+            record = js[otherqueue][0]
+            self.assertEqual(record["message_number"], top_message_number)
+            self.assertEqual(record["message_id"], top_message_id)
+            self.assertEqual(record["payload"], otherdata["message"])
 
         # if we get by a larger number we should get nothing
         r = self.get(messages_url + "?messages_after=%s" % (top_message_number))
         js = r.json()
         self.assertEqual(js, {})
+
+        # if we get by zero we should get nothing, as we've previously acknowledged a valid top number
+        r = self.get(messages_url + "?messages_after=%s" % (0))
+        js = r.json()
+        self.assertEqual(js, {})
+
+        # if we get without a message number should get nothing, as we've previously acknowledged a valid top number
+        r = self.get(messages_url)
+        js = r.json()
+        self.assertEqual(js, {})
+
+        # Send additional messages
+        player_sender = self.make_player()
+
+        # Post additional messages
+        r = self.post(othermessagequeue_url, data=otherdata)
+        r = self.post(othermessagequeue_url, data=otherdata)
+
+        top_message_number = int(r.json()["message_number"])
+        top_message_id = r.json()["message_id"]
+
+        # switch to the receiver player
+        self.headers = receiver_headers
+
+        # get by zero should now return the two messages sent since last time
+        r = self.get(messages_url + "?messages_after=%s" % (0))
+        js = r.json()
+        self.assertEqual(len(js), 1)
+        self.assertEqual(len(js[otherqueue]), 2)
+        # Messages are returned newest first
+        self.assertEqual(js[otherqueue][0]["message_number"], top_message_number)
+        self.assertEqual(js[otherqueue][0]["message_id"], top_message_id)
+        self.assertEqual(js[otherqueue][1]["message_number"], top_message_number - 1)
 
     def test_messages_multiplequeues(self):
         player_receiver = self.make_player()
