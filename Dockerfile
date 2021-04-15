@@ -45,4 +45,4 @@ USER uwsgi
 
 ENV PATH /home/uwsgi/.local/bin:$PATH
 
-CMD ["/home/uwsgi/.local/bin/uwsgi", "--ini", "/app/config/uwsgi.ini"]
+CMD ["/app/wrap-uwsgi.sh"]
