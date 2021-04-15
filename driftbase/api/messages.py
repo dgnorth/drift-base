@@ -36,7 +36,7 @@ def drift_init_extension(app, api, **kwargs):
 # messages expire in a day by default
 DEFAULT_EXPIRE_SECONDS = 60 * 60 * 24
 # keep the top message around for a month
-TOP_MESSAGE_NUMBER_TTL = 60 * 60 * 24 * 30
+MESSAGE_EXCHANGE_TTL = 60 * 60 * 24 * 30
 
 
 # for mocking
@@ -62,7 +62,7 @@ def is_key_legal(key):
 
 def incr_message_number(exchange, exchange_id):
     k = "top_message_number:%s:%s" % (exchange, exchange_id)
-    g.redis.incr(k, expire=TOP_MESSAGE_NUMBER_TTL)
+    g.redis.incr(k, expire=MESSAGE_EXCHANGE_TTL)
     val = g.redis.get(k)
     return int(val)
 
@@ -80,11 +80,12 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
 
     seen_message_number = g.redis.conn.get(redis_seen_key)
     if min_message_number == 1 and seen_message_number:
-        min_message_number = int(seen_message_number)
+        min_message_number = int(seen_message_number) + 1
     else:
-        g.redis.conn.set(redis_seen_key, min_message_number)
+        g.redis.conn.setex(redis_seen_key, MESSAGE_EXCHANGE_TTL, min_message_number - 1)
 
     curr_message_number = sys.maxsize
+    g.redis.conn.expire(redis_key, MESSAGE_EXCHANGE_TTL)
     while curr_message_number >= min_message_number:
         all_contents = g.redis.conn.lrange(redis_key, -i, -i)
         if not all_contents:
@@ -95,14 +96,21 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
         i += 1
         if curr_message_number < min_message_number:
             break
-        messages.append(message)
-        log.info("Message %s ('%s') has been retrieved from queue '%s' in "
-                 "exchange '%s-%s' by player %s",
-                 message["message_number"], message["message_id"],
-                 message["queue"], exchange, exchange_id, my_player_id)
+        expires = datetime.datetime.fromisoformat(message["expires"][:-1])
+        if expires > utcnow():
+            messages.append(message)
+            log.info("Message %s ('%s') has been retrieved from queue '%s' in "
+                     "exchange '%s-%s' by player %s",
+                     message["message_number"], message["message_id"],
+                     message["queue"], exchange, exchange_id, my_player_id)
 
-        if rows and len(messages) >= rows:
-            break
+            if rows and len(messages) >= rows:
+                break
+        else:
+            log.info("Message %s ('%s') has been expired from queue '%s' in "
+                     "exchange '%s-%s' by player %s",
+                     message["message_number"], message["message_id"],
+                     message["queue"], exchange, exchange_id, my_player_id)
 
     messages.sort(key=operator.itemgetter("message_number"), reverse=True)
     rows = rows or len(messages)
@@ -272,7 +280,7 @@ def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
     with g.redis.lock(lock_key):
         k = g.redis.make_key(key)
         g.redis.conn.rpush(k, val)
-        g.redis.conn.expire(k, expire_seconds)
+        g.redis.conn.expire(k, MESSAGE_EXCHANGE_TTL)
 
     return message
 
