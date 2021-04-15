@@ -245,6 +245,9 @@ class MessagesQueueAPI(MethodView):
 
 
 def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
+    if not is_key_legal(exchange) or not is_key_legal(queue):
+        abort(http_client.BAD_REQUEST, message="Exchange or Queue name is invalid.")
+
     expire_seconds = expire_seconds or DEFAULT_EXPIRE_SECONDS
     message_id = str(uuid.uuid4())
     message_number = incr_message_number(exchange, exchange_id)
@@ -261,8 +264,6 @@ def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
         "exchange": exchange,
         "exchange_id": exchange_id,
     }
-    if not is_key_legal(exchange) or not is_key_legal(queue):
-        abort(http_client.BAD_REQUEST, message="Exchange or Queue name is invalid.")
 
     key = "messages:%s-%s" % (exchange, exchange_id)
     val = json.dumps(message, default=json_serial)
