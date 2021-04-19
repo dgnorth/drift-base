@@ -14,6 +14,7 @@ from sqlalchemy.orm import aliased
 
 from driftbase.models.db import Friendship, FriendInvite, CorePlayer
 from driftbase.schemas.friendships import InviteSchema, FriendRequestSchema
+from driftbase.api.messages import post_message
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 
@@ -249,13 +250,12 @@ class FriendInvitesAPI(MethodView):
     @staticmethod
     def _post_friend_request_message(sender_player_id, receiving_player_id, token, expiry):
         """ Insert a 'friend_request' event into the 'friendevent' queue of the 'players' exchange. """
-        from driftbase.api.messages import _add_message
         if receiving_player_id is None:
             log.warning(
                 "Not creating a friend_request event for a non-specific invite from player id %s" % sender_player_id)
             return
         payload = {"token": token, "event": "friend_request"}
-        _add_message("players", receiving_player_id, "friendevent", payload, expiry)
+        post_message("players", receiving_player_id, "friendevent", payload, expiry)
 
 
 @bp.route('/invites/<int:invite_id>', endpoint='invite')

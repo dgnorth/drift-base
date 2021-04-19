@@ -221,7 +221,7 @@ class MessagesQueueAPI(MethodView):
         check_can_use_exchange(exchange, exchange_id, read=False)
         expire_seconds = args.get("expire") or DEFAULT_EXPIRE_SECONDS
 
-        message = _add_message(
+        message = post_message(
             exchange=exchange,
             exchange_id=exchange_id,
             queue=queue,
@@ -251,7 +251,7 @@ class MessagesQueueAPI(MethodView):
         return jsonify(ret)
 
 
-def _add_message(exchange, exchange_id, queue, payload, expire_seconds=None):
+def post_message(exchange, exchange_id, queue, payload, expire_seconds=None):
     if not is_key_legal(exchange) or not is_key_legal(queue):
         abort(http_client.BAD_REQUEST, message="Exchange or Queue name is invalid.")
 

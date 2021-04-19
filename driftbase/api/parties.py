@@ -9,7 +9,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from six.moves import http_client
 
-from driftbase.api.messages import _add_message
+from driftbase.api.messages import post_message
 from driftbase.models.db import CorePlayer
 from driftbase.parties import accept_party_invite, get_player_party, get_party_members, leave_party, disband_party, \
     create_party_invite, decline_party_invite
@@ -127,7 +127,7 @@ class PartyPlayerAPI(MethodView):
 
         members = get_party_members(party_id)
         for member in members:
-            _add_message("players", member, "party_notification",
+            post_message("players", member, "party_notification",
                          {
                              "event": "player_left",
                              "party_id": party_id,
@@ -137,7 +137,7 @@ class PartyPlayerAPI(MethodView):
                          })
         if len(members) <= 1:
             disband_party(party_id)
-            _add_message("players", members[0], "party_notification",
+            post_message("players", members[0], "party_notification",
                          {
                              "event": "disbanded",
                              "party_id": party_id,
@@ -174,7 +174,7 @@ class PartyInvitesAPI(MethodView):
                 log.debug("Player {} invited player {} to form a new party".format(my_player_id, player_id))
 
             resource_uri = url_for("party_invites.entry", invite_id=invite_id, _external=True)
-            _add_message("players", player_id, "party_notification",
+            post_message("players", player_id, "party_notification",
                          {
                              "event": "invite",
                              "invite_id": invite_id,
@@ -207,7 +207,7 @@ class PartyInviteAPI(MethodView):
         for member in party_members:
             if member == player_id:
                 continue
-            _add_message("players", member, "party_notification",
+            post_message("players", member, "party_notification",
                          {
                              "event": "player_joined",
                              "party_id": party_id,
@@ -233,7 +233,7 @@ class PartyInviteAPI(MethodView):
         inviter_id, invited_id = decline_party_invite(invite_id, player_id)
         if inviter_id == player_id:
             log.debug("Player {} canceled a party invite to {}".format(inviter_id, invited_id))
-            _add_message("players", invited_id, "party_notification",
+            post_message("players", invited_id, "party_notification",
                          {
                              "event": "invite_canceled",
                              "invite_id": invite_id,
@@ -242,7 +242,7 @@ class PartyInviteAPI(MethodView):
                          })
         else:
             log.debug("Player {} declined a party invite from {}".format(player_id, inviter_id))
-            _add_message("players", inviter_id, "party_notification",
+            post_message("players", inviter_id, "party_notification",
                          {
                              "event": "invite_declined",
                              "player_id": invited_id,
