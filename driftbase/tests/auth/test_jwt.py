@@ -1,310 +1,75 @@
+import http
 import unittest
 
-from flask import Flask, Blueprint, jsonify
-from flask.views import MethodView
-from flask_restx import Api, Resource
-
-from drift.tests import DriftTestCase
-from drift.systesthelper import DriftBaseTestCase
+from driftbase.utils.test_utils import BaseCloudkitTest
 from drift.core.extensions.jwt import verify_token, jwt_not_required, current_user, check_jwt_authorization
-from drift.systesthelper import setup_tenant, remove_tenant
-
-app = Flask(__name__)
-app.testing = True
-
-
-bp = Blueprint("jwt_api", __name__)
-api = Api(bp)
+from drift.systesthelper import setup_tenant
+from drift.flaskfactory import drift_app
+from flask.views import MethodView
 
 
-# Endpoints closed from public access
-class APIClosed(MethodView):
+ts = setup_tenant()
+test_app = drift_app()
+
+class TestJWTAccessControl(BaseCloudkitTest):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        test_app.before_request(check_jwt_authorization)
+        cls.app = test_app.test_client()
+
+    def test_trivial_function(self):
+        self.post("/trivialfunction", expected_status_code=http.HTTPStatus.METHOD_NOT_ALLOWED)
+        self.get("/trivialfunction", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        self.make_player()
+        self.get("/trivialfunction", expected_status_code=http.HTTPStatus.OK)
+        self.put("/trivialfunction", expected_status_code=http.HTTPStatus.OK)
+
+    def test_trivial_method(self):
+        self.post("/trivialapi", expected_status_code=http.HTTPStatus.METHOD_NOT_ALLOWED)
+        self.get("/trivialapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        self.make_player()
+        self.get("/trivialapi", expected_status_code=http.HTTPStatus.OK)
+
+    def test_open_api(self):
+        self.get("/openapi", expected_status_code=http.HTTPStatus.OK)
+
+    def test_open_function(self):
+        self.get("/openfunction", expected_status_code=http.HTTPStatus.OK)
+
+
+
+class TrivalAPI(MethodView):
 
     def get(self):
-        ret = {
-            "message2": "hi there",
-            "current_user": dict(current_user) if current_user else None,
-        }
-        return ret
+        return {}, http.HTTPStatus.OK
 
 
-api.add_resource(APIClosed, '/apiclosed', endpoint="apiclosed")
+class OpenAPI(MethodView):
+    no_jwt_check = ["GET"]
+
+    @staticmethod
+    def get():
+        return {}, http.HTTPStatus.OK
 
 
-@bp.route("/closed")
-def closedfunc():
-    return jsonify({"message": "this endpoint is closed"})
+test_app.add_url_rule('/openapi', view_func=OpenAPI.as_view('openapi'))
+test_app.add_url_rule('/trivialapi', view_func=TrivalAPI.as_view('trivialapi'))
 
 
-# Endpoints open for public access
-class APIOpen(MethodView):
+@test_app.route("/trivialfunction")  # GET is the default method
+def get_trivial():
+    return {}, http.HTTPStatus.OK
 
-    no_jwt_check = ["GET"]  # Only GET is public, DELETE is closed
+@test_app.route("/trivialfunction", methods=["PUT"])
+def put_trivial():
+    return {}, http.HTTPStatus.OK
 
-    def get(self):
-        ret = {
-            "message2": "hi there, this is open",
-            "current_user": dict(current_user) if current_user else None,
-        }
-        return ret
-
-    def delete(self):
-        ret = {
-            "message2": "aawwww, deleting me?",
-            "current_user": dict(current_user) if current_user else None,
-        }
-
-        return ret
-
-
-api.add_resource(APIOpen, '/apiopen', endpoint="apiopen")
-
-
+@test_app.route("/openfunction")
 @jwt_not_required
-@bp.route("/open", methods=["GET", "POST"])
-def openfunc():
-    return jsonify(
-        {
-            "message": "this is wide open",
-            "current_user": dict(current_user) if current_user else None,
-        }
-    )
+def get_open():
+    return {}, http.HTTPStatus.OK
 
-
-@jwt_not_required
-@app.route('/api', methods=['GET'])
-def this_func():
-    """This is a function. It does nothing."""
-    return jsonify({'result': ''})
-
-
-@jwt_not_required
-@app.route('/api/help', methods=['GET'])
-def help():
-    """Print available functions."""
-    func_list = {}
-    for rule in app.url_map.iter_rules():
-        if rule.endpoint != 'static':
-            func_list[rule.rule] = app.view_functions[rule.endpoint].__doc__
-    return jsonify(func_list)
-
-
-private_key = '''
------BEGIN RSA PRIVATE KEY-----
-MIIBygIBAAJhAOOEkKLzpVY5zNbn2zZlz/JlRe383fdnsuy2mOThXpJc9Tq+GuI+
-PJJXsNa5wuPBy32r46/N8voe/zUG4qYrrRCRyjmV0yu4kZeNPSdO4uM4K98P1obr
-UaYrik9cpwnu8QIDAQABAmA+BSAMW5CBfcYZ+yAlpwFVmUfDxT+YtpruriPlmI3Y
-JiDvP21CqSaH2gGptv+qaGQVq8E1xcxv9jT1qK3b7wm7+xoxTYyU0XqZC3K+lGeW
-5L+77H59RwQznG21FvjtRgECMQDzihOiirv8LI2S7yg11/DjC4c4lIzupjnhX2ZH
-weaLJcjGogS/labJO3b2Q8RUimECMQDvKKKl1KiAPNvuylcrDw6+yXOBDw+qcwiP
-rKysATJ2iCsOgnLC//Rk3+SN3R2+TpECMGjAglOOsu7zxu1levk16cHu6nm2w6u+
-yfSbkSXaTCyb0vFFLR+u4e96aV/hpCfs4QIwd/I0aOFYRUDAuWmoAEOEDLHyiSbp
-n34kLBLZY0cSbRpsJdHNBvniM/mKoo/ki/7RAjEAtpt6ixFoEP3w/2VLh5cut61x
-E74vGa3+G/KdGO94ZnI9uxySb/czhnhvOGkpd9/p
------END RSA PRIVATE KEY-----
-'''
-
-public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
-    "zW59s2Zc/yZUXt/N33Z7Lstpjk4V6SXPU6vhriPjySV7DWucLjwct9q+Ovz" \
-    "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
-    " unittest@dg-api.com"
-
-
-if 0:
-    class JWTCase2(DriftTestCase):
-
-        custom_payload = {
-            "user_id": 123,
-            "identity_id": 555,
-            "player_id": 10050,
-            "player_name": "A player name",
-            "roles": [],
-        }
-
-        @classmethod
-        def setUpClass(cls):
-
-            config_size = {
-                'num_org': 5,
-                'num_tiers': 2,
-                'num_deployables': 4,
-                'num_products': 2,
-                'num_tenants': 2,
-            }
-
-            ts = setup_tenant(config_size=config_size, use_app_config=False)
-            cls.ts = ts
-
-        @classmethod
-        def tearDownClass(cls):
-            remove_tenant()
-
-        def create_app(self):
-            app = super(JWTCase2, self).create_app()
-            app.register_blueprint(bp)
-            jwtsetup(app)
-            import driftbase.auth.authenticate
-            driftbase.auth.authenticate.authenticate = self.authenticate
-            return app
-
-        def authenticate(self, username, password, automatic_account_creation=True):
-            self.custom_payload['user_name'] = username
-            return self.custom_payload
-
-        @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
-        def test_sumthin(self):
-            # import drift.core.extensions.jwt as jwtsetupmodule
-            # jwtsetupmodule.authenticate = self.authenticate
-            # import driftbase.auth.authenticate
-            # rv = self.get(200, '/openxx')
-            pass
-
-        @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
-        def test_oculus_authentication(self):
-            # Oculus provisional authentication check
-            data = {
-                "provider": "oculus",
-                "provider_details": {
-                    "provisional": True, "username": "someuser", "password": "somepass"
-                }
-            }
-            self.post(200, '/auth', data=data)
-
-            # We don't want empty username at this point
-            data['provider_details']['username'] = ""
-            self.post(401, '/auth', data=data)
-
-        @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
-        def test_access_control(self):
-            rv = self.post(200, '/auth', data={"username": "someuser", "password": "somepass"})
-            data = rv.json
-            self.assertIn('token', data)
-            self.assertIn('jti', data)
-
-            payload = verify_token(data['token'], 'JWT')
-            for payload_key in ['tier', 'tenant', 'jti']:
-                self.assertIn(payload_key, payload)
-            self.assertDictContainsSubset(self.custom_payload, payload)
-
-            self.headers.append(('Authorization', 'JWT ' + data['token']))
-
-            # Authenticated clients should be able to access both open and
-            # closed endpoints
-            rv = self.get(200, '/open')
-            rv = self.get(200, '/apiopen')
-            rv = self.delete(200, '/apiopen')
-            rv = self.get(200, '/closed')
-            rv = self.get(200, '/apiclosed')
-
-            # Unauthenticated clients should be able to access open endpoints,
-            # but get 401 on closed.
-            rv = self.client.get('/open')
-            self.assert200(rv)
-            rv = self.client.get('/apiopen')
-            self.assert200(rv)
-            rv = self.client.delete('/apiopen')
-            self.assert401(rv)
-            rv = self.client.get('/closed')
-            self.assert401(rv)
-            rv = self.client.get('/apiclosed')
-            self.assert401(rv)
-
-
-class JWTCase(DriftBaseTestCase):
-
-    def create_app(self):
-        app = super(JWTCase, self).create_app()
-        app.register_blueprint(bp)
-        jwtsetup(app)
-
-        # check for a valid JWT/JTI access token in the request header
-        # and populate current_user
-        @app.before_request
-        def jwt_check_hook():
-            check_jwt_authorization()
-
-        # Deployables implement the authenticate() callback function
-        # as well as providing a private key for signing tokens. Here
-        # we do this as Drift is not a deployable by itself.
-        app.config['private_key'] = private_key
-        import driftbase.auth.authenticate
-        driftbase.auth.authenticate.authenticate = self.authenticate
-
-        return app
-
-    custom_payload = {
-        "user_id": 123,
-        "identity_id": 555,
-        "player_id": 10050,
-        "player_name": "A player name",
-        "roles": [],
-    }
-
-    def setUp(self):
-
-        # Make myself a trusted issuer
-        issuer = {
-            'iss': self.app.config["name"],
-            'pub_rsa': public_test_key,
-        }
-        self.app.config["jwt_trusted_issuers"] = [issuer]
-
-    def authenticate(self, username, password, automatic_account_creation=True):
-        self.custom_payload['user_name'] = username
-        return self.custom_payload
-
-    def private_key(self):
-        return private_key
-
-    @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
-    def test_oculus_authentication(self):
-        # Oculus provisional authentication check
-        data = {
-            "provider": "oculus",
-            "provider_details": {
-                "provisional": True, "username": "someuser", "password": "somepass"
-            }
-        }
-        self.post(200, '/auth', data=data)
-
-        # We don't want empty username at this point
-        data['provider_details']['username'] = ""
-        self.post(401, '/auth', data=data)
-
-    @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
-    def test_access_control(self):
-        rv = self.post(200, '/auth', data={"username": "someuser", "password": "somepass"})
-        data = rv.json
-        self.assertIn('token', data)
-        self.assertIn('jti', data)
-
-        payload = verify_token(data['token'], 'JWT')
-        for payload_key in ['tier', 'tenant', 'jti']:
-            self.assertIn(payload_key, payload)
-        self.assertDictContainsSubset(self.custom_payload, payload)
-
-        self.headers.append(('Authorization', 'JWT ' + data['token']))
-
-        # Authenticated clients should be able to access both open and
-        # closed endpoints
-        rv = self.get(200, '/open')
-        rv = self.get(200, '/apiopen')
-        rv = self.delete(200, '/apiopen')
-        rv = self.get(200, '/closed')
-        rv = self.get(200, '/apiclosed')
-
-        # Unauthenticated clients should be able to access open endpoints,
-        # but get 401 on closed.
-        rv = self.client.get('/open')
-        self.assert200(rv)
-        rv = self.client.get('/apiopen')
-        self.assert200(rv)
-        rv = self.client.delete('/apiopen')
-        self.assert401(rv)
-        rv = self.client.get('/closed')
-        self.assert401(rv)
-        rv = self.client.get('/apiclosed')
-        self.assert401(rv)
 
 
 if __name__ == "__main__":

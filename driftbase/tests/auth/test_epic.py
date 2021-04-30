@@ -1,9 +1,6 @@
 import unittest
-from json import loads, dumps
 
-from werkzeug.exceptions import Unauthorized, ServiceUnavailable
-
-from driftbase.auth.epic import run_ticket_validation, authenticate
+from driftbase.auth.epic import run_ticket_validation
 from driftbase.utils.test_utils import BaseCloudkitTest
 
 class EpicCase(BaseCloudkitTest):
