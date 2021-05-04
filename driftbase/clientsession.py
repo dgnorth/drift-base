@@ -18,7 +18,7 @@ def before_request():
         return
 
     # we do not log off service users
-    if "service" in current_user["roles"]:
+    if {"service", "external_service"} & set(current_user["roles"]):
         return
 
     if not current_user.get("client_id"):

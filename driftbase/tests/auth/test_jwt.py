@@ -2,11 +2,10 @@ import http
 import unittest
 
 from driftbase.utils.test_utils import BaseCloudkitTest
-from drift.core.extensions.jwt import jwt_not_required, check_jwt_authorization
+from drift.core.extensions.jwt import jwt_not_required, check_jwt_authorization, requires_roles
 from drift.systesthelper import setup_tenant
 from drift.flaskfactory import drift_app
 from flask.views import MethodView
-
 
 ts = setup_tenant()
 test_app = drift_app()
@@ -64,10 +63,20 @@ class TestJWTAccessControl(BaseCloudkitTest):
         self.headers = {"Authorization": "JWT " + token + "junk"}
         self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-    def test_bearer_token_auth(self):
-        token = "aRandomString"
-        self.headers = {"Authorization": "Bearer: permanent:" + token}
+    def test_flexmatch_event_bridge_bearer_token_auth(self): # FIXME: Setup the user for the test instead of using the actual token in
+        token = "non-3xisting-token"
+        self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
+        self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+
+        token = "6697e242-acb6-11eb-9f44-00155de07310"
+        self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
         self.put("/testapi", expected_status_code=http.HTTPStatus.OK)
+
+    def test_requires_roles(self):
+        token = "6697e242-acb6-11eb-9f44-00155de07310"
+        self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
+        self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
 
 class TrivialAPI(MethodView):
 
@@ -82,7 +91,18 @@ class TestAPI(MethodView):
     def get():
         return {}, http.HTTPStatus.OK
 
-    def put(self):
+    @staticmethod
+    def put():
+        return {}, http.HTTPStatus.OK
+
+    @staticmethod
+    @requires_roles("service")
+    def post():
+        return {}, http.HTTPStatus.OK
+
+    @staticmethod
+    @requires_roles("external_service")
+    def delete():
         return {}, http.HTTPStatus.OK
 
 

@@ -12,10 +12,11 @@ def _update_analytics():
     client_id = None
     current_user = query_current_user()
     if current_user:
-        user_id = current_user["user_id"]
+        user_id = current_user.get("user_id")
         client_id = current_user.get("client_id")
         if not client_id:
-            log.debug("client_id not found in JWT for user %s. Not updating client stats." % user_id)
+            log.debug("client_id not found in JWT for user %s. Not updating client stats." % (user_id or current_user.get("username", "Unknown")))
+            return
 
     # As we are doing this 'after request' we should only acquire the redis session if it's
     # already available. A "hard" reference on g.redis could have side effects in this
