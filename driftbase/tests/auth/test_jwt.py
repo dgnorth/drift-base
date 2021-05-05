@@ -22,7 +22,7 @@ class TestJWTAccessControl(BaseCloudkitTest):
         cls.app = test_app.test_client()
 
     def test_trivial_functions(self):
-        self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.METHOD_NOT_ALLOWED)
+        self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
         self.put("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
         self.get("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
         self.make_player()
@@ -63,20 +63,28 @@ class TestJWTAccessControl(BaseCloudkitTest):
         self.headers = {"Authorization": "JWT " + token + "junk"}
         self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-    def test_flexmatch_event_bridge_bearer_token_auth(self): # FIXME: Setup the user for the test instead of using the actual token in
+    def test_flexmatch_event_bridge_bearer_token_auth(self):
+        # FIXME: Setup the user for the test instead of using the actual token from the config
         token = "non-3xisting-token"
         self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
+        # This should fail because the token is invalid
         self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        self.get("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
         token = "6697e242-acb6-11eb-9f44-00155de07310"
         self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
-        self.put("/testapi", expected_status_code=http.HTTPStatus.OK)
+        # This should fail because the PUT method doesn't require any roles
+        self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        self.put("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-    def test_requires_roles(self):
-        token = "6697e242-acb6-11eb-9f44-00155de07310"
-        self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
+        # This should fail as the post method requires role 'service' and we have role 'external_service'
         self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+
+        # This should succeed as we have a valid token and the delete method requires role 'external_service
         self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
+        self.delete("/trivialfunctions", expected_status_code=http.HTTPStatus.OK)
+
 
 class TrivialAPI(MethodView):
 
@@ -116,6 +124,16 @@ def get_trivial():
 
 @test_app.route("/trivialfunctions", methods=["PUT"])
 def put_trivial():
+    return {}, http.HTTPStatus.OK
+
+@test_app.route("/trivialfunctions", methods=["POST"])
+@requires_roles("service")
+def post_rolecheck():
+    return {}, http.HTTPStatus.OK
+
+@test_app.route("/trivialfunctions", methods=["DELETE"])
+@requires_roles("external_service")
+def delete_external_service_role():
     return {}, http.HTTPStatus.OK
 
 @test_app.route("/openfunction")
