@@ -3,23 +3,26 @@ import unittest
 
 from driftbase.utils.test_utils import BaseCloudkitTest
 from drift.core.extensions.jwt import jwt_not_required, check_jwt_authorization, requires_roles
-from drift.systesthelper import setup_tenant
-from drift.flaskfactory import drift_app
 from flask.views import MethodView
 from drift.utils import get_config
 
-ts = setup_tenant()
-test_app = drift_app()
-
 ACCESS_KEY = "ThisIsMySecret"
 ROLE_NAME = "test_role"
+USER_NAME = "test_service_user"
 
 class TestJWTAccessControl(BaseCloudkitTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        test_app.before_request(check_jwt_authorization)
-        cls.app = test_app.test_client()
+        cls.drift_app.before_request(check_jwt_authorization)
+        cls.drift_app.add_url_rule('/testapi', view_func=TestAPI.as_view('openapi'))
+        cls.drift_app.add_url_rule('/trivialapi', view_func=TrivialAPI.as_view('trivialapi'))
+
+        cls.drift_app.add_url_rule("/trivialfunctions", view_func=get_trivial, methods=["GET"])
+        cls.drift_app.add_url_rule("/trivialfunctions", view_func=put_trivial, methods=["PUT"])
+        cls.drift_app.add_url_rule("/trivialfunctions", view_func=post_rolecheck, methods=["POST"])
+        cls.drift_app.add_url_rule("/trivialfunctions", view_func=delete_test_role, methods=["DELETE"])
+        cls.drift_app.add_url_rule("/openfunction", view_func=get_no_check, methods=["GET"])
 
     def test_trivial_functions(self):
         self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
@@ -81,11 +84,13 @@ class TestJWTAccessControl(BaseCloudkitTest):
         self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
         self.delete("/trivialfunctions", expected_status_code=http.HTTPStatus.OK)
 
+        self._remove_service_user_with_bearer_token()
+
     @staticmethod
     def _setup_service_user_with_bearer_token():
-        breakpoint()
+        #FIXME: Might be cleaner to use patching instead of populating the actual config
         conf = get_config()
-        user_name = "test_service_user"
+        ts = conf.table_store
         # setup access roles
         ts.get_table("access-roles").add({
             "role_name": ROLE_NAME,
@@ -94,7 +99,7 @@ class TestJWTAccessControl(BaseCloudkitTest):
         })
         # Setup a user with an access key
         ts.get_table("users").add({
-            "user_name": user_name,
+            "user_name": USER_NAME,
             "password": "SomeVeryGoodPasswordNoOneWillGuess",
             "access_key": ACCESS_KEY,
             "is_active": True,
@@ -105,10 +110,18 @@ class TestJWTAccessControl(BaseCloudkitTest):
         # Associate the bunch.
         ts.get_table("users-acl").add({
             "organization_name": conf.organization["organization_name"],
-            "user_name": user_name,
+            "user_name": USER_NAME,
             "role_name": ROLE_NAME,
             "tenant_name": conf.tenant["tenant_name"]
         })
+
+    @staticmethod
+    def _remove_service_user_with_bearer_token():
+        conf = get_config()
+        ts = conf.table_store
+        ts.get_table("access-roles").remove({"role_name": ROLE_NAME})
+        ts.get_table("users").remove({"organization_name": conf.organization["organization_name"], "user_name": USER_NAME})
+        ts.get_table("users-acl").remove({"organization_name": conf.organization["organization_name"], "role_name" : ROLE_NAME, "user_name": USER_NAME})
 
 
 class TrivialAPI(MethodView):
@@ -139,31 +152,22 @@ class TestAPI(MethodView):
         return {}, http.HTTPStatus.OK
 
 
-test_app.add_url_rule('/testapi', view_func=TestAPI.as_view('openapi'))
-test_app.add_url_rule('/trivialapi', view_func=TrivialAPI.as_view('trivialapi'))
-
-
-@test_app.route("/trivialfunctions")  # GET is the default method
 def get_trivial():
     return {}, http.HTTPStatus.OK
 
-@test_app.route("/trivialfunctions", methods=["PUT"])
 def put_trivial():
     return {}, http.HTTPStatus.OK
 
-@test_app.route("/trivialfunctions", methods=["POST"])
 @requires_roles("service")
 def post_rolecheck():
     return {}, http.HTTPStatus.OK
 
-@test_app.route("/trivialfunctions", methods=["DELETE"])
 @requires_roles(ROLE_NAME)
-def delete_external_service_role():
+def delete_test_role():
     return {}, http.HTTPStatus.OK
 
-@test_app.route("/openfunction")
 @jwt_not_required
-def get():
+def get_no_check():
     return {}, http.HTTPStatus.OK
 
 
