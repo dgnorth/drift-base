@@ -18,7 +18,9 @@ def before_request():
         return
 
     # we do not log off service users
-    if {"service", "external_service"} & set(current_user["roles"]):
+    if current_user.get("is_service"):
+        return
+    if current_user["roles"] == "service": # Legacy service user
         return
 
     if not current_user.get("client_id"):

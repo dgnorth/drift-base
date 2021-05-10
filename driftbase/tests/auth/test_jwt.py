@@ -6,17 +6,17 @@ from drift.core.extensions.jwt import jwt_not_required, check_jwt_authorization,
 from drift.systesthelper import setup_tenant
 from drift.flaskfactory import drift_app
 from flask.views import MethodView
+from drift.utils import get_config
 
 ts = setup_tenant()
 test_app = drift_app()
 
+ACCESS_KEY = "ThisIsMySecret"
+ROLE_NAME = "test_role"
+
 class TestJWTAccessControl(BaseCloudkitTest):
     @classmethod
     def setUpClass(cls):
-        # NOTE TO SELF:  The only reason for doing this setup here is that the systesthelper is part of the drift library
-        # and I can't be arsed to modify the lib and release a new version atm.
-        #  IMO systesthelper should set just set the drift_app up as a global at the same time as the tenant
-        # so tests can add routes to it on the fly
         super().setUpClass()
         test_app.before_request(check_jwt_authorization)
         cls.app = test_app.test_client()
@@ -63,27 +63,52 @@ class TestJWTAccessControl(BaseCloudkitTest):
         self.headers = {"Authorization": "JWT " + token + "junk"}
         self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-    def test_flexmatch_event_bridge_bearer_token_auth(self):
-        # FIXME: Setup the user for the test instead of using the actual token from the config
-        token = "non-3xisting-token"
-        self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
+    def test_service_user_bearer_token_auth(self):
+        self._setup_service_user_with_bearer_token()
+        token = "non3xisting7okenbit"
+        self.headers = {"Authorization": "Bearer " + token}
         # This should fail because the token is invalid
         self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
         self.get("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-        token = "6697e242-acb6-11eb-9f44-00155de07310"
-        self.headers = {"Authorization": "Bearer permanent:flexmatch_event_bridge." + token}
-        # This should fail because the PUT method doesn't require any roles
-        self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
-        self.put("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        self.headers = {"Authorization": "Bearer " + ACCESS_KEY}
 
-        # This should fail as the post method requires role 'service' and we have role 'external_service'
+        # This should fail as the post method requires role 'service' which we dont have
         self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
         self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-        # This should succeed as we have a valid token and the delete method requires role 'external_service
+        # This should succeed as we have a valid token and the delete method requires our role
         self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
         self.delete("/trivialfunctions", expected_status_code=http.HTTPStatus.OK)
+
+    @staticmethod
+    def _setup_service_user_with_bearer_token():
+        breakpoint()
+        conf = get_config()
+        user_name = "test_service_user"
+        # setup access roles
+        ts.get_table("access-roles").add({
+            "role_name": ROLE_NAME,
+            "deployable_name": conf.deployable["deployable_name"],
+            "description": "a throwaway test role"
+        })
+        # Setup a user with an access key
+        ts.get_table("users").add({
+            "user_name": user_name,
+            "password": "SomeVeryGoodPasswordNoOneWillGuess",
+            "access_key": ACCESS_KEY,
+            "is_active": True,
+            "is_role_admin": False,
+            "is_service": True,
+            "organization_name": conf.organization["organization_name"]
+        })
+        # Associate the bunch.
+        ts.get_table("users-acl").add({
+            "organization_name": conf.organization["organization_name"],
+            "user_name": user_name,
+            "role_name": ROLE_NAME,
+            "tenant_name": conf.tenant["tenant_name"]
+        })
 
 
 class TrivialAPI(MethodView):
@@ -109,7 +134,7 @@ class TestAPI(MethodView):
         return {}, http.HTTPStatus.OK
 
     @staticmethod
-    @requires_roles("external_service")
+    @requires_roles(ROLE_NAME)
     def delete():
         return {}, http.HTTPStatus.OK
 
@@ -132,7 +157,7 @@ def post_rolecheck():
     return {}, http.HTTPStatus.OK
 
 @test_app.route("/trivialfunctions", methods=["DELETE"])
-@requires_roles("external_service")
+@requires_roles(ROLE_NAME)
 def delete_external_service_role():
     return {}, http.HTTPStatus.OK
 
