@@ -3,14 +3,13 @@ import logging
 import uuid
 
 import marshmallow as ma
-from drift.core.extensions.jwt import current_user, requires_roles
-from drift.core.extensions.urlregistry import Endpoints
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 from six.moves import http_client
 
+from drift.core.extensions.jwt import current_user, requires_roles
+from drift.core.extensions.urlregistry import Endpoints
 from driftbase.config import get_server_heartbeat_config
 from driftbase.models.db import (
     Machine, Server, Match, ServerDaemonCommand
@@ -29,6 +28,11 @@ def drift_init_extension(app, api, **kwargs):
 
 def utcnow():
     return datetime.datetime.utcnow()
+
+
+class ServersGetArgsSchema(ma.Schema):
+    machine_id = ma.fields.Integer()
+    rows = ma.fields.Integer()
 
 
 class ServersPostRequestSchema(ma.Schema):
@@ -112,17 +116,13 @@ class ServerHeartbeatPutResponseSchema(ma.Schema):
 
 @bp.route('', endpoint='list')
 class ServersAPI(MethodView):
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("machine_id", type=int, required=False)
-    get_args.add_argument("rows", type=int, required=False)
-
     @requires_roles("service")
-    def get(self):
+    @bp.arguments(ServersGetArgsSchema, location='query')
+    def get(self, args):
         """
-        Get a list of the last 100 battleservers that have been registered in
+        Get a list of the last 100 battle servers that have been registered in
         the system.
         """
-        args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
         query = g.db.query(Server)
         if args.get("machine_id"):
@@ -478,5 +478,3 @@ class ServerCommandAPI(MethodView):
 def endpoint_info(*args):
     ret = {"servers": url_for("servers.list", _external=True), }
     return ret
-
-
