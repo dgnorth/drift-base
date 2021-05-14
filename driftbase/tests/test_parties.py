@@ -17,9 +17,9 @@ class PartiesTest(BaseCloudkitTest):
         # so to ensure a clean slate for some tests, we must be able to generate fresh users
         return "{}.{}".format(str(uuid.uuid4())[:8], name)
 
-    def make_named_player(self, username):
-        self.auth(username=username)
-        self.patch(self.endpoints['my_player'], data={"name": username})
+    def make_named_player(self, username, player_name=None):
+        self.auth(username=username, player_name=player_name)
+        self.patch(self.endpoints['my_player'], data={"name": player_name or username})
 
     def test_party_invite_creates_party_after_one_player_accepts(self):
         # Create players for test
@@ -27,11 +27,14 @@ class PartiesTest(BaseCloudkitTest):
         guest_user_1 = self.make_user_name("Guest 1")
         guest_user_2 = self.make_user_name("Guest 2")
 
-        self.make_named_player(guest_user_1)
+        g1_name = "Bob"
+        self.make_named_player(guest_user_1, g1_name)
         g1_id = self.player_id
-        self.make_named_player(guest_user_2)
+        g2_name = "Amy"
+        self.make_named_player(guest_user_2, g2_name)
         g2_id = self.player_id
-        self.make_named_player(host_user)
+        host_name = "Joe"
+        self.make_named_player(host_user, host_name)
         host_id = self.player_id
 
         # Invite g1 to a new party
@@ -41,14 +44,14 @@ class PartiesTest(BaseCloudkitTest):
         # Check g1 gets a notification about the invite
         self.auth(username=guest_user_1)
         g1_notification, g1_message_number = self.get_party_notification('invite')
-        self.assertEqual(g1_notification['inviting_player_name'], host_user)
+        self.assertEqual(g1_notification['inviting_player_name'], host_name)
         self.assertEqual(g1_notification['inviting_player_id'], host_id)
         self.assertEqual(g1_notification['invite_url'], invite['url'])
 
         # Accept the invite, and check that both players are in the party
         accept = self.patch(g1_notification['invite_url'], data={'inviter_id': host_id}).json()
         party = self.get(accept['party_url']).json()
-        self.check_expected_players_in_party(party, [(host_id, host_user), (g1_id, guest_user_1)])
+        self.check_expected_players_in_party(party, [(host_id, host_name), (g1_id, g1_name)])
 
         # Check g1 doesn't get a notification about joining
         g1_notification, g1_message_number = self.get_party_notification('player_joined',
@@ -68,14 +71,14 @@ class PartiesTest(BaseCloudkitTest):
         # Check g2 gets a notification about the invite
         self.auth(username=guest_user_2)
         g2_notification, g2_message_number = self.get_party_notification('invite')
-        self.assertEqual(g2_notification['inviting_player_name'], host_user)
+        self.assertEqual(g2_notification['inviting_player_name'], host_name)
         self.assertEqual(g2_notification['inviting_player_id'], host_id)
         self.assertEqual(g2_notification['invite_url'], invite['url'])
 
         # Accept the invite, and check that all three players are in the party
         accept = self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}).json()
         party = self.get(accept['party_url']).json()
-        self.check_expected_players_in_party(party, [(host_id, host_user), (g1_id, guest_user_1), (g2_id, guest_user_2)])
+        self.check_expected_players_in_party(party, [(host_id, host_name), (g1_id, g1_name), (g2_id, g2_name)])
 
         # Check host gets a notification about the joining player
         self.auth(username=host_user)
