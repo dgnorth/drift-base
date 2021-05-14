@@ -156,6 +156,7 @@ class PartyInvitesAPI(MethodView):
     @bp_parties.response(http_client.CREATED, PartyInvitesResponseSchema)
     def post(self, args):
         my_player_id = current_user['player_id']
+        my_player = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == my_player_id).first()
         player_id = args.get('player_id')
         if my_player_id == player_id:
             abort(http_client.BAD_REQUEST, message="You can't invite yourself to a party")
@@ -179,6 +180,7 @@ class PartyInvitesAPI(MethodView):
                              "event": "invite",
                              "invite_id": invite_id,
                              "invite_url": resource_uri,
+                             "inviting_player_name": my_player.player_name,
                              "inviting_player_id": my_player_id,
                              "inviting_player_url": url_for("players.entry", player_id=my_player_id, _external=True),
                          })
