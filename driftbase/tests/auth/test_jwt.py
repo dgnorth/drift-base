@@ -1,3 +1,4 @@
+import contextlib
 import http
 import unittest
 
@@ -67,28 +68,35 @@ class TestJWTAccessControl(BaseCloudkitTest):
         self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
     def test_service_user_bearer_token_auth(self):
-        self._setup_service_user_with_bearer_token()
-        token = "non3xisting7okenbit"
-        self.headers = {"Authorization": "Bearer " + token}
-        # This should fail because the token is invalid
-        self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
-        self.get("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+        with self._managed_bearer_token_user():
+            token = "non3xisting7okenbit"
+            self.headers = {"Authorization": "Bearer " + token}
+            # This should fail because the token is invalid
+            self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+            self.get("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-        self.headers = {"Authorization": "Bearer " + ACCESS_KEY}
+            self.headers = {"Authorization": "Bearer " + ACCESS_KEY}
 
-        # This should fail as the post method requires role 'service' which we dont have
-        self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
-        self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+            # This should fail as the post method requires role 'service' which we dont have
+            self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+            self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-        # This should succeed as we have a valid token and the delete method requires our role
-        self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
-        self.delete("/trivialfunctions", expected_status_code=http.HTTPStatus.OK)
+            # This should succeed as we have a valid token and the delete method requires our role
+            self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
+            self.delete("/trivialfunctions", expected_status_code=http.HTTPStatus.OK)
 
-        self._remove_service_user_with_bearer_token()
+
+    @contextlib.contextmanager
+    def _managed_bearer_token_user(self):
+        try:
+            yield self._setup_service_user_with_bearer_token()
+        finally:
+            self._remove_service_user_with_bearer_token()
 
     @staticmethod
     def _setup_service_user_with_bearer_token():
-        #FIXME: Might be cleaner to use patching instead of populating the actual config
+        # FIXME: Might be cleaner to use patching instead of populating the actual config. The upside with using config
+        #  is that it exposes the intended use case more clearly
         conf = get_config()
         ts = conf.table_store
         # setup access roles
