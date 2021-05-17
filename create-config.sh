@@ -34,7 +34,7 @@ expect {
 }
 EOF
 
-dconf set --location tiers.$TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"postgres\", \"password\": \"\" }}}"
+dconf set --location $TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"postgres\", \"password\": \"\" }}}"
 
 # This should be done by the tool, but isn't for some reason
 dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
@@ -44,7 +44,7 @@ driftconfig create-tenant $TENANT $PRODUCT $TIER >/dev/null
 
 driftconfig provision-tenant $TENANT $DEPLOYABLE >/dev/null
 
-dconf set --location tiers.$TIER --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG" >/dev/null
+dconf set --location $TIER --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG" >/dev/null
 driftconfig push -f $CONFIG >/dev/null
 
 driftconfig cache $CONFIG
