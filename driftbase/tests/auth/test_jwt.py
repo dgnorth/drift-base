@@ -22,7 +22,6 @@ class TestJWTAccessControl(BaseCloudkitTest):
         cls.drift_app.add_url_rule("/trivialfunctions", view_func=get_trivial, methods=["GET"])
         cls.drift_app.add_url_rule("/trivialfunctions", view_func=put_trivial, methods=["PUT"])
         cls.drift_app.add_url_rule("/trivialfunctions", view_func=post_rolecheck, methods=["POST"])
-        cls.drift_app.add_url_rule("/trivialfunctions", view_func=delete_test_role, methods=["DELETE"])
         cls.drift_app.add_url_rule("/openfunction", view_func=get_no_check, methods=["GET"])
 
     def test_trivial_functions(self):
@@ -77,13 +76,12 @@ class TestJWTAccessControl(BaseCloudkitTest):
 
             self.headers = {"Authorization": "Bearer " + ACCESS_KEY}
 
+            # This should succeed as we have a valid token and the delete method requires no roles
+            self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
+
             # This should fail as the post method requires role 'service' which we dont have
             self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
             self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
-
-            # This should succeed as we have a valid token and the delete method requires our role
-            self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
-            self.delete("/trivialfunctions", expected_status_code=http.HTTPStatus.OK)
 
 
     @contextlib.contextmanager
@@ -99,37 +97,32 @@ class TestJWTAccessControl(BaseCloudkitTest):
         #  is that it exposes the intended use case more clearly
         conf = get_config()
         ts = conf.table_store
-        # setup access roles
-        ts.get_table("access-roles").add({
-            "role_name": ROLE_NAME,
-            "deployable_name": conf.deployable["deployable_name"],
-            "description": "a throwaway test role"
-        })
-        # Setup a user with an access key
+        # Setup user
         ts.get_table("users").add({
             "user_name": USER_NAME,
-            "password": "SomeVeryGoodPasswordNoOneWillGuess",
-            "access_key": ACCESS_KEY,
-            "is_active": True,
-            "is_role_admin": False,
-            "is_service": True,
-            "organization_name": conf.organization["organization_name"]
-        })
-        # Associate the bunch.
-        ts.get_table("users-acl").add({
-            "organization_name": conf.organization["organization_name"],
-            "user_name": USER_NAME,
-            "role_name": ROLE_NAME,
             "tenant_name": conf.tenant["tenant_name"]
+        })
+        # Setup access key
+        ts.get_table("access-keys").add({
+            "user_name": USER_NAME,
+            "tenant_name": conf.tenant["tenant_name"],
+            "access_key": ACCESS_KEY,
+        })
+        # Setup credentials
+        ts.get_table("client-credentials").add({
+            "user_name": USER_NAME,
+            "tenant_name": conf.tenant["tenant_name"],
+            "client_id": "test_client",
+            "client_secret": ACCESS_KEY
         })
 
     @staticmethod
     def _remove_service_user_with_bearer_token():
         conf = get_config()
         ts = conf.table_store
-        ts.get_table("access-roles").remove({"role_name": ROLE_NAME})
-        ts.get_table("users").remove({"organization_name": conf.organization["organization_name"], "user_name": USER_NAME})
-        ts.get_table("users-acl").remove({"organization_name": conf.organization["organization_name"], "role_name" : ROLE_NAME, "user_name": USER_NAME})
+        ts.get_table("client-credentials").remove({"user_name": USER_NAME, "tenant_name": conf.tenant["tenant_name"]})
+        ts.get_table("access-keys").remove({"user_name": USER_NAME, "tenant_name": conf.tenant["tenant_name"]})
+        ts.get_table("users").remove({"user_name": USER_NAME, "tenant_name": conf.tenant["tenant_name"]})
 
 
 class TrivialAPI(MethodView):
@@ -155,7 +148,6 @@ class TestAPI(MethodView):
         return {}, http.HTTPStatus.OK
 
     @staticmethod
-    @requires_roles(ROLE_NAME)
     def delete():
         return {}, http.HTTPStatus.OK
 
@@ -168,10 +160,6 @@ def put_trivial():
 
 @requires_roles("service")
 def post_rolecheck():
-    return {}, http.HTTPStatus.OK
-
-@requires_roles(ROLE_NAME)
-def delete_test_role():
     return {}, http.HTTPStatus.OK
 
 @jwt_not_required
