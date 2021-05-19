@@ -20,7 +20,7 @@ class PlayersTest(BaseCloudkitTest):
 
         # mock out the utcnow call so that we can put the players 'offline'
         with patch("driftbase.models.db.utcnow") as mock_date:
-            mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+            mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5, seconds=1)  # Insert fudge because of clock drift on vm's
             r = self.get(self.endpoints["my_player"])
             self.assertFalse(r.json()["is_online"])
 
