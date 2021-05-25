@@ -97,32 +97,55 @@ class TestJWTAccessControl(BaseCloudkitTest):
         #  is that it exposes the intended use case more clearly
         conf = get_config()
         ts = conf.table_store
-        # Setup user
+        user_name = "test_service_user"
+        # setup access roles
+        ts.get_table("access-roles").add({
+            "role_name": ROLE_NAME,
+            "deployable_name": conf.deployable["deployable_name"],
+            "description": "a throwaway test role"
+        })
+        # Setup a user with an access key
         ts.get_table("users").add({
-            "user_name": USER_NAME,
-            "tenant_name": conf.tenant["tenant_name"]
-        })
-        # Setup access key
-        ts.get_table("access-keys").add({
-            "user_name": USER_NAME,
-            "tenant_name": conf.tenant["tenant_name"],
+            "user_name": user_name,
+            "password": "SomeVeryGoodPasswordNoOneWillGuess",
             "access_key": ACCESS_KEY,
+            "is_active": True,
+            "is_role_admin": False,
+            "is_service": True,
+            "organization_name": conf.organization["organization_name"]
         })
-        # Setup credentials
-        ts.get_table("client-credentials").add({
-            "user_name": USER_NAME,
-            "tenant_name": conf.tenant["tenant_name"],
-            "client_id": "test_client",
-            "client_secret": ACCESS_KEY
+        # Associate the bunch.
+        ts.get_table("users-acl").add({
+            "organization_name": conf.organization["organization_name"],
+            "user_name": user_name,
+            "role_name": ROLE_NAME,
+            "tenant_name": conf.tenant["tenant_name"]
         })
 
     @staticmethod
     def _remove_service_user_with_bearer_token():
         conf = get_config()
         ts = conf.table_store
-        ts.get_table("client-credentials").remove({"user_name": USER_NAME, "tenant_name": conf.tenant["tenant_name"]})
-        ts.get_table("access-keys").remove({"user_name": USER_NAME, "tenant_name": conf.tenant["tenant_name"]})
-        ts.get_table("users").remove({"user_name": USER_NAME, "tenant_name": conf.tenant["tenant_name"]})
+        ts.get_table("users-acl").remove({
+            "organization_name": conf.organization["organization_name"],
+            "user_name": USER_NAME,
+            "role_name": ROLE_NAME,
+            "tenant_name": conf.tenant["tenant_name"]
+        })
+        ts.get_table("users").remove({
+            "user_name": USER_NAME,
+            "password": "SomeVeryGoodPasswordNoOneWillGuess",
+            "access_key": ACCESS_KEY,
+            "is_active": True,
+            "is_role_admin": False,
+            "is_service": True,
+            "organization_name": conf.organization["organization_name"]
+        })
+        ts.get_table("access-roles").remove({
+            "role_name": ROLE_NAME,
+            "deployable_name": conf.deployable["deployable_name"],
+            "description": "a throwaway test role"
+        })
 
 
 class TrivialAPI(MethodView):
