@@ -1,3 +1,8 @@
+# Configuration
+
+PACKAGE_NAME = driftbase
+IMAGE_NAME = $(REGISTRY)/drift-base
+
 # Overridable defaults
 
 # REF accepts either the full ref refs/heads/branch/name, or just the short name branch/name
@@ -14,17 +19,21 @@ CI_COMMIT_SHORT_SHA ?= $(shell git rev-parse --short=8 HEAD)
 
 BUILD_TIMESTAMP = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-PACKAGE_NAME = driftbase
-IMAGE_NAME = $(REGISTRY)/drift-base
-
 # Docker tags must not contain slashes
 BRANCH_TAG = $(subst /,_,$(BRANCH))
 
-export FLASK_APP=${PACKAGE_NAME}.app:app
+# Helper targets
 
-.PHONY: auth push build clean info release
+.PHONY: ENV_GUARD
 
-build:
+env-guard-%: ENV_GUARD
+	@if [ -z '${${*}}' ]; then echo 'Environment variable $* not set' && exit 1; fi
+
+# Build targets
+
+.PHONY: build push test
+
+build: env-guard-REGISTRY
 	docker build \
 	    --tag ${IMAGE_NAME}:latest \
 	    --tag ${IMAGE_NAME}:${BRANCH_TAG} \
@@ -35,36 +44,37 @@ build:
 	    --secret id=pip-credentials,src=.env \
 	    .
 
-push:
+push: env-guard-REGISTRY
 	docker push ${IMAGE_NAME}:latest
 	docker push ${IMAGE_NAME}:${BRANCH_TAG}
 	docker push ${IMAGE_NAME}:${VERSION}
 
-buildami:
-	cd aws && packer build packer.json
+test: run-backend
+	pipenv run pytest .
 
-launchami:
-	python scripts/launchami.py
+# Convenience targets
 
-git-tag:
-	git tag ${VERSION}
-	git push origin --tags -o ci.skip
+.PHONY: local-config run-app run-appd run-backend stop-app stop-backend stop-all
 
-run:
-	docker run -e DRIFT_TIER=${DRIFT_TIER} \
-			   -e DRIFT_CONFIG_URL=${DRIFT_CONFIG_URL} \
-			   -e DEBUG=True \
-			   -p 10080:10080 \
-			   -p 8080:8080 \
-			   -p 9191:9191 \
-			   ${IMAGE_NAME}:latest
+~/.drift/config/local/domain.json: create-config.sh
+	./create-config.sh
 
-serve: 
-	export FLASK_ENV=development && export DRIFT_OUTPUT=text && export LOGLEVEL=info && \
-	dconf developer -r -s
+local-config: ~/.drift/config/local/domain.json
+	pipenv run driftconfig cache local
 
-upgrade:
-	pipenv run flask db upgrade 
+run-app: run-backend local-config
+	docker-compose -p app -f ./compose-app.yml up
 
-black:
-	black -l 100 -S ${PACKAGE_NAME}
+run-appd: run-backend local-config
+	docker-compose -p app -f ./compose-app.yml up -d
+
+stop-app:
+	docker-compose -p app -f ./compose-app.yml down
+
+run-backend:
+	docker-compose -p backend -f ./compose-backend.yml up -d
+
+stop-backend:
+	docker-compose -p backend -f ./compose-backend.yml down
+
+stop-all: stop-app stop-backend
