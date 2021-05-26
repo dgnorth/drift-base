@@ -1,5 +1,5 @@
 [[source]]
-url = "https://pypi.python.org/simple"
+url = "https://${PYPI_USERNAME}:${PYPI_PASSWORD}@nexus.directivegames.com/repository/pypi/simple"
 verify_ssl = true
 name = "pypi"
 
@@ -24,6 +24,3 @@ mock = "*"
 
 [requires]
 python_version = "3.9"
-
-[pipenv]
-allow_prereleases = true
