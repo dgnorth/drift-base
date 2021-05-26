@@ -32,6 +32,7 @@ build:
 	    --build-arg VERSION='${VERSION}' \
 	    --build-arg BUILD_TIMESTAMP='${BUILD_TIMESTAMP}' \
 	    --build-arg COMMIT_HASH='${CI_COMMIT_SHORT_SHA}' \
+	    --secret id=pip-credentials,src=.env \
 	    .
 
 push:
