@@ -16,7 +16,10 @@ COPY Pipfile* ./
 # really ends up in our /root/.local folder where we want it to be
 RUN pipenv lock --keep-outdated -r >requirements.txt
 RUN --mount=type=secret,id=pip-credentials \
-    . /run/secrets/pip-credentials \
+    source /run/secrets/pip-credentials \
+    && echo ${PYPI_USERNAME} | base64 \
+    && cat requirements.txt \
+    && env \
     && pip install --user --ignore-installed --no-warn-script-location -r requirements.txt
 
 
