@@ -12,11 +12,17 @@ RUN pip install pipenv
 RUN pip install --user --ignore-installed --no-warn-script-location uwsgi
 
 COPY Pipfile* ./
+
+# The credentials for pip/pipenv are supplied via a Docker secret which we mount and source so that commands
+# can access them as environment variables.
+
 # Pipenv will ignore qualifying system packages during install, so we need to route through pip to ensure everything
 # really ends up in our /root/.local folder where we want it to be
 RUN --mount=type=secret,id=pip-credentials \
     . /run/secrets/pip-credentials \
     && pipenv lock --keep-outdated -r >requirements.txt
+
+# Once we have our requirements.txt, we install everything the user folder defined above with PYTHONUSERBASE
 RUN --mount=type=secret,id=pip-credentials \
     . /run/secrets/pip-credentials \
     && pip install --user --ignore-installed --no-warn-script-location -r requirements.txt

@@ -26,6 +26,7 @@ BRANCH_TAG = $(subst /,_,$(BRANCH))
 
 .PHONY: ENV_GUARD
 
+# Ensures that an environment variable has been defined. Depend on env-guard-VAR_NAME to check for VAR_NAME.
 env-guard-%: ENV_GUARD
 	@if [ -z '${${*}}' ]; then echo 'Environment variable $* not set' && exit 1; fi
 
@@ -33,6 +34,8 @@ env-guard-%: ENV_GUARD
 
 .PHONY: build push test
 
+# Expect there to be a file ./.env at this point which we can pass in to docker as a secret,
+# holding the credentials required for connecting to private dependency repositories
 build: env-guard-REGISTRY
 	docker build \
 	    --tag ${IMAGE_NAME}:latest \
@@ -56,8 +59,8 @@ test: run-backend
 
 .PHONY: local-config run-app run-appd run-backend stop-app stop-backend stop-all
 
-~/.drift/config/local/domain.json: create-config.sh
-	./create-config.sh
+~/.drift/config/local/domain.json: scripts/create-config.sh
+	pipenv run ./scripts/create-config.sh
 
 local-config: ~/.drift/config/local/domain.json
 	pipenv run driftconfig cache local
@@ -78,3 +81,6 @@ stop-backend:
 	docker-compose -p backend -f ./compose-backend.yml down
 
 stop-all: stop-app stop-backend
+
+clean-local:
+	./scripts/clean-config.sh

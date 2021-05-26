@@ -36,8 +36,8 @@ EOF
 
 dconf set --location $TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"postgres\", \"password\": \"\" }}}"
 
-# This should be done by the tool, but isn't for some reason
 dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
+#driftconfig assign-product $DEPLOYABLE --products $PRODUCT
 driftconfig push -f $CONFIG >/dev/null
 
 driftconfig create-tenant $TENANT $PRODUCT $TIER >/dev/null

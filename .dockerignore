@@ -15,14 +15,14 @@ deployment/
 scripts/
 
 Dockerfile
+GitVersion.yml
 LICENSE
 MANIFEST.in
 Makefile
 README.md
 VERSION
-docker-compose.yml
+compose-*.yml
 example.env
-local*
 notes-on-sls.md
 pytest.ini
 settings.ini
