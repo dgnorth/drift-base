@@ -19,8 +19,6 @@ RUN --mount=type=secret,id=pip-credentials \
     && pipenv lock --keep-outdated -r >requirements.txt
 RUN --mount=type=secret,id=pip-credentials \
     . /run/secrets/pip-credentials \
-    && cat requirements.txt \
-    && echo ${PYPI_USERNAME} | base64 \
     && pip install --user --ignore-installed --no-warn-script-location -r requirements.txt
 
 
