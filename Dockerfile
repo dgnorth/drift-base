@@ -14,12 +14,11 @@ RUN pip install --user --ignore-installed --no-warn-script-location uwsgi
 COPY Pipfile* ./
 # Pipenv will ignore qualifying system packages during install, so we need to route through pip to ensure everything
 # really ends up in our /root/.local folder where we want it to be
-RUN pipenv lock --keep-outdated -r >requirements.txt
 RUN --mount=type=secret,id=pip-credentials \
     source /run/secrets/pip-credentials \
-    && echo ${PYPI_USERNAME} | base64 \
-    && cat requirements.txt \
-    && env \
+    && pipenv lock --keep-outdated -r >requirements.txt
+RUN --mount=type=secret,id=pip-credentials \
+    source /run/secrets/pip-credentials \
     && pip install --user --ignore-installed --no-warn-script-location -r requirements.txt
 
 
