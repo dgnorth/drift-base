@@ -157,18 +157,19 @@ class ServersTest(DriftBaseTestCase):
         self.auth_service()
         machine_id = self._create_machine()["machine_id"]
         data = self._get_server_data(machine_id)
-        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
-        url = resp.json()["url"]
-        resp = self.get(url)
-        self.assertEqual(resp.json()["heartbeat_count"], 0)
-        heartbeat_date = resp.json()["heartbeat_date"]
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED).json()
+        url = resp["url"]
+        resp = self.get(url).json()
+        self.assertEqual(resp["heartbeat_count"], 0)
+        heartbeat_date = datetime.datetime.fromisoformat(resp["heartbeat_date"][:-1]) - datetime.timedelta(seconds=1)  # Insert fudge because of clock drift on vm's
         heartbeat_url = self.get(url).json()["heartbeat_url"]
-        resp = self.put(heartbeat_url)
-        self.assertDictEqual(ServerHeartbeatPutResponseSchema().validate(resp.json()), {})
+        resp = self.put(heartbeat_url).json()
+        self.assertDictEqual(ServerHeartbeatPutResponseSchema().validate(resp), {})
 
-        resp = self.get(url)
-        self.assertEqual(resp.json()["heartbeat_count"], 1)
-        self.assertTrue(resp.json()["heartbeat_date"] > heartbeat_date)
+        resp = self.get(url).json()
+        self.assertEqual(resp["heartbeat_count"], 1)
+        new_heartbeat_date = datetime.datetime.fromisoformat(resp["heartbeat_date"][:-1])
+        self.assertTrue(new_heartbeat_date > heartbeat_date)
 
     def test_server_heartbeat_timeout(self):
         self.auth_service()
