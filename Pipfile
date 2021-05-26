@@ -24,7 +24,7 @@ responses = "*"
 mock = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.9.4"
 
 [pipenv]
 allow_prereleases = true
