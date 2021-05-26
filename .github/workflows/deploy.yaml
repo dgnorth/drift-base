@@ -91,6 +91,7 @@ jobs:
 
       - name: Build and push image
         env:
+          DOCKER_BUILDKIT: 1
           PYPI_USERNAME: ${{ secrets.DG_TWINE_USERNAME }}
           PYPI_PASSWORD: ${{ secrets.DG_TWINE_PASSWORD }}
         run: |
