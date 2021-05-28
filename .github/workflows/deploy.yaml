@@ -64,6 +64,10 @@ jobs:
         with:
           useConfigFile: true
 
+      - name: Log version
+        run: |
+          echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
+
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
