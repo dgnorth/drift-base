@@ -1,7 +1,10 @@
 #!/bin/bash
 
+DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+
 set -a
-source scripts/local.config
+source $DIR/local.config
 set +a
 
 if [[ -d "$CONFIG_ORIGIN" ]]; then
