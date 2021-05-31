@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -a
-source local.config
+source scripts/local.config
 set +a
 
 if [[ -d "$CONFIG_ORIGIN" ]]; then
