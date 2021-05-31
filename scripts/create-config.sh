@@ -1,7 +1,10 @@
 #!/bin/bash
 
+DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+
 set -a
-source local.config
+source "$DIR/local.config"
 set +a
 
 rm -rf $CONFIG_ORIGIN $CONFIG_STORE
