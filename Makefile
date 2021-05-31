@@ -65,22 +65,36 @@ test: run-backend
 local-config: ~/.drift/config/local/domain.json
 	pipenv run driftconfig cache local
 
+# Run app in Flask with logs to stdout, CTRL+C to stop
+run-flask: run-backend local-config
+	DRIFT_CONFIG_URL=local \
+	DRIFT_TIER=LOCAL \
+	FLASK_APP=driftbase.flask.driftbaseapp:app \
+	FLASK_RUN_PORT=8080 \
+	pipenv run flask run
+
+# Run app in Docker with logs to stdout, CTRL+C to stop
 run-app: run-backend local-config
 	docker-compose -p app -f ./compose-app.yml up
 
+# Run app in Docker in the background, make stop-app to stop
 run-appd: run-backend local-config
 	docker-compose -p app -f ./compose-app.yml up -d
 
+# Stop app in Docker
 stop-app:
 	docker-compose -p app -f ./compose-app.yml down
 
+# Run backend support functions in Docker
 run-backend:
 	docker-compose -p backend -f ./compose-backend.yml up -d
 
-stop-backend:
+# Stop backend support functions in Docker
+stop-backend: stop-app
 	docker-compose -p backend -f ./compose-backend.yml down
 
 stop-all: stop-app stop-backend
 
+# Remove the local config
 clean-local:
 	./scripts/clean-config.sh
