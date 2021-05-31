@@ -77,14 +77,13 @@ class ClientPostRequestSchema(ma.Schema):
     platform_info = ma.fields.Raw(metadata=dict(description=client_descriptions['platform_info']))
 
 
-class ClientPostSchema(ma.Schema):
+class ClientPostResponseSchema(ma.Schema):
     class Meta:
         strict = True
 
     client_id = ma.fields.Int()
     player_id = ma.fields.Int()
     user_id = ma.fields.Int()
-    url = ma.fields.Str()
     server_time = ma.fields.Str()
     next_heartbeat_seconds = ma.fields.Int()
     heartbeat_timeout = ma.fields.Str()
@@ -131,12 +130,12 @@ class ClientsAPI(MethodView):
         return rows
 
     @bp.arguments(ClientPostRequestSchema)
-    @bp.response(http_client.CREATED, ClientPostSchema)
+    @bp.response(http_client.CREATED, ClientPostResponseSchema)
     def post(self, args):
         """
         Register a client
 
-        Registers a newly connectd client and get a JWT with the new client_id back
+        Registers a newly connected client and get a JWT with the new client_id back
         """
         now = utcnow()
 
