@@ -20,7 +20,7 @@ from flask import request, url_for, g, current_app
 from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from marshmallow_sqlalchemy import ModelSchema
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from six.moves import http_client
 
 from driftbase.config import get_client_heartbeat_config
@@ -56,8 +56,10 @@ client_descriptions = {
 }
 
 
-class ClientSchema(ModelSchema):
+class ClientSchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         strict = True
         model = Client
         exclude = ()

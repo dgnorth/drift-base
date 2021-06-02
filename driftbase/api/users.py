@@ -5,7 +5,7 @@ from flask import url_for, g
 from flask.views import MethodView
 import marshmallow as ma
 from flask_smorest import Blueprint, abort
-from marshmallow_sqlalchemy import ModelSchema
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.models.db import User, CorePlayer, UserIdentity
 
@@ -17,22 +17,28 @@ endpoints = Endpoints()
 bp = Blueprint('users', __name__, url_prefix='/users', description='User management')
 
 
-class UserPlayerSchema(ModelSchema):
+class UserPlayerSchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         model = CorePlayer
         exclude = ('num_logons', )
         strict = True
     player_url = ma.fields.Str(metadata=dict(description="Hello"))
 
 
-class UserIdentitySchema(ModelSchema):
+class UserIdentitySchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         model = UserIdentity
         strict = True
 
 
-class UserSchema(ModelSchema):
+class UserSchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         model = User
         strict = True
     user_url = ma.fields.Str(metadata=dict(description="Hello"))

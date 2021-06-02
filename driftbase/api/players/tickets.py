@@ -8,7 +8,7 @@ from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from marshmallow import pre_dump
-from marshmallow_sqlalchemy import ModelSchema
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from six.moves import http_client
 
 from driftbase.models.db import Ticket
@@ -23,8 +23,10 @@ class TicketPatchRequestSchema(ma.Schema):
     journal_id = ma.fields.Integer(required=True)
 
 
-class TicketSchema(ModelSchema):
+class TicketSchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         model = Ticket
         # exclude = ('player_summary',)
 

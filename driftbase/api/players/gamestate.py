@@ -6,7 +6,7 @@ from drift.utils import json_response
 from flask import g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from marshmallow_sqlalchemy import ModelSchema
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from six.moves import http_client
 
 from driftbase.models.db import GameState, GameStateHistory, PlayerJournal
@@ -26,8 +26,10 @@ class GameStateRequestSchema(ma.Schema):
     journal_id = ma.fields.Integer(allow_none=True)
 
 
-class GameStateSchema(ModelSchema):
+class GameStateSchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         strict = True
         model = GameState
     gamestate_url = Url('player_gamestate.entry',
@@ -40,8 +42,10 @@ class GameStateSchema(ModelSchema):
                                doc="Url to the game state history resource")
 
 
-class GameStateHistorySchema(ModelSchema):
+class GameStateHistorySchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         strict = True
         model = GameStateHistory
     gamestatehistoryentry_url = Url('player_gamestate.historyentry',

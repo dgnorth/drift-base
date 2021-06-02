@@ -3,7 +3,7 @@ import logging
 from flask import request, g, abort, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
-from marshmallow_sqlalchemy import ModelSchema
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from six.moves import http_client
 
 from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
@@ -14,8 +14,10 @@ log = logging.getLogger(__name__)
 bp = Blueprint("player_summary", __name__, url_prefix='/players')
 
 
-class PlayerSummarySchema(ModelSchema):
+class PlayerSummarySchema(SQLAlchemyAutoSchema):
     class Meta:
+        load_instance = True
+        include_relationships = True
         model = PlayerSummary
         #exclude = ('player_summary',)
 
