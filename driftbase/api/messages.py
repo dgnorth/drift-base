@@ -99,7 +99,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
         expires = datetime.datetime.fromisoformat(message["expires"][:-1]) # remove trailing 'Z'
         if expires > utcnow():
             messages.append(message)
-            log.info("Message %s ('%s') has been retrieved from queue '%s' in "
+            log.debug("Message %s ('%s') has been retrieved from queue '%s' in "
                      "exchange '%s-%s' by player %s",
                      message["message_number"], message["message_id"],
                      message["queue"], exchange, exchange_id, my_player_id)
@@ -107,7 +107,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
             if rows and len(messages) >= rows:
                 break
         else:
-            log.info("Expired message %s ('%s') was removed from queue '%s' in "
+            log.debug("Expired message %s ('%s') was removed from queue '%s' in "
                      "exchange '%s-%s' by player %s",
                      message["message_number"], message["message_id"],
                      message["queue"], exchange, exchange_id, my_player_id)
@@ -181,7 +181,7 @@ class MessagesExchangeAPI(MethodView):
 
         if timeout > 0:
             poll_timeout += datetime.timedelta(seconds=timeout)
-            log.info("[%s] Long poll - Waiting %s seconds for messages...", my_player_id, timeout)
+            log.debug("[%s] Long poll - Waiting %s seconds for messages...", my_player_id, timeout)
 
             def streamer():
                 yield " "
@@ -195,7 +195,7 @@ class MessagesExchangeAPI(MethodView):
                             yield json.dumps(messages, default=json_serial)
                             return
                         elif utcnow() > poll_timeout:
-                            log.info("[%s/%s] Poll timeout with no messages after %.1f seconds",
+                            log.debug("[%s/%s] Poll timeout with no messages after %.1f seconds",
                                      my_player_id, exchange_full_name,
                                      (utcnow() - start_time).total_seconds())
                             yield json.dumps({})
@@ -234,7 +234,7 @@ class MessagesQueueAPI(MethodView):
             expire_seconds=expire_seconds,
         )
 
-        log.info(
+        log.debug(
             "Message %s ('%s') has been added to queue '%s' in exchange "
             "'%s-%s' by player %s. It will expire on '%s'",
             message["message_number"], message["message_id"],
