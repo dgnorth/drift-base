@@ -69,9 +69,8 @@ def incr_message_number(exchange, exchange_id):
 
 def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     messages = []
-    redis_key = g.redis.make_key("messages:%s-%s" % (exchange, exchange_id))
-    seen_key = "messages:seen:%s-%s" % (exchange, exchange_id)
-    redis_seen_key = g.redis.make_key(seen_key)
+    redis_messages_key = g.redis.make_key("messages:%s-%s" % (exchange, exchange_id))
+    redis_seen_key = g.redis.make_key("messages:seen:%s-%s" % (exchange, exchange_id))
     my_player_id = None
     if current_user:
         my_player_id = current_user["player_id"]
@@ -84,9 +83,10 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
         g.redis.conn.setex(redis_seen_key, MESSAGE_EXCHANGE_TTL, min_message_number - 1)
 
     curr_message_number = sys.maxsize
-    g.redis.conn.expire(redis_key, MESSAGE_EXCHANGE_TTL)
+    highest_processed_message_number = 0
+    g.redis.conn.expire(redis_messages_key, MESSAGE_EXCHANGE_TTL)
     while curr_message_number >= min_message_number:
-        all_contents = g.redis.conn.lrange(redis_key, -i, -i)
+        all_contents = g.redis.conn.lrange(redis_messages_key, -i, -i)
         if not all_contents:
             break
         contents = all_contents[0]
@@ -95,10 +95,11 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
         i += 1
         if curr_message_number < min_message_number:
             break
+        highest_processed_message_number = max(curr_message_number, highest_processed_message_number)
         expires = datetime.datetime.fromisoformat(message["expires"][:-1]) # remove trailing 'Z'
         if expires > utcnow():
             messages.append(message)
-            log.info("Message %s ('%s') has been retrieved from queue '%s' in "
+            log.debug("Message %s ('%s') has been retrieved from queue '%s' in "
                      "exchange '%s-%s' by player %s",
                      message["message_number"], message["message_id"],
                      message["queue"], exchange, exchange_id, my_player_id)
@@ -106,10 +107,14 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
             if rows and len(messages) >= rows:
                 break
         else:
-            log.info("Expired message %s ('%s') was removed from queue '%s' in "
+            log.debug("Expired message %s ('%s') was removed from queue '%s' in "
                      "exchange '%s-%s' by player %s",
                      message["message_number"], message["message_id"],
                      message["queue"], exchange, exchange_id, my_player_id)
+
+    # If there were only expired messages, make sure we skip those next time
+    if len(messages) == 0 and highest_processed_message_number > 0:
+        g.redis.conn.setex(redis_seen_key, MESSAGE_EXCHANGE_TTL, highest_processed_message_number)
 
     messages.sort(key=operator.itemgetter("message_number"), reverse=True)
     rows = rows or len(messages)
@@ -176,7 +181,7 @@ class MessagesExchangeAPI(MethodView):
 
         if timeout > 0:
             poll_timeout += datetime.timedelta(seconds=timeout)
-            log.info("[%s] Long poll - Waiting %s seconds for messages...", my_player_id, timeout)
+            log.debug("[%s] Long poll - Waiting %s seconds for messages...", my_player_id, timeout)
 
             def streamer():
                 yield " "
@@ -190,7 +195,7 @@ class MessagesExchangeAPI(MethodView):
                             yield json.dumps(messages, default=json_serial)
                             return
                         elif utcnow() > poll_timeout:
-                            log.info("[%s/%s] Poll timeout with no messages after %.1f seconds",
+                            log.debug("[%s/%s] Poll timeout with no messages after %.1f seconds",
                                      my_player_id, exchange_full_name,
                                      (utcnow() - start_time).total_seconds())
                             yield json.dumps({})
@@ -229,7 +234,7 @@ class MessagesQueueAPI(MethodView):
             expire_seconds=expire_seconds,
         )
 
-        log.info(
+        log.debug(
             "Message %s ('%s') has been added to queue '%s' in exchange "
             "'%s-%s' by player %s. It will expire on '%s'",
             message["message_number"], message["message_id"],
