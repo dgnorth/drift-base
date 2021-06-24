@@ -121,7 +121,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     ret = collections.defaultdict(list)
     for m in messages[:rows]:
         ret[m["queue"]].append(m)
-    return ret, highest_processed_message_number
+    return ret
 
 
 def is_service():
@@ -187,7 +187,7 @@ class MessagesExchangeAPI(MethodView):
                 yield " "
                 while 1:
                     try:
-                        messages, highest_message_number = fetch_messages(exchange, exchange_id, min_message_number, rows)
+                        messages = fetch_messages(exchange, exchange_id, min_message_number, rows)
                         if messages:
                             log.debug("[%s/%s] Returning messages after %.1f seconds",
                                       my_player_id, exchange_full_name,
@@ -209,7 +209,7 @@ class MessagesExchangeAPI(MethodView):
 
             return Response(stream_with_context(streamer()), mimetype="application/json")
         else:
-            messages, highest_message_number = fetch_messages(exchange, exchange_id, min_message_number, rows)
+            messages = fetch_messages(exchange, exchange_id, min_message_number, rows)
             return jsonify(messages)
 
 
