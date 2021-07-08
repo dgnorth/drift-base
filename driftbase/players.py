@@ -1,7 +1,7 @@
 
 import json
 import re
-from six.moves import http_client
+import http.client as http_client
 import logging
 
 from flask import g, request

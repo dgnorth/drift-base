@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from six.moves import http_client
+import http.client as http_client
 
 from drift.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseMatchTest
@@ -98,31 +98,31 @@ class MatchesTest(BaseMatchTest):
         match_id = match["match_id"]
         match_url = match["url"]
         teams_url = match["teams_url"]
-        resp = self.get(match_url)
+        resp = self.get(match_url).json()
 
-        matchplayers_url = resp.json()["matchplayers_url"]
+        matchplayers_url = resp["matchplayers_url"]
 
-        resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
-        team_id = resp.json()["team_id"]
-        self.get(teams_url)
+        resp = self.post(teams_url, data={}, expected_status_code=http_client.CREATED).json()
+        team_id = resp["team_id"]
+        resp = self.get(teams_url).json()
 
         data = {"player_id": player_id,
                 "team_id": team_id
                 }
-        self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
+        resp = self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED).json()
 
-        resp = self.get(match_url)
-        self.assertEqual(len(resp.json()["teams"]), 1)
-        self.assertIsNotNone(resp.json()["start_date"])
-        self.assertEqual(resp.json()["num_players"], 1)
+        resp = self.get(match_url).json()
+        self.assertEqual(len(resp["teams"]), 1)
+        self.assertIsNotNone(resp["start_date"])
+        self.assertEqual(resp["num_players"], 1)
 
-        resp = self.get(teams_url)
-        team_url = resp.json()[0]["url"]
+        resp = self.get(teams_url).json()
+        team_url = resp[0]["url"]
         self.get(team_url)
 
-        resp = self.get(matchplayers_url)
+        resp = self.get(matchplayers_url).json()
 
-        matchplayer_url = resp.json()[0]["matchplayer_url"]
+        matchplayer_url = resp[0]["matchplayer_url"]
         self.get(matchplayer_url)
 
         self.get("/matches/%s/players/9999999" % match_id, expected_status_code=http_client.NOT_FOUND)

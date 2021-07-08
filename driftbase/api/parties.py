@@ -7,7 +7,7 @@ from drift.utils import Url
 from flask import url_for, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from six.moves import http_client
+import http.client as http_client
 
 from driftbase.api.messages import post_message
 from driftbase.models.db import CorePlayer

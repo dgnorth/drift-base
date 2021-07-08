@@ -1,5 +1,5 @@
 import datetime
-from six.moves import http_client
+import http.client as http_client
 from mock import patch
 import unittest
 from drift.systesthelper import uuid_string, big_number

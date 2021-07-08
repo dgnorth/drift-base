@@ -19,7 +19,7 @@ from flask import g, url_for, stream_with_context, Response, jsonify
 from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from six.moves import http_client
+import http.client as http_client
 
 log = logging.getLogger(__name__)
 
@@ -268,7 +268,7 @@ def post_message(exchange, exchange_id, queue, payload, expire_seconds=None):
     message = {
         "timestamp": timestamp.isoformat() + "Z",
         "expires": expires.isoformat() + "Z",
-        "sender_id": current_user["player_id"],
+        "sender_id": current_user.get("player_id", 0),
         "message_id": message_id,
         "message_number": message_number,
         "payload": payload,

@@ -1,7 +1,7 @@
 import datetime
 
 import mock
-from six.moves import http_client
+import http.client as http_client
 
 from drift.systesthelper import DriftBaseTestCase
 from drift.core.extensions.jwt import current_user

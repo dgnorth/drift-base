@@ -1,5 +1,5 @@
 from mock import patch, MagicMock
-from six.moves import http_client
+import http.client as http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
 from drift.utils import get_config

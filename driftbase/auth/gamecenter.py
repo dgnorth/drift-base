@@ -4,7 +4,7 @@ import struct
 import OpenSSL
 import marshmallow as ma
 from flask_smorest import abort
-from six.moves import http_client
+import http.client as http_client
 from six.moves.urllib.parse import urlparse
 from werkzeug.exceptions import Unauthorized
 from werkzeug.security import pbkdf2_hex

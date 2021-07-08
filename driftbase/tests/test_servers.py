@@ -3,7 +3,7 @@ import datetime
 from unittest.mock import patch
 
 from drift.systesthelper import DriftBaseTestCase
-from six.moves import http_client
+import http.client as http_client
 
 from driftbase.api.servers import ServersPostResponseSchema, ServerPutResponseSchema, ServerHeartbeatPutResponseSchema
 

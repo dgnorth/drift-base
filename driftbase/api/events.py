@@ -1,11 +1,9 @@
 import logging
 
-from six.moves import http_client
+import http.client as http_client
 
 from flask import request, url_for, jsonify
 from flask.views import MethodView
-import marshmallow as ma
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 
 from drift.core.extensions.urlregistry import Endpoints

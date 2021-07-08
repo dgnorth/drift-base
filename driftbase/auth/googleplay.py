@@ -4,7 +4,7 @@ import marshmallow as ma
 import requests
 from flask import request
 from flask_smorest import abort
-from six.moves import http_client
+import http.client as http_client
 from werkzeug.exceptions import Unauthorized
 
 from driftbase.auth import get_provider_config

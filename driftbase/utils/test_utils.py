@@ -1,7 +1,7 @@
 """
     Utilities functions assisting the system tests
 """
-from six.moves import http_client
+import http.client as http_client
 from drift.systesthelper import uuid_string, DriftBaseTestCase
 
 
@@ -30,6 +30,21 @@ class BaseCloudkitTest(DriftBaseTestCase):
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
         return username
+
+    def get_player_notification(self, queue_name, event, messages_after=None):
+        """ Return the first notification in 'queue_name' matching 'event' from 'players' exchange. """
+        notification = None
+        args = "?messages_after={}".format(messages_after) if messages_after else ""
+        messages = self.get(self.endpoints["my_messages"] + args).json()
+        topic = messages.get(queue_name, [])
+        message_number = messages_after
+        for message in topic:
+            message_number = message.get('message_number')
+            payload = message.get('payload', {})
+            if payload.get('event', None) == event:
+                notification = payload
+                break
+        return notification, message_number
 
 
 class BaseMatchTest(BaseCloudkitTest):

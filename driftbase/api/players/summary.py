@@ -4,7 +4,7 @@ from flask import request, g, abort, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from six.moves import http_client
+import http.client as http_client
 
 from driftbase.models.db import PlayerSummary, PlayerSummaryHistory, CorePlayer
 from driftbase.players import log_event, can_edit_player

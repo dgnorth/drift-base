@@ -1,5 +1,5 @@
 import logging
-from six.moves import http_client
+import http.client as http_client
 
 from flask import url_for, g
 from flask.views import MethodView

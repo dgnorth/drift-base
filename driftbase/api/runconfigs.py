@@ -12,7 +12,7 @@ from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from six.moves import http_client
+import http.client as http_client
 
 from driftbase.models.db import RunConfig
 

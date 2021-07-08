@@ -8,7 +8,7 @@ from drift.core.extensions.urlregistry import Endpoints
 from flask import request, g, abort, url_for, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
-from six.moves import http_client
+import http.client as http_client
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 

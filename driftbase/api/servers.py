@@ -6,7 +6,7 @@ import marshmallow as ma
 from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from six.moves import http_client
+import http.client as http_client
 
 from drift.core.extensions.jwt import current_user, requires_roles
 from drift.core.extensions.urlregistry import Endpoints
@@ -104,14 +104,14 @@ class ServerPutResponseSchema(ma.Schema):
 
 
 class ServerHeartbeatPutResponseSchema(ma.Schema):
-    last_heartbeat = ma.fields.DateTime(description="Timestamp of the previous heartbeat")
-    this_heartbeat = ma.fields.DateTime(description="Timestamp of this heartbeat")
-    next_heartbeat = ma.fields.DateTime(description="Timestamp when the next heartbeat is expected")
-    next_heartbeat_seconds = ma.fields.Integer(description="Number of seconds until the next heartbeat is expected")
+    last_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of the previous heartbeat"))
+    this_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of this heartbeat"))
+    next_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp when the next heartbeat is expected"))
+    next_heartbeat_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the next heartbeat is expected"))
     heartbeat_timeout = ma.fields.DateTime(
-        description="Timestamp when the server times out if no heartbeat is received")
+        metadata=dict(description="Timestamp when the server times out if no heartbeat is received"))
     heartbeat_timeout_seconds = ma.fields.Integer(
-        description="Number of seconds until the server times out if no heartbeat is received")
+        metadata=dict(description="Number of seconds until the server times out if no heartbeat is received"))
 
 
 @bp.route('', endpoint='list')

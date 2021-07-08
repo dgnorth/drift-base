@@ -4,7 +4,7 @@ import random
 import json
 from dateutil import parser
 
-from six.moves import http_client
+import http.client as http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant, uuid_string, DriftBaseTestCase
 

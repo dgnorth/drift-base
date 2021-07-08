@@ -3,7 +3,7 @@ import logging
 from dateutil import parser
 
 import six
-from six.moves import http_client
+import http.client as http_client
 
 from flask import g, url_for
 from flask_smorest import abort

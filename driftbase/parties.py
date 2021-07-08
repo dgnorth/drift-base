@@ -3,7 +3,7 @@ from time import time
 
 from flask import g
 from redis import WatchError
-from six.moves import http_client
+import http.client as http_client
 from webargs.flaskparser import abort
 
 from driftbase.resources.parties import TIER_DEFAULTS

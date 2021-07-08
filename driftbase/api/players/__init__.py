@@ -7,7 +7,7 @@ from flask import g, url_for
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from marshmallow import validates, ValidationError
-from six.moves import http_client
+import http.client as http_client
 
 from driftbase.api.players import (
     counters,

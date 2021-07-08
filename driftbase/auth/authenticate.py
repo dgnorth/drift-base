@@ -1,6 +1,6 @@
 import logging
 
-from six.moves import http_client
+import http.client as http_client
 
 from flask import g, current_app
 from flask_smorest import abort

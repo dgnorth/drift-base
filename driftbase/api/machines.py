@@ -9,7 +9,7 @@ from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from six.moves import http_client
+import http.client as http_client
 
 from driftbase.config import get_machine_heartbeat_config
 from driftbase.models.db import Machine, MachineEvent
@@ -61,14 +61,12 @@ class MachinePutRequestSchema(ma.Schema):
 
 
 class MachinePutResponseSchema(ma.Schema):
-    last_heartbeat = ma.fields.DateTime(description="Timestamp of the previous heartbeat")
-    this_heartbeat = ma.fields.DateTime(description="Timestamp of this heartbeat")
-    next_heartbeat = ma.fields.DateTime(description="Timestamp when the next heartbeat is expected")
-    next_heartbeat_seconds = ma.fields.Integer(description="Number of seconds until the next heartbeat is expected")
-    heartbeat_timeout = ma.fields.DateTime(
-        description="Timestamp when the machine times out if no heartbeat is received")
-    heartbeat_timeout_seconds = ma.fields.Integer(
-        description="Number of seconds until the machine times out if no heartbeat is received")
+    last_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of the previous heartbeat"))
+    this_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of this heartbeat"))
+    next_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp when the next heartbeat is expected"))
+    next_heartbeat_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the next heartbeat is expected"))
+    heartbeat_timeout = ma.fields.DateTime(metadata=dict(description="Timestamp when the machine times out if no heartbeat is received"))
+    heartbeat_timeout_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the machine times out if no heartbeat is received"))
 
 
 @bp.route('', endpoint='list')

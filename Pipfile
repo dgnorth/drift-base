@@ -8,13 +8,15 @@ python-drift = "==0.6.3"
 #python-drift = {editable = true, extras = ["aws", "test"], path = "../drift"}
 gevent = "*"
 requests = "*"
-"boto3" = "*"
+boto3 = "*"
+botocore = "*"
 greenlet = "*"
 python-decouple = "*"
 flask-restx = "*"
 python-driftconfig = "*"
 #python-driftconfig = {editable = true, extras = ["redis-backend", "s3-backend"], path = "./../drift-config"}
 psycogreen = "*"
+aws-assume-role-lib = "*"
 
 [dev-packages]
 pytest = "*"
