@@ -672,14 +672,17 @@ class MatchPlayerAPI(MethodView):
                     MatchPlayer.player_id == player_id) \
             .first()
         if not match_player:
+            log.info(f"player {player_id} not found in match {match_id}. Aborting.")
             abort(http_client.NOT_FOUND)
 
         if match_player.status != "active":
+            log.info(f"player {player_id} in match {match_id} isn't active. Aborting.")
             abort(http_client.BAD_REQUEST, description="Player status must be active, not '%s'" %
                                                        match_player.status)
 
         match = g.db.query(Match).get(match_id)
         if not match:
+            log.info(f"match {match_id} not found. Aborting.")
             abort(http_client.NOT_FOUND, description="Match not found")
 
         if match.status == "completed":
