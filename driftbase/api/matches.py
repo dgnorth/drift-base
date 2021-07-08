@@ -318,7 +318,7 @@ class MatchAPI(MethodView):
 
             machine = g.db.query(Machine).get(server.machine_id)
             ret["machine"] = None
-            if server:
+            if machine:
                 ret["machine_url"] = url_for("machines.entry",
                                              machine_id=machine.machine_id, _external=True)
 
@@ -563,15 +563,18 @@ class MatchPlayersAPI(MethodView):
         """
         Add a player to a match
         """
-
+        log.info(f"POST to MatchPlayersAPI with match_id {match_id} and args {args}")
         player_id = args["player_id"]
         team_id = args.get("team_id", None)
 
+        log.info(f"  dug up player_id {player_id} (type {type(player_id)}) and team_id {team_id} (type {type(team_id)})")
         match = g.db.query(Match).get(match_id)
         if not match:
+            log.warning(f" match {match_id} not found. Aborting")
             abort(http_client.NOT_FOUND, description="Match not found")
 
         if match.status == "completed":
+            log.warning(f" match {match_id} is completed. Aborting")
             abort(http_client.BAD_REQUEST, description="You cannot add a player to a completed battle")
 
         num_players = g.db.query(MatchPlayer) \
@@ -579,13 +582,16 @@ class MatchPlayersAPI(MethodView):
                     MatchPlayer.status.in_(["active"])) \
             .count()
         if num_players >= match.max_players:
+            log.warning(f" match {match_id} has {num_players} and maximum is {match.max_players}. Aborting")
             abort(http_client.BAD_REQUEST, description="Match is full")
 
         if team_id:
             team = g.db.query(MatchTeam).get(team_id)
             if not team:
+                log.warning(f" team_id {team_id} not found. Aborting.")
                 abort(http_client.NOT_FOUND, description="Team not found")
             if team.match_id != match_id:
+                log.warning(f" team_id {team_id} doesn't belong to match {match_id}, it belongs to match {team.match_id}. Aborting.")
                 abort(http_client.BAD_REQUEST,
                       description="Team %s is not in match %s" % (team_id, match_id))
 
@@ -594,6 +600,7 @@ class MatchPlayersAPI(MethodView):
                     MatchPlayer.player_id == player_id) \
             .first()
         if not match_player:
+            log.info(f" player {player_id} not found in match already. Adding him...")
             match_player = MatchPlayer(match_id=match_id,
                                        player_id=player_id,
                                        team_id=team_id,
