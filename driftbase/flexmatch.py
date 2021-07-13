@@ -95,6 +95,7 @@ def cancel_player_ticket(player_id):
         try:
             gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
         except ClientError as e:
+            log.warning(f"ClientError from gamelift. Response: {e.response}")
             if e.response["Error"]["Code"] == "InvalidRequestException":
                 ticket_lock.ticket = None
             raise GameliftClientException("Failed to cancel matchmaking ticket", str(e))
