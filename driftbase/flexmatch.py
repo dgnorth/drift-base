@@ -1,6 +1,3 @@
-import random
-import sys
-import time
 import logging
 import boto3
 import json
@@ -105,6 +102,7 @@ def cancel_player_ticket(player_id):
 
 def get_player_ticket(player_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
+        log.info(f"Returning ticket for player {player_id}: {ticket_lock.ticket}")
         return ticket_lock.ticket
 
 def update_player_acceptance(player_id, match_id, acceptance):
@@ -196,6 +194,7 @@ def _get_player_attributes(player_id):
 
 def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=None, expiry=30):
     """ Insert a event into the 'matchmaking' queue of the 'players' exchange. """
+    log.info(f"Posting '{event}' to players {receiving_player_ids} with event_data {event_data}")
     if not receiving_player_ids:
         log.warning(f"Empty receiver in matchmaking event {event} message")
         return
