@@ -280,11 +280,14 @@ class FlexMatchTest(_BaseFlexmatchTest):
                 # Check that we have a stored ticket
                 response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
                 self.assertIn("TicketId", response)
-                # Attempt to delete, expect error back
-                response = self.delete(flexmatch_url, expected_status_code=http_client.INTERNAL_SERVER_ERROR).json()
-                # But ticket should be cleared
+                # Attempt to delete
+                self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
+                # Ticket should be cleared
                 response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
                 self.assertNotIn("TicketId", response)
+                # And there should be a message waiting
+                notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
+                self.assertTrue(notification["event"] == "MatchmakingStopped")
 
     def test_party_member_can_delete_ticket(self):
         # Create a party of 2
