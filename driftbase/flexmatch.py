@@ -93,7 +93,7 @@ def cancel_player_ticket(player_id):
         log.info(f"Cancelling ticket for player {player_id}, currently in state {ticket['Status']}")
         gamelift_client = GameLiftRegionClient(AWS_REGION)
         try:
-            gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
+            response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
         except ClientError as e:
             log.warning(f"ClientError from gamelift. Response: {e.response}")
             code = e.response["Error"]["Code"]
@@ -541,7 +541,7 @@ class _LockedTicket(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
             with self._redis.conn.pipeline() as pipe:
-                if exc_type is None and self._modified is True:
+                if self._modified is True and exc_type in (None, GameliftClientException):
                     pipe.delete(self._key)  # Always update the ticket wholesale, i.e. don't leave stale fields behind.
                     if self._ticket:
                         pipe.set(self._key, self._jsonify_ticket())

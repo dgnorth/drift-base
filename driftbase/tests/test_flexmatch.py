@@ -246,6 +246,46 @@ class FlexMatchTest(_BaseFlexmatchTest):
             response = self.delete(flexmatch_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["Status"], "REQUIRES_ACCEPTANCE")
 
+    def test_delete_ticket_clears_cached_ticket_on_invalid_request(self):
+        player_name = self.make_player()
+        flexmatch_url = self.endpoints["flexmatch"]
+
+        def _stop_matchmaking_with_error_response(self, **kwargs):
+            response = {
+                'Error': {
+                    'Message': 'Matchmaking ticket is in COMPLETED status and cannot be canceled.',
+                    'Code': 'InvalidRequestException'
+                },
+                'ResponseMetadata': {
+                    'RequestId': 'f96151ae-8b36-46f4-a287-b4c903286a59',
+                    'HTTPStatusCode': 400,
+                    'HTTPHeaders': {
+                        'x-amzn-requestid': 'f96151ae-8b36-46f4-a287-b4c903286a59',
+                        'content-type': 'application/x-amz-json-1.1',
+                        'content-length': '114',
+                        'date': 'Tue, 13 Jul 2021 14:04:11 GMT',
+                        'connection': 'close'
+                    },
+                    'RetryAttempts': 0
+                },
+                'Message': 'Matchmaking ticket is in COMPLETED status and cannot be canceled.'
+            }
+            from botocore.exceptions import ClientError
+            raise ClientError(response, "stop_matchmaking")
+
+        with patch.object(MockGameLiftClient, 'stop_matchmaking', _stop_matchmaking_with_error_response):
+            with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+                response = self.post(flexmatch_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
+                self.assertTrue(response["Status"] == "QUEUED")
+                # Check that we have a stored ticket
+                response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
+                self.assertIn("TicketId", response)
+                # Attempt to delete, expect error back
+                response = self.delete(flexmatch_url, expected_status_code=http_client.INTERNAL_SERVER_ERROR).json()
+                # But ticket should be cleared
+                response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
+                self.assertNotIn("TicketId", response)
+
     def test_party_member_can_delete_ticket(self):
         # Create a party of 2
         member_name = self.make_player()
