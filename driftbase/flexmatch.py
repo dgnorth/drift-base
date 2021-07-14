@@ -1,3 +1,4 @@
+import copy
 import logging
 import boto3
 import json
@@ -312,28 +313,29 @@ def _process_potential_match_event(event):
     message_data = {team: list(players) for team, players in players_by_team.items()}
     message_data["acceptance_required"] = event["acceptanceRequired"]
     message_data["match_id"] = event["matchId"];
-    message_data["acceptance_timeout"] = event["acceptanceTimeout"]
+    message_data["acceptance_timeout"] = event.get("acceptanceTimeout", None)
     _post_matchmaking_event_to_members(player_ids_to_notify, "PotentialMatchCreated", event_data=message_data)
 
 def _process_matchmaking_succeeded_event(event):
     game_session_info = event["gameSessionInfo"]
     ip_address = game_session_info["ipAddress"]
     port = int(game_session_info["port"])
+    connection_string = f"{ip_address}:{port}"
     connection_info_by_player_id = {}
     players_by_ticket = defaultdict(set)  # For sanity checking
+    players_to_notify = set()
     for ticket in event["tickets"]:
         ticket_id = ticket["ticketId"]
         for player in ticket["players"]:
             player_id = int(player["playerId"])
             players_by_ticket[ticket_id].add(player_id)
+            players_to_notify.add(player_id)
             if "playerSessionId" not in player:
                 log.warning(f"player {player_id} has no playerSessionId in a MatchmakingSucceeded event. Dumping event for analysis:")
                 log.warning(event)
                 continue
             connection_info_by_player_id[player_id] = f"PlayerSessionId={player['playerSessionId']}?PlayerId={player_id}"
 
-    players_to_notify = set()
-    game_session_info = event["gameSessionInfo"]
     for player in game_session_info["players"]:
         player_id = int(player["playerId"])
         ticket_key = _get_player_ticket_key(player_id)
@@ -352,16 +354,16 @@ def _process_matchmaking_succeeded_event(event):
                     if player_id in players:
                         log.warning(f"Weird, player {player_id} is registered to ticket {player_ticket['TicketId']} but this update pegs him on ticket {ticket}")
                         break
-            log.info(f"Updating ticket {ticket['ticketId']} for player key {ticket_key} from {player_ticket['Status']} to 'COMPLETED'")
+            log.info(f"Updating ticket {player_ticket['TicketId']} for player key {ticket_key} from {player_ticket['Status']} to 'COMPLETED'")
             player_ticket["Status"] = "COMPLETED"
             player_ticket["MatchId"] = event["matchId"]
-            game_session_info["ConnectionString"] = f"{ip_address}:{port}"
-            game_session_info["ConnectionOptions"] = connection_info_by_player_id[player_id]
-            player_ticket["GameSessionConnectionInfo"] = game_session_info
+            player_ticket["GameSessionConnectionInfo"] = copy.copy(game_session_info)
+            player_ticket["GameSessionConnectionInfo"].update({
+                "ConnectionString": f"{ip_address}:{port}",
+                "ConnectionOptions": connection_info_by_player_id[player_id]
+            })
             ticket_lock.ticket = player_ticket
-            players_to_notify.add(player_id)
 
-    connection_string = f"{ip_address}:{port}"
     for player_id in players_to_notify:
         event_data = {
             "connection_string": connection_string,
