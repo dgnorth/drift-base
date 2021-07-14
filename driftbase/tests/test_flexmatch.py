@@ -42,8 +42,30 @@ class TestFlexMatchPlayerAPI(BaseCloudkitTest):
 
 
 class _BaseFlexmatchTest(BaseCloudkitTest):
-    def _initiate_matchmaking(self):
-        user_name = self.make_player()
+    def _create_party(self, party_size=2):
+        if party_size < 2:
+            raise RuntimeError(f"Cant have a party of {party_size}")
+        # Create all the players
+        info = []
+        for i in range(party_size):
+            name = self.make_player()
+            info.append({"name": name, "id": self.player_id})
+        # last player created gets to play host and invites the others
+        host_id = self.player_id
+        for member in info[:-1]:
+            self.post(self.endpoints["party_invites"], data={'player_id': member["id"]}, expected_status_code=http_client.CREATED)
+
+        # The others accept the invite
+        for member in info[:-1]:
+            self.auth(username=member["name"])
+            notification, _ = self.get_player_notification("party_notification", "invite")
+            self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK)
+        return info
+
+    def _initiate_matchmaking(self, user_name=None):
+        if user_name is None:  # else we assume a user has authenticated
+            user_name = self.make_player()
+
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             ticket = self.post(self.endpoints["flexmatch"], data={"matchmaker": "unittest"},
                                expected_status_code=http_client.OK).json()
@@ -51,7 +73,10 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
 
     @staticmethod
     def _get_event_details(ticket_id, player_info):
-        players = [player_info]
+        if not isinstance(player_info, list):
+            players = [player_info]
+        else:
+            players = player_info
         return {
             "type": "",
             "matchId": "0a3eb4aa-ecdb-4595-81a0-ad2b2d61bd05",
@@ -174,43 +199,26 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertTrue(notification["event"] == "MatchmakingStarted")
 
     def test_matchmaking_includes_party_members(self):
-        # Create a party of 2
-        member_name = self.make_player()
-        member_id = self.player_id
-        host_name = self.make_player()
-        host_id = self.player_id
-        invite = self.post(self.endpoints["party_invites"], data={'player_id': member_id}, expected_status_code=http_client.CREATED).json()
-        # Accept the invite
-        self.auth(username=member_name)
-        notification, message_number = self.get_player_notification("party_notification", "invite")
-        self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK).json()
+        member, host = self._create_party()
         # Let member start matchmaking, host should be included in the ticket
+        self.auth(member["name"])
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             response = self.post(self.endpoints["flexmatch"], data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
             players = response["Players"]
             self.assertEqual(len(players), 2)
-            expected_players = {host_id, member_id}
+            expected_players = {member["id"], host["id"]}
             response_players = {int(e["PlayerId"]) for e in players}
             self.assertSetEqual(response_players, expected_players)
 
     def test_start_matchmaking_creates_event_for_party_members(self):
-        # Create a party of 2
-        member_name = self.make_player()
-        member_id = self.player_id
-        host_name = self.make_player()
-        host_id = self.player_id
-        invite = self.post(self.endpoints["party_invites"], data={'player_id': member_id},
-                           expected_status_code=http_client.CREATED).json()
-        # Accept the invite
-        self.auth(username=member_name)
-        notification, message_number = self.get_player_notification("party_notification", "invite")
-        self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK).json()
+        member, host = self._create_party()
         # Let member start matchmaking, host should be included in the ticket
+        self.auth(member["name"])
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             response = self.post(self.endpoints["flexmatch"], data={"matchmaker": "unittest"},
                                  expected_status_code=http_client.OK).json()
         # Check if party host got the message
-        self.auth(host_name)
+        self.auth(host["name"])
         notification, message_number = self.get_player_notification("matchmaking", "MatchmakingStarted")
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["event"] == "MatchmakingStarted")
@@ -290,53 +298,55 @@ class FlexMatchTest(_BaseFlexmatchTest):
                 self.assertTrue(notification["event"] == "MatchmakingStopped")
 
     def test_party_member_can_delete_ticket(self):
-        # Create a party of 2
-        member_name = self.make_player()
-        member_id = self.player_id
-        host_name = self.make_player()
-        host_id = self.player_id
-        invite = self.post(self.endpoints["party_invites"], data={'player_id': member_id},
-                           expected_status_code=http_client.CREATED).json()
-        # Accept the invite
-        self.auth(username=member_name)
-        notification, message_number = self.get_player_notification("party_notification", "invite")
-        self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK).json()
-        # Let member start matchmaking, host should be included in the ticket
+        member, host = self._create_party()
+        # Host starts matchmaking
+        self.auth(host["name"])
         flexmatch_url = self.endpoints["flexmatch"]
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             response = self.post(flexmatch_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
-            # host then cancels
-            self.auth(username=host_name)
+            # member then cancels
+            self.auth(member["name"])
             self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
 
     def test_party_members_get_notified_if_ticket_is_cancelled(self):
-        # Create a party of 2
-        member_name = self.make_player()
-        member_id = self.player_id
-        host_name = self.make_player()
-        host_id = self.player_id
-        invite = self.post(self.endpoints["party_invites"], data={'player_id': member_id},
-                           expected_status_code=http_client.CREATED).json()
-        # Accept the invite
-        self.auth(username=member_name)
-        notification, message_number = self.get_player_notification("party_notification", "invite")
-        self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK).json()
-        # Let member start matchmaking, host should be included in the ticket
+        member, host = self._create_party()
+        self.auth(member["name"])
         flexmatch_url = self.endpoints["flexmatch"]
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             response = self.post(flexmatch_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
             # host then cancels
-            self.auth(username=host_name)
+            self.auth(username=host["name"])
             self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
             # host should have a notification
             notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
             self.assertIsInstance(notification, dict)
             self.assertTrue(notification["event"] == "MatchmakingStopped")
             # member should have a notification
-            self.auth(username=member_name)
+            self.auth(username=member["name"])
             notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
             self.assertIsInstance(notification, dict)
             self.assertTrue(notification["event"] == "MatchmakingStopped")
+
+    def test_party_members_get_success_event(self):
+        member, host = self._create_party(2)
+        _, ticket = self._initiate_matchmaking(host["name"])
+        events_url = self.endpoints["flexmatch"] + "events"
+        with self._managed_bearer_token_user():
+            data = copy.copy(_matchmaking_event_template)
+            details = self._get_event_details(ticket["TicketId"], [
+                {"playerId": player["id"], "playerSessionId": str(uuid.uuid4())}
+                for player in (member, host)])
+            details["type"] = "MatchmakingSucceeded"
+            details["gameSessionInfo"]["ipAddress"] = "1.2.3.4"
+            details["gameSessionInfo"]["port"] = "7780"
+            data["detail"] = details
+            self.put(events_url, data=data, expected_status_code=http_client.OK)
+        for guy in (member, host):
+            self.auth(guy["name"])
+            notification, _ = self.get_player_notification("matchmaking", "MatchmakingSuccess")
+            self.assertIsInstance(notification, dict)
+            self.assertIn(f"PlayerId={self.player_id}", notification["data"]["options"])
+
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
