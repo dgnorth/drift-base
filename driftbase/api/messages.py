@@ -255,8 +255,7 @@ class MessagesQueueAPI(MethodView):
 
         return jsonify(ret)
 
-
-def post_message(exchange, exchange_id, queue, payload, expire_seconds=None):
+def post_message(exchange, exchange_id, queue, payload, expire_seconds=None, sender_system=False):
     if not is_key_legal(exchange) or not is_key_legal(queue):
         abort(http_client.BAD_REQUEST, message="Exchange or Queue name is invalid.")
 
@@ -268,7 +267,7 @@ def post_message(exchange, exchange_id, queue, payload, expire_seconds=None):
     message = {
         "timestamp": timestamp.isoformat() + "Z",
         "expires": expires.isoformat() + "Z",
-        "sender_id": current_user.get("player_id", 0),
+        "sender_id": 0 if sender_system else current_user["player_id"],
         "message_id": message_id,
         "message_number": message_number,
         "payload": payload,
