@@ -329,7 +329,6 @@ def _process_matchmaking_succeeded_event(event):
         for player in ticket["players"]:
             player_id = int(player["playerId"])
             players_by_ticket[ticket_id].add(player_id)
-            players_to_notify.add(player_id)
             if "playerSessionId" not in player:
                 log.warning(f"player {player_id} has no playerSessionId in a MatchmakingSucceeded event. Dumping event for analysis:")
                 log.warning(event)
@@ -345,8 +344,9 @@ def _process_matchmaking_succeeded_event(event):
                 log.info(f"MatchmakingSucceeded event received for a player who has no ticket. Probably backfill.")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
-                # If we've recorded a session, then the player has been placed in a match already
-                log.info(f"Player {player_id} has a session already. Not updating {player_ticket['TicketId']}")
+                # If we've recorded a session, then the player has been placed in a match already, or there are multiple players in the ticket.
+                # either way, we dont want/need to update it.
+                log.info(f"Player {player_id} has a session on his ticket already. Not updating {player_ticket['TicketId']}")
                 continue
             # sanity check
             if player_id not in players_by_ticket.get(player_ticket["TicketId"], []):
@@ -363,6 +363,8 @@ def _process_matchmaking_succeeded_event(event):
                 "ConnectionOptions": connection_info_by_player_id[player_id]
             })
             ticket_lock.ticket = player_ticket
+            for ticket_player in player_ticket["Players"]:
+                players_to_notify.add(int(ticket_player["PlayerId"]))
 
     for player_id in players_to_notify:
         event_data = {

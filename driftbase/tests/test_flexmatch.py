@@ -334,7 +334,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         with self._managed_bearer_token_user():
             data = copy.copy(_matchmaking_event_template)
             details = self._get_event_details(ticket["TicketId"], [
-                {"playerId": player["id"], "playerSessionId": str(uuid.uuid4())}
+                {"playerId": player["id"], "playerSessionId": f"bleble-{player['id']}-flefle"}
                 for player in (member, host)])
             details["type"] = "MatchmakingSucceeded"
             details["gameSessionInfo"]["ipAddress"] = "1.2.3.4"
@@ -345,7 +345,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.auth(guy["name"])
             notification, _ = self.get_player_notification("matchmaking", "MatchmakingSuccess")
             self.assertIsInstance(notification, dict)
-            self.assertIn(f"PlayerId={self.player_id}", notification["data"]["options"])
+            self.assertEqual(f"PlayerSessionId=bleble-{guy['id']}-flefle?PlayerId={guy['id']}", notification["data"]["options"])
 
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
