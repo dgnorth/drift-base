@@ -57,7 +57,6 @@ build:
 		.
 
 push: env-guard-REGISTRY
-	docker push ${IMAGE_NAME}:latest
 	docker push ${IMAGE_NAME}:${BRANCH_TAG}
 	docker push ${IMAGE_NAME}:${VERSION}
 
