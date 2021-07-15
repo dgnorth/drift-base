@@ -22,6 +22,17 @@ BUILD_TIMESTAMP = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Docker tags must not contain slashes
 BRANCH_TAG = $(subst /,_,$(BRANCH))
 
+# An empty REGISTRY means we're making builds for local consumption
+REGISTRY ?=
+
+TAGS = ${BRANCH_TAG} ${VERSION}
+# If no registry has been specified, tag the image so that it will work with docker-compose automatically
+ifeq ($(strip ${REGISTRY}),)
+TAG_ARGS = --tag app_drift-base:latest
+else
+TAG_ARGS = $(foreach TAG,${TAGS},"--tag ${IMAGE_NAME}:${TAG}")
+endif
+
 # Helper targets
 
 .PHONY: ENV_GUARD
@@ -36,16 +47,14 @@ env-guard-%: ENV_GUARD
 
 # Expect there to be a file ./.env at this point which we can pass in to docker as a secret,
 # holding the credentials required for connecting to private dependency repositories
-build: env-guard-REGISTRY
+build:
 	docker build \
-	    --tag ${IMAGE_NAME}:latest \
-	    --tag ${IMAGE_NAME}:${BRANCH_TAG} \
-	    --tag ${IMAGE_NAME}:${VERSION} \
-	    --build-arg VERSION='${VERSION}' \
-	    --build-arg BUILD_TIMESTAMP='${BUILD_TIMESTAMP}' \
-	    --build-arg COMMIT_HASH='${CI_COMMIT_SHORT_SHA}' \
-	    --secret id=pip-credentials,src=.env \
-	    .
+		${TAG_ARGS} \
+		--build-arg VERSION='${VERSION}' \
+		--build-arg BUILD_TIMESTAMP='${BUILD_TIMESTAMP}' \
+		--build-arg COMMIT_HASH='${CI_COMMIT_SHORT_SHA}' \
+		--secret id=pip-credentials,src=.env \
+		.
 
 push: env-guard-REGISTRY
 	docker push ${IMAGE_NAME}:latest
