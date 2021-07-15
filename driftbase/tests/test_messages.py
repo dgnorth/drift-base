@@ -70,13 +70,6 @@ class MessagesTest(BaseCloudkitTest):
         # get all the messages for the player again and make sure we're receiving the same thing
         self.assertEqual(self.get(messages_url).json(), r)
 
-        # get the messages and this time clear them as well
-        r = self.get(messages_url + "?delete=true").json()
-        self.assertIn("testqueue", r)
-        self.assertEqual(len(r["testqueue"]), 1)
-        self.assertIn("payload", r["testqueue"][0])
-        self.assertIn("Hello", r["testqueue"][0]["payload"])
-
     def test_messages_rows(self):
         player_receiver = self.make_player()
         receiver_headers = self.headers
