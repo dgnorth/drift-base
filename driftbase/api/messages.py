@@ -62,10 +62,18 @@ def is_key_legal(key):
 
 def incr_message_number(exchange, exchange_id):
     k = "top_message_number:%s:%s" % (exchange, exchange_id)
-    g.redis.incr(k, expire=MESSAGE_EXCHANGE_TTL)
-    val = g.redis.get(k)
+    val = g.redis.incr(k, expire=MESSAGE_EXCHANGE_TTL)
+    seen = latest_seen(exchange, exchange_id)
+    if seen >= val:
+        adjustment = (seen-val) + 1
+        log.warning(f"Latest seen message is at {seen} but next top message number would be {val} and would thus never be seen. Adjusting next message number to {val+adjustment}")
+        val = g.redis.incr(k, adjustment, expire=MESSAGE_EXCHANGE_TTL)
     return int(val)
 
+def latest_seen(exchange, exchange_id):
+    redis_seen_key = g.redis.make_key("messages:seen:%s-%s" % (exchange, exchange_id))
+    seen = g.redis.conn.get(redis_seen_key)
+    return int(seen) if seen else 0
 
 def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     messages = []
@@ -96,7 +104,7 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
         if curr_message_number < min_message_number:
             break
         highest_processed_message_number = max(curr_message_number, highest_processed_message_number)
-        expires = datetime.datetime.fromisoformat(message["expires"][:-1]) # remove trailing 'Z'
+        expires = datetime.datetime.fromisoformat(message["expires"][:-1])  # remove trailing 'Z'
         if expires > utcnow():
             messages.append(message)
             log.debug("Message %s ('%s') has been retrieved from queue '%s' in "
