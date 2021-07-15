@@ -30,7 +30,7 @@ TAGS = ${BRANCH_TAG} ${VERSION}
 ifeq ($(strip ${REGISTRY}),)
 TAG_ARGS = --tag app_drift-base:latest
 else
-TAG_ARGS = $(foreach TAG,${TAGS},"--tag ${IMAGE_NAME}:${TAG}")
+TAG_ARGS = $(foreach TAG,${TAGS},--tag ${IMAGE_NAME}:${TAG})
 endif
 
 # Helper targets
