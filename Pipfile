@@ -17,6 +17,7 @@ python-driftconfig = "*"
 #python-driftconfig = {editable = true, extras = ["redis-backend", "s3-backend"], path = "./../drift-config"}
 psycogreen = "*"
 aws-assume-role-lib = "*"
+ddtrace = "*"
 
 [dev-packages]
 pytest = "*"
