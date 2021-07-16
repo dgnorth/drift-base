@@ -173,6 +173,7 @@ def process_flexmatch_event(flexmatch_event):
 
 def _get_player_regions(player_id):
     """ Return a list of regions for whom 'player_id' has reported latency values. """
+    # FIXME: Using KEYS is fairly slow; consider adding a set keyd on the player holding all regions he reports
     return [e.decode("ascii").split(':')[-1] for e in g.redis.conn.keys(_get_player_latency_key(player_id) + '*')]
 
 def _get_player_latency_key(player_id):
@@ -514,6 +515,7 @@ class _LockedTicket(object):
     Context manager for synchronizing creation and modification of matchmaking tickets.
     """
     MAX_LOCK_WAIT_TIME_SECONDS = 30
+    TICKET_TTL_SECONDS = 10 * 60
 
     def __init__(self, key):
         self._key = key
@@ -544,7 +546,7 @@ class _LockedTicket(object):
                 if self._modified is True and exc_type in (None, GameliftClientException):
                     pipe.delete(self._key)  # Always update the ticket wholesale, i.e. don't leave stale fields behind.
                     if self._ticket:
-                        pipe.set(self._key, self._jsonify_ticket())
+                        pipe.set(self._key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS, keepttl=True)
                 pipe.execute()
             self._lock.release()
 
@@ -553,6 +555,7 @@ class _LockedTicket(object):
             if datefield in self._ticket:
                 self._ticket[datefield] = str(self._ticket[datefield])
         return json.dumps(self._ticket)
+
 
 class GameliftClientException(Exception):
     def __init__(self, user_message, debug_info):
