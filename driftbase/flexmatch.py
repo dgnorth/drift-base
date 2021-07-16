@@ -268,7 +268,8 @@ def _process_searching_event(event):
             ticket_lock.ticket = player_ticket
             updated_tickets.add(ticket_key)
             player_ids_to_notify.add(player_id)
-    _post_matchmaking_event_to_members(player_ids_to_notify, "MatchmakingSearching")
+    if player_ids_to_notify:
+        _post_matchmaking_event_to_members(player_ids_to_notify, "MatchmakingSearching")
 
 def _process_potential_match_event(event):
     player_ids_to_notify = set()
@@ -320,7 +321,8 @@ def _process_potential_match_event(event):
         "match_id":  match_id,
         "acceptance_timeout": acceptance_timeout
     }
-    _post_matchmaking_event_to_members(player_ids_to_notify, "PotentialMatchCreated", event_data=message_data)
+    if player_ids_to_notify:
+        _post_matchmaking_event_to_members(player_ids_to_notify, "PotentialMatchCreated", event_data=message_data)
 
 def _process_matchmaking_succeeded_event(event):
     game_session_info = event["gameSessionInfo"]
@@ -392,6 +394,8 @@ def _process_matchmaking_cancelled_event(event):
                 if player_ticket["Status"] == "COMPLETED" and ticket_id != player_ticket["TicketId"]:
                     # This is not a flexmatch status, but I want to differentiate between statuses arising from the
                     # cancelling of backfill tickets and other states
+                    log.info(f"Found player {player_id} in a foreign ticket being cancelled, where the actual players ticket is in 'COMPLETED' state."
+                             " Inferring a backfill ticket being cancelled and thus setting player ticket to 'MATCH_COMPLETE'.")
                     player_ticket["Status"] = "MATCH_COMPLETE"
                 else:
                     player_ticket["Status"] = "CANCELLED"
@@ -419,7 +423,8 @@ def _process_accept_match_event(event):
                         ticket_player["Accepted"] = acceptance
                         ticket_lock.ticket = player_ticket
                         break
-    _post_matchmaking_event_to_members(list(acceptance_by_player_id), "AcceptMatch", acceptance_by_player_id)
+    if acceptance_by_player_id:
+        _post_matchmaking_event_to_members(list(acceptance_by_player_id), "AcceptMatch", acceptance_by_player_id)
 
 def _process_accept_match_completed_event(event):
     # This may be totally pointless as there should be a followup event, and in case of rejection, multiple events.
@@ -464,7 +469,8 @@ def _process_matchmaking_timeout_event(event):
                 player_ticket["Status"] = "TIMED_OUT"
                 ticket_lock.ticket = player_ticket
                 players_to_notify.add(player_id)
-    _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": "TimeOut"})
+    if players_to_notify:
+        _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": "TimeOut"})
 
 def _process_matchmaking_failed_event(event):
     # FIXME: This is pretty much the same as a timeout; refactor
@@ -490,7 +496,8 @@ def _process_matchmaking_failed_event(event):
                 player_ticket["Status"] = "FAILED"
                 ticket_lock.ticket = player_ticket
                 players_to_notify.add(player_id)
-    _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": event["reason"]})
+    if players_to_notify:
+        _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": event["reason"]})
 
 
 class GameLiftRegionClient(object):
