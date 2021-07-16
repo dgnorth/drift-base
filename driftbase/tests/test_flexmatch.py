@@ -386,7 +386,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         notification, _ = self.get_player_notification("matchmaking", "PotentialMatchCreated")
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["event"] == "PotentialMatchCreated")
-        self.assertSetEqual(set(notification["data"]["winners"]), {self.player_id})
+        self.assertSetEqual(set(notification["data"]["teams"]["winners"]), {self.player_id})
         self.assertEqual(notification["data"]["match_id"], details["matchId"])
         # Test with acceptanceRequired as True
         with self._managed_bearer_token_user():
@@ -399,7 +399,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         # Verify notification sent
         notification, _ = self.get_player_notification("matchmaking", "PotentialMatchCreated")
         self.assertTrue(notification["event"] == "PotentialMatchCreated")
-        self.assertSetEqual(set(notification["data"]["winners"]), {self.player_id})
+        self.assertSetEqual(set(notification["data"]["teams"]["winners"]), {self.player_id})
         self.assertTrue(notification["data"]["acceptance_required"])
         self.assertEqual(notification["data"]["acceptance_timeout"], acceptance_timeout)
 

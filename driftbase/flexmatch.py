@@ -281,7 +281,9 @@ def _process_potential_match_event(event):
             players_by_ticket[ticket_id].add(player_id)
             players_by_team[player["team"]].add(player_id)
 
+    match_id = event["matchId"]
     acceptance_required = event["acceptanceRequired"]
+    acceptance_timeout = event.get("acceptanceTimeout", None)
     new_state = "REQUIRES_ACCEPTANCE" if acceptance_required else "PLACING"
     game_session_info = event["gameSessionInfo"]
     for player in game_session_info["players"]:
@@ -307,14 +309,17 @@ def _process_potential_match_event(event):
                         break
             log.info(f"Updating ticket {ticket['ticketId']} for player key {ticket_key} from {player_ticket['Status']} to {new_state}")
             player_ticket["Status"] = new_state
-            player_ticket["MatchId"] = event["matchId"]
+            player_ticket["MatchId"] = match_id
             player_ids_to_notify.add(player_id)
             ticket_lock.ticket = player_ticket
 
-    message_data = {team: list(players) for team, players in players_by_team.items()}
-    message_data["acceptance_required"] = event["acceptanceRequired"]
-    message_data["match_id"] = event["matchId"];
-    message_data["acceptance_timeout"] = event.get("acceptanceTimeout", None)
+    team_data = {team: list(players) for team, players in players_by_team.items()}
+    message_data = {
+        "teams": team_data,
+        "acceptance_required": acceptance_required,
+        "match_id":  match_id,
+        "acceptance_timeout": acceptance_timeout
+    }
     _post_matchmaking_event_to_members(player_ids_to_notify, "PotentialMatchCreated", event_data=message_data)
 
 def _process_matchmaking_succeeded_event(event):
