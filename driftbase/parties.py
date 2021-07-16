@@ -102,7 +102,8 @@ def accept_party_invite(invite_id, sending_player, accepting_player):
 
 def get_player_party(player_id):
     scoped_player_party_key = make_player_party_key(player_id)
-    return g.redis.conn.get(scoped_player_party_key)
+    party_id = g.redis.conn.get(scoped_player_party_key)
+    return int(party_id) if party_id else party_id
 
 
 def get_party_members(party_id):

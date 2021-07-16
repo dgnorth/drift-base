@@ -190,7 +190,7 @@ def _get_player_party_members(player_id):
     in a party, the returned list will contain only 'player_id'"""
     party_id = get_player_party(player_id)
     if party_id:
-        return get_party_members(int(party_id))
+        return get_party_members(party_id)
     return [player_id]
 
 def _get_player_attributes(player_id):

@@ -267,7 +267,6 @@ class PartiesAPI(MethodView):
         if party_id is None:
             abort(http_client.NOT_FOUND)
 
-        party_id = int(party_id)
         party_members = get_party_members(party_id)
         member_query = g.db.query(CorePlayer.player_id, CorePlayer.player_name).filter(CorePlayer.player_id.in_(party_members))
         response, response_header = make_party_response(party_id, member_query.all())
