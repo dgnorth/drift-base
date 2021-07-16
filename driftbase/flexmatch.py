@@ -546,7 +546,7 @@ class _LockedTicket(object):
                 if self._modified is True and exc_type in (None, GameliftClientException):
                     pipe.delete(self._key)  # Always update the ticket wholesale, i.e. don't leave stale fields behind.
                     if self._ticket:
-                        pipe.set(self._key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS, keepttl=True)
+                        pipe.set(self._key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS)
                 pipe.execute()
             self._lock.release()
 
