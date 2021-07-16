@@ -37,8 +37,15 @@ class TestFlexMatchPlayerAPI(BaseCloudkitTest):
     def test_delete_api(self):
         self.make_player()
         flexmatch_url = self.endpoints["flexmatch"]
-        with patch.object(flexmatch, 'cancel_player_ticket', return_value={}):
-            self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
+        with patch.object(flexmatch, 'cancel_player_ticket', return_value=None):
+            response = self.delete(flexmatch_url, expected_status_code=http_client.OK).json()
+            self.assertEqual(response["Status"], "NoTicketFound")
+        with patch.object(flexmatch, 'cancel_player_ticket', return_value="TicketState"):
+            response = self.delete(flexmatch_url, expected_status_code=http_client.OK).json()
+            self.assertEqual(response["Status"], "TicketState")
+        with patch.object(flexmatch, 'cancel_player_ticket', return_value={"Key": "Value"}):
+            response = self.delete(flexmatch_url, expected_status_code=http_client.OK).json()
+            self.assertEqual(response["Status"], "Deleted")
 
 
 class _BaseFlexmatchTest(BaseCloudkitTest):
@@ -228,14 +235,15 @@ class FlexMatchTest(_BaseFlexmatchTest):
         flexmatch_url = self.endpoints["flexmatch"]
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             # delete without a ticket, expect NOT_FOUND
-            self.delete(flexmatch_url, expected_status_code=http_client.NOT_FOUND)
+            response = self.delete(flexmatch_url, expected_status_code=http_client.OK).json()
+            self.assertEqual(response["Status"], "NoTicketFound")
             # start the matchmaking and then stop it.  Expect OK back
             response = self.post(flexmatch_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
             self.assertTrue(response["Status"] == "QUEUED")
             # Check that we have a stored ticket
             response = self.get(flexmatch_url, expected_status_code=http_client.OK)
             self.assertIn("TicketId", response.json())
-            self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
+            self.delete(flexmatch_url, expected_status_code=http_client.OK)
             # Check that the ticket is indeed gone
             response = self.get(flexmatch_url, expected_status_code=http_client.OK)
             self.assertDictEqual(response.json(), {})
@@ -289,7 +297,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
                 response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
                 self.assertIn("TicketId", response)
                 # Attempt to delete
-                self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
+                self.delete(flexmatch_url, expected_status_code=http_client.OK)
                 # Ticket should be cleared
                 response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
                 self.assertNotIn("TicketId", response)
@@ -306,7 +314,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
             response = self.post(flexmatch_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
             # member then cancels
             self.auth(member["name"])
-            self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
+            response = self.delete(flexmatch_url, expected_status_code=http_client.OK).json()
+            self.assertEqual(response["Status"], "Deleted")
 
     def test_party_members_get_notified_if_ticket_is_cancelled(self):
         member, host = self._create_party()
@@ -316,7 +325,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
             response = self.post(flexmatch_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
             # host then cancels
             self.auth(username=host["name"])
-            self.delete(flexmatch_url, expected_status_code=http_client.NO_CONTENT)
+            self.delete(flexmatch_url, expected_status_code=http_client.OK)
             # host should have a notification
             notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
             self.assertIsInstance(notification, dict)

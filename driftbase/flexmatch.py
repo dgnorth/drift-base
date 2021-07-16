@@ -299,6 +299,8 @@ def _process_potential_match_event(event):
                 # If we've recorded a session, then the player has been placed in a match already
                 log.info(f"Player {player_id} has a session already. Not updating {player_ticket['TicketId']}")
                 continue
+            if player_ticket["Status"] == new_state:
+                continue
             if player_ticket["Status"] not in ("QUEUED", "SEARCHING", "REQUIRES_ACCEPTANCE", "PLACING"):
                 log.info(f"PotentialMatchCreated event for ticket {player_ticket['TicketId']} in state {player_ticket['Status']} doesn't make sense.  Probably out of order delivery; ignoring.")
                 continue
