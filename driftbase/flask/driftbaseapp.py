@@ -6,5 +6,11 @@ monkey.patch_all()
 from psycogreen.gevent import patch_psycopg
 patch_psycopg()
 
-import drift.contrib.flask.datadogapp
-app = drift.contrib.flask.datadogapp.app
+import os
+
+if os.environ.get('ENABLE_DATADOG_APM', '0') == '1':
+    import ddtrace
+    ddtrace.patch_all(logging=True)
+
+from drift.flaskfactory import drift_app
+app = drift_app()
