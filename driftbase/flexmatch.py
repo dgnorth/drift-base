@@ -242,7 +242,7 @@ def _process_searching_event(event):
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
-            if player_ticket is None:  # This has to be a back fill ticket, i.e. not issued by us.
+            if player_ticket is None:  # This is either a back fill ticket (i.e. not issued by us) or an event for a already deleted ticket.
                 log.info(f"Ignoring back-fill ticket with player {player_id} in it as current player.")
                 continue
             if ticket_key in updated_tickets:
