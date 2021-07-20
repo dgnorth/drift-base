@@ -223,7 +223,7 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
                 invite_id = pipe.incr(scoped_invite_id_key)
                 scoped_invite_key = make_party_invite_key(invite_id)
                 pipe.multi()
-                pipe.hset(scoped_invite_key, mapping={b'from': sending_player_id, b'to': invited_player_id})
+                pipe.hset(scoped_invite_key, mapping={'from': sending_player_id, 'to': invited_player_id})
                 pipe.zadd(sending_player_invites_key, mapping={invite_id: invited_player_id})
                 pipe.execute()
                 return invite_id
