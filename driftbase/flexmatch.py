@@ -174,7 +174,7 @@ def process_flexmatch_event(flexmatch_event):
 def _get_player_regions(player_id):
     """ Return a list of regions for whom 'player_id' has reported latency values. """
     # FIXME: Using KEYS is fairly slow; consider adding a set keyd on the player holding all regions he reports
-    return [e.decode("ascii").split(':')[-1] for e in g.redis.conn.keys(_get_player_latency_key(player_id) + '*')]
+    return [e.split(':')[-1] for e in g.redis.conn.keys(_get_player_latency_key(player_id) + '*')]
 
 def _get_player_latency_key(player_id):
     return g.redis.make_key(f"player:{player_id}:latencies:")

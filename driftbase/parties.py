@@ -58,7 +58,7 @@ def accept_party_invite(invite_id, sending_player, accepting_player):
                 if not invite:
                     abort(http_client.NOT_FOUND)
 
-                if int(invite[b'from']) != sending_player or int(invite[b'to']) != accepting_player:
+                if int(invite['from']) != sending_player or int(invite['to']) != accepting_player:
                     abort(http_client.BAD_REQUEST, message="Invite doesn't match players")
 
                 if accepting_player_party_id and sending_player_party_id != accepting_player_party_id:
@@ -254,8 +254,8 @@ def decline_party_invite(invite_id, declining_player_id):
                 if not invite:
                     abort(http_client.NOT_FOUND)
 
-                invite_sender_id = invite.get(b'from')
-                invite_receiver_id = invite.get(b'to')
+                invite_sender_id = invite.get('from')
+                invite_receiver_id = invite.get('to')
                 if not invite_receiver_id:
                     log.debug("Party invite {} does not contain the invited player".format(invite_id))
                     abort(http_client.BAD_REQUEST, message="Inviting player doesn't match the invite")
