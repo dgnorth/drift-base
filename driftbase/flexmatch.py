@@ -235,7 +235,6 @@ def _process_searching_event(event):
             players_by_ticket[ticket_id].add(int(player["playerId"]))
 
     updated_tickets = set()
-    player_ids_to_notify = set()
     game_session_info = event["gameSessionInfo"]
     for player in game_session_info["players"]:
         player_id = int(player["playerId"])
@@ -267,9 +266,7 @@ def _process_searching_event(event):
             player_ticket["Status"] = "SEARCHING"
             ticket_lock.ticket = player_ticket
             updated_tickets.add(ticket_key)
-            player_ids_to_notify.add(player_id)
-    if player_ids_to_notify:
-        _post_matchmaking_event_to_members(player_ids_to_notify, "MatchmakingSearching")
+            _post_matchmaking_event_to_members(player_id, "MatchmakingSearching")
 
 def _process_potential_match_event(event):
     player_ids_to_notify = set()
@@ -281,6 +278,7 @@ def _process_potential_match_event(event):
             player_id = int(player["playerId"])
             players_by_ticket[ticket_id].add(player_id)
             players_by_team[player["team"]].add(player_id)
+    team_data = {team: list(players) for team, players in players_by_team.items()}
 
     match_id = event["matchId"]
     acceptance_required = event["acceptanceRequired"]
@@ -313,18 +311,15 @@ def _process_potential_match_event(event):
             log.info(f"Updating ticket {ticket['ticketId']} for player key {ticket_key} from {player_ticket['Status']} to {new_state}")
             player_ticket["Status"] = new_state
             player_ticket["MatchId"] = match_id
-            player_ids_to_notify.add(player_id)
             ticket_lock.ticket = player_ticket
 
-    team_data = {team: list(players) for team, players in players_by_team.items()}
-    message_data = {
-        "teams": team_data,
-        "acceptance_required": acceptance_required,
-        "match_id":  match_id,
-        "acceptance_timeout": acceptance_timeout
-    }
-    if player_ids_to_notify:
-        _post_matchmaking_event_to_members(player_ids_to_notify, "PotentialMatchCreated", event_data=message_data)
+            message_data = {
+                "teams": team_data,
+                "acceptance_required": acceptance_required,
+                "match_id":  match_id,
+                "acceptance_timeout": acceptance_timeout
+            }
+            _post_matchmaking_event_to_members(player_id, "PotentialMatchCreated", event_data=message_data)
 
 def _process_matchmaking_succeeded_event(event):
     game_session_info = event["gameSessionInfo"]
@@ -374,14 +369,13 @@ def _process_matchmaking_succeeded_event(event):
             })
             ticket_lock.ticket = player_ticket
             for ticket_player in player_ticket["Players"]:
-                players_to_notify.add(int(ticket_player["PlayerId"]))
+                receiver_id = int(ticket_player["PlayerId"])
+                event_data = {
+                    "connection_string": connection_string,
+                    "options": connection_info_by_player_id[receiver_id]
+                }
+                _post_matchmaking_event_to_members([receiver_id], "MatchmakingSuccess", event_data=event_data)
 
-    for player_id in players_to_notify:
-        event_data = {
-            "connection_string": connection_string,
-            "options": connection_info_by_player_id[player_id]
-        }
-        _post_matchmaking_event_to_members([player_id], "MatchmakingSuccess", event_data=event_data)
 
 def _process_matchmaking_cancelled_event(event):
     for ticket in event["tickets"]:

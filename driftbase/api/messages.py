@@ -269,26 +269,27 @@ def post_message(exchange, exchange_id, queue, payload, expire_seconds=None, sen
 
     expire_seconds = expire_seconds or DEFAULT_EXPIRE_SECONDS
     message_id = str(uuid.uuid4())
-    message_number = incr_message_number(exchange, exchange_id)
     timestamp = utcnow()
     expires = timestamp + datetime.timedelta(seconds=expire_seconds)
-    message = {
-        "timestamp": timestamp.isoformat() + "Z",
-        "expires": expires.isoformat() + "Z",
-        "sender_id": 0 if sender_system else current_user["player_id"],
-        "message_id": message_id,
-        "message_number": message_number,
-        "payload": payload,
-        "queue": queue,
-        "exchange": exchange,
-        "exchange_id": exchange_id,
-    }
-
-    key = "messages:%s-%s" % (exchange, exchange_id)
-    val = json.dumps(message, default=json_serial)
 
     lock_key = "lockmessage_%s_%s" % (exchange, exchange_id)
     with g.redis.lock(lock_key):
+        message_number = incr_message_number(exchange, exchange_id)
+        message = {
+            "timestamp": timestamp.isoformat() + "Z",
+            "expires": expires.isoformat() + "Z",
+            "sender_id": 0 if sender_system else current_user["player_id"],
+            "message_id": message_id,
+            "message_number": message_number,
+            "payload": payload,
+            "queue": queue,
+            "exchange": exchange,
+            "exchange_id": exchange_id,
+        }
+
+        key = "messages:%s-%s" % (exchange, exchange_id)
+        val = json.dumps(message, default=json_serial)
+        log.info(f"Inserting message {message_id} with message number {message_number} into {exchange} exchange for {exchange_id}")
         k = g.redis.make_key(key)
         g.redis.conn.rpush(k, val)
         g.redis.conn.expire(k, MESSAGE_EXCHANGE_TTL)
