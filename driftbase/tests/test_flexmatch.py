@@ -356,6 +356,24 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.assertIsInstance(notification, dict)
             self.assertEqual(f"PlayerSessionId=bleble-{guy['id']}-flefle?PlayerId={guy['id']}", notification["data"]["options"])
 
+    def test_ticket_is_marked_match_completed_if_ticket_ttl_is_lower_than_max_rejoin_time(self):
+        username, ticket = self._initiate_matchmaking()
+        player_id = self.player_id
+        events_url = self.endpoints["flexmatch"] + "events"
+        with self._managed_bearer_token_user():
+            data = copy.copy(_matchmaking_event_template)
+            details = self._get_event_details(ticket["TicketId"], [
+                {"playerId": player_id, "playerSessionId": f"bleble-{player_id}-flefle"}])
+            details["type"] = "MatchmakingSucceeded"
+            details["gameSessionInfo"]["ipAddress"] = "1.2.3.4"
+            details["gameSessionInfo"]["port"] = "7780"
+            data["detail"] = details
+            self.put(events_url, data=data, expected_status_code=http_client.OK)
+        self.auth(username)
+        with patch.object(flexmatch._LockedTicket, 'MAX_REJOIN_TIME', 0):
+            response = self.get(self.endpoints["flexmatch"], expected_status_code=http_client.OK).json()
+            self.assertEqual(response["Status"], "MATCH_COMPLETE")
+
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):

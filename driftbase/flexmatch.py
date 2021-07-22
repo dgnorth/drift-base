@@ -168,7 +168,6 @@ def process_flexmatch_event(flexmatch_event):
     raise RuntimeError(f"Unknown event '{event_type}'")
 
 
-
 # Helpers
 
 def _get_player_regions(player_id):
@@ -328,7 +327,6 @@ def _process_matchmaking_succeeded_event(event):
     connection_string = f"{ip_address}:{port}"
     connection_info_by_player_id = {}
     players_by_ticket = defaultdict(set)  # For sanity checking
-    players_to_notify = set()
     for ticket in event["tickets"]:
         ticket_id = ticket["ticketId"]
         for player in ticket["players"]:
@@ -524,6 +522,7 @@ class _LockedTicket(object):
     """
     MAX_LOCK_WAIT_TIME_SECONDS = 30
     TICKET_TTL_SECONDS = 10 * 60
+    MAX_REJOIN_TIME = 3 * 60  # You'll only be able to rejoin for the first 3 minutes
 
     def __init__(self, key):
         self._key = key
@@ -545,7 +544,13 @@ class _LockedTicket(object):
         self._lock.acquire(blocking=True)
         ticket = self._redis.conn.get(self._key)
         if ticket is not None:
-            self._ticket = json.loads(ticket)
+            ticket = json.loads(ticket)
+            if ticket["Status"] == "COMPLETED":
+                ttl = self._redis.conn.ttl(self._key)
+                if self.TICKET_TTL_SECONDS - ttl >= self.MAX_REJOIN_TIME:
+                    ticket["Status"] = "MATCH_COMPLETE"
+                    self._modified = True
+            self._ticket = ticket
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
