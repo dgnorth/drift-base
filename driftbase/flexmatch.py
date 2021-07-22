@@ -24,8 +24,6 @@ log = logging.getLogger(__name__)
 
 def update_player_latency(player_id, region, latency_ms):
     region_key = _get_player_latency_key(player_id) + region
-    decodes_responses = g.redis.conn.connection_pool.connection_kwargs.get("decode_responses", "FAILED")
-    log.warning(f"DEBUG: Redis decodes responses: {decodes_responses}")
     with g.redis.conn.pipeline() as pipe:
         pipe.lpush(region_key, latency_ms)
         pipe.ltrim(region_key, 0, NUM_VALUES_FOR_LATENCY_AVERAGE-1)
