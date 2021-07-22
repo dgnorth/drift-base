@@ -8,7 +8,8 @@ log = logging.getLogger(__name__)
 
 TIER_DEFAULTS = {
     "aws_gamelift_role": "",
-    "valid_regions": ["eu-west-1"]
+    "valid_regions": ["eu-west-1"],
+    "max_rejoin_time_seconds": 2 * 60
 }
 
 def drift_init_extension(app, **kwargs):

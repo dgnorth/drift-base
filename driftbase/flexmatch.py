@@ -132,12 +132,16 @@ def update_player_acceptance(player_id, match_id, acceptance):
         except ClientError as e:
             raise GameliftClientException(f"Failed to update acceptance for player {player_id}, ticket {ticket_id}", str(e))
 
-def get_valid_regions():
+def _get_tenant_config_value(config_key):
+    default_value = TIER_DEFAULTS.get(config_key, None)
     tenant = g.conf.tenant
-    default_regions = TIER_DEFAULTS["valid_regions"]
     if tenant:
-        return g.conf.tenant.get("gamelift", {}).get("valid_regions", default_regions)
-    return default_regions
+        return g.conf.tenant.get("gamelift", {}).get(config_key, default_value)  # FIXME: should be keyed on flexmatch rather than gamelift
+    return default_value
+
+def get_valid_regions():
+    return _get_tenant_config_value("valid_regions")
+
 
 def process_flexmatch_event(flexmatch_event):
     event = _get_event_details(flexmatch_event)
@@ -172,7 +176,7 @@ def process_flexmatch_event(flexmatch_event):
 
 def _get_player_regions(player_id):
     """ Return a list of regions for whom 'player_id' has reported latency values. """
-    # FIXME: Using KEYS is fairly slow; consider adding a set keyd on the player holding all regions he reports
+    # FIXME: Using KEYS is fairly slow; consider adding a set keyed on the player holding all regions he reports
     return [e.split(':')[-1] for e in g.redis.conn.keys(_get_player_latency_key(player_id) + '*')]
 
 def _get_player_latency_key(player_id):
@@ -211,11 +215,6 @@ def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=N
     for receiver_id in receiving_player_ids:
         post_message("players", receiver_id, "matchmaking", payload, expiry, sender_system=True)
 
-def _get_gamelift_role():
-    default_role = TIER_DEFAULTS["aws_gamelift_role"]
-    if g.conf.tenant:
-        return g.conf.tenant.get("gamelift", {}).get("assume_role", default_role)
-    return default_role
 
 def _get_event_details(event):
     if event.get("detail-type", None) != "GameLift Matchmaking Event":
@@ -505,7 +504,7 @@ class GameLiftRegionClient(object):
             session = self.__class__.__gamelift_sessions_by_region.get(region)
             if session is None:
                 session = boto3.Session(region_name=self.region)
-                role_to_assume = _get_gamelift_role()
+                role_to_assume = _get_tenant_config_value("aws_gamelift_role")
                 if role_to_assume:
                     session = assume_role(session, role_to_assume)
                 self.__class__.__gamelift_sessions_by_region[region] = session
@@ -522,7 +521,7 @@ class _LockedTicket(object):
     """
     MAX_LOCK_WAIT_TIME_SECONDS = 30
     TICKET_TTL_SECONDS = 10 * 60
-    MAX_REJOIN_TIME = 3 * 60  # You'll only be able to rejoin for the first 3 minutes
+    MAX_REJOIN_TIME = None
 
     def __init__(self, key):
         self._key = key
@@ -530,6 +529,8 @@ class _LockedTicket(object):
         self._modified = False
         self._ticket = None
         self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
+        if self.MAX_REJOIN_TIME is None:  # deferred initialization of class variable as we're not in app context at import time.
+            self.__class__.MAX_REJOIN_TIME = _get_tenant_config_value("max_rejoin_time_seconds")
 
     @property
     def ticket(self):
