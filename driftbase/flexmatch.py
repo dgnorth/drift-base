@@ -38,7 +38,7 @@ def get_player_latency_averages(player_id):
             pipe.lrange(player_latency_key + region, 0, NUM_VALUES_FOR_LATENCY_AVERAGE)
         results = pipe.execute()
     return {
-        region: int(sum(float(latency) for latency in latencies) / min(NUM_VALUES_FOR_LATENCY_AVERAGE, len(latencies)))  # FIXME: return default values if no values have been reported?
+        region: int(sum(float(latency) for latency in latencies) / min(NUM_VALUES_FOR_LATENCY_AVERAGE, len(latencies)))
         for region, latencies in zip(regions, results)
     }
 
@@ -133,12 +133,6 @@ def update_player_acceptance(player_id, match_id, acceptance):
         except ClientError as e:
             raise GameliftClientException(f"Failed to update acceptance for player {player_id}, ticket {ticket_id}", str(e))
 
-def _get_tenant_config_value(config_key):
-    default_value = TIER_DEFAULTS.get(config_key, None)
-    tenant = g.conf.tenant
-    if tenant:
-        return g.conf.tenant.get("gamelift", {}).get(config_key, default_value)  # FIXME: should be keyed on flexmatch rather than gamelift
-    return default_value
 
 def get_valid_regions():
     return _get_tenant_config_value("valid_regions")
@@ -205,6 +199,13 @@ def _get_player_party_members(player_id):
 def _get_player_attributes(player_id):
     # FIXME: Placeholder for extra matchmaking attribute gathering per player
     return {"skill": {"N": 50}}
+
+def _get_tenant_config_value(config_key):
+    default_value = TIER_DEFAULTS.get(config_key, None)
+    tenant = g.conf.tenant
+    if tenant:
+        return g.conf.tenant.get("flexmatch", {}).get(config_key, default_value)
+    return default_value
 
 def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=None, expiry=30):
     """ Insert a event into the 'matchmaking' queue of the 'players' exchange. """

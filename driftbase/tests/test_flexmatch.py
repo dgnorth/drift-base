@@ -113,8 +113,6 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
             del self.headers["Authorization"]
 
     def _setup_service_user_with_bearer_token(self):
-        # FIXME: Might be cleaner to use patching instead of populating the actual config. The upside with using config
-        #  is that it exposes the intended use case more clearly
         conf = get_config()
         ts = conf.table_store
         # setup access roles
