@@ -33,6 +33,8 @@ def update_player_latency(player_id, region, latency_ms):
 def get_player_latency_averages(player_id):
     player_latency_key = _get_player_latency_key(player_id)
     regions = _get_player_regions(player_id)
+    if any((isinstance(r, bytes) for r in regions)):
+        log.warning(f"DEBUG: regions are bytes, redis lib is configured with decode_responses set to {g.redis.conn.connection_pool.connection_kwargs.get('decode_responses', 'WOOT?')}")
     with g.redis.conn.pipeline() as pipe:
         for region in regions:
             pipe.lrange(player_latency_key + region, 0, NUM_VALUES_FOR_LATENCY_AVERAGE)
