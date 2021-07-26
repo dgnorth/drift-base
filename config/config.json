@@ -51,7 +51,6 @@
         "driftbase.auth"
     ],
     "resource_attributes": {
-        "drift.core.resources.apitarget": {"api": "drift", "requires_api_key": true},
         "drift.core.resources.postgres": {"models": ["driftbase.models.db"]}
     },
     "default_timeout": 5,
