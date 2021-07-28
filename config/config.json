@@ -18,7 +18,6 @@
         "driftbase.api.events",
         "driftbase.api.counters",
         "driftbase.api.friendships",
-        "driftbase.api.useridentities",
         "driftbase.api.matches",
         "driftbase.api.servers",
         "driftbase.api.machines",
