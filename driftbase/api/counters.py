@@ -1,19 +1,17 @@
-import logging
 import collections
-import time
-
-import six
 import http.client as http_client
-
+import logging
+import marshmallow as ma
+import six
+import time
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-from drift.core.extensions.urlregistry import Endpoints
 
+from drift.core.extensions.urlregistry import Endpoints
 from driftbase.models.db import CorePlayer, Counter, CounterEntry
-from driftbase.utils import get_all_counters, get_counter
 from driftbase.players import get_playergroup_ids
+from driftbase.utils import get_all_counters, get_counter
 
 log = logging.getLogger(__name__)
 bp = Blueprint("counters", __name__, url_prefix="/counters", description="Counters")
@@ -30,8 +28,6 @@ def drift_init_extension(app, api, **kwargs):
 
 @bp.route('/', endpoint='list')
 class CountersApi(MethodView):
-
-    get_args = reqparse.RequestParser()
 
     def get(self):
         """
@@ -50,30 +46,23 @@ class CountersApi(MethodView):
 
         return jsonify(ret), http_client.OK, {'Cache-Control': "max_age=60"}
 
+class CounterAPIGetQuerySchema(ma.Schema):
+    num = ma.fields.Integer(load_default=NUM_RESULTS)
+    include = ma.fields.List(ma.fields.Integer(), load_default=[])
+    player_id = ma.fields.List(ma.fields.Integer(), load_default=[])
+    player_group = ma.fields.String()
+    reverse = ma.fields.Boolean(load_default=False)
 
 @bp.route('/<int:counter_id>', endpoint='entry')
 class CounterApi(MethodView):
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("num", type=int, default=NUM_RESULTS)
-    get_args.add_argument("include", type=int, action='append')
-    # TODO: Sunset this in favour of player_group
-    get_args.add_argument("player_id", type=int, action='append')
-    get_args.add_argument("player_group", type=str)
-    get_args.add_argument("reverse", type=bool)
 
-    #@namespace.expect(get_args)
-    def get(self, counter_id):
+    @bp.arguments(CounterAPIGetQuerySchema, location='query')
+    def get(self, args, counter_id):
         start_time = time.time()
-        args = self.get_args.parse_args()
-        num = args.get("num") or NUM_RESULTS
+        num = args.get('num') or NUM_RESULTS
         counter = get_counter(counter_id)
         if not counter:
             abort(404)
-
-        filter_player_ids = []
-        reverse = not not args.reverse
-        if args.player_id:
-            filter_player_ids = args.player_id
 
         query = g.db.query(CounterEntry, CorePlayer)
         query = query.filter(CounterEntry.counter_id == counter_id,
@@ -82,14 +71,15 @@ class CounterApi(MethodView):
                              CorePlayer.status == "active",
                              CorePlayer.player_name != u"",)
 
+        filter_player_ids = args.get('player_id')
         if filter_player_ids:
             query = query.filter(CounterEntry.player_id.in_(filter_player_ids))
 
-        if args.player_group:
-            filter_player_ids = get_playergroup_ids(args.player_group)
+        if args.get('player_group'):
+            filter_player_ids = get_playergroup_ids(args['player_group'])
             query = query.filter(CounterEntry.player_id.in_(filter_player_ids))
 
-        if reverse:
+        if args.get('reverse'):
             query = query.order_by(CounterEntry.value)
         else:
             query = query.order_by(-CounterEntry.value)
@@ -99,7 +89,7 @@ class CounterApi(MethodView):
 
         counter_totals = collections.defaultdict(list)
         counter_names = {}
-        if args.include:
+        if args.get('include'):
             all_counters = get_all_counters()
             # inline other counters for the players
             player_ids = [r[0].player_id for r in rows]
@@ -108,7 +98,7 @@ class CounterApi(MethodView):
                                       CounterEntry.value) \
                                .filter(CounterEntry.period == "total",
                                        CounterEntry.player_id.in_(player_ids),
-                                       CounterEntry.counter_id.in_(args.include)) \
+                                       CounterEntry.counter_id.in_(args['include'])) \
                                .all()
             for r in counter_rows:
                 this_player_id = r[0]
@@ -160,6 +150,5 @@ class CounterApi(MethodView):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {}
-    ret["counters"] = url_for("counters.list", _external=True)
+    ret = {"counters": url_for("counters.list", _external=True)}
     return ret
