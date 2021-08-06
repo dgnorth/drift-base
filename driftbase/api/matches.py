@@ -1,16 +1,14 @@
 import datetime
+import http.client as http_client
 import logging
-from contextlib import ExitStack
-
 import marshmallow as ma
-from drift.core.extensions.jwt import current_user, requires_roles
-from drift.core.extensions.urlregistry import Endpoints
+from contextlib import ExitStack
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-import http.client as http_client
 
+from drift.core.extensions.jwt import current_user, requires_roles
+from drift.core.extensions.urlregistry import Endpoints
 from driftbase.matchqueue import process_match_queue
 from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
 from driftbase.utils import log_match_event
@@ -33,26 +31,28 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
+class ActiveMatchesAPIGetQuerySchema(ma.Schema):
+    ref = ma.fields.String()
+    placement = ma.fields.String()
+    realm = ma.fields.String()
+    version = ma.fields.String()
+    player_id = ma.fields.List(ma.fields.Integer(), load_default=[])
+    rows = ma.fields.Integer()
+
+
 @bp.route('/active', endpoint='active')
 class ActiveMatchesAPI(MethodView):
     """UE4 matches available for matchmaking
     """
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("ref", type=str, required=False)
-    get_args.add_argument("placement", type=str, required=False)
-    get_args.add_argument("realm", type=str, required=False)
-    get_args.add_argument("version", type=str, required=False)
-    get_args.add_argument("player_id", type=int, action='append')
-    get_args.add_argument("rows", type=int, required=False)
 
-    def get(self):
+    @bp.arguments(ActiveMatchesAPIGetQuerySchema, location='query')
+    def get(self, args):
         """
         Get active matches
 
         This endpoint used by clients to fetch a list of matches available
         for joining
         """
-        args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
 
         query = g.db.query(Match, Server, Machine)
@@ -71,9 +71,7 @@ class ActiveMatchesAPI(MethodView):
             query = query.filter(Machine.placement == args.get("placement"))
         if args.get("realm"):
             query = query.filter(Machine.realm == args.get("realm"))
-        player_ids = []
-        if args.get("player_id"):
-            player_ids = args.get("player_id")
+        player_ids = args.get("player_id")
 
         query = query.order_by(-Match.num_players, -Match.server_id)
         query = query.limit(num_rows)
@@ -186,20 +184,22 @@ class MatchPutRequestSchema(ma.Schema):
     details = ma.fields.Dict()
 
 
+class MatchesAPIGetQuerySchema(ma.Schema):
+    server_id = ma.fields.Integer()
+    rows = ma.fields.Integer()
+
+
 @bp.route('', endpoint='list')
 class MatchesAPI(MethodView):
     """UE4 match
     """
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("server_id", type=int, required=False)
-    get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
-    def get(self):
+    @bp.arguments(MatchesAPIGetQuerySchema, location='query')
+    def get(self, args):
         """This endpoint used by services and clients to fetch recent matches.
         Dump the DB rows out as json
         """
-        args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
 
         query = g.db.query(Match)
