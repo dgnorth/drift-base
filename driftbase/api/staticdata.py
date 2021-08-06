@@ -5,7 +5,6 @@ import json
 from flask import g, url_for, jsonify
 from flask.views import MethodView
 import marshmallow as ma
-from flask_restx import reqparse
 from flask_smorest import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 
@@ -41,22 +40,20 @@ def get_static_data_ids():
         return {}
 
 
+class StaticDataAPIGetQuerySchema(ma.Schema):
+    static_data_ref = ma.fields.String(metadata=dict(description="A GIT reference tag to get a particular version"))
+
+
 @bp.route('', endpoint='list')
 class StaticDataAPI(MethodView):
 
     no_jwt_check = ['GET']
 
-    get_args = reqparse.RequestParser()
-    get_args.add_argument(
-        "static_data_ref", type=str,
-        help="A GIT reference tag to get a particular version"
-    )
-
-    def get(self):
+    @bp.arguments(StaticDataAPIGetQuerySchema, location='query')
+    def get(self, args):
         """
         Returns server side config that the client needs
         """
-        args = self.get_args.parse_args()
         data = {}
 
         def get_from_url(url):
@@ -94,8 +91,8 @@ class StaticDataAPI(MethodView):
             ref = index_file.get(ref_entry["revision"])
 
             # Override if client is pinned to a particular version
-            if ref_entry.get("allow_client_pin", False) and args.static_data_ref in index_file:
-                ref = index_file[args.static_data_ref]
+            if ref_entry.get("allow_client_pin", False) and args.get('static_data_ref') in index_file:
+                ref = index_file[args.get('static_data_ref')]
                 origin = "Client pin"
 
             def make_data_url(root_url, repository, ref):
