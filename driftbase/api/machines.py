@@ -1,3 +1,5 @@
+import http.client
+
 import datetime
 import logging
 
@@ -7,7 +9,6 @@ from drift.core.extensions.jwt import requires_roles
 from drift.core.extensions.urlregistry import Endpoints
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 import http.client as http_client
 
@@ -69,6 +70,15 @@ class MachinePutResponseSchema(ma.Schema):
     heartbeat_timeout_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the machine times out if no heartbeat is received"))
 
 
+class MachinesAPIGetQuerySchema(ma.Schema):
+    realm = ma.fields.String(required=True, metadata=dict(description="Realm, [aws, local]"))
+    instance_name = ma.fields.String(required=True, metadata=dict(description="Computer name"))
+    instance_id = ma.fields.String()
+    instance_type = ma.fields.String()
+    placement = ma.fields.String()
+    public_ip = ma.fields.String()
+    rows = ma.fields.Integer()
+
 @bp.route('', endpoint='list')
 class MachinesAPI(MethodView):
     """The interface to battle server machines. Each physical machine
@@ -78,25 +88,14 @@ class MachinesAPI(MethodView):
     If an instance gets a new publicIP address for example, it will
     get a new machine resource.
     """
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("realm", type=str, help="Missing realm. Should be one of: aws, local",
-                          required=True)
-    get_args.add_argument("instance_name", help="Missing instance_name. Should be computer name",
-                          type=str, required=True)
-
-    get_args.add_argument("instance_id", type=str, required=False)
-    get_args.add_argument("instance_type", type=str, required=False)
-    get_args.add_argument("placement", type=str, required=False)
-    get_args.add_argument("public_ip", type=str, required=False)
-    get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
     # @namespace.expect(get_args)
-    def get(self):
+    @bp.arguments(MachinesAPIGetQuerySchema, location='query', error_status_code=http.client.BAD_REQUEST)
+    def get(self, args):
         """
         Get a list of machines
         """
-        args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
         query = g.db.query(Machine)
         if args.get("realm", None) not in ("aws", "local"):
@@ -108,7 +107,7 @@ class MachinesAPI(MethodView):
         else:
             missing = []
             for param in ("instance_id", "instance_type", "placement", "public_ip"):
-                if not args[param]:
+                if not args.get(param):
                     missing.append(param)
             if missing:
                 abort(http_client.BAD_REQUEST,
