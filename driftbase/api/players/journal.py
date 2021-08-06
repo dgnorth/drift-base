@@ -2,12 +2,12 @@ import datetime
 import logging
 from operator import itemgetter
 
+import marshmallow as ma
 from dateutil import parser
 from drift.core.extensions.jwt import current_user
 from drift.utils import json_response
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 import http.client as http_client
 
@@ -20,18 +20,20 @@ log = logging.getLogger(__name__)
 bp = Blueprint("player_journal", __name__, url_prefix='/players')
 
 
+class JournalAPIGetQuerySchema(ma.Schema):
+    rows = ma.fields.Integer()
+    include_deleted = ma.fields.Boolean(load_default=False)
+
+
 @bp.route("/<int:player_id>/journal", endpoint="list")
 class JournalAPI(MethodView):
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("rows", type=int)
-    get_args.add_argument("include_deleted", type=bool)
 
-    def get(self, player_id):
+    @bp.arguments(JournalAPIGetQuerySchema, location='query')
+    def get(self, args, player_id):
         """
         Get a list of recent journal entries for the player
         """
         DEFAULT_ROWS = 100
-        args = self.get_args.parse_args()
         can_edit_player(player_id)
 
         # TODO: Custom filters
@@ -40,7 +42,7 @@ class JournalAPI(MethodView):
         if not getattr(args, "include_deleted", False):
             query = query.filter(PlayerJournal.deleted == False)  # noqa: E711
         query = query.order_by(-PlayerJournal.journal_id, -PlayerJournal.sequence_id)
-        query = query.limit(args.rows or DEFAULT_ROWS)
+        query = query.limit(args.get('rows') or DEFAULT_ROWS)
         ret = []
         for entry in query:
             e = entry.as_dict()
