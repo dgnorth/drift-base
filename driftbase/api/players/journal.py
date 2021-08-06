@@ -39,7 +39,7 @@ class JournalAPI(MethodView):
         # TODO: Custom filters
         query = g.db.query(PlayerJournal)
         query = query.filter(PlayerJournal.player_id == player_id)
-        if not getattr(args, "include_deleted", False):
+        if not args.get('include_deleted'):
             query = query.filter(PlayerJournal.deleted == False)  # noqa: E711
         query = query.order_by(-PlayerJournal.journal_id, -PlayerJournal.sequence_id)
         query = query.limit(args.get('rows') or DEFAULT_ROWS)
