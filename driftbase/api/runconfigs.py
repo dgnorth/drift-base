@@ -10,7 +10,6 @@ from drift.core.extensions.jwt import requires_roles
 from drift.core.extensions.urlregistry import Endpoints
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 import http.client as http_client
 
@@ -37,18 +36,19 @@ class RunConfigsPostSchema(ma.Schema):
     details = ma.fields.Dict()
 
 
+class RunConfigsAPIGetQuerySchema(ma.Schema):
+    name = ma.fields.String()
+    rows = ma.fields.Integer()
+
 @bp.route('', endpoint='list')
 class RunConfigsAPI(MethodView):
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("name", type=str)
-    get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
-    def get(self):
-        args = self.get_args.parse_args()
+    @bp.arguments(RunConfigsAPIGetQuerySchema, location='query')
+    def get(self, args):
         num_rows = args.get("rows") or 100
         query = g.db.query(RunConfig)
-        if args["name"]:
+        if args.get("name"):
             query = query.filter(RunConfig.name == args["name"])
         query = query.order_by(-RunConfig.runconfig_id)
         query = query.limit(num_rows)
