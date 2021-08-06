@@ -17,7 +17,6 @@ from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from flask import g, url_for, stream_with_context, Response, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
 import http.client as http_client
 
@@ -154,23 +153,23 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
             abort(http_client.BAD_REQUEST,
                   message="You can only read from an exchange that belongs to you!")
 
+class MessagesExchangeAPIGetQuerySchema(ma.Schema):
+    timeout = ma.fields.Integer(load_default=0)
+    messages_after = ma.fields.Integer(load_default=0)
+    rows = ma.fields.Integer()
+
 
 @bp.route('/<string:exchange>/<int:exchange_id>', endpoint='exchange')
 class MessagesExchangeAPI(MethodView):
     no_jwt_check = ["GET"]
 
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("timeout", type=int)
-    get_args.add_argument("messages_after", type=int)
-    get_args.add_argument("rows", type=int)
-
-    def get(self, exchange, exchange_id):
+    @bp.arguments(MessagesExchangeAPIGetQuerySchema, location='query')
+    def get(self, args, exchange, exchange_id):
         check_can_use_exchange(exchange, exchange_id, read=True)
 
-        args = self.get_args.parse_args()
-        timeout = args.timeout or 0
-        min_message_number = int(args.messages_after or 0) + 1
-        rows = args.rows
+        timeout = args['timeout']
+        min_message_number = args.get('messages_after') + 1
+        rows = args.get('rows')
         if rows:
             rows = int(rows)
 
