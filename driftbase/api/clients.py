@@ -109,7 +109,7 @@ class ClientGetQuerySchema(ma.Schema):
 class ClientsAPI(MethodView):
     no_jwt_check = ['GET']
 
-    @bp.arguments(ClientGetQuerySchema)
+    @bp.arguments(ClientGetQuerySchema, location='query')
     @bp.response(http_client.OK, ClientSchema(many=True))
     def get(self, args):
         """
