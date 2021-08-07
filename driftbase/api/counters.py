@@ -17,7 +17,6 @@ log = logging.getLogger(__name__)
 bp = Blueprint("counters", __name__, url_prefix="/counters", description="Counters")
 endpoints = Endpoints()
 
-
 NUM_RESULTS = 100
 
 
@@ -46,17 +45,19 @@ class CountersApi(MethodView):
 
         return jsonify(ret), http_client.OK, {'Cache-Control': "max_age=60"}
 
-class CounterAPIGetQuerySchema(ma.Schema):
+
+class CounterGetQuerySchema(ma.Schema):
     num = ma.fields.Integer(load_default=NUM_RESULTS)
     include = ma.fields.List(ma.fields.Integer(), load_default=[])
     player_id = ma.fields.List(ma.fields.Integer(), load_default=[])
     player_group = ma.fields.String()
     reverse = ma.fields.Boolean(load_default=False)
 
+
 @bp.route('/<int:counter_id>', endpoint='entry')
 class CounterApi(MethodView):
 
-    @bp.arguments(CounterAPIGetQuerySchema, location='query')
+    @bp.arguments(CounterGetQuerySchema, location='query')
     def get(self, args, counter_id):
         start_time = time.time()
         num = args.get('num') or NUM_RESULTS
@@ -69,7 +70,7 @@ class CounterApi(MethodView):
                              CounterEntry.period == "total",
                              CounterEntry.player_id == CorePlayer.player_id,
                              CorePlayer.status == "active",
-                             CorePlayer.player_name != u"",)
+                             CorePlayer.player_name != u"", )
 
         filter_player_ids = args.get('player_id')
         if filter_player_ids:
@@ -96,10 +97,10 @@ class CounterApi(MethodView):
             counter_rows = g.db.query(CounterEntry.player_id,
                                       CounterEntry.counter_id,
                                       CounterEntry.value) \
-                               .filter(CounterEntry.period == "total",
-                                       CounterEntry.player_id.in_(player_ids),
-                                       CounterEntry.counter_id.in_(args['include'])) \
-                               .all()
+                .filter(CounterEntry.period == "total",
+                        CounterEntry.player_id.in_(player_ids),
+                        CounterEntry.counter_id.in_(args['include'])) \
+                .all()
             for r in counter_rows:
                 this_player_id = r[0]
                 this_counter_id = r[1]

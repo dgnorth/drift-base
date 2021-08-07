@@ -3,17 +3,16 @@
 """
 
 import datetime
+import http.client as http_client
 import logging
-
 import marshmallow as ma
-from drift.core.extensions.jwt import current_user
-from drift.core.extensions.urlregistry import Endpoints
-from drift.utils import json_response
 from flask import g, url_for, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import http.client as http_client
 
+from drift.core.extensions.jwt import current_user
+from drift.core.extensions.urlregistry import Endpoints
+from drift.utils import json_response
 from driftbase.matchqueue import process_match_queue
 from driftbase.models.db import CorePlayer, MatchQueuePlayer, Match, Client, Server
 from driftbase.utils import url_player
@@ -63,7 +62,7 @@ class MatchQueuePostSchema(ma.Schema):
     token = ma.fields.String()
 
 
-class MatchQueueAPIGetQuerySchema(ma.Schema):
+class MatchQueueGetQuerySchema(ma.Schema):
     status = ma.fields.List(ma.fields.String(), load_default=["waiting"])
 
 
@@ -152,7 +151,7 @@ class MatchQueueAPI(MethodView):
         }
         return jsonify(ret), http_client.CREATED, response_header
 
-    @bp.arguments(MatchQueueAPIGetQuerySchema, location='query')
+    @bp.arguments(MatchQueueGetQuerySchema, location='query')
     def get(self, args):
         """
         Get players in the queue
@@ -176,7 +175,7 @@ class MatchQueueAPI(MethodView):
         return jsonify(ret)
 
 
-class MatchQueueEntryAPIDeleteArgsSchema(ma.Schema):
+class MatchQueueEntryDeleteQuerySchema(ma.Schema):
     force = ma.fields.Boolean(load_default=False)
 
 
@@ -198,8 +197,8 @@ class MatchQueueEntryAPI(MethodView):
         server = None
         my_matchqueueplayer, my_player = result
         if current_user and \
-                current_user["player_id"] == my_matchqueueplayer.player_id and \
-                my_matchqueueplayer.match_id:
+            current_user["player_id"] == my_matchqueueplayer.player_id and \
+            my_matchqueueplayer.match_id:
             match = g.db.query(Match).get(my_matchqueueplayer.match_id)
             log.debug("Looking for %s" % match.server_id)
             server = g.db.query(Server).get(match.server_id)
@@ -207,7 +206,7 @@ class MatchQueueEntryAPI(MethodView):
                 log.error("Could not find a server for match %s", my_matchqueueplayer.match_id)
         return jsonify(make_matchqueueplayer_response(my_player, my_matchqueueplayer, server))
 
-    @bp.arguments(MatchQueueEntryAPIDeleteArgsSchema, location='query')
+    @bp.arguments(MatchQueueEntryDeleteQuerySchema, location='query')
     def delete(self, args, player_id):
         """
         Remove a player from the queue

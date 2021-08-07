@@ -31,7 +31,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-class ActiveMatchesAPIGetQuerySchema(ma.Schema):
+class ActiveMatchesGetQuerySchema(ma.Schema):
     ref = ma.fields.String()
     placement = ma.fields.String()
     realm = ma.fields.String()
@@ -45,7 +45,7 @@ class ActiveMatchesAPI(MethodView):
     """UE4 matches available for matchmaking
     """
 
-    @bp.arguments(ActiveMatchesAPIGetQuerySchema, location='query')
+    @bp.arguments(ActiveMatchesGetQuerySchema, location='query')
     def get(self, args):
         """
         Get active matches
@@ -567,7 +567,8 @@ class MatchPlayersAPI(MethodView):
         player_id = args["player_id"]
         team_id = args.get("team_id", None)
 
-        log.info(f"  dug up player_id {player_id} (type {type(player_id)}) and team_id {team_id} (type {type(team_id)})")
+        log.info(
+            f"  dug up player_id {player_id} (type {type(player_id)}) and team_id {team_id} (type {type(team_id)})")
         match = g.db.query(Match).get(match_id)
         if not match:
             log.warning(f" match {match_id} not found. Aborting")
@@ -591,7 +592,8 @@ class MatchPlayersAPI(MethodView):
                 log.warning(f" team_id {team_id} not found. Aborting.")
                 abort(http_client.NOT_FOUND, description="Team not found")
             if team.match_id != match_id:
-                log.warning(f" team_id {team_id} doesn't belong to match {match_id}, it belongs to match {team.match_id}. Aborting.")
+                log.warning(
+                    f" team_id {team_id} doesn't belong to match {match_id}, it belongs to match {team.match_id}. Aborting.")
                 abort(http_client.BAD_REQUEST,
                       description="Team %s is not in match %s" % (team_id, match_id))
 

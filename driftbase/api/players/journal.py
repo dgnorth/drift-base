@@ -1,16 +1,15 @@
 import datetime
+import http.client as http_client
 import logging
-from operator import itemgetter
-
 import marshmallow as ma
 from dateutil import parser
-from drift.core.extensions.jwt import current_user
-from drift.utils import json_response
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import http.client as http_client
+from operator import itemgetter
 
+from drift.core.extensions.jwt import current_user
+from drift.utils import json_response
 from driftbase.models.db import PlayerJournal, GameState
 from driftbase.players import can_edit_player
 from driftbase.players import write_journal, JournalError
@@ -20,7 +19,7 @@ log = logging.getLogger(__name__)
 bp = Blueprint("player_journal", __name__, url_prefix='/players')
 
 
-class JournalAPIGetQuerySchema(ma.Schema):
+class JournalGetQuerySchema(ma.Schema):
     rows = ma.fields.Integer()
     include_deleted = ma.fields.Boolean(load_default=False)
 
@@ -28,7 +27,7 @@ class JournalAPIGetQuerySchema(ma.Schema):
 @bp.route("/<int:player_id>/journal", endpoint="list")
 class JournalAPI(MethodView):
 
-    @bp.arguments(JournalAPIGetQuerySchema, location='query')
+    @bp.arguments(JournalGetQuerySchema, location='query')
     def get(self, args, player_id):
         """
         Get a list of recent journal entries for the player
@@ -100,7 +99,7 @@ class JournalAPI(MethodView):
 
                 g.db.query(PlayerJournal).filter(PlayerJournal.player_id == player_id,
                                                  PlayerJournal.journal_id > to_journal_id) \
-                                         .update({"deleted": True})
+                    .update({"deleted": True})
 
             # report if the client's clock is out of sync with the server
             timestamp = parser.parse(args["timestamp"])
@@ -133,16 +132,16 @@ class JournalAPI(MethodView):
 
 def get_journal_entry(player_id, journal_id):
     entry = g.db.query(PlayerJournal) \
-                .filter(PlayerJournal.player_id == player_id,
-                        PlayerJournal.journal_id == journal_id)
+        .filter(PlayerJournal.player_id == player_id,
+                PlayerJournal.journal_id == journal_id)
     return entry
 
 
 def get_player_gamestate(player_id):
     gamestate = g.db.query(GameState) \
-                    .filter(GameState.player_id == player_id) \
-                    .order_by(-GameState.journal_id) \
-                    .first()
+        .filter(GameState.player_id == player_id) \
+        .order_by(-GameState.journal_id) \
+        .first()
     return gamestate
 
 

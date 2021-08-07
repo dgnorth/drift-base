@@ -2,16 +2,15 @@
     These are endpoints for battleserver run configurations
 """
 
+import http.client as http_client
 import logging
-
 import marshmallow as ma
-from drift.core.extensions.jwt import requires_roles
-from drift.core.extensions.urlregistry import Endpoints
 from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import http.client as http_client
 
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
 from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
@@ -38,14 +37,15 @@ class MachineGroupsPatchRequestArgs(ma.Schema):
     runconfig_id = ma.fields.Integer()
 
 
-class MachineGroupsAPIGetQuerySchema(ma.Schema):
+class MachineGroupsGetQuerySchema(ma.Schema):
     name = ma.fields.String()
     rows = ma.fields.Integer()
+
 
 @bp.route('/', endpoint='list')
 class MachineGroupsAPI(MethodView):
 
-    @bp.arguments(MachineGroupsAPIGetQuerySchema, location='query')
+    @bp.arguments(MachineGroupsGetQuerySchema, location='query')
     @requires_roles("service")
     def get(self, args):
         """

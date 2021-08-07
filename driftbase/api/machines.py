@@ -1,17 +1,15 @@
-import http.client
-
 import datetime
+import http.client
+import http.client as http_client
 import logging
-
 import marshmallow as ma
 from dateutil import parser
-from drift.core.extensions.jwt import requires_roles
-from drift.core.extensions.urlregistry import Endpoints
 from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import http.client as http_client
 
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
 from driftbase.config import get_machine_heartbeat_config
 from driftbase.models.db import Machine, MachineEvent
 
@@ -65,12 +63,15 @@ class MachinePutResponseSchema(ma.Schema):
     last_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of the previous heartbeat"))
     this_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of this heartbeat"))
     next_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp when the next heartbeat is expected"))
-    next_heartbeat_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the next heartbeat is expected"))
-    heartbeat_timeout = ma.fields.DateTime(metadata=dict(description="Timestamp when the machine times out if no heartbeat is received"))
-    heartbeat_timeout_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the machine times out if no heartbeat is received"))
+    next_heartbeat_seconds = ma.fields.Integer(
+        metadata=dict(description="Number of seconds until the next heartbeat is expected"))
+    heartbeat_timeout = ma.fields.DateTime(
+        metadata=dict(description="Timestamp when the machine times out if no heartbeat is received"))
+    heartbeat_timeout_seconds = ma.fields.Integer(
+        metadata=dict(description="Number of seconds until the machine times out if no heartbeat is received"))
 
 
-class MachinesAPIGetQuerySchema(ma.Schema):
+class MachinesGetQuerySchema(ma.Schema):
     realm = ma.fields.String(required=True, metadata=dict(description="Realm, [aws, local]"))
     instance_name = ma.fields.String(required=True, metadata=dict(description="Computer name"))
     instance_id = ma.fields.String()
@@ -78,6 +79,7 @@ class MachinesAPIGetQuerySchema(ma.Schema):
     placement = ma.fields.String()
     public_ip = ma.fields.String()
     rows = ma.fields.Integer()
+
 
 @bp.route('', endpoint='list')
 class MachinesAPI(MethodView):
@@ -91,7 +93,7 @@ class MachinesAPI(MethodView):
 
     @requires_roles("service")
     # @namespace.expect(get_args)
-    @bp.arguments(MachinesAPIGetQuerySchema, location='query', error_status_code=http.client.BAD_REQUEST)
+    @bp.arguments(MachinesGetQuerySchema, location='query', error_status_code=http.client.BAD_REQUEST)
     def get(self, args):
         """
         Get a list of machines

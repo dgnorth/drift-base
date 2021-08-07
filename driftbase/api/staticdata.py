@@ -1,15 +1,14 @@
-import requests
-import logging
 import json
-
+import logging
+import marshmallow as ma
+import requests
 from flask import g, url_for, jsonify
 from flask.views import MethodView
-import marshmallow as ma
 from flask_smorest import Blueprint
+
 from drift.core.extensions.urlregistry import Endpoints
 
 log = logging.getLogger(__file__)
-
 
 bp = Blueprint('staticdata', __name__, url_prefix='/staticdata', description="Static Data Management")
 endpoints = Endpoints()
@@ -40,16 +39,15 @@ def get_static_data_ids():
         return {}
 
 
-class StaticDataAPIGetQuerySchema(ma.Schema):
+class StaticDataGetQuerySchema(ma.Schema):
     static_data_ref = ma.fields.String(metadata=dict(description="A GIT reference tag to get a particular version"))
 
 
 @bp.route('', endpoint='list')
 class StaticDataAPI(MethodView):
-
     no_jwt_check = ['GET']
 
-    @bp.arguments(StaticDataAPIGetQuerySchema, location='query')
+    @bp.arguments(StaticDataGetQuerySchema, location='query')
     def get(self, args):
         """
         Returns server side config that the client needs
