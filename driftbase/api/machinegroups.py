@@ -39,7 +39,7 @@ class MachineGroupsPatchRequestArgs(ma.Schema):
 
 class MachineGroupsGetQuerySchema(ma.Schema):
     name = ma.fields.String()
-    rows = ma.fields.Integer()
+    rows = ma.fields.Integer(load_default=100)
 
 
 @bp.route('/', endpoint='list')
