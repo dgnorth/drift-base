@@ -106,8 +106,7 @@ class ClientHeartbeatSchema(ma.Schema):
 
 
 class ClientsGetQuerySchema(ma.Schema):
-    player_id = ma.fields.Integer(load_default=None,
-                                  metadata=dict(description="Optional ID of a player to return sessions for"))
+    player_id = ma.fields.Integer(metadata=dict(description="Optional ID of a player to return sessions for"))
 
 
 @bp.route('/', endpoint='list')
@@ -127,7 +126,7 @@ class ClientsAPI(MethodView):
         _, heartbeat_timeout = get_client_heartbeat_config()
         min_heartbeat_time = utcnow() - datetime.timedelta(seconds=heartbeat_timeout)
         query = g.db.query(Client).filter(Client.heartbeat >= min_heartbeat_time)
-        if args["player_id"]:
+        if args.get("player_id"):
             query = query.filter(Client.player_id == args["player_id"])
         rows = query.all()
         return rows
