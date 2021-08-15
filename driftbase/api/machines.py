@@ -7,6 +7,8 @@ from dateutil import parser
 from flask import url_for, g, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
+from marshmallow import validate, ValidationError
+from marshmallow.decorators import validates_schema
 
 from drift.core.extensions.jwt import requires_roles
 from drift.core.extensions.urlregistry import Endpoints
@@ -72,13 +74,25 @@ class MachinePutResponseSchema(ma.Schema):
 
 
 class MachinesGetQuerySchema(ma.Schema):
-    realm = ma.fields.String(required=True, metadata=dict(description="Realm, [aws, local]"))
+    realm = ma.fields.String(required=True,
+                             validate=validate.OneOf(['aws', 'local']),
+                             metadata=dict(description="Realm, [aws, local]"))
     instance_name = ma.fields.String(required=True, metadata=dict(description="Computer name"))
     instance_id = ma.fields.String()
     instance_type = ma.fields.String()
     placement = ma.fields.String()
     public_ip = ma.fields.String()
     rows = ma.fields.Integer()
+
+    @validates_schema
+    def validate_required_fields(self, data, **kwargs):
+        if data.get("realm") == "aws":
+            missing = []
+            for param in ("instance_id", "instance_type", "placement", "public_ip"):
+                if not data.get(param):
+                    missing.append(param)
+            if missing:
+                raise ValidationError(f"Missing required parameter(s) for realm 'aws': [{', '.join(missing)}]")
 
 
 @bp.route('', endpoint='list')
@@ -100,20 +114,11 @@ class MachinesAPI(MethodView):
         """
         num_rows = args.get("rows") or 100
         query = g.db.query(Machine)
-        if args.get("realm", None) not in ("aws", "local"):
-            abort(http_client.BAD_REQUEST, description="realm must be 'aws' or 'local'")
 
         if args["realm"] == "local":
             query = query.filter(Machine.realm == "local",
                                  Machine.instance_name == args["instance_name"])
         else:
-            missing = []
-            for param in ("instance_id", "instance_type", "placement", "public_ip"):
-                if not args.get(param):
-                    missing.append(param)
-            if missing:
-                abort(http_client.BAD_REQUEST,
-                      description="missing required parameters: %s" % ", ".join(missing))
             query = query.filter(Machine.realm == args["realm"],
                                  Machine.instance_name == args["instance_name"],
                                  Machine.instance_id == args["instance_id"],
