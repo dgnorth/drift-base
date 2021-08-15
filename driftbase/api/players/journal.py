@@ -14,13 +14,16 @@ from driftbase.models.db import PlayerJournal, GameState
 from driftbase.players import can_edit_player
 from driftbase.players import write_journal, JournalError
 
+DEFAULT_ROWS = 100
+
+
 log = logging.getLogger(__name__)
 
 bp = Blueprint("player_journal", __name__, url_prefix='/players')
 
 
 class JournalGetQuerySchema(ma.Schema):
-    rows = ma.fields.Integer()
+    rows = ma.fields.Integer(load_default=DEFAULT_ROWS)
     include_deleted = ma.fields.Boolean(load_default=False)
 
 
@@ -32,16 +35,15 @@ class JournalAPI(MethodView):
         """
         Get a list of recent journal entries for the player
         """
-        DEFAULT_ROWS = 100
         can_edit_player(player_id)
 
         # TODO: Custom filters
         query = g.db.query(PlayerJournal)
         query = query.filter(PlayerJournal.player_id == player_id)
-        if not args.get('include_deleted'):
+        if not args['include_deleted']:
             query = query.filter(PlayerJournal.deleted == False)  # noqa: E711
         query = query.order_by(-PlayerJournal.journal_id, -PlayerJournal.sequence_id)
-        query = query.limit(args.get('rows') or DEFAULT_ROWS)
+        query = query.limit(args['rows'] or DEFAULT_ROWS)
         ret = []
         for entry in query:
             e = entry.as_dict()
