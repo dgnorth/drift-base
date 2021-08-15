@@ -14,6 +14,8 @@ from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, 
 from driftbase.utils import log_match_event
 from driftbase.utils import url_player
 
+DEFAULT_ROWS = 100
+
 log = logging.getLogger(__name__)
 
 bp = Blueprint("matches", __name__, url_prefix="/matches", description="Realtime matches")
@@ -37,7 +39,7 @@ class ActiveMatchesGetQuerySchema(ma.Schema):
     realm = ma.fields.String()
     version = ma.fields.String()
     player_id = ma.fields.List(ma.fields.Integer(), load_default=[])
-    rows = ma.fields.Integer()
+    rows = ma.fields.Integer(load_default=DEFAULT_ROWS)
 
 
 @bp.route('/active', endpoint='active')
@@ -53,7 +55,7 @@ class ActiveMatchesAPI(MethodView):
         This endpoint used by clients to fetch a list of matches available
         for joining
         """
-        num_rows = args.get("rows") or 100
+        num_rows = args["rows"] or DEFAULT_ROWS
 
         query = g.db.query(Match, Server, Machine)
         query = query.filter(Server.machine_id == Machine.machine_id,
@@ -71,7 +73,7 @@ class ActiveMatchesAPI(MethodView):
             query = query.filter(Machine.placement == args.get("placement"))
         if args.get("realm"):
             query = query.filter(Machine.realm == args.get("realm"))
-        player_ids = args.get("player_id")
+        player_ids = args["player_id"]
 
         query = query.order_by(-Match.num_players, -Match.server_id)
         query = query.limit(num_rows)
@@ -186,7 +188,7 @@ class MatchPutRequestSchema(ma.Schema):
 
 class MatchesAPIGetQuerySchema(ma.Schema):
     server_id = ma.fields.Integer()
-    rows = ma.fields.Integer()
+    rows = ma.fields.Integer(load_default=DEFAULT_ROWS)
 
 
 @bp.route('', endpoint='list')
@@ -200,7 +202,7 @@ class MatchesAPI(MethodView):
         """This endpoint used by services and clients to fetch recent matches.
         Dump the DB rows out as json
         """
-        num_rows = args.get("rows") or 100
+        num_rows = args["rows"] or DEFAULT_ROWS
 
         query = g.db.query(Match)
         if args.get("server_id"):
