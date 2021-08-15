@@ -72,7 +72,7 @@ class CounterApi(MethodView):
                              CorePlayer.status == "active",
                              CorePlayer.player_name != u"", )
 
-        filter_player_ids = args.get('player_id')
+        filter_player_ids = args['player_id']
         if filter_player_ids:
             query = query.filter(CounterEntry.player_id.in_(filter_player_ids))
 
@@ -80,7 +80,7 @@ class CounterApi(MethodView):
             filter_player_ids = get_playergroup_ids(args['player_group'])
             query = query.filter(CounterEntry.player_id.in_(filter_player_ids))
 
-        if args.get('reverse'):
+        if args['reverse']:
             query = query.order_by(CounterEntry.value)
         else:
             query = query.order_by(-CounterEntry.value)
@@ -90,7 +90,7 @@ class CounterApi(MethodView):
 
         counter_totals = collections.defaultdict(list)
         counter_names = {}
-        if args.get('include'):
+        if args['include']:
             all_counters = get_all_counters()
             # inline other counters for the players
             player_ids = [r[0].player_id for r in rows]
