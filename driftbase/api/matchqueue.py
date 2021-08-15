@@ -81,7 +81,7 @@ class MatchQueueAPI(MethodView):
         placement = args.get("placement")
         ref = args.get("ref")
         token = args.get("token")
-        player_id = args.get("player_id")
+        player_id = args["player_id"]
         if player_id != current_user["player_id"]:
             log.error("Trying to add another player, %s to the match queue", player_id)
             abort(http_client.METHOD_NOT_ALLOWED, message="This is not your player")
@@ -159,7 +159,7 @@ class MatchQueueAPI(MethodView):
         Returns all players in the queue list, no matter what their status,
         as long as they are online
         """
-        statuses = args.get('status')
+        statuses = args['status']
 
         matchqueue_players = g.db.query(CorePlayer, MatchQueuePlayer, Client) \
             .filter(CorePlayer.player_id == MatchQueuePlayer.player_id,
@@ -214,7 +214,7 @@ class MatchQueueEntryAPI(MethodView):
         if player_id != current_user["player_id"] and "service" not in current_user["roles"]:
             abort(http_client.BAD_REQUEST, message="This is not your player")
 
-        force = args.get('force')
+        force = args['force']
 
         log.info("Removing player %d from the match queue", player_id)
 
