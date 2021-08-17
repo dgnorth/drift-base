@@ -393,12 +393,15 @@ def _process_matchmaking_cancelled_event(event):
                 player_ticket = ticket_lock.ticket
                 if player_ticket is None:
                     continue  # Normal, player cancelled the ticket and we've already cleared it from the cache
-                if player_ticket["Status"] == "COMPLETED" and ticket_id != player_ticket["TicketId"]:
+                if player_ticket["Status"] in {"COMPLETED", "MATCH_COMPLETE"} and ticket_id != player_ticket["TicketId"]:
                     # This is not a flexmatch status, but I want to differentiate between statuses arising from the
                     # cancelling of backfill tickets and other states
                     log.info(f"Found player {player_id} in a foreign ticket being cancelled, where the actual players ticket is in 'COMPLETED' state."
                              " Inferring a backfill ticket being cancelled and thus setting player ticket to 'MATCH_COMPLETE'.")
                     player_ticket["Status"] = "MATCH_COMPLETE"
+                elif player_ticket["Status"] == "MATCH_COMPLETE" and ticket_id != player_ticket["TicketId"]:
+                    log.info(f"Found player {player_id} in a foreign ticket being cancelled, where the actual players ticket is in 'MATCH_COMPLETE' state."
+                        " Inferring a backfill ticket being cancelled and not updating player ticket.")
                 else:
                     player_ticket["Status"] = "CANCELLED"
                     _post_matchmaking_event_to_members([player_id], "MatchmakingCancelled")
