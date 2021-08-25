@@ -9,20 +9,18 @@
 """
 
 import datetime
+import http.client as http_client
 import json
 import logging
-
 import marshmallow as ma
+from flask import request, url_for, g, current_app
+from flask.views import MethodView
+from flask_smorest import Blueprint, abort
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+
 from drift.core.extensions.jwt import current_user, issue_token
 from drift.core.extensions.urlregistry import Endpoints
 from drift.utils import json_response, Url
-from flask import request, url_for, g, current_app
-from flask.views import MethodView
-from flask_restx import reqparse
-from flask_smorest import Blueprint, abort
-from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-import http.client as http_client
-
 from driftbase.config import get_client_heartbeat_config
 from driftbase.models.db import (
     User, CorePlayer, Client, UserIdentity
@@ -99,21 +97,25 @@ class ClientHeartbeatSchema(ma.Schema):
     last_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of the previous heartbeat"))
     this_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of this heartbeat"))
     next_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp when the next heartbeat is expected"))
-    next_heartbeat_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the next heartbeat is expected"))
-    heartbeat_timeout = ma.fields.DateTime(metadata=dict(description="Timestamp when the client times out if no heartbeat is received"))
-    heartbeat_timeout_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the client times out if no heartbeat is received"))
+    next_heartbeat_seconds = ma.fields.Integer(
+        metadata=dict(description="Number of seconds until the next heartbeat is expected"))
+    heartbeat_timeout = ma.fields.DateTime(
+        metadata=dict(description="Timestamp when the client times out if no heartbeat is received"))
+    heartbeat_timeout_seconds = ma.fields.Integer(
+        metadata=dict(description="Number of seconds until the client times out if no heartbeat is received"))
+
+
+class ClientsGetQuerySchema(ma.Schema):
+    player_id = ma.fields.Integer(metadata=dict(description="Optional ID of a player to return sessions for"))
+
 
 @bp.route('/', endpoint='list')
 class ClientsAPI(MethodView):
     no_jwt_check = ['GET']
-    # GET args
-    get_parser = reqparse.RequestParser()
-    get_parser.add_argument(
-        'player_id', type=int,
-        help="Optional ID of a player to return sessions for")
 
+    @bp.arguments(ClientsGetQuerySchema, location='query')
     @bp.response(http_client.OK, ClientSchema(many=True))
-    def get(self):
+    def get(self, args):
         """
         Retrieve all active clients.
 
@@ -121,12 +123,10 @@ class ClientsAPI(MethodView):
         for 5 minutes it is considered disconnected and is not returned by
         this endpoint
         """
-        args = self.get_parser.parse_args()
-
         _, heartbeat_timeout = get_client_heartbeat_config()
         min_heartbeat_time = utcnow() - datetime.timedelta(seconds=heartbeat_timeout)
         query = g.db.query(Client).filter(Client.heartbeat >= min_heartbeat_time)
-        if args["player_id"]:
+        if args.get("player_id"):
             query = query.filter(Client.player_id == args["player_id"])
         rows = query.all()
         return rows
