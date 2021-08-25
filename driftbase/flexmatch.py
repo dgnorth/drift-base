@@ -61,7 +61,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
                 return ticket_lock.ticket  # Ticket is still valid
             # otherwise, we issue a new ticket
 
-        gamelift_client = GameLiftRegionClient(AWS_REGION)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, g.conf.tenant)
         try:
             log.info(f"Issuing a new matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
             response = gamelift_client.start_matchmaking(
@@ -95,7 +95,7 @@ def cancel_player_ticket(player_id):
             log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
             return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
         log.info(f"Cancelling ticket for player {player_id}, currently in state {ticket['Status']}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, g.conf.tenant)
         try:
             response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
         except ClientError as e:
@@ -129,7 +129,7 @@ def update_player_acceptance(player_id, match_id, acceptance):
 
         acceptance_type = 'ACCEPT' if acceptance else 'REJECT'
         log.info(f"Updating acceptance on ticket {player_ticket['TicketId']} for player {player_id} to {acceptance_type}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, g.conf.tenant)
         try:
             gamelift_client.accept_match(TicketId=ticket_id, PlayerIds=[str(player_id)], AcceptanceType=acceptance_type)
         except ClientError as e:
@@ -509,22 +509,23 @@ class GameLiftRegionClient(object):
     __gamelift_clients_by_region = {}
     __gamelift_sessions_by_region = {}
 
-    def __init__(self, region):
+    def __init__(self, region, tenant):
         self.region = region
-        client = self.__class__.__gamelift_clients_by_region.get(region)
+        self.tenant = tenant
+        client = self.__class__.__gamelift_clients_by_region.get((region, tenant))
         if client is None:
-            session = self.__class__.__gamelift_sessions_by_region.get(region)
+            session = self.__class__.__gamelift_sessions_by_region.get((region, tenant))
             if session is None:
                 session = boto3.Session(region_name=self.region)
                 role_to_assume = _get_tenant_config_value("aws_gamelift_role")
                 if role_to_assume:
                     session = assume_role(session, role_to_assume)
-                self.__class__.__gamelift_sessions_by_region[region] = session
+                self.__class__.__gamelift_sessions_by_region[(region, tenant)] = session
             client = session.client("gamelift")
-            self.__class__.__gamelift_clients_by_region[region] = client
+            self.__class__.__gamelift_clients_by_region[(region, tenant)] = client
 
     def __getattr__(self, item):
-        return getattr(self.__class__.__gamelift_clients_by_region[self.region], item)
+        return getattr(self.__class__.__gamelift_clients_by_region[(self.region, self.tenant)], item)
 
 
 class _LockedTicket(object):
