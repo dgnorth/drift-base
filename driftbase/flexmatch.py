@@ -61,7 +61,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
                 return ticket_lock.ticket  # Ticket is still valid
             # otherwise, we issue a new ticket
 
-        gamelift_client = GameLiftRegionClient(AWS_REGION, g.conf.tenant)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             log.info(f"Issuing a new matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
             response = gamelift_client.start_matchmaking(
@@ -85,6 +85,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
         _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted")
         return ticket_lock.ticket
 
+
 def cancel_player_ticket(player_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         ticket = ticket_lock.ticket
@@ -95,7 +96,7 @@ def cancel_player_ticket(player_id):
             log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
             return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
         log.info(f"Cancelling ticket for player {player_id}, currently in state {ticket['Status']}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION, g.conf.tenant)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
         except ClientError as e:
@@ -129,7 +130,7 @@ def update_player_acceptance(player_id, match_id, acceptance):
 
         acceptance_type = 'ACCEPT' if acceptance else 'REJECT'
         log.info(f"Updating acceptance on ticket {player_ticket['TicketId']} for player {player_id} to {acceptance_type}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION, g.conf.tenant)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             gamelift_client.accept_match(TicketId=ticket_id, PlayerIds=[str(player_id)], AcceptanceType=acceptance_type)
         except ClientError as e:
@@ -208,6 +209,9 @@ def _get_tenant_config_value(config_key):
     if tenant:
         return g.conf.tenant.get("flexmatch", {}).get(config_key, default_value)
     return default_value
+
+def _get_tenant_name():
+    return g.conf.tenant.get('tenant_name')
 
 def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=None, expiry=30):
     """ Insert a event into the 'matchmaking' queue of the 'players' exchange. """
