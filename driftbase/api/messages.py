@@ -2,24 +2,24 @@
     Message box, mostly meant for client-to-client communication
 """
 
-import collections
 import copy
+
+import collections
 import datetime
+import gevent
+import http.client as http_client
 import json
 import logging
+import marshmallow as ma
 import operator
 import sys
 import uuid
-
-import gevent
-import marshmallow as ma
-from drift.core.extensions.jwt import current_user
-from drift.core.extensions.urlregistry import Endpoints
 from flask import g, url_for, stream_with_context, Response, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-import http.client as http_client
+
+from drift.core.extensions.jwt import current_user
+from drift.core.extensions.urlregistry import Endpoints
 
 log = logging.getLogger(__name__)
 
@@ -65,15 +65,18 @@ def incr_message_number(exchange, exchange_id):
     val = g.redis.incr(k, expire=MESSAGE_EXCHANGE_TTL)
     seen = latest_seen(exchange, exchange_id)
     if seen >= val:
-        adjustment = (seen-val) + 1
-        log.warning(f"Latest seen message is at {seen} but next top message number would be {val} and would thus never be seen. Adjusting next message number to {val+adjustment}")
+        adjustment = (seen - val) + 1
+        log.warning(
+            f"Latest seen message is at {seen} but next top message number would be {val} and would thus never be seen. Adjusting next message number to {val + adjustment}")
         val = g.redis.incr(k, adjustment, expire=MESSAGE_EXCHANGE_TTL)
     return int(val)
+
 
 def latest_seen(exchange, exchange_id):
     redis_seen_key = g.redis.make_key("messages:seen:%s-%s" % (exchange, exchange_id))
     seen = g.redis.conn.get(redis_seen_key)
     return int(seen) if seen else 0
+
 
 def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
     messages = []
@@ -108,17 +111,17 @@ def fetch_messages(exchange, exchange_id, min_message_number=0, rows=None):
         if expires > utcnow():
             messages.append(message)
             log.debug("Message %s ('%s') has been retrieved from queue '%s' in "
-                     "exchange '%s-%s' by player %s",
-                     message["message_number"], message["message_id"],
-                     message["queue"], exchange, exchange_id, my_player_id)
+                      "exchange '%s-%s' by player %s",
+                      message["message_number"], message["message_id"],
+                      message["queue"], exchange, exchange_id, my_player_id)
 
             if rows and len(messages) >= rows:
                 break
         else:
             log.debug("Expired message %s ('%s') was removed from queue '%s' in "
-                     "exchange '%s-%s' by player %s",
-                     message["message_number"], message["message_id"],
-                     message["queue"], exchange, exchange_id, my_player_id)
+                      "exchange '%s-%s' by player %s",
+                      message["message_number"], message["message_id"],
+                      message["queue"], exchange, exchange_id, my_player_id)
 
     # If there were only expired messages, make sure we skip those next time
     if len(messages) == 0 and highest_processed_message_number > 0:
@@ -155,22 +158,23 @@ def check_can_use_exchange(exchange, exchange_id, read=False):
                   message="You can only read from an exchange that belongs to you!")
 
 
+class MessagesExchangeGetQuerySchema(ma.Schema):
+    timeout = ma.fields.Integer(load_default=0)
+    messages_after = ma.fields.Integer(load_default=0)
+    rows = ma.fields.Integer()
+
+
 @bp.route('/<string:exchange>/<int:exchange_id>', endpoint='exchange')
 class MessagesExchangeAPI(MethodView):
     no_jwt_check = ["GET"]
 
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("timeout", type=int)
-    get_args.add_argument("messages_after", type=int)
-    get_args.add_argument("rows", type=int)
-
-    def get(self, exchange, exchange_id):
+    @bp.arguments(MessagesExchangeGetQuerySchema, location='query')
+    def get(self, args, exchange, exchange_id):
         check_can_use_exchange(exchange, exchange_id, read=True)
 
-        args = self.get_args.parse_args()
-        timeout = args.timeout or 0
-        min_message_number = int(args.messages_after or 0) + 1
-        rows = args.rows
+        timeout = args['timeout']
+        min_message_number = args.get('messages_after') + 1
+        rows = args.get('rows')
         if rows:
             rows = int(rows)
 
@@ -204,8 +208,8 @@ class MessagesExchangeAPI(MethodView):
                             return
                         elif utcnow() > poll_timeout:
                             log.debug("[%s/%s] Poll timeout with no messages after %.1f seconds",
-                                     my_player_id, exchange_full_name,
-                                     (utcnow() - start_time).total_seconds())
+                                      my_player_id, exchange_full_name,
+                                      (utcnow() - start_time).total_seconds())
                             yield json.dumps({})
                             return
                         # sleep for 100ms
@@ -263,6 +267,7 @@ class MessagesQueueAPI(MethodView):
 
         return jsonify(ret)
 
+
 def post_message(exchange, exchange_id, queue, payload, expire_seconds=None, sender_system=False):
     if not is_key_legal(exchange) or not is_key_legal(queue):
         abort(http_client.BAD_REQUEST, message="Exchange or Queue name is invalid.")
@@ -289,7 +294,8 @@ def post_message(exchange, exchange_id, queue, payload, expire_seconds=None, sen
 
         key = "messages:%s-%s" % (exchange, exchange_id)
         val = json.dumps(message, default=json_serial)
-        log.info(f"Inserting message {message_id} with message number {message_number} into {exchange} exchange for {exchange_id}")
+        log.info(
+            f"Inserting message {message_id} with message number {message_number} into {exchange} exchange for {exchange_id}")
         k = g.redis.make_key(key)
         g.redis.conn.rpush(k, val)
         g.redis.conn.expire(k, MESSAGE_EXCHANGE_TTL)

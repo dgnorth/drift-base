@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-drift = "==0.6.5"
+python-drift = "==0.7.0"
 #python-drift = {editable = true, extras = ["aws", "test"], path = "../drift"}
 gevent = "*"
 requests = "*"
@@ -12,7 +12,6 @@ boto3 = "*"
 botocore = "*"
 greenlet = "*"
 python-decouple = "*"
-flask-restx = "*"
 python-driftconfig = "*"
 #python-driftconfig = {editable = true, extras = ["redis-backend", "s3-backend"], path = "./../drift-config"}
 psycogreen = "*"

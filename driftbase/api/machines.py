@@ -1,16 +1,17 @@
 import datetime
+import http.client
+import http.client as http_client
 import logging
-
 import marshmallow as ma
 from dateutil import parser
-from drift.core.extensions.jwt import requires_roles
-from drift.core.extensions.urlregistry import Endpoints
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_restx import reqparse
 from flask_smorest import Blueprint, abort
-import http.client as http_client
+from marshmallow import validate, ValidationError
+from marshmallow.decorators import validates_schema
 
+from drift.core.extensions.jwt import requires_roles
+from drift.core.extensions.urlregistry import Endpoints
 from driftbase.config import get_machine_heartbeat_config
 from driftbase.models.db import Machine, MachineEvent
 
@@ -64,9 +65,34 @@ class MachinePutResponseSchema(ma.Schema):
     last_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of the previous heartbeat"))
     this_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp of this heartbeat"))
     next_heartbeat = ma.fields.DateTime(metadata=dict(description="Timestamp when the next heartbeat is expected"))
-    next_heartbeat_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the next heartbeat is expected"))
-    heartbeat_timeout = ma.fields.DateTime(metadata=dict(description="Timestamp when the machine times out if no heartbeat is received"))
-    heartbeat_timeout_seconds = ma.fields.Integer(metadata=dict(description="Number of seconds until the machine times out if no heartbeat is received"))
+    next_heartbeat_seconds = ma.fields.Integer(
+        metadata=dict(description="Number of seconds until the next heartbeat is expected"))
+    heartbeat_timeout = ma.fields.DateTime(
+        metadata=dict(description="Timestamp when the machine times out if no heartbeat is received"))
+    heartbeat_timeout_seconds = ma.fields.Integer(
+        metadata=dict(description="Number of seconds until the machine times out if no heartbeat is received"))
+
+
+class MachinesGetQuerySchema(ma.Schema):
+    realm = ma.fields.String(required=True,
+                             validate=validate.OneOf(['aws', 'local']),
+                             metadata=dict(description="Realm, [aws, local]"))
+    instance_name = ma.fields.String(required=True, metadata=dict(description="Computer name"))
+    instance_id = ma.fields.String()
+    instance_type = ma.fields.String()
+    placement = ma.fields.String()
+    public_ip = ma.fields.String()
+    rows = ma.fields.Integer()
+
+    @validates_schema
+    def validate_required_fields(self, data, **kwargs):
+        if data.get("realm") == "aws":
+            missing = []
+            for param in ("instance_id", "instance_type", "placement", "public_ip"):
+                if not data.get(param):
+                    missing.append(param)
+            if missing:
+                raise ValidationError(f"Missing required parameter(s) for realm 'aws': [{', '.join(missing)}]")
 
 
 @bp.route('', endpoint='list')
@@ -78,41 +104,21 @@ class MachinesAPI(MethodView):
     If an instance gets a new publicIP address for example, it will
     get a new machine resource.
     """
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("realm", type=str, help="Missing realm. Should be one of: aws, local",
-                          required=True)
-    get_args.add_argument("instance_name", help="Missing instance_name. Should be computer name",
-                          type=str, required=True)
-
-    get_args.add_argument("instance_id", type=str, required=False)
-    get_args.add_argument("instance_type", type=str, required=False)
-    get_args.add_argument("placement", type=str, required=False)
-    get_args.add_argument("public_ip", type=str, required=False)
-    get_args.add_argument("rows", type=int, required=False)
 
     @requires_roles("service")
     # @namespace.expect(get_args)
-    def get(self):
+    @bp.arguments(MachinesGetQuerySchema, location='query', error_status_code=http.client.BAD_REQUEST)
+    def get(self, args):
         """
         Get a list of machines
         """
-        args = self.get_args.parse_args()
         num_rows = args.get("rows") or 100
         query = g.db.query(Machine)
-        if args.get("realm", None) not in ("aws", "local"):
-            abort(http_client.BAD_REQUEST, description="realm must be 'aws' or 'local'")
 
         if args["realm"] == "local":
             query = query.filter(Machine.realm == "local",
                                  Machine.instance_name == args["instance_name"])
         else:
-            missing = []
-            for param in ("instance_id", "instance_type", "placement", "public_ip"):
-                if not args[param]:
-                    missing.append(param)
-            if missing:
-                abort(http_client.BAD_REQUEST,
-                      description="missing required parameters: %s" % ", ".join(missing))
             query = query.filter(Machine.realm == args["realm"],
                                  Machine.instance_name == args["instance_name"],
                                  Machine.instance_id == args["instance_id"],

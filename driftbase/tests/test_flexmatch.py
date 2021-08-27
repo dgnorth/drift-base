@@ -483,16 +483,19 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         data["detail"] = details
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
-            real_ticket_id = ticket["TicketId"]
-            backfill_ticket_id = chr(ord(real_ticket_id[0]) + 1)
-            # The backfill tickets are issued by the battleserver with a ticketId drift doesn't track
-            details["tickets"][0]["ticketId"] = backfill_ticket_id
-            details["type"] = "MatchmakingCancelled"
-            data["detail"] = details
-            self.put(events_url, data=data, expected_status_code=http_client.OK)
-        self.auth(username=user_name)
-        r = self.get(self.endpoints["flexmatch"], expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "MATCH_COMPLETE")
+        # Ensure this works for multiple backfill tickets being cancelled
+        for _ in range(2):
+            with self._managed_bearer_token_user():
+                real_ticket_id = ticket["TicketId"]
+                backfill_ticket_id = chr(ord(real_ticket_id[0]) + 1)
+                # The backfill tickets are issued by the battleserver with a ticketId drift doesn't track
+                details["tickets"][0]["ticketId"] = backfill_ticket_id
+                details["type"] = "MatchmakingCancelled"
+                data["detail"] = details
+                self.put(events_url, data=data, expected_status_code=http_client.OK)
+            self.auth(username=user_name)
+            r = self.get(self.endpoints["flexmatch"], expected_status_code=http_client.OK).json()
+            self.assertEqual(r['Status'], "MATCH_COMPLETE")
 
     def test_accept_match_event(self):
         user_name, ticket = self._initiate_matchmaking()

@@ -34,7 +34,7 @@ class MachinesTest(DriftBaseTestCase):
 
         resp = self.get("/machines?realm=aws&instance_name=instance-name",
                         expected_status_code=http_client.BAD_REQUEST)
-        self.assertIn("missing required", resp.json()["error"]["description"])
+        self.assertIn("Missing required", resp.json()["error"]["messages"]["query"]["_schema"][0])
 
         resp = self.get("/machines/9999999", expected_status_code=http_client.NOT_FOUND)
 

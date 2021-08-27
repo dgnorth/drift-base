@@ -61,7 +61,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
                 return ticket_lock.ticket  # Ticket is still valid
             # otherwise, we issue a new ticket
 
-        gamelift_client = GameLiftRegionClient(AWS_REGION)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             log.info(f"Issuing a new matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
             response = gamelift_client.start_matchmaking(
@@ -85,6 +85,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
         _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted")
         return ticket_lock.ticket
 
+
 def cancel_player_ticket(player_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         ticket = ticket_lock.ticket
@@ -95,7 +96,7 @@ def cancel_player_ticket(player_id):
             log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
             return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
         log.info(f"Cancelling ticket for player {player_id}, currently in state {ticket['Status']}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
         except ClientError as e:
@@ -129,7 +130,7 @@ def update_player_acceptance(player_id, match_id, acceptance):
 
         acceptance_type = 'ACCEPT' if acceptance else 'REJECT'
         log.info(f"Updating acceptance on ticket {player_ticket['TicketId']} for player {player_id} to {acceptance_type}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION)
+        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             gamelift_client.accept_match(TicketId=ticket_id, PlayerIds=[str(player_id)], AcceptanceType=acceptance_type)
         except ClientError as e:
@@ -209,6 +210,9 @@ def _get_tenant_config_value(config_key):
         return g.conf.tenant.get("flexmatch", {}).get(config_key, default_value)
     return default_value
 
+def _get_tenant_name():
+    return g.conf.tenant.get('tenant_name')
+
 def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=None, expiry=30):
     """ Insert a event into the 'matchmaking' queue of the 'players' exchange. """
     log.info(f"Posting '{event}' to players {receiving_player_ids} with event_data {event_data}")
@@ -222,7 +226,7 @@ def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=N
         "data": event_data or {}
     }
     for receiver_id in receiving_player_ids:
-        post_message("players", receiver_id, "matchmaking", payload, expiry, sender_system=True)
+        post_message("players", int(receiver_id), "matchmaking", payload, expiry, sender_system=True)
 
 
 def _get_event_details(event):
@@ -398,6 +402,9 @@ def _process_matchmaking_cancelled_event(event):
                     log.info(f"Found player {player_id} in a foreign ticket being cancelled, where the actual players ticket is in 'COMPLETED' state."
                              " Inferring a backfill ticket being cancelled and thus setting player ticket to 'MATCH_COMPLETE'.")
                     player_ticket["Status"] = "MATCH_COMPLETE"
+                elif player_ticket["Status"] == "MATCH_COMPLETE" and ticket_id != player_ticket["TicketId"]:
+                    log.info(f"Found player {player_id} in a foreign ticket being cancelled, where the actual players ticket is in 'MATCH_COMPLETE' state."
+                        " Inferring a backfill ticket being cancelled and not updating player ticket.")
                 else:
                     player_ticket["Status"] = "CANCELLED"
                     _post_matchmaking_event_to_members([player_id], "MatchmakingCancelled")
@@ -505,22 +512,23 @@ class GameLiftRegionClient(object):
     __gamelift_clients_by_region = {}
     __gamelift_sessions_by_region = {}
 
-    def __init__(self, region):
+    def __init__(self, region, tenant):
         self.region = region
-        client = self.__class__.__gamelift_clients_by_region.get(region)
+        self.tenant = tenant
+        client = self.__class__.__gamelift_clients_by_region.get((region, tenant))
         if client is None:
-            session = self.__class__.__gamelift_sessions_by_region.get(region)
+            session = self.__class__.__gamelift_sessions_by_region.get((region, tenant))
             if session is None:
                 session = boto3.Session(region_name=self.region)
                 role_to_assume = _get_tenant_config_value("aws_gamelift_role")
                 if role_to_assume:
                     session = assume_role(session, role_to_assume)
-                self.__class__.__gamelift_sessions_by_region[region] = session
+                self.__class__.__gamelift_sessions_by_region[(region, tenant)] = session
             client = session.client("gamelift")
-            self.__class__.__gamelift_clients_by_region[region] = client
+            self.__class__.__gamelift_clients_by_region[(region, tenant)] = client
 
     def __getattr__(self, item):
-        return getattr(self.__class__.__gamelift_clients_by_region[self.region], item)
+        return getattr(self.__class__.__gamelift_clients_by_region[(self.region, self.tenant)], item)
 
 
 class _LockedTicket(object):

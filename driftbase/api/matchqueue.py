@@ -3,18 +3,16 @@
 """
 
 import datetime
+import http.client as http_client
 import logging
-
 import marshmallow as ma
+from flask import g, url_for, jsonify
+from flask.views import MethodView
+from flask_smorest import Blueprint, abort
+
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from drift.utils import json_response
-from flask import g, url_for, jsonify
-from flask.views import MethodView
-from flask_restx import reqparse
-from flask_smorest import Blueprint, abort
-import http.client as http_client
-
 from driftbase.matchqueue import process_match_queue
 from driftbase.models.db import CorePlayer, MatchQueuePlayer, Match, Client, Server
 from driftbase.utils import url_player
@@ -64,6 +62,10 @@ class MatchQueuePostSchema(ma.Schema):
     token = ma.fields.String()
 
 
+class MatchQueueGetQuerySchema(ma.Schema):
+    status = ma.fields.List(ma.fields.String(), load_default=["waiting"])
+
+
 @bp.route('', endpoint='queue')
 class MatchQueueAPI(MethodView):
     no_jwt_check = ["GET"]
@@ -79,7 +81,7 @@ class MatchQueueAPI(MethodView):
         placement = args.get("placement")
         ref = args.get("ref")
         token = args.get("token")
-        player_id = args.get("player_id")
+        player_id = args["player_id"]
         if player_id != current_user["player_id"]:
             log.error("Trying to add another player, %s to the match queue", player_id)
             abort(http_client.METHOD_NOT_ALLOWED, message="This is not your player")
@@ -149,20 +151,15 @@ class MatchQueueAPI(MethodView):
         }
         return jsonify(ret), http_client.CREATED, response_header
 
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("status", type=str, required=False, action='append')
-
-    def get(self):
+    @bp.arguments(MatchQueueGetQuerySchema, location='query')
+    def get(self, args):
         """
         Get players in the queue
 
         Returns all players in the queue list, no matter what their status,
         as long as they are online
         """
-        args = self.get_args.parse_args()
-        statuses = ["waiting"]
-        if args.status:
-            statuses = args.status
+        statuses = args['status']
 
         matchqueue_players = g.db.query(CorePlayer, MatchQueuePlayer, Client) \
             .filter(CorePlayer.player_id == MatchQueuePlayer.player_id,
@@ -176,6 +173,10 @@ class MatchQueueAPI(MethodView):
             entry = make_matchqueueplayer_response(player[0], player[1])
             ret.append(entry)
         return jsonify(ret)
+
+
+class MatchQueueEntryDeleteQuerySchema(ma.Schema):
+    force = ma.fields.Boolean(load_default=False)
 
 
 @bp.route('/<int:player_id>', endpoint='player')
@@ -196,8 +197,8 @@ class MatchQueueEntryAPI(MethodView):
         server = None
         my_matchqueueplayer, my_player = result
         if current_user and \
-                current_user["player_id"] == my_matchqueueplayer.player_id and \
-                my_matchqueueplayer.match_id:
+            current_user["player_id"] == my_matchqueueplayer.player_id and \
+            my_matchqueueplayer.match_id:
             match = g.db.query(Match).get(my_matchqueueplayer.match_id)
             log.debug("Looking for %s" % match.server_id)
             server = g.db.query(Server).get(match.server_id)
@@ -205,18 +206,15 @@ class MatchQueueEntryAPI(MethodView):
                 log.error("Could not find a server for match %s", my_matchqueueplayer.match_id)
         return jsonify(make_matchqueueplayer_response(my_player, my_matchqueueplayer, server))
 
-    delete_args = reqparse.RequestParser()
-    delete_args.add_argument("force", type=bool, required=False, default=False)
-
-    def delete(self, player_id):
+    @bp.arguments(MatchQueueEntryDeleteQuerySchema, location='query')
+    def delete(self, args, player_id):
         """
         Remove a player from the queue
         """
         if player_id != current_user["player_id"] and "service" not in current_user["roles"]:
             abort(http_client.BAD_REQUEST, message="This is not your player")
 
-        args = self.delete_args.parse_args()
-        force = args.force
+        force = args['force']
 
         log.info("Removing player %d from the match queue", player_id)
 
