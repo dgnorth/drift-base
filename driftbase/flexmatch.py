@@ -226,7 +226,7 @@ def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=N
         "data": event_data or {}
     }
     for receiver_id in receiving_player_ids:
-        post_message("players", receiver_id, "matchmaking", payload, expiry, sender_system=True)
+        post_message("players", int(receiver_id), "matchmaking", payload, expiry, sender_system=True)
 
 
 def _get_event_details(event):
