@@ -544,6 +544,7 @@ class _LockedTicket(object):
         self._redis = g.redis
         self._modified = False
         self._ticket = None
+        self._ticket_id = None
         self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
         if self.MAX_REJOIN_TIME is None:  # deferred initialization of class variable as we're not in app context at import time.
             self.__class__.MAX_REJOIN_TIME = _get_tenant_config_value("max_rejoin_time_seconds")
@@ -559,9 +560,11 @@ class _LockedTicket(object):
 
     def __enter__(self):
         self._lock.acquire(blocking=True)
-        ticket = self._redis.conn.get(self._key)
-        if ticket is not None:
-            ticket = json.loads(ticket)
+        ticket_key = self._redis.conn.get(self._key)
+        if ticket_key:
+            self._ticket_id = ticket_key.split(":")[-1]
+        if self._ticket_id is not None:
+            ticket = json.loads(self._redis.conn.get(self._make_ticket_key()))
             if ticket["Status"] == "COMPLETED":
                 ttl = self._redis.conn.ttl(self._key)
                 if self.TICKET_TTL_SECONDS - ttl >= self.MAX_REJOIN_TIME:
@@ -574,11 +577,22 @@ class _LockedTicket(object):
         if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
             with self._redis.conn.pipeline() as pipe:
                 if self._modified is True and exc_type in (None, GameliftClientException):
-                    pipe.delete(self._key)  # Always update the ticket wholesale, i.e. don't leave stale fields behind.
-                    if self._ticket:
-                        pipe.set(self._key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS)
+                    if self._ticket_id:
+                        pipe.delete(self._make_ticket_key())  # Always update the ticket wholesale, i.e. don't leave stale fields behind.
+                    if self._ticket is None:
+                        pipe.delete(self._key)
+                    else:
+                        self._ticket_id = self._ticket["TicketId"]
+                        ticket_key = self._make_ticket_key()
+                        pipe.set(self._key, ticket_key, ex=self.TICKET_TTL_SECONDS)
+                        pipe.set(ticket_key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS)
                 pipe.execute()
             self._lock.release()
+
+    def _make_ticket_key(self):
+        if self._ticket_id is None:
+            raise RuntimeError("Cannot make ticket key when there's no TicketId")
+        return self._redis.make_key(f"flexmatch_tickets:{self._ticket_id}")
 
     def _jsonify_ticket(self):
         for datefield in ("StartTime", "EndTime"):
