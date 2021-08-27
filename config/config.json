@@ -28,7 +28,8 @@
         "driftbase.api.machinegroups",
         "driftbase.api.matchqueue",
         "driftbase.api.messages",
-        "driftbase.api.flexmatch",
+        "driftbase.api.matchmaking",
+        "driftbase.api.matchmaking.flexmatch",
 
         "drift.core.apps.schemas",
         "drift.core.apps.provision",

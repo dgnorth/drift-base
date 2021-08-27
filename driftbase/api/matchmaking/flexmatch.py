@@ -14,8 +14,7 @@ import http.client as http_client
 import logging
 
 
-
-bp = Blueprint("flexmatch", "flexmatch", url_prefix="/flexmatch", description="Orchestration of GameLift/FlexMatch matchmaking.")
+bp = Blueprint("flexmatch", __name__, url_prefix="/matchmaking/flexmatch", description="Orchestration of GameLift/FlexMatch matchmaking.")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
@@ -115,5 +114,7 @@ class FlexMatchEventAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    return {"flexmatch": url_for("flexmatch.FlexMatchPlayerAPI", _external=True)}
+    return {
+        "flexmatch": url_for("flexmatch.FlexMatchPlayerAPI", _external=True)
+    }
 
