@@ -113,13 +113,13 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
         return user_name, ticket_url, ticket.json()
 
     @staticmethod
-    def _get_event_details(ticket_id, player_info):
+    def _get_event_details(ticket_id, player_info, event_type, **kwargs):
         if not isinstance(player_info, list):
             players = [player_info]
         else:
             players = player_info
-        return {
-            "type": "",
+        template = {
+            "type": event_type,
             "matchId": "0a3eb4aa-ecdb-4595-81a0-ad2b2d61bd05",
             "gameSessionInfo": {
                 "ipAddress": "",
@@ -131,6 +131,47 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
                 "players": players
             }]
         }
+        template.update(kwargs)
+        return template
+
+    @staticmethod
+    def _get_event_data(event_details):
+        data = {
+            "version": "0",
+            "id": str(uuid.uuid4()),
+            "detail-type": "GameLift Matchmaking Event",
+            "source": "aws.gamelift",
+            "account": "123456789012",
+            "time": "2021-05-27T15:19:34Z",
+            "region": "eu-west-1",
+            "resources": [
+                "arn:aws:gamelift:eu-west-1:331925803394:matchmakingconfiguration/unittest"
+            ],
+            "detail": {
+                "tickets": [{
+                    "ticketId": "54f4a80a-245a-445b-bb57-1ecc4685d584",
+                    "players": [
+                        {
+                            "playerId": "189"
+                        }
+                    ],
+                    "startTime": "2021-05-27T15:19:34.315Z"
+                }],
+                "estimatedWaitMillis": "NOT_AVAILABLE",
+                "type": "",
+                "gameSessionInfo": {
+                    "ipAddress": "",
+                    "port": None,
+                    "players": [{
+                        "playerId": "189",
+                        "playerSessionId": "",
+                        "team": ""
+                    }]
+                }
+            }
+        }
+        data["detail"].update(event_details)
+        return data
 
     @contextlib.contextmanager
     def _managed_bearer_token_user(self):
@@ -279,14 +320,11 @@ class FlexMatchTest(_BaseFlexmatchTest):
     def test_ticket_in_matched_state_does_not_get_deleted(self):
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             player_name, ticket_url, ticket = self._initiate_matchmaking()
-            details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"})
-            details.update({
-                "type": "PotentialMatchCreated",
-                "acceptanceRequired": True,
-                "acceptanceTimeout": 123
-            })
-            data = copy.copy(_matchmaking_event_template)
-            data["detail"].update(details)
+            ticket_id = ticket["TicketId"]
+            player_info = {"playerId": str(self.player_id), "team": "winners"}
+            event_details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated",
+                                                    acceptanceRequired=True, acceptanceTimeout=123)
+            data = self._get_event_data(event_details)
             with self._managed_bearer_token_user():
                 self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
             self.auth(player_name)
@@ -363,18 +401,14 @@ class FlexMatchTest(_BaseFlexmatchTest):
         _, _, ticket = self._initiate_matchmaking(host["name"])
         events_url = self.endpoints["flexmatch_events"]
         with self._managed_bearer_token_user():
-            details = self._get_event_details(ticket["TicketId"], [
-                {"playerId": player["id"], "playerSessionId": f"bleble-{player['id']}-flefle"}
-                for player in (member, host)])
-            details.update({
-                "type": "MatchmakingSucceeded"
-            })
+            player_info = [ {"playerId": player["id"], "playerSessionId": f"bleble-{player['id']}-flefle"}
+                            for player in (member, host) ]
+            details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSucceeded")
             details["gameSessionInfo"].update({
                 "ipAddress": "1.2.3.4",
                 "port": "7780"
             })
-            data = copy.copy(_matchmaking_event_template)
-            data["detail"].update(details)
+            data = self._get_event_data(details)
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         for guy in (member, host):
             self.auth(guy["name"])
@@ -387,17 +421,13 @@ class FlexMatchTest(_BaseFlexmatchTest):
         player_id = self.player_id
         events_url = self.endpoints["flexmatch_events"]
         with self._managed_bearer_token_user():
-            details = self._get_event_details(ticket["TicketId"], [
-                {"playerId": player_id, "playerSessionId": f"bleble-{player_id}-flefle"}])
-            details.update({
-                "type": "MatchmakingSucceeded"
-            })
+            player_info = [{"playerId": player_id, "playerSessionId": f"bleble-{player_id}-flefle"}]
+            details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSucceeded")
             details["gameSessionInfo"].update({
                 "ipAddress": "1.2.3.4",
                 "port": "7780"
             })
-            data = copy.copy(_matchmaking_event_template)
-            data["detail"].update(details)
+            data = self._get_event_data(details)
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username)
         with patch.object(flexmatch._LockedTicket, 'MAX_REJOIN_TIME', 0):
@@ -408,15 +438,11 @@ class FlexMatchTest(_BaseFlexmatchTest):
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        events_url = self.endpoints["flexmatch_events"]
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id)}
         with self._managed_bearer_token_user():
-            details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)})
-            details.update({
-                "type": "MatchmakingSearching"
-            })
-            data = copy.copy(_matchmaking_event_template)
-            data["detail"].update(details)
-            self.put(events_url, data=data, expected_status_code=http_client.OK)
+            details = self._get_event_details(ticket_id, player_info, "MatchmakingSearching")
+            data = self._get_event_data(details)
+            self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
         self.assertEqual(r['Status'], "SEARCHING")
@@ -428,14 +454,9 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         events_url = self.endpoints["flexmatch_events"]
         acceptance_timeout = 123
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"})
-        details.update({
-            "type": "PotentialMatchCreated",
-            "acceptanceRequired": False,
-            "acceptanceTimeout": acceptance_timeout
-        })
-        data["detail"].update(details)
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=False, acceptanceTimeout=acceptance_timeout)
+        data = self._get_event_data(details)
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Verify state
@@ -465,23 +486,18 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         self.assertEqual(notification["data"]["acceptance_timeout"], acceptance_timeout)
 
     def test_matchmaking_succeeded(self):
-        connection_ip = "1.2.3.4"
-        connection_port = "7780"
-        player_session_id = "psess-6f45ca3a-5522-4f6c-9293-7df04dc12cb6"
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        events_url = self.endpoints["flexmatch_events"]
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "playerSessionId": player_session_id})
-        details.update({
-            "type": "MatchmakingSucceeded"
-        })
+        connection_ip, connection_port = "1.2.3.4", "7780"
+        player_session_id = "psess-6f45ca3a-5522-4f6c-9293-7df04dc12cb6"
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "playerSessionId": player_session_id}
+        details = self._get_event_details(ticket_id, player_info, "MatchmakingSucceeded")
         details["gameSessionInfo"].update({
             "ipAddress": connection_ip,
             "port": connection_port
         })
-        data["detail"].update(details)
+        data = self._get_event_data(details)
         with self._managed_bearer_token_user():
-            self.put(events_url, data=data, expected_status_code=http_client.OK)
+            self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
         self.assertEqual(r['Status'], "COMPLETED")
@@ -499,12 +515,8 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_matchmaking_cancelled(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         events_url = self.endpoints["flexmatch_events"]
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)})
-        details.update({
-            "type": "MatchmakingCancelled"
-        })
-        data["detail"].update(details)
+        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)}, "MatchmakingCancelled")
+        data = self._get_event_data(details)
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
@@ -515,18 +527,15 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
 
     def test_matchmaking_backfill_ticket_cancel_updates_player_ticket(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        events_url = self.endpoints["flexmatch_events"]
         # Set ticket to 'COMPLETED'
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "playerSessionId": "psess-123123", "team": "winners"})
-        details.update({
-            "type": "MatchmakingSucceeded"
-        })
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "playerSessionId": "psess-123123", "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "MatchmakingSucceeded")
         details["gameSessionInfo"].update({
             "ipAddress": "1.2.3.4",
             "port": "1234"
         })
-        data["detail"].update(details)
+        data = self._get_event_data(details)
+        events_url = self.endpoints["flexmatch_events"]
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Ensure this works for multiple backfill tickets being cancelled
@@ -545,13 +554,10 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
 
     def test_accept_match_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=True, acceptanceTimeout=10)
+        data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"})
-        details["type"] = "PotentialMatchCreated"
-        details["acceptanceRequired"] = True
-        details["acceptanceTimeout"] = 10
-        data["detail"] = details
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Verify state
@@ -569,7 +575,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         details["type"] = "AcceptMatch"
         details["tickets"][0]["players"][0]["accepted"] = True
         details["gameSessionInfo"]["players"][0]["accepted"] = True
-        data["detail"] = details
+        data["detail"].update(details)
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
@@ -580,13 +586,10 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
 
     def test_accept_match_completed_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=True, acceptanceTimeout=10)
+        data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"})
-        details["type"] = "PotentialMatchCreated"
-        details["acceptanceRequired"] = True
-        details["acceptanceTimeout"] = 10
-        data["detail"] = details
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
             details["type"] = "AcceptMatchCompleted"
@@ -611,11 +614,10 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
 
     def test_matchmaking_timed_out_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "MatchmakingTimedOut")
+        data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"})
-        details["type"] = "MatchmakingTimedOut"
-        data["detail"] = details
         with self._managed_bearer_token_user():
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
@@ -627,14 +629,11 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
 
     def test_matchmaking_failed_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
+        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "MatchmakingFailed", reason="UnitTestInducedFailure")
         events_url = self.endpoints["flexmatch_events"]
-        data = copy.copy(_matchmaking_event_template)
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"})
-        details["type"] = "MatchmakingFailed"
-        details["reason"] = "UnitTestInducedFailure"
-        data["detail"] = details
         with self._managed_bearer_token_user():
-            self.put(events_url, data=data, expected_status_code=http_client.OK)
+            self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
         self.assertEqual(r['Status'], "FAILED")
@@ -768,38 +767,3 @@ class MockGameLiftClient(object):
     def accept_match(self, **kwargs):
         return {}
 
-
-_matchmaking_event_template = {
-    "version": "0",
-    "id": str(uuid.uuid4()),
-    "detail-type": "GameLift Matchmaking Event",
-    "source": "aws.gamelift",
-    "account": "123456789012",
-    "time": "2021-05-27T15:19:34Z",
-    "region": "eu-west-1",
-    "resources": [
-        "arn:aws:gamelift:eu-west-1:331925803394:matchmakingconfiguration/unittest"
-    ],
-    "detail": {
-        "tickets": [{
-            "ticketId": "54f4a80a-245a-445b-bb57-1ecc4685d584",
-            "players": [
-                {
-                    "playerId": "189"
-                }
-            ],
-            "startTime": "2021-05-27T15:19:34.315Z"
-        }],
-        "estimatedWaitMillis": "NOT_AVAILABLE",
-        "type": "",
-        "gameSessionInfo": {
-            "ipAddress": "",
-            "port": None,
-            "players": [{
-                "playerId": "189",
-                "playerSessionId": "",
-                "team": ""
-            }]
-        }
-    }
-}
