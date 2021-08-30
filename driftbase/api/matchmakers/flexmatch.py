@@ -27,9 +27,6 @@ class FlexMatchPlayerAPIPatchArgs(Schema):
     latency_ms = fields.Float(required=True, metadata=dict(description="Latency between client and the region he's measuring against."))
     region = fields.String(required=True, metadata=dict(description="Which region the latency was measured against."))
 
-class FlexMatchPlayerAPIPostArgs(Schema):
-    matchmaker = fields.String(required=True, metadata=dict(description="Which matchmaker (configuration name) to issue the ticket for. "))
-
 # Matchmakers API
 #   GET To retrive available matchmakers
 #
@@ -61,21 +58,9 @@ class FlexMatchPlayerAPI(MethodView):
         flexmatch.update_player_latency(player_id, region, latency)
         return flexmatch.get_player_latency_averages(player_id), http_client.OK
 
-    @bp.arguments(FlexMatchPlayerAPIPostArgs)
-    def post(self, args, player_id):
-        """
-        Insert a matchmaking ticket for the requesting player or his party.
-        Returns a ticket.
-        """
-        try:
-            ticket = flexmatch.upsert_flexmatch_ticket(player_id, args.get("matchmaker"))
-            return {
-                "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True)
-            }, http_client.OK
-        except flexmatch.GameliftClientException as e:
-            log.error(f"Inserting/updating matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
-            return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
 
+class FlexMatchTicketsAPIPostArgs(Schema):
+    matchmaker = fields.String(required=True, metadata=dict(description="Which matchmaker (configuration name) to issue the ticket for. "))
 
 @bp.route("/tickets/", endpoint="tickets")
 class FlexMatchTicketsAPI(MethodView):
@@ -92,8 +77,22 @@ class FlexMatchTicketsAPI(MethodView):
         return {}, http_client.NOT_FOUND
 
     @staticmethod
-    def post():
-        pass
+    @bp.arguments(FlexMatchTicketsAPIPostArgs)
+    def post(args):
+        """
+        Insert a matchmaking ticket for the requesting player or his party.
+        Returns a ticket.
+        """
+        try:
+            player_id = current_user.get("player_id")
+            ticket = flexmatch.upsert_flexmatch_ticket(player_id, args.get("matchmaker"))
+            return {
+                       "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True)
+                   }, http_client.OK
+        except flexmatch.GameliftClientException as e:
+            log.error(
+                f"Inserting/updating matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
+            return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
 
 
 class FlexMatchTicketAPIPatchArgs(Schema):
