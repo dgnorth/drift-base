@@ -86,11 +86,14 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
         return ticket_lock.ticket
 
 
-def cancel_player_ticket(player_id):
+def cancel_player_ticket(player_id, ticket_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         ticket = ticket_lock.ticket
         if not ticket:
             log.info(f"Not cancelling non-existent ticket for player {player_id}")
+            return
+        if ticket_id != ticket["TicketId"]:
+            log.warning(f"Ticket {ticket_id} isn't registered to player {player_id}. Not cancelling.")
             return
         if ticket["Status"] in ("COMPLETED", "PLACING", "REQUIRES_ACCEPTANCE"):
             log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
@@ -113,13 +116,15 @@ def get_player_ticket(player_id):
         log.info(f"Returning ticket for player {player_id}: {ticket_lock.ticket}")
         return ticket_lock.ticket
 
-def update_player_acceptance(player_id, match_id, acceptance):
+def update_player_acceptance(ticket_id, player_id, match_id, acceptance):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         player_ticket = ticket_lock.ticket
         if player_ticket is None:
             log.warning(f"Request to update acceptance for player {player_id} who has no ticket. Ignoring")
             return
-        ticket_id = player_ticket["TicketId"]
+        if player_ticket["TicketId"] != ticket_id:
+            log.warning(f"Cannot update acceptance on ticket {ticket_id} as it is not players {player_id} active ticket")
+            return
         log.info(f"Updating acceptance state of ticket {ticket_id} for player {player_id}")
         if player_ticket["Status"] != "REQUIRES_ACCEPTANCE":
             log.error(f"Ticket {ticket_id} doesn't require acceptance! Ignoring.")
