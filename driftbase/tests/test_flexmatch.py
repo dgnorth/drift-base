@@ -245,10 +245,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         # Let member start matchmaking, host should be included in the ticket
         self.auth(member["name"])
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
-            self.assertIn("ticket_url", response)
-            ticket_url = response["ticket_url"]
-            ticket = self.get(ticket_url, expected_status_code=http_client.OK).json()
+            _, ticket_url, ticket = self._initiate_matchmaking(member["name"])
             players = ticket["Players"]
             self.assertEqual(len(players), 2)
             expected_players = {member["id"], host["id"]}
@@ -268,13 +265,9 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertTrue(notification["event"] == "MatchmakingStarted")
 
     def test_delete_ticket(self):
-        self.make_player()
-        tickets_url = self.endpoints["flexmatch_tickets"]
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             # start the matchmaking and then stop it.
-            response = self.post(tickets_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
-            self.assertIn("ticket_url", response)
-            ticket_url = response["ticket_url"]
+            user_name, ticket_url, ticket = self._initiate_matchmaking()
             # Check that we have a stored ticket
             response = self.get(ticket_url, expected_status_code=http_client.OK)
             self.assertIn("TicketId", response.json())
@@ -284,12 +277,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.assertDictEqual(response.json(), {})
 
     def test_ticket_in_matched_state_does_not_get_deleted(self):
-        player_name = self.make_player()
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
-            self.assertIn("ticket_url", response)
-            ticket_url = response["ticket_url"]
-            ticket = self.get(ticket_url, expected_status_code=http_client.OK).json()
+            player_name, ticket_url, ticket = self._initiate_matchmaking()
             data = copy.copy(_matchmaking_event_template)
             details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"})
             details["type"] = "PotentialMatchCreated"
@@ -303,8 +292,6 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.assertEqual(response["Status"], "REQUIRES_ACCEPTANCE")
 
     def test_delete_ticket_clears_cached_ticket_on_invalid_request(self):
-        self.make_player()
-        tickets_url = self.endpoints["flexmatch_tickets"]
 
         def _stop_matchmaking_with_error_response(self, **kwargs):
             response = {
@@ -331,12 +318,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
 
         with patch.object(MockGameLiftClient, 'stop_matchmaking', _stop_matchmaking_with_error_response):
             with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-                response = self.post(tickets_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
-                self.assertIn("ticket_url", response)
-                # Check that we have a stored ticket
-                ticket_url = response["ticket_url"]
-                response = self.get(ticket_url, expected_status_code=http_client.OK).json()
-                self.assertIn("TicketId", response)
+                _, ticket_url, _ = self._initiate_matchmaking()
                 # Attempt to delete
                 self.delete(ticket_url, expected_status_code=http_client.OK)
                 # Ticket should be cleared
@@ -350,9 +332,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         # Host starts matchmaking
         self.auth(host["name"])
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
-            self.assertIn("ticket_url", response)
-            ticket_url = response["ticket_url"]
+            _, ticket_url, _ = self._initiate_matchmaking(host["name"])
             # member then cancels
             self.auth(member["name"])
             response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
@@ -362,9 +342,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         member, host = self._create_party()
         self.auth(member["name"])
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()
-            self.assertIn("ticket_url", response)
-            ticket_url = response["ticket_url"]
+            _, ticket_url, _ = self._initiate_matchmaking(member["name"])
             # host then cancels
             self.auth(username=host["name"])
             self.delete(ticket_url, expected_status_code=http_client.OK)
