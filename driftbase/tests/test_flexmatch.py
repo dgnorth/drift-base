@@ -13,8 +13,8 @@ REGION = "eu-west-1"
 class TestFlexMatchPlayerAPI(BaseCloudkitTest):
     def test_flexmatch_is_in_matchmakers(self):
         self.make_player()
-        self.assertIn("matchmaking", self.endpoints)
-        response = self.get(self.endpoints["matchmaking"], expected_status_code=http_client.OK).json()
+        self.assertIn("matchmakers", self.endpoints)
+        response = self.get(self.endpoints["matchmakers"], expected_status_code=http_client.OK).json()
         self.assertIn("flexmatch", response)
 
     def test_patch_api(self):

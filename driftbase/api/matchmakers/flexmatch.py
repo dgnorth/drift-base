@@ -14,7 +14,7 @@ import http.client as http_client
 import logging
 
 
-bp = Blueprint("flexmatch", __name__, url_prefix="/matchmaking/flexmatch", description="Orchestration of GameLift/FlexMatch matchmaking.")
+bp = Blueprint("flexmatch", __name__, url_prefix="/matchmakers/flexmatch", description="Orchestration of GameLift/FlexMatch matchmakers.")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
@@ -30,15 +30,20 @@ class FlexMatchPlayerAPIPatchArgs(Schema):
 class FlexMatchPlayerAPIPostArgs(Schema):
     matchmaker = fields.String(required=True, metadata=dict(description="Which matchmaker (configuration name) to issue the ticket for. "))
 
+# Matchmakers API
+#   GET To retrive available matchmakers
+#
 # PlayerAPI
 #   PATCH to report latencies
-#   POST to create a ticket
-#   GET to fetch a URL to players active ticket
 #
-# TicketAPI has
+# TicketsAPI
+#   GET to fetch a URL to players active ticket(s)
+#   POST to create a ticket
+#
+# TicketAPI
 #   GET to retrieve a given ticket
-#   PUT to accept a given match, assuming it matches his ticket
-#   DELETE to cancel matchmaking
+#   PATCH to accept a given match, assuming it matches his ticket
+#   DELETE to cancel matchmaking ticket
 
 @bp.route("/<int:player_id>", endpoint="matchmaker")
 class FlexMatchPlayerAPI(MethodView):
@@ -148,8 +153,8 @@ class FlexMatchEventAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    from driftbase.api import matchmaking
-    if "flexmatch" not in matchmaking.__matchmakers__:
+    from driftbase.api import matchmakers
+    if "flexmatch" not in matchmakers.__matchmakers__:
         return {}
     ret = {
         "flexmatch_events": url_for("flexmatch.events")

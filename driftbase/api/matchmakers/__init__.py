@@ -5,7 +5,7 @@ from flask_smorest import Blueprint
 from flask.views import MethodView
 from drift.core.extensions.urlregistry import Endpoints
 
-bp = Blueprint("matchmaking", __name__, url_prefix="/matchmaking", description="Discover matchmakers")
+bp = Blueprint("matchmakers", __name__, url_prefix="/matchmakers", description="Discover matchmakers")
 endpoints = Endpoints()
 
 def drift_init_extension(app, api, **kwargs):
@@ -25,6 +25,6 @@ class MatchmakersAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     info = {
-        "matchmaking": url_for("matchmaking.list", _external=True)
+        "matchmakers": url_for("matchmakers.list", _external=True)
     }
     return info

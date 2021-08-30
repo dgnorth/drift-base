@@ -222,7 +222,7 @@ def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=N
     """ Insert a event into the 'matchmaking' queue of the 'players' exchange. """
     log.info(f"Posting '{event}' to players {receiving_player_ids} with event_data {event_data}")
     if not receiving_player_ids:
-        log.warning(f"Empty receiver in matchmaking event {event} message")
+        log.warning(f"Empty receiver in matchmakers event {event} message")
         return
     if not isinstance(receiving_player_ids, (set, list)):
         receiving_player_ids = [receiving_player_ids]
