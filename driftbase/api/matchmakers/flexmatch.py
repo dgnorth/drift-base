@@ -2,6 +2,28 @@
     Orchestration of GameLift/FlexMatch matchmaking
 """
 
+# Matchmakers API @ /matchmakers/
+#   GET To retrive available matchmakers
+#
+# PlayerAPI @ /matchmakers/flexmatch/<player_id>/ - endpoint "flexmatch"
+#   PATCH to report latencies
+#   GET to fetch average latency per region
+#
+# TicketsAPI @ /matchmakers/flexmatch/tickets/ - endpoint "flexmatch_tickets"
+#   GET to fetch a URL to players active ticket(s)
+#   POST to create a ticket
+#
+# TicketAPI @ /matchmakers/flexmatch/ticket/<ticket_id>/
+#   GET to retrieve a given ticket
+#   PATCH to accept a given match, assuming it matches his ticket
+#   DELETE to cancel matchmaking ticket
+#
+# EventAPI @ /matchmakers/flexmatch/events/ - endpoint "flexmatch_events"
+#   PUT exposed to AWS EventBridge to publish flexmatch events into Drift
+#
+# QueueEventAPI @ /matchmakers/flexmatch/events/ - endpoint "flexmatch_events"
+#   PUT exposed to AWS EventBridge to publish flexmatch events into Drift
+
 from flask_smorest import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import requires_roles
@@ -27,21 +49,6 @@ class FlexMatchPlayerAPIPatchArgs(Schema):
     latency_ms = fields.Float(required=True, metadata=dict(description="Latency between client and the region he's measuring against."))
     region = fields.String(required=True, metadata=dict(description="Which region the latency was measured against."))
 
-# Matchmakers API
-#   GET To retrive available matchmakers
-#
-# PlayerAPI
-#   PATCH to report latencies
-#
-# TicketsAPI
-#   GET to fetch a URL to players active ticket(s)
-#   POST to create a ticket
-#
-# TicketAPI
-#   GET to retrieve a given ticket
-#   PATCH to accept a given match, assuming it matches his ticket
-#   DELETE to cancel matchmaking ticket
-
 @bp.route("/<int:player_id>", endpoint="matchmaker")
 class FlexMatchPlayerAPI(MethodView):
 
@@ -56,6 +63,13 @@ class FlexMatchPlayerAPI(MethodView):
         if not isinstance(latency, (int, float)) or region not in flexmatch.get_valid_regions():
             abort(http_client.BAD_REQUEST, message="Invalid or missing arguments")
         flexmatch.update_player_latency(player_id, region, latency)
+        return flexmatch.get_player_latency_averages(player_id), http_client.OK
+
+    @staticmethod
+    def get(player_id):
+        """
+        Return the calculated averages of the player latencies per region.
+        """
         return flexmatch.get_player_latency_averages(player_id), http_client.OK
 
 
