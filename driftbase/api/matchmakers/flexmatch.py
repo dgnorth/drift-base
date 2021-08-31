@@ -173,6 +173,14 @@ class FlexMatchEventAPI(MethodView):
         flexmatch.process_flexmatch_event(request.json)
         return {}, http_client.OK
 
+@bp.route("/queue_events", endpoint="queue_events")
+class FlexMatchEventAPI(MethodView):
+
+    @requires_roles("flexmatch_event")
+    def put(self):
+        # TODO: implement handling
+        log.log(f"Queue event: {request.json}")
+        return {}, http_client.OK
 
 @endpoints.register
 def endpoint_info(*args):
@@ -180,7 +188,8 @@ def endpoint_info(*args):
     if "flexmatch" not in matchmakers.__matchmakers__:
         return {}
     ret = {
-        "flexmatch_events": url_for("flexmatch.events")
+        "flexmatch_events": url_for("flexmatch.events"),
+        "flexmatch_queue": url_for("flexmatch.queue_events")
     }
     if current_user and current_user.get("player_id"):
         ret["flexmatch"] = url_for("flexmatch.matchmaker", player_id=current_user["player_id"], _external=True)
