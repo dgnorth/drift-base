@@ -21,8 +21,8 @@
 # EventAPI @ /matchmakers/flexmatch/events/ - endpoint "flexmatch_events"
 #   PUT exposed to AWS EventBridge to publish flexmatch events into Drift
 #
-# QueueEventAPI @ /matchmakers/flexmatch/events/ - endpoint "flexmatch_events"
-#   PUT exposed to AWS EventBridge to publish flexmatch events into Drift
+# QueueEventAPI @ /matchmakers/flexmatch/queue_events/ - endpoint "queue_events"
+#   PUT exposed to AWS EventBridge to publish flexmatch queue events
 
 from flask_smorest import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
