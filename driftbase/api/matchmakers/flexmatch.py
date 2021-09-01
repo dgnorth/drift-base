@@ -189,10 +189,13 @@ def endpoint_info(*args):
         return {}
     ret = {
         "flexmatch_events": url_for("flexmatch.events"),
-        "flexmatch_queue": url_for("flexmatch.queue_events")
+        "flexmatch_queue": url_for("flexmatch.queue_events"),
+        "flexmatch_tickets": url_for("flexmatch.tickets")
     }
     if current_user and current_user.get("player_id"):
-        ret["flexmatch"] = url_for("flexmatch.matchmaker", player_id=current_user["player_id"], _external=True)
-        ret["flexmatch_tickets"] = url_for("flexmatch.tickets", _external=True)
+        ret["my_flexmatch"] = url_for("flexmatch.matchmaker", player_id=current_user["player_id"], _external=True)
+        player_ticket = flexmatch.get_player_ticket(current_user["player_id"])
+        if player_ticket:
+            ret["my_flexmatch_ticket"] = url_for("flexmatch.ticket", ticket_id=player_ticket["TicketId"])
     return ret
 

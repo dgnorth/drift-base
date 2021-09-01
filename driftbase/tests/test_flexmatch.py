@@ -16,10 +16,15 @@ class TestFlexmatchMatchmaker(BaseCloudkitTest):
         response = self.get(self.endpoints["matchmakers"], expected_status_code=http_client.OK).json()
         self.assertIn("flexmatch", response)
 
+    def test_my_flexmatch_ticket(self):
+        with patch.object(flexmatch, 'get_player_ticket', return_value={"TicketId": "Something"}):
+            self.make_player()
+            self.assertIn("my_flexmatch_ticket", self.endpoints)
+
 class TestFlexMatchPlayerAPI(BaseCloudkitTest):
     def test_patch_api(self):
         self.make_player()
-        flexmatch_url = self.endpoints["flexmatch"]
+        flexmatch_url = self.endpoints["my_flexmatch"]
         with patch.object(flexmatch, 'update_player_latency', return_value=None):
             with patch.object(flexmatch, 'get_player_latency_averages', return_value={}):
                 self.patch(flexmatch_url, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
@@ -27,7 +32,7 @@ class TestFlexMatchPlayerAPI(BaseCloudkitTest):
 
     def test_get_api(self):
         self.make_player()
-        flexmatch_url = self.endpoints["flexmatch"]
+        flexmatch_url = self.endpoints["my_flexmatch"]
         retval = {"a_region": 123}
         with patch.object(flexmatch, 'get_player_latency_averages', return_value=retval):
             response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
@@ -260,7 +265,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
     # Until then, this goes through the endpoints.
     def test_update_latency_returns_correct_averages(self):
         self.make_player()
-        flexmatch_url = self.endpoints["flexmatch"]
+        flexmatch_url = self.endpoints["my_flexmatch"]
         latencies = [1.0, 2.0, 3.0, 4.0, 5.0, 10.7]
         expected_avg = [1, 1, 2, 3, 4, 6]  # We expect integers representing the average of the last 3 values
         for i, latency in enumerate(latencies):
