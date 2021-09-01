@@ -45,8 +45,8 @@ def fetch_messages(exchange, exchange_id, messages_after_id=None, rows=None):
     if current_user:
         my_player_id = current_user["player_id"]
 
-    redis_messages_key = g.redis.make_key(f"messages:{exchange}:{exchange_id}:")
-    redis_seen_key = g.redis.make_key(f"messages:seen:{exchange}:")
+    redis_messages_key = _make_exchange_messages_key(exchange, exchange_id)
+    redis_seen_key = _make_exchange_messages_seen_key(exchange)
 
     seen_message_id = g.redis.conn.hget(redis_seen_key, exchange_id)
     if messages_after_id == '0' and seen_message_id:
@@ -154,13 +154,25 @@ def post_message(exchange, exchange_id, queue, payload, expire_seconds=None, sen
     pieces = []
     for pair in iter(message.items()):
         pieces.extend(pair)
-    message_id = _get_add_message_script()(keys=[g.redis.make_key(f"messages:{exchange}:{exchange_id}:"),
-                                                 g.redis.make_key(f"messages:{exchange}:{exchange_id}:next:")],
+    message_id = _get_add_message_script()(keys=[_make_exchange_messages_key(exchange, exchange_id),
+                                                 _make_exchange_messages_id_key(exchange, exchange_id)],
                                            args=pieces)
 
     return {
         'message_id': message_id,
     }
+
+
+def _make_exchange_messages_id_key(exchange, exchange_id):
+    return g.redis.make_key(f"messages:id:{exchange}:{exchange_id}:")
+
+
+def _make_exchange_messages_seen_key(exchange):
+    return g.redis.make_key(f"messages:seen:{exchange}:")
+
+
+def _make_exchange_messages_key(exchange, exchange_id):
+    return g.redis.make_key(f"messages:{exchange}:{exchange_id}:")
 
 
 def _next_message_id(message_id: str) -> str:
