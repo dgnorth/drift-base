@@ -1,9 +1,12 @@
-__matchmakers__ = {"flexmatch"}
 
 from flask import url_for, jsonify
 from flask_smorest import Blueprint
 from flask.views import MethodView
 from drift.core.extensions.urlregistry import Endpoints
+import http.client as http_client
+import marshmallow as ma
+
+MATCHMAKER_MODULES = ["flexmatch"]
 
 bp = Blueprint("matchmakers", __name__, url_prefix="/matchmakers", description="Discover matchmakers")
 endpoints = Endpoints()
@@ -20,7 +23,7 @@ class MatchmakersAPI(MethodView):
         """
         Get the available matchmakers
         """
-        return jsonify(list(__matchmakers__))
+        return jsonify(MATCHMAKER_MODULES)
 
 @endpoints.register
 def endpoint_info(*args):

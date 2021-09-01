@@ -185,7 +185,7 @@ class FlexMatchQueueEventAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     from driftbase.api import matchmakers
-    if "flexmatch" not in matchmakers.__matchmakers__:
+    if "flexmatch" not in matchmakers.MATCHMAKER_MODULES:
         return {}
     ret = {
         "flexmatch_events": url_for("flexmatch.events"),
