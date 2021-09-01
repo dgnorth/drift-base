@@ -121,10 +121,22 @@ class MessagesQueuePostArgs(ma.Schema):
     expire = ma.fields.Integer()
 
 
+class MessagesQueuePostResponse(ma.Schema):
+    exchange = ma.fields.String()
+    exchange_id = ma.fields.Integer()
+    queue = ma.fields.String()
+    payload = ma.fields.Dict()
+    expire_seconds = ma.fields.String()
+    message_id = ma.fields.Integer()
+    message_number = ma.fields.Integer()
+    url = ma.fields.Url()
+
+
 @bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>', endpoint='queue')
 class MessagesQueueAPI(MethodView):
 
     @bp.arguments(MessagesQueuePostArgs)
+    @bp.response(http_client.OK, MessagesQueuePostResponse)
     def post(self, args, exchange, exchange_id, queue):
         driftbase.messages.check_can_use_exchange(exchange, exchange_id, read=False)
         expire_seconds = args.get("expire") or driftbase.messages.DEFAULT_EXPIRE_SECONDS
@@ -163,19 +175,29 @@ class MessagesQueueAPI(MethodView):
             _external=True
         )
 
-        return jsonify(ret)
+        return ret
+
+
+class MessageQueueAPIGetResponse(ma.Schema):
+    exchange = ma.fields.String()
+    exchange_id = ma.fields.Integer()
+    queue = ma.fields.String()
+    payload = ma.fields.Dict()
+    expire_seconds = ma.fields.String()
+    message_id = ma.fields.String()
 
 
 @bp.route('/<string:exchange>/<int:exchange_id>/<string:queue>/<string:message_id>', endpoint='message')
 class MessageQueueAPI(MethodView):
 
+    @bp.response(http_client.OK, MessageQueueAPIGetResponse)
     def get(self, exchange, exchange_id, queue, message_id):
         driftbase.messages.check_can_use_exchange(exchange, exchange_id, read=True)
 
-        key = "messages:%s-%s:%s:%s" % (exchange, exchange_id, queue, message_id)
-        val = g.redis.get(key)
-        if val:
-            return jsonify(json.loads(val))
+        message = driftbase.messages.get_message(exchange, exchange_id, message_id)
+        if message:
+            message['payload'] = json.loads(message['payload'])
+            return message
         else:
             abort(http_client.NOT_FOUND)
 
