@@ -16,9 +16,15 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
+class MatchmakersGetResponseSchema(ma.Schema):
+    class Meta:
+        strict = True
+    matchmakers = ma.fields.List(ma.fields.String())
+
 @bp.route("", endpoint="list")
 class MatchmakersAPI(MethodView):
 
+    @bp.response(http_client.OK, MatchmakersGetResponseSchema)
     def get(self):
         """
         Get the available matchmakers
