@@ -45,25 +45,30 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-class FlexMatchPlayerAPIPatchArgs(Schema):
+class FlexMatchPlayerAPIPatchArgs_OLD(Schema):
     latency_ms = fields.Float(required=True, metadata=dict(description="Latency between client and the region he's measuring against."))
     region = fields.String(required=True, metadata=dict(description="Which region the latency was measured against."))
+
+class FlexMatchPlayerAPIPatchArgs(Schema):
+    latencies = fields.Mapping(keys=fields.String(), values=fields.Integer(), required=True,
+                               metadata=dict(description="Latency between client and the region he's measuring against.")
+                               )
 
 @bp.route("/<int:player_id>", endpoint="matchmaker")
 class FlexMatchPlayerAPI(MethodView):
 
     @bp.arguments(FlexMatchPlayerAPIPatchArgs)
+    @bp.response(http_client.OK, FlexMatchPlayerAPIPatchArgs)  # The response schema is the same as the input schema for now
     def patch(self, args, player_id):
         """
         Add a freshly measured latency value to the player tally.
         Returns a region->avg_latency mapping.
         """
-        latency = args.get("latency_ms")
-        region = args.get("region")
-        if not isinstance(latency, (int, float)) or region not in flexmatch.get_valid_regions():
-            abort(http_client.BAD_REQUEST, message="Invalid or missing arguments")
-        flexmatch.update_player_latency(player_id, region, latency)
-        return flexmatch.get_player_latency_averages(player_id), http_client.OK
+        for region, latency in args.get("latencies", {}).items():
+            if not isinstance(latency, (int, float)) or region not in flexmatch.get_valid_regions():
+                abort(http_client.BAD_REQUEST, message="Invalid or missing arguments")
+            flexmatch.update_player_latency(player_id, region, latency)
+        return {"latencies": flexmatch.get_player_latency_averages(player_id)}
 
     @staticmethod
     def get(player_id):

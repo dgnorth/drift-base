@@ -27,8 +27,9 @@ class TestFlexMatchPlayerAPI(BaseCloudkitTest):
         flexmatch_url = self.endpoints["my_flexmatch"]
         with patch.object(flexmatch, 'update_player_latency', return_value=None):
             with patch.object(flexmatch, 'get_player_latency_averages', return_value={}):
-                self.patch(flexmatch_url, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
-                self.patch(flexmatch_url, data={'latency_ms': 123, "region": REGION}, expected_status_code=http_client.OK)
+                with patch.object(flexmatch, 'get_valid_regions', return_value={REGION, "bleh_region"}):
+                    self.patch(flexmatch_url, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
+                    self.patch(flexmatch_url, data={"latencies": {REGION: 123, "bleh_region": 456}}, expected_status_code=http_client.OK)
 
     def test_get_api(self):
         self.make_player()
@@ -269,8 +270,10 @@ class FlexMatchTest(_BaseFlexmatchTest):
         latencies = [1.0, 2.0, 3.0, 4.0, 5.0, 10.7]
         expected_avg = [1, 1, 2, 3, 4, 6]  # We expect integers representing the average of the last 3 values
         for i, latency in enumerate(latencies):
-            patch_response = self.patch(flexmatch_url, data={'latency_ms': latency, "region": REGION}, expected_status_code=http_client.OK).json()
-            self.assertEqual(patch_response[REGION], expected_avg[i])
+            patch_response = self.patch(flexmatch_url, data={"latencies":{REGION: latency}}, expected_status_code=http_client.OK).json()
+            self.assertIn("latencies", patch_response)
+            reponse_latencies = patch_response["latencies"]
+            self.assertEqual(reponse_latencies[REGION], expected_avg[i])
             # Fetch the same value via GET and make sure its the same
             get_response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
             self.assertEqual(get_response[REGION], expected_avg[i])
