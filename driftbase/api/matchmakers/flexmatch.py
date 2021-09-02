@@ -77,10 +77,16 @@ class FlexMatchPlayerAPI(MethodView):
 class FlexMatchTicketsAPIPostArgs(Schema):
     matchmaker = fields.String(required=True, metadata=dict(description="Which matchmaker (configuration name) to issue the ticket for. "))
 
+class FlexMatchTicketsAPIGetResponse(Schema):
+    ticket_url = fields.String()
+    ticket_id = fields.String()
+    ticket_status = fields.String()
+
 @bp.route("/tickets/", endpoint="tickets")
 class FlexMatchTicketsAPI(MethodView):
 
     @staticmethod
+    @bp.response(http_client.OK, FlexMatchTicketsAPIGetResponse)
     def get():
         """
         Returns the URL to the active matchmaking ticket for the requesting player or his party, or empty dict if no such thing is found.
@@ -88,11 +94,16 @@ class FlexMatchTicketsAPI(MethodView):
         player_id = current_user.get("player_id")
         ticket = flexmatch.get_player_ticket(player_id)
         if ticket:
-            return {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"])}, http_client.OK
+            return {
+                       "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"]),
+                       "ticket_id": ticket["TicketId"],
+                       "ticket_status": ticket["Status"]
+                   }, http_client.OK
         return {}, http_client.NOT_FOUND
 
     @staticmethod
     @bp.arguments(FlexMatchTicketsAPIPostArgs)
+    @bp.response(http_client.CREATED, FlexMatchTicketsAPIGetResponse)
     def post(args):
         """
         Insert a matchmaking ticket for the requesting player or his party.
@@ -102,8 +113,10 @@ class FlexMatchTicketsAPI(MethodView):
             player_id = current_user.get("player_id")
             ticket = flexmatch.upsert_flexmatch_ticket(player_id, args.get("matchmaker"))
             return {
-                       "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True)
-                   }, http_client.OK
+                "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
+                "ticket_id": ticket["TicketId"],
+                "ticket_status": ticket["Status"]
+            }
         except flexmatch.GameliftClientException as e:
             log.error(
                 f"Inserting/updating matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
@@ -116,7 +129,7 @@ class FlexMatchTicketAPIPatchArgs(Schema):
 
 @bp.route("/tickets/<string:ticket_id>", endpoint="ticket")
 class FlexMatchTicketAPI(MethodView):
-    """ CRUD API for flexmatch tickets. """
+    """ RUD API for flexmatch tickets. """
 
     @staticmethod
     def get(ticket_id):
