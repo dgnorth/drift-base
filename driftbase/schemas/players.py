@@ -40,6 +40,9 @@ class PlayerSchema(SQLAlchemyAutoSchema):
     messagequeue_url = fields.Str(
         description="Fully qualified URL of the players' message queue resource"
     )
+    messagequeue2_url = fields.Str(
+        description="Fully qualified URL of the players' message queue resource"
+    )
     messages_url = Url(
         'messages.exchange',
         doc="Fully qualified URL of the players' messages resource",

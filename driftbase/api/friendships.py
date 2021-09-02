@@ -14,7 +14,7 @@ from sqlalchemy.orm import aliased
 
 from driftbase.models.db import Friendship, FriendInvite, CorePlayer
 from driftbase.schemas.friendships import InviteSchema, FriendRequestSchema
-from driftbase.api.messages import post_message
+from driftbase.messages import post_message
 
 DEFAULT_INVITE_EXPIRATION_TIME_SECONDS = 60 * 60 * 1
 

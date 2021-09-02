@@ -9,7 +9,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 import http.client as http_client
 
-from driftbase.api.messages import post_message
+from driftbase.messages import post_message
 from driftbase.models.db import CorePlayer
 from driftbase.parties import accept_party_invite, get_player_party, get_party_members, leave_party, disband_party, \
     create_party_invite, decline_party_invite

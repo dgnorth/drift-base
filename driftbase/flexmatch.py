@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError, ParamValidationError
 from flask import g
 from aws_assume_role_lib import assume_role
 from driftbase.parties import get_player_party, get_party_members
-from driftbase.api.messages import post_message
+from driftbase.messages import post_message
 
 from driftbase.resources.flexmatch import TIER_DEFAULTS
 
