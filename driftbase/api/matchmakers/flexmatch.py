@@ -118,6 +118,7 @@ class FlexMatchTicketsAPI(MethodView):
                 "ticket_status": ticket["Status"]
             }
         except flexmatch.GameliftClientException as e:
+            player_id = current_user.get("player_id", "UNKNOWN")
             log.error(
                 f"Inserting/updating matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
             return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
