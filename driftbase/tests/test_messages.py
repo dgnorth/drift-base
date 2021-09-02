@@ -30,8 +30,9 @@ class MessagesTest(BaseCloudkitTest):
 
         messagequeue_url = messagequeue_url_template.format(queue="testqueue")
         data = {"message": {"Hello": "World"}}
-        r = self.post(messagequeue_url, data=data, expected_status_code=http.client.OK)
-        message_url = r.json()["url"]
+        r = self.post(messagequeue_url, data=data, expected_status_code=http.client.OK).json()
+        message_url = r["url"]
+        self.assertIsInstance(r["message_id"], str)
 
         # we should not be able to read the message back, only the recipient can do that
         r = self.get(message_url, expected_status_code=http.client.BAD_REQUEST)

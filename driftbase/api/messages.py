@@ -128,7 +128,7 @@ class MessagesQueuePostResponse(ma.Schema):
     queue = ma.fields.String()
     payload = ma.fields.Dict()
     expire_seconds = ma.fields.String()
-    message_id = ma.fields.Integer()
+    message_id = ma.fields.String()
     message_number = ma.fields.Integer()
     url = ma.fields.Url()
 

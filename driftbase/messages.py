@@ -70,7 +70,7 @@ def fetch_messages(exchange, exchange_id, messages_after_id=None, rows=None):
             # Redis will append '-0' to custom IDs too, so make sure we remove it here
             stripped_message_id = message_id.split('-')[0]
             message['payload'] = json.loads(message['payload'])
-            message['message_id'] = int(stripped_message_id)
+            message['message_id'] = stripped_message_id
             highest_processed_message_id = stripped_message_id
             expires = datetime.datetime.fromisoformat(message["expires"][:-1])  # remove trailing 'Z'
             if expires > now:
@@ -169,7 +169,7 @@ def post_message(exchange, exchange_id, queue, payload, expire_seconds=None, sen
                                            args=pieces)
 
     return {
-        'message_id': int(message_id),
+        'message_id': message_id,
     }
 
 
