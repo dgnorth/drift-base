@@ -37,7 +37,7 @@ class TestFlexMatchPlayerAPI(BaseCloudkitTest):
         retval = {"a_region": 123}
         with patch.object(flexmatch, 'get_player_latency_averages', return_value=retval):
             response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
-            self.assertDictEqual(retval, response)
+            self.assertDictEqual(retval, response["latencies"])
 
 class TestFlexMatchTicketsAPI(BaseCloudkitTest):
     def test_get_api(self):
@@ -275,7 +275,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
             reponse_latencies = patch_response["latencies"]
             self.assertEqual(reponse_latencies[REGION], expected_avg[i])
             # Fetch the same value via GET and make sure its the same
-            get_response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
+            get_response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()["latencies"]
             self.assertEqual(get_response[REGION], expected_avg[i])
 
     def test_start_matchmaking(self):

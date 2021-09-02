@@ -45,11 +45,7 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-class FlexMatchPlayerAPIPatchArgs_OLD(Schema):
-    latency_ms = fields.Float(required=True, metadata=dict(description="Latency between client and the region he's measuring against."))
-    region = fields.String(required=True, metadata=dict(description="Which region the latency was measured against."))
-
-class FlexMatchPlayerAPIPatchArgs(Schema):
+class FlexMatchLatencySchema(Schema):
     latencies = fields.Mapping(keys=fields.String(), values=fields.Integer(), required=True,
                                metadata=dict(description="Latency between client and the region he's measuring against.")
                                )
@@ -57,8 +53,8 @@ class FlexMatchPlayerAPIPatchArgs(Schema):
 @bp.route("/<int:player_id>", endpoint="matchmaker")
 class FlexMatchPlayerAPI(MethodView):
 
-    @bp.arguments(FlexMatchPlayerAPIPatchArgs)
-    @bp.response(http_client.OK, FlexMatchPlayerAPIPatchArgs)  # The response schema is the same as the input schema for now
+    @bp.arguments(FlexMatchLatencySchema)
+    @bp.response(http_client.OK, FlexMatchLatencySchema)  # The response schema is the same as the input schema for now
     def patch(self, args, player_id):
         """
         Add a freshly measured latency value to the player tally.
@@ -70,12 +66,12 @@ class FlexMatchPlayerAPI(MethodView):
             flexmatch.update_player_latency(player_id, region, latency)
         return {"latencies": flexmatch.get_player_latency_averages(player_id)}
 
-    @staticmethod
-    def get(player_id):
+    @bp.response(http_client.OK, FlexMatchLatencySchema)
+    def get(self, player_id):
         """
         Return the calculated averages of the player latencies per region.
         """
-        return flexmatch.get_player_latency_averages(player_id), http_client.OK
+        return {"latencies": flexmatch.get_player_latency_averages(player_id)}
 
 
 class FlexMatchTicketsAPIPostArgs(Schema):
