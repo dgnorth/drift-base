@@ -84,13 +84,13 @@ class TestFlexMatchTicketAPI(BaseCloudkitTest):
         non_existant_ticket_url = self.endpoints["flexmatch_tickets"] + "1235-abcdef-whateves"
         with patch.object(flexmatch, 'cancel_player_ticket', return_value=None):
             response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(response["Status"], "NoTicketFound")
+            self.assertEqual(response["status"], "NoTicketFound")
         with patch.object(flexmatch, 'cancel_player_ticket', return_value="TicketState"):
             response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(response["Status"], "TicketState")
+            self.assertEqual(response["status"], "TicketState")
         with patch.object(flexmatch, 'cancel_player_ticket', return_value={"Key": "Value"}):
             response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(response["Status"], "Deleted")
+            self.assertEqual(response["status"], "Deleted")
 
 
 class _BaseFlexmatchTest(BaseCloudkitTest):
@@ -347,7 +347,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
                 self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
             self.auth(player_name)
             response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(response["Status"], "REQUIRES_ACCEPTANCE")
+            self.assertEqual(response["status"], "REQUIRES_ACCEPTANCE")
 
     def test_delete_ticket_clears_cached_ticket_on_invalid_request(self):
 
@@ -394,7 +394,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
             # member then cancels
             self.auth(member["name"])
             response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(response["Status"], "Deleted")
+            self.assertEqual(response["status"], "Deleted")
 
     def test_party_members_get_notified_if_ticket_is_cancelled(self):
         member, host = self._create_party()

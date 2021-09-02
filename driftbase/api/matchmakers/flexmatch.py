@@ -128,6 +128,9 @@ class FlexMatchTicketAPIPatchArgs(Schema):
     match_id = fields.String(required=True, metadata=dict(description="The id of the match being accepted/rejected"))
     acceptance = fields.Boolean(required=True, metadata=dict(description="True if match_id is accepted, False otherwise"))
 
+class FlexMatchTicketAPIDeleteResponse(Schema):
+    status = fields.String(required=True, metadata=dict(description="The status of the ticket after the operation"))
+
 @bp.route("/tickets/<string:ticket_id>", endpoint="ticket")
 class FlexMatchTicketAPI(MethodView):
     """ RUD API for flexmatch tickets. """
@@ -136,7 +139,8 @@ class FlexMatchTicketAPI(MethodView):
     def get(ticket_id):
         """
         Return the stored ticket if the calling player is a member of the ticket, either solo or via party
-        (TODO define leaner schema for response)
+        (TODO define leaner schema for response? Maybe useful to have this for full ticket dump as the 'lean' version is
+        returned via GET/POST on the collections API)
         """
         player_id = current_user.get("player_id")
         if player_id:
@@ -147,6 +151,7 @@ class FlexMatchTicketAPI(MethodView):
         abort(http_client.UNAUTHORIZED)
 
     @staticmethod
+    @bp.response(http_client.OK, FlexMatchTicketAPIDeleteResponse)
     def delete(ticket_id):
         """ Delete and cancel 'ticket_id' if caller is allowed to do so. """
         player_id = current_user.get("player_id")
@@ -154,10 +159,10 @@ class FlexMatchTicketAPI(MethodView):
             try:
                 deleted_ticket = flexmatch.cancel_player_ticket(player_id, ticket_id)
                 if deleted_ticket is None:
-                    return {"Status": "NoTicketFound"}, http_client.OK
+                    return {"status": "NoTicketFound"}
                 if isinstance(deleted_ticket, str):
-                    return {"Status": deleted_ticket}, http_client.OK
-                return {"Status": "Deleted"}, http_client.OK
+                    return {"status": deleted_ticket}
+                return {"status": "Deleted"}
             except flexmatch.GameliftClientException as e:
                 log.error(f"Cancelling matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
                 return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
