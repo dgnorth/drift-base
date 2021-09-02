@@ -1,5 +1,7 @@
+import datetime
 import http.client
 import urllib
+from mock import patch
 
 from driftbase.utils.test_utils import BaseCloudkitTest
 
@@ -233,3 +235,22 @@ class MessagesTest(BaseCloudkitTest):
         self.assertEqual(len(r.json()["testqueue"]), 1)
         self.assertIn("payload", r.json()["testqueue"][0])
         self.assertIn("Hello", r.json()["testqueue"][0]["payload"])
+
+    def test_message_expiry(self):
+        player_receiver_endpoint, receiver_headers = self.make_player_message_endpoint_and_session()
+        messagequeue_url_template, messages_url = self.get_messages_url(player_receiver_endpoint)
+
+        # send a message from another player, with an expiry of one second
+        player_sender = self.make_player()
+        messagequeue_url = messagequeue_url_template.format(queue="testqueue")
+        data = {"message": {"Hello": "World"}, "expire": 1}
+        self.post(messagequeue_url, data=data, expected_status_code=http.client.OK)
+
+        # switch to the receiver player
+        self.headers = receiver_headers
+
+        with patch("driftbase.messages.utcnow") as mock_date:
+            mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(seconds=5)
+            # all messages should have expired now
+            r = self.get(messages_url + "?timeout=1")
+            self.assertEqual(len(r.json()), 0)

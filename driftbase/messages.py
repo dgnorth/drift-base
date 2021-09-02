@@ -68,10 +68,10 @@ def fetch_messages(exchange, exchange_id, messages_after_id=None, rows=None):
     if len(content):
         for message_id, message in content:
             # Redis will append '-0' to custom IDs too, so make sure we remove it here
-            message_id = message_id.split('-')[0]
+            stripped_message_id = message_id.split('-')[0]
             message['payload'] = json.loads(message['payload'])
-            message['message_id'] = int(message_id)
-            highest_processed_message_id = message_id
+            message['message_id'] = int(stripped_message_id)
+            highest_processed_message_id = stripped_message_id
             expires = datetime.datetime.fromisoformat(message["expires"][:-1])  # remove trailing 'Z'
             if expires > now:
                 messages.append(message)
@@ -80,7 +80,7 @@ def fetch_messages(exchange, exchange_id, messages_after_id=None, rows=None):
                           message['message_id'],
                           message['queue'], exchange, exchange_id, my_player_id)
             else:
-                expired_ids += message_id
+                expired_ids.append(message_id)
                 log.debug("Expired message %s was removed from queue '%s' in "
                           "exchange '%s:%s' by player %s",
                           message['message_id'],
@@ -93,7 +93,7 @@ def fetch_messages(exchange, exchange_id, messages_after_id=None, rows=None):
 
         # Delete expired messages
         if expired_ids:
-            pipe.xdel(redis_messages_key, expired_ids)
+            pipe.xdel(redis_messages_key, *expired_ids)
         pipe.execute()
 
     result = collections.defaultdict(list)
