@@ -109,6 +109,7 @@ class MessagesExchangeAPI(MethodView):
                     except Exception as e:
                         log.error("[%s/%s] Exception %s", my_player_id, exchange_full_name, repr(e))
                         yield json.dumps({})
+                        return
 
             return Response(stream_with_context(streamer()), mimetype="application/json")
         else:
