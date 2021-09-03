@@ -209,14 +209,14 @@ def endpoint_info(*args):
     if "flexmatch" not in matchmakers.MATCHMAKER_MODULES:
         return {}
     ret = {
-        "flexmatch_events": url_for("flexmatch.events"),
-        "flexmatch_queue": url_for("flexmatch.queue_events"),
-        "flexmatch_tickets": url_for("flexmatch.tickets")
+        "flexmatch_events": url_for("flexmatch.events", _external=True),
+        "flexmatch_queue": url_for("flexmatch.queue_events", _external=True),
+        "flexmatch_tickets": url_for("flexmatch.tickets", _external=True)
     }
     if current_user and current_user.get("player_id"):
         ret["my_flexmatch"] = url_for("flexmatch.matchmaker", player_id=current_user["player_id"], _external=True)
         player_ticket = flexmatch.get_player_ticket(current_user["player_id"])
         if player_ticket:
-            ret["my_flexmatch_ticket"] = url_for("flexmatch.ticket", ticket_id=player_ticket["TicketId"])
+            ret["my_flexmatch_ticket"] = url_for("flexmatch.ticket", ticket_id=player_ticket["TicketId"], _external=True)
     return ret
 

@@ -298,6 +298,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         notification, message_number = self.get_player_notification("matchmaking", "MatchmakingStarted")
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["event"] == "MatchmakingStarted")
+        self.assertIn("ticket_url", notification["data"])
 
     def test_matchmaking_includes_party_members(self):
         member, host = self._create_party()
