@@ -1,11 +1,11 @@
 import http.client as http_client
+
 from driftbase.utils.test_utils import BaseCloudkitTest
 from unittest.mock import patch
 from driftbase import flexmatch
 from drift.utils import get_config
 import uuid
 import contextlib
-import copy
 
 REGION = "eu-west-1"
 

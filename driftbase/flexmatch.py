@@ -4,7 +4,7 @@ import boto3
 import json
 from collections import defaultdict
 from botocore.exceptions import ClientError, ParamValidationError
-from flask import g
+from flask import g, url_for
 from aws_assume_role_lib import assume_role
 from driftbase.parties import get_player_party, get_party_members
 from driftbase.messages import post_message
@@ -79,8 +79,8 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
             raise GameliftClientException("Failed to start matchmaking", str(e))
 
         ticket_lock.ticket = response["MatchmakingTicket"]
-
-        _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted")
+        log.info(f"New ticket {ticket_lock.ticket['TicketId']} issued by {player_id}")
+        _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket_lock.ticket["TicketId"])})
         return ticket_lock.ticket
 
 
@@ -96,7 +96,7 @@ def cancel_player_ticket(player_id, ticket_id):
         if ticket["Status"] in ("COMPLETED", "PLACING", "REQUIRES_ACCEPTANCE"):
             log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
             return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
-        log.info(f"Cancelling ticket for player {player_id}, currently in state {ticket['Status']}")
+        log.info(f"Cancelling ticket {ticket['TicketId']} for player {player_id}, currently in state {ticket['Status']}")
         gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])

@@ -45,13 +45,13 @@ def drift_init_extension(app, api, **kwargs):
     endpoints.init_app(app)
 
 
-class FlexMatchLatencySchema(Schema):
-    latencies = fields.Mapping(keys=fields.String(), values=fields.Integer(), required=True,
-                               metadata=dict(description="Latency between client and the region he's measuring against.")
-                               )
 
 @bp.route("/<int:player_id>", endpoint="matchmaker")
 class FlexMatchPlayerAPI(MethodView):
+
+    class FlexMatchLatencySchema(Schema):
+        latencies = fields.Mapping(keys=fields.String(), values=fields.Integer(), required=True,
+                                   metadata=dict(description="Latency between client and the region he's measuring against."))
 
     @bp.arguments(FlexMatchLatencySchema)
     @bp.response(http_client.OK, FlexMatchLatencySchema)  # The response schema is the same as the input schema for now
@@ -74,16 +74,17 @@ class FlexMatchPlayerAPI(MethodView):
         return {"latencies": flexmatch.get_player_latency_averages(player_id)}
 
 
-class FlexMatchTicketsAPIPostArgs(Schema):
-    matchmaker = fields.String(required=True, metadata=dict(description="Which matchmaker (configuration name) to issue the ticket for. "))
-
-class FlexMatchTicketsAPIGetResponse(Schema):
-    ticket_url = fields.String()
-    ticket_id = fields.String()
-    ticket_status = fields.String()
-
 @bp.route("/tickets/", endpoint="tickets")
 class FlexMatchTicketsAPI(MethodView):
+
+    class FlexMatchTicketsAPIPostArgs(Schema):
+        matchmaker = fields.String(required=True, metadata=dict(
+            description="Which matchmaker (configuration name) to issue the ticket for. "))
+
+    class FlexMatchTicketsAPIGetResponse(Schema):
+        ticket_url = fields.String()
+        ticket_id = fields.String()
+        ticket_status = fields.String()
 
     @staticmethod
     @bp.response(http_client.OK, FlexMatchTicketsAPIGetResponse)
@@ -124,16 +125,16 @@ class FlexMatchTicketsAPI(MethodView):
             return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
 
 
-class FlexMatchTicketAPIPatchArgs(Schema):
-    match_id = fields.String(required=True, metadata=dict(description="The id of the match being accepted/rejected"))
-    acceptance = fields.Boolean(required=True, metadata=dict(description="True if match_id is accepted, False otherwise"))
-
-class FlexMatchTicketAPIDeleteResponse(Schema):
-    status = fields.String(required=True, metadata=dict(description="The status of the ticket after the operation"))
-
 @bp.route("/tickets/<string:ticket_id>", endpoint="ticket")
 class FlexMatchTicketAPI(MethodView):
     """ RUD API for flexmatch tickets. """
+
+    class FlexMatchTicketAPIPatchArgs(Schema):
+        match_id = fields.String(required=True, metadata=dict(description="The id of the match being accepted/rejected"))
+        acceptance = fields.Boolean(required=True, metadata=dict(description="True if match_id is accepted, False otherwise"))
+
+    class FlexMatchTicketAPIDeleteResponse(Schema):
+        status = fields.String(required=True, metadata=dict(description="The status of the ticket after the operation"))
 
     @staticmethod
     def get(ticket_id):
