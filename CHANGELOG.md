@@ -25,6 +25,8 @@
 
 ### Deprecations
 
+- "latest" is no longer pushed as a tag for Docker images.
+
 ---
 ## 0.4.1
 
