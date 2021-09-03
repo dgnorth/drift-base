@@ -18,6 +18,10 @@
 ### New Features
 
 - Add out-of-the-box support for DataDog APM tracing. Enable with ENABLE_DATADOG_APM=1. Must be used with UWSGI_LAZY_APPS=1.
+- Add AWS Flexmatch matchmaking support. This ofc depends on the organization having the proper AWS infrastructure in place and introduces a few new config values for the tenant:
+  * **aws_gamelift_role** (no default):  The AWS role to assume when interacting with Gamelift/Flexmatch 
+  * **valid_regions** (default ["eu-west-1"]): Which AWS regions are valid for matchmaking 
+  * **max_rejoin_time_seconds** (default 2 minutes): How much time may pass after a ticket is completed before drift considers the ticket to be invalid for late-comers. This is mostly relevant for players in parties and those who disconnect from a match.
 
 ### Bug Fixes
 
