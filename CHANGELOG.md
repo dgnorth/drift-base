@@ -18,8 +18,10 @@
 ### New Features
 
 - Add out-of-the-box support for DataDog APM tracing. Enable with ENABLE_DATADOG_APM=1. Must be used with UWSGI_LAZY_APPS=1.
-  
+
 ### Bug Fixes
+
+- Stabilized message exchange implementation and fixed GET for individual messages
 
 ### Deprecations
 
