@@ -42,6 +42,8 @@ def _patch_messages(messages):
     for k, v in iter(messages.items()):
         for e in v:
             e.update({'message_number': int(e['message_id'])})
+            e.update({'exchange_id': int(e['exchange_id'])})
+            e.update({'sender_id': int(e['sender_id'])})
         v.sort(key=operator.itemgetter("message_number"), reverse=True)
         patched[k] = v
     return patched

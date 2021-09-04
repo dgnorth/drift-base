@@ -63,13 +63,22 @@ class MessagesTest(BaseCloudkitTest):
         self.assertEqual(r["queue"], "testqueue")
         self.assertIn("payload", r)
         self.assertIn("Hello", r["payload"])
+        self.assertIsInstance(r["exchange_id"], int)
 
         # get all the messages for the player
         r = self.get(messages_url).json()
         self.assertIn("testqueue", r)
         self.assertEqual(len(r["testqueue"]), 1)
-        self.assertIn("payload", r["testqueue"][0])
-        self.assertIn("Hello", r["testqueue"][0]["payload"])
+        message = r["testqueue"][0]
+        self.assertIn("payload", message)
+        self.assertIn("Hello", message["payload"])
+        self.assertIsInstance(message["exchange"], str)
+        self.assertIsInstance(message["exchange_id"], int)
+        self.assertIsInstance(message["message_id"], str)
+        self.assertIsInstance(message["message_number"], int)
+        self.assertIsInstance(message["payload"], dict)
+        self.assertIsInstance(message["queue"], str)
+        self.assertIsInstance(message["sender_id"], int)
 
         # get all the messages for the player again and make sure we're receiving the same thing
         self.assertEqual(self.get(messages_url).json(), r)
