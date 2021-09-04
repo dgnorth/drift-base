@@ -11,7 +11,7 @@ import json
 import logging
 import marshmallow as ma
 import operator
-from flask import g, url_for, stream_with_context, Response, jsonify
+from flask import url_for, stream_with_context, Response, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
@@ -41,9 +41,11 @@ def _patch_messages(messages):
     patched = {}
     for k, v in iter(messages.items()):
         for e in v:
-            e.update({'message_number': int(e['message_id'])})
-            e.update({'exchange_id': int(e['exchange_id'])})
-            e.update({'sender_id': int(e['sender_id'])})
+            e.update({
+                'message_number': int(e['message_id']),
+                'exchange_id': int(e['exchange_id']),
+                'sender_id': int(e['sender_id'])
+            })
         v.sort(key=operator.itemgetter("message_number"), reverse=True)
         patched[k] = v
     return patched
