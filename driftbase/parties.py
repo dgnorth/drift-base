@@ -152,7 +152,7 @@ def leave_party(player_id, party_id):
                 current_party = pipe.get(scoped_player_party_key)
 
                 # Can't leave a party you're not a member of
-                if int(current_party) != party_id:
+                if current_party is None or int(current_party) != party_id:
                     abort(http_client.BAD_REQUEST, message="You're not a member of this party")
 
                 # If the player has already left, do nothing

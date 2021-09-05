@@ -179,6 +179,9 @@ class PartiesTest(BaseCloudkitTest):
         # Leave the party with g2
         self.delete(g2_accept['member_url'], expected_status_code=http_client.NO_CONTENT)
 
+        # Leave the party with g2 again
+        self.delete(g2_accept['member_url'], expected_status_code=http_client.BAD_REQUEST)
+
         # Check host gets a notification
         self.auth(username=host_user)
         host_notification, host_message_number = self.get_party_notification('player_joined')
