@@ -34,7 +34,7 @@ def get_player_lobby(player_id: int):
 
             return lobby_lock.lobby
 
-def create_lobby(player_id: int, team_capacity: int, team_names: typing.List[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str]):
+def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str]):
     if get_player_party(player_id) is not None:
         raise InvalidRequestException(f"Failed to create lobby for player {player_id} due to player being in a party")
 
@@ -84,7 +84,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: typing.List[str
                     lobby_lock.lobby = new_lobby
                     return new_lobby
 
-def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names: typing.List[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str]):
+def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str]):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
@@ -411,7 +411,7 @@ def _get_lobby_host_player_id(lobby: dict) -> int:
 
     return 0
 
-def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: typing.List[int]) -> typing.List[int]:
+def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: list[int]) -> list[int]:
     return [member["player_id"] for member in lobby["members"] if member["player_id"] not in exclude_player_ids]
 
 def _get_tenant_config_value(config_key):
@@ -424,16 +424,13 @@ def _get_tenant_config_value(config_key):
 def _get_tenant_name():
     return g.conf.tenant.get('tenant_name')
 
-def _post_lobby_event_to_members(receiving_player_ids, event, event_data=None, expiry=None):
+def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, event_data: typing.Optional[dict] = None, expiry: typing.Optional[int] = None):
     """ Insert an event into the 'lobby' queue of the 'players' exchange. """
     log.info(f"Posting '{event}' to players {receiving_player_ids} with event_data {event_data}")
 
     if not receiving_player_ids:
         log.warning(f"Empty receiver in lobby event {event} message")
         return
-
-    if not isinstance(receiving_player_ids, (set, list)):
-        receiving_player_ids = [receiving_player_ids]
 
     payload = {
         "event": event,
