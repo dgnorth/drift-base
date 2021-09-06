@@ -163,7 +163,8 @@ def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names
                 lobby_lock.lobby = lobby
 
                 # Notify members
-                # TODO
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyUpdated", lobby)
 
 def delete_or_leave_lobby(player_id: int):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
@@ -207,27 +208,40 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team: typ
                 # TODO: Support updating other member's info as the host
                 raise InvalidRequestException(f"The host updating other member's info not supported")
 
+            member_updated = False
+
             for member in lobby["members"]:
-                if member["player_id"] == member_id:
-                    current_team = member["team"]
+                if member["player_id"] != member_id:
+                    continue
 
-                    if team and team not in lobby["team_names"]:
-                        raise InvalidRequestException(f"Player {player_id} attempted to join invalid team {team}")
+                current_team = member["team"]
 
-                    if current_team and team != current_team:
-                        log.info(f"Player {player_id} in lobby {lobby_id} left team {current_team}")
+                if team and team not in lobby["team_names"]:
+                    raise InvalidRequestException(f"Player {player_id} attempted to join invalid team {team}")
 
-                    if team and team != current_team and _can_join_team(lobby, team):
-                        log.info(f"Player {player_id} in lobby {lobby_id} joined team {team}")
+                if current_team and team != current_team:
+                    member_updated = True
+                    log.info(f"Player {player_id} in lobby {lobby_id} left team {current_team}")
 
-                    member["team"] = team
+                if team and team != current_team and _can_join_team(lobby, team):
+                    member_updated = True
+                    log.info(f"Player {player_id} in lobby {lobby_id} joined team {team}")
 
-                    if ready != member["ready"]:
-                        log.info(f"Player {player_id} in lobby {lobby_id} updated ready status to {ready}")
+                member["team"] = team
 
-                    member["ready"] = ready
+                if ready != member["ready"]:
+                    member_updated = True
+                    log.info(f"Player {player_id} in lobby {lobby_id} updated ready status to {ready}")
 
-            lobby_lock.lobby = lobby
+                member["ready"] = ready
+                break
+
+            if member_updated:
+                lobby_lock.lobby = lobby
+
+                # Notify members
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberUpdated", {"lobby_id": lobby_id, "members": lobby["members"]})
 
 def kick_member(player_id: int, member_id: int, lobby_id: str):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
@@ -275,7 +289,8 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
                         log.warning(f"Player {member_id} was kicked from lobby {lobby_id}, but was supposed to be in lobby {member_lobby_id}")
 
                     # Notify members
-                    # TODO
+                    receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                    _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberKicked", {"lobby_id": lobby_id, "members": lobby["members"]})
                 else:
                     log.warning(f"Host player {player_id} tried to kick member player {member_id} from lobby {lobby_id}, but {member_id} wasn't a member of the lobby")
 
@@ -311,6 +326,10 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
             lobby_lock.lobby = lobby
 
             log.info(f"Player {player_id} joined lobby {lobby_id}")
+
+            # Notify members
+            receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberJoined", {"lobby_id": lobby_id, "members": lobby["members"]})
         else:
             log.info(f"Player {player_id} attempted to join lobby {lobby_id} while already being a member")
 
@@ -340,7 +359,8 @@ def _internal_delete_or_leave_lobby(player_id: int, lobby_id: str):
                 lobby_lock.lobby = None
 
                 # Notify members
-                # TODO
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted")
             else:
                 # Member is leaving the lobby
 
@@ -357,7 +377,8 @@ def _internal_delete_or_leave_lobby(player_id: int, lobby_id: str):
                     lobby_lock.lobby = lobby
 
                     # Notify remaining members
-                    # TODO
+                    receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                    _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberLeft", {"lobby_id": lobby_id, "members": lobby["members"]})
                 else:
                     log.error(f"Lobby member player {player_id} attempted to leave lobby {lobby_id} without being a member")
         else:
@@ -383,6 +404,16 @@ def _get_lobby_key(lobby_id: str) -> str:
 def _get_player_lobby_key(player_id: int) -> str:
     return g.redis.make_key(f"player:{player_id}:lobby:")
 
+def _get_lobby_host_player_id(lobby: dict) -> int:
+    for member in lobby["members"]:
+        if member["host"]:
+            return member["player_id"]
+
+    return 0
+
+def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: typing.List[int]) -> typing.List[int]:
+    return [member["player_id"] for member in lobby["members"] if member["player_id"] not in exclude_player_ids]
+
 def _get_tenant_config_value(config_key):
     default_value = TIER_DEFAULTS.get(config_key, None)
     tenant = g.conf.tenant
@@ -393,12 +424,24 @@ def _get_tenant_config_value(config_key):
 def _get_tenant_name():
     return g.conf.tenant.get('tenant_name')
 
-def _get_lobby_host_player_id(lobby: dict) -> int:
-    for member in lobby["members"]:
-        if member["host"]:
-            return member["player_id"]
+def _post_lobby_event_to_members(receiving_player_ids, event, event_data=None, expiry=None):
+    """ Insert an event into the 'lobby' queue of the 'players' exchange. """
+    log.info(f"Posting '{event}' to players {receiving_player_ids} with event_data {event_data}")
 
-    return 0
+    if not receiving_player_ids:
+        log.warning(f"Empty receiver in lobby event {event} message")
+        return
+
+    if not isinstance(receiving_player_ids, (set, list)):
+        receiving_player_ids = [receiving_player_ids]
+
+    payload = {
+        "event": event,
+        "data": event_data or {}
+    }
+
+    for receiver_id in receiving_player_ids:
+        post_message("players", int(receiver_id), "lobby", payload, expiry, sender_system=True)
 
 class GameLiftRegionClient(object):
     __gamelift_clients_by_region = {}
