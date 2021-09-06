@@ -47,6 +47,10 @@ class LobbyResponseSchema(Schema):
     status = fields.String(metadata=dict(description="The current status of the lobby."))
     members = fields.List(fields.Nested(LobbyMemberSchema), metadata=dict(description="The lobby members."))
 
+class UpdateLobbyMemberRequestSchema(Schema):
+    team = fields.String(allow_none=True, dump_default=None, metadata=dict(description="What team this lobby member is assigned to."))
+    ready = fields.Bool(allow_none=True, dump_default=False, metadata=dict(description="Whether or not this player is ready to start the match."))
+
 @bp.route("/")
 class LobbiesAPI(MethodView):
 
@@ -70,7 +74,7 @@ class LobbiesAPI(MethodView):
             lobby = lobbies.create_lobby(current_user["player_id"], args.get("team_capacity"), args.get("team_names"), args.get("lobby_name"), args.get("map_name"))
             return lobby, http_client.OK
         except lobbies.InvalidRequestException as e:
-            log.error(e.msg)
+            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
     @bp.arguments(UpsertLobbyRequestSchema)
@@ -81,9 +85,12 @@ class LobbiesAPI(MethodView):
         Requesting player must be the lobby host.
         """
         try:
-            lobbies.create_lobby(current_user["player_id"], args.get("team_capacity"), args.get("team_names"), args.get("lobby_name"), args.get("map_name"))
+            lobbies.update_lobby(current_user["player_id"], args.get("team_capacity"), args.get("team_names"), args.get("lobby_name"), args.get("map_name"))
+        except lobbies.NotFoundException as e:
+            log.warning(e.msg)
+            return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.error(e.msg)
+            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
     @bp.response(http_client.NO_CONTENT)
@@ -94,7 +101,7 @@ class LobbiesAPI(MethodView):
         try:
             lobbies.delete_or_leave_lobby(current_user["player_id"])
         except lobbies.InvalidRequestException as e:
-            log.error(e.msg)
+            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 
@@ -108,31 +115,47 @@ class LobbyAPI(MethodView):
         """
         try:
             lobbies.start_lobby_match(current_user["player_id"], lobby_id)
+        except lobbies.NotFoundException as e:
+            log.warning(e.msg)
+            return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.error(e.msg)
+            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 @bp.route("/<string:lobby_id>/members")
 class LobbyAPI(MethodView):
 
+    @bp.response(http_client.CREATED)
     def post(self, lobby_id: str):
         """
         Join a specific lobby for the requesting player.
         """
-        lobbies.join_lobby(current_user["player_id"], lobby_id)
+        try:
+            return lobbies.join_lobby(current_user["player_id"], lobby_id)
+        except lobbies.NotFoundException as e:
+            log.warning(e.msg)
+            return {"error": e.msg}, http_client.NOT_FOUND
+        except lobbies.InvalidRequestException as e:
+            log.warning(e.msg)
+            return {"error": e.msg}, http_client.BAD_REQUEST
 
-@bp.route("/<string:lobby_id>/members/<int:player_id>")
+@bp.route("/<string:lobby_id>/members/<int:member_player_id>")
 class LobbyAPI(MethodView):
 
-    def put(self, lobby_id: str, player_id: int, args):
+    @bp.arguments(UpdateLobbyMemberRequestSchema)
+    @bp.response(http_client.NO_CONTENT)
+    def put(self, args, lobby_id: str, member_player_id: int):
         """
         Update lobby member info, such as team status and ready check.
         Returns the updated lobby.
         """
         try:
-            lobbies.update_lobby_member(current_user["player_id"], player_id, lobby_id, args.get("team"), args.get("ready"))
+            lobbies.update_lobby_member(current_user["player_id"], member_player_id, lobby_id, args.get("team"), args.get("ready"))
+        except lobbies.NotFoundException as e:
+            log.warning(e.msg)
+            return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.error(e.msg)
+            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
     @bp.response(http_client.NO_CONTENT)
@@ -141,9 +164,12 @@ class LobbyAPI(MethodView):
         Kick the player from the lobby
         """
         try:
-            lobbies.delete_or_leave_lobby(current_user["player_id"], member_player_id, lobby_id)
+            lobbies.kick_member(current_user["player_id"], member_player_id, lobby_id)
+        except lobbies.NotFoundException as e:
+            log.warning(e.msg)
+            return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.error(e.msg)
+            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 
