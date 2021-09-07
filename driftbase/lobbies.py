@@ -609,8 +609,11 @@ def _process_fulfilled_queue_event(event_details: dict):
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
 
-            lobby["ip_address"] = event_details["ipAddress"]
-            lobby["port"] = int(event_details["port"])
+            ip_address: str = event_details["ipAddress"]
+            port = int(event_details["port"])
+
+            lobby["ip_address"] = ip_address
+            lobby["port"] = port
             lobby["status"] = "started"
 
             log.info(f"Lobby match for lobby {lobby_id} has started. Placement duration: {duration}s")
@@ -618,8 +621,32 @@ def _process_fulfilled_queue_event(event_details: dict):
             lobby_lock.lobby = lobby
 
             # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby)
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarted", {"lobby_id": lobby_id, "status": lobby["status"]})
+
+            connection_string = f"{ip_address}:{port}"
+
+            # Gather connection info for each player
+            connection_info_by_player_id = {}
+            for player in event_details["placedPlayerSessions"]:
+                player_id: int = player["playerId"]
+                player_session_id: str = player["playerSessionId"]
+
+                connection_info_by_player_id[player_id] = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
+
+            # Post events to players one-by-one for unique connection info
+            for member in lobby["members"]:
+                member_player_id: int = member["player_id"]
+
+                if member_player_id not in connection_info_by_player_id:
+                    log.error(f"Player {member_player_id} didn't receive a player session. Event details: {event_details}")
+                    continue
+
+                event_data = {
+                    "lobby_id": lobby_id,
+                    "status": lobby["status"],
+                    "connection_string": connection_string,
+                    "connection_options": connection_info_by_player_id[member_player_id],
+                }
+                _post_lobby_event_to_members([member_player_id], "LobbyMatchStarted", event_data)
 
 def _process_cancelled_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
