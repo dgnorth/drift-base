@@ -672,7 +672,7 @@ def _process_failed_queue_event(event_details: dict):
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
 
-            lobby["status"] = "timed_out"
+            lobby["status"] = "failed"
 
             log.info(f"Lobby match placement for lobby {lobby_id} failed. Placement duration: {duration}s")
 
