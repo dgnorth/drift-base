@@ -96,7 +96,7 @@ class FlexMatchTicketsAPI(MethodView):
         ticket = flexmatch.get_player_ticket(player_id)
         if ticket:
             return {
-                       "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"]),
+                       "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
                        "ticket_id": ticket["TicketId"],
                        "ticket_status": ticket["Status"]
                    }, http_client.OK
