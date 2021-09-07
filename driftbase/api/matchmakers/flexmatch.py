@@ -200,7 +200,7 @@ class FlexMatchQueueEventAPI(MethodView):
     @requires_roles("flexmatch_event")
     def put(self):
         # TODO: implement handling
-        log.log(f"Queue event: {request.json}")
+        log.info(f"Queue event: {request.json}")
         return {}, http_client.OK
 
 @endpoints.register
