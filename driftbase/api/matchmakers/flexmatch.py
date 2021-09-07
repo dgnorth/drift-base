@@ -3,7 +3,7 @@
 """
 
 # Matchmakers API @ /matchmakers/
-#   GET To retrive available matchmakers
+#   GET To retrieve available matchmakers
 #
 # PlayerAPI @ /matchmakers/flexmatch/<player_id>/ - endpoint "flexmatch"
 #   PATCH to report latencies
@@ -200,7 +200,7 @@ class FlexMatchQueueEventAPI(MethodView):
     @requires_roles("flexmatch_event")
     def put(self):
         # TODO: implement handling
-        log.log(f"Queue event: {request.json}")
+        log.info(f"Queue event: {request.json}")
         return {}, http_client.OK
 
 @endpoints.register
