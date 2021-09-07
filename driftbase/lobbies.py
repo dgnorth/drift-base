@@ -25,14 +25,23 @@ log = logging.getLogger(__name__)
 
 def get_player_lobby(player_id: int):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
+        lobby_id = player_lobby_lock.value
+
         with _LockedLobby(_get_lobby_key(player_lobby_lock.value)) as lobby_lock:
-            log.info(f"Returning lobby {player_lobby_lock.value} for player {player_id}")
+            lobby = lobby_lock.lobby
+
+            if not lobby and lobby_id:
+                log.warning(f"Player {player_id} is assigned to lobby {lobby_id} but the lobby doesn't exist")
+                lobby_id = None
+                player_lobby_lock.value = lobby_id
+
+            log.info(f"Returning lobby {lobby_id} for player {player_id}")
 
             # Sanity check that the player is a member of the lobby
-            if lobby_lock.lobby and not next((member for member in lobby_lock.lobby["members"] if member["player_id"] == player_id), None):
-                log.error(f"Player {player_id} is supposed to be in lobby {player_lobby_lock.value} but isn't a member of the lobby")
+            if lobby and not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
+                log.error(f"Player {player_id} is supposed to be in lobby {lobby_id} but isn't a member of the lobby")
 
-            return lobby_lock.lobby
+            return lobby
 
 def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str]):
     if get_player_party(player_id) is not None:
@@ -73,9 +82,10 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
                             {
                                 "player_id": player_id,
                                 "player_name": player_name,
-                                "team": None,
+                                "team_name": None,
                                 "ready": False,
                                 "host": True,
+                                "join_date": str(datetime.datetime.utcnow()),
                             }
                         ],
                     }
@@ -115,7 +125,7 @@ def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names
                     # Go over members and enforce new team capacity
                     team_counts = {}
                     for member in lobby["members"]:
-                        team_name = member["team"]
+                        team_name = member["team_name"]
                         if team_name is not None:
                             if team_name not in team_counts:
                                 team_counts[team_name] = 0
@@ -126,7 +136,7 @@ def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names
                                 team_counts[team_name] += 1
                             else:
                                 log.info(f"Player {player_id} removed from team {team_name} due to team being over capacity in lobby {lobby_id}")
-                                member["team"] = None
+                                member["team_name"] = None
 
             if team_names:
                 old_team_names= lobby["team_names"]
@@ -138,10 +148,10 @@ def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names
 
                     # Go over members and enforce new team names
                     for member in lobby["members"]:
-                        team_name = member["team"]
+                        team_name = member["team_name"]
                         if team_name and team_name not in team_names:
                             log.info(f"Player {player_id} removed from team {team_name} due to now being an invalid team in lobby {lobby_id}")
-                            member["team"] = None
+                            member["team_name"] = None
 
             if lobby_name:
                 old_lobby_name = lobby["lobby_name"]
@@ -192,7 +202,7 @@ def join_lobby(player_id: int, lobby_id: str):
 
         return lobby
 
-def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team: typing.Optional[str], ready: typing.Optional[bool]):
+def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name: typing.Optional[str], ready: typing.Optional[bool]):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         player_lobby_id = player_lobby_lock.value
 
@@ -214,20 +224,20 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team: typ
                 if member["player_id"] != member_id:
                     continue
 
-                current_team = member["team"]
+                current_team = member["team_name"]
 
-                if team and team not in lobby["team_names"]:
-                    raise InvalidRequestException(f"Player {player_id} attempted to join invalid team {team}")
+                if team_name and team_name not in lobby["team_names"]:
+                    raise InvalidRequestException(f"Player {player_id} attempted to join invalid team {team_name}")
 
-                if current_team and team != current_team:
+                if current_team and team_name != current_team:
                     member_updated = True
                     log.info(f"Player {player_id} in lobby {lobby_id} left team {current_team}")
 
-                if team and team != current_team and _can_join_team(lobby, team):
+                if team_name and team_name != current_team and _can_join_team(lobby, team_name):
                     member_updated = True
-                    log.info(f"Player {player_id} in lobby {lobby_id} joined team {team}")
+                    log.info(f"Player {player_id} in lobby {lobby_id} joined team {team_name}")
 
-                member["team"] = team
+                member["team_name"] = team_name
 
                 if ready != member["ready"]:
                     member_updated = True
@@ -317,9 +327,10 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
                 {
                     "player_id": player_id,
                     "player_name": player_name,
-                    "team": None,
+                    "team_name": None,
                     "ready": False,
                     "host": False,
+                    "join_date": str(datetime.datetime.utcnow()),
                 }
             )
 
@@ -359,8 +370,8 @@ def _internal_delete_or_leave_lobby(player_id: int, lobby_id: str):
                 lobby_lock.lobby = None
 
                 # Notify members
-                receiving_player_ids = _get_lobby_member_player_ids(lobby)
-                _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted")
+                receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
             else:
                 # Member is leaving the lobby
 
@@ -388,7 +399,7 @@ def _can_join_team(lobby: dict, team: str) -> bool:
     team_count = 0
     team_capacity = lobby["team_capacity"]
     for member in lobby["members"]:
-        team_name = member["team"]
+        team_name = member["team_name"]
         if team_name == team:
             team_count += 1
 
@@ -411,7 +422,7 @@ def _get_lobby_host_player_id(lobby: dict) -> int:
 
     return 0
 
-def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: list[int]) -> list[int]:
+def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: list[int] = []) -> list[int]:
     return [member["player_id"] for member in lobby["members"] if member["player_id"] not in exclude_player_ids]
 
 def _get_tenant_config_value(config_key):
