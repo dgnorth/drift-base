@@ -11,6 +11,7 @@ TIER_DEFAULTS = {
     "valid_regions": ["eu-west-1"],
     "lobby_id_length": 6,
     "default_lobby_name": "Lobby",
+    "lobby_game_session_queue": "default",
 }
 
 def drift_init_extension(app, **kwargs):

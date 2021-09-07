@@ -32,6 +32,7 @@ from flask.views import MethodView
 from flask import url_for, request
 from drift.core.extensions.jwt import current_user
 from driftbase import flexmatch
+from driftbase import lobbies
 import http.client as http_client
 import logging
 
@@ -201,6 +202,7 @@ class FlexMatchQueueEventAPI(MethodView):
     def put(self):
         # TODO: implement handling
         log.info(f"Queue event: {request.json}")
+        lobbies.process_gamelift_queue_event(request.json) # FIXME: Move this event handler to some other place since both FlexMatch and Lobbies need/want this
         return {}, http_client.OK
 
 @endpoints.register

@@ -10,6 +10,7 @@ from flask.views import MethodView
 from flask import url_for, request
 from drift.core.extensions.jwt import current_user
 from driftbase import lobbies
+from driftbase import flexmatch
 import http.client as http_client
 import logging
 
@@ -137,14 +138,18 @@ class LobbyAPI(MethodView):
         Start the match for a specific lobby.
         Requesting player must be the lobby host.
         """
+        player_id = current_user["player_id"]
         try:
-            lobbies.start_lobby_match(current_user["player_id"], lobby_id)
+            lobbies.start_lobby_match(player_id, lobby_id)
         except lobbies.NotFoundException as e:
             log.warning(e.msg)
             return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
             log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
+        except flexmatch.GameliftClientException as e:
+            log.error(f"Failed to start lobby match for lobby {lobby_id} on behalf of player {player_id}: Gamelift response:\n{e.debugs}")
+            return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
 
 @bp.route("/<string:lobby_id>/members", endpoint="members")
 class LobbyAPI(MethodView):

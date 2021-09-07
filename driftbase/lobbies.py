@@ -1,4 +1,3 @@
-import copy
 import logging
 import boto3
 import json
@@ -6,7 +5,7 @@ import typing
 import random
 import string
 import datetime
-import enum
+import uuid
 from botocore.exceptions import ClientError, ParamValidationError
 from flask import g
 from aws_assume_role_lib import assume_role
@@ -210,7 +209,7 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
             lobby = lobby_lock.lobby
 
             if player_id != member_id:
-                host_player_id = _get_lobby_host_player_id(lobby_id)
+                host_player_id = _get_lobby_host_player_id(lobby)
 
                 if player_id != host_player_id:
                     raise InvalidRequestException(f"Player {player_id} attempted to update member {member_id} in lobby {lobby_id} without being a the lobby host")
@@ -277,7 +276,7 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
                 host_player_id = _get_lobby_host_player_id(lobby)
 
                 if player_id != host_player_id:
-                    raise InvalidRequestException(f"Player {player_id} attempted to kick member {member_id} from lobby {lobby_id} without being a the lobby host")
+                    raise InvalidRequestException(f"Player {player_id} attempted to kick member {member_id} from lobby {lobby_id} without being the lobby host")
 
                 if player_lobby_id != lobby_id:
                     log.warning(f"Player {player_id} is supposed to be the host of lobby {lobby_id}, but is in lobby {player_lobby_id}")
@@ -309,7 +308,116 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
                         member_lobby_lock.value = None
 
 def start_lobby_match(player_id: int, lobby_id: str):
-    raise InvalidRequestException(f"Starting a lobby match not yet implemented")
+    with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
+
+        # Verify data integrity
+        player_lobby_id = player_lobby_lock.value
+        if player_lobby_id != lobby_id:
+            raise InvalidRequestException(f"Player {player_id} is attempting to start match for lobby {lobby_id}, but is supposed to be in lobby {player_lobby_id}")
+
+        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.lobby
+
+            # Verify host
+            host_player_id = _get_lobby_host_player_id(lobby)
+            if player_id != host_player_id:
+                raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} without being the lobby host")
+
+            # Request a game server from GameLift
+            gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+            try:
+                lobby_name = lobby["lobby_name"]
+
+                placement_id = str(uuid.uuid4())
+                max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
+                game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
+
+                player_latencies = []
+                for member in lobby["members"]:
+                    for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
+                        player_latencies.append({
+                            "PlayerId": str(member["player_id"]),
+                            "RegionIdentifier": region,
+                            "LatencyInMilliseconds": latency
+                        })
+
+                lobby["placement_id"] = placement_id
+
+                log.info(f"Host player {player_id} is starting lobby match for lobby {lobby_id}. GameLift placement id: {placement_id}")
+                response = gamelift_client.start_game_session_placement(
+                    PlacementId=placement_id,
+                    GameSessionQueueName=_get_tenant_config_value("lobby_game_session_queue"),
+                    MaximumPlayerSessionCount=max_player_session_count,
+                    GameSessionName=game_session_name,
+                    # GameSessionData="", # Don't see a use for this field right now that can't be done with GameProperties
+                    GameProperties=[
+                        {
+                            "Key": "lobby",
+                            "Value": "true",
+                        },
+                        {
+                            "Key": "lobby_id",
+                            "Value": lobby_id,
+                        },
+                        {
+                            "Key": "lobby_name",
+                            "Value": lobby_name,
+                        },
+                        {
+                            "Key": "lobby_map",
+                            "Value": lobby["map_name"],
+                        },
+                    ],
+                    PlayerLatencies=player_latencies,
+                    DesiredPlayerSessions=[
+                        {
+                            "PlayerId": str(member["player_id"]),
+                            "PlayerData": json.dumps({
+                                "player_name": member["player_name"],
+                                "team_name": member["team_name"],
+                                "host": member["host"],
+                            }),
+                        }
+                        for member in lobby["members"]
+                    ],
+                )
+            except ParamValidationError as e:
+                raise flexmatch.GameliftClientException("Invalid parameters to request", str(e))
+            except ClientError as e:
+                raise flexmatch.GameliftClientException("Failed to start game session placement", str(e))
+
+            with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
+                lobby_placement_lock.value = lobby_id
+
+            lobby["status"] = "starting"
+            lobby["game_session_placement"] = response["GameSessionPlacement"]
+
+            lobby_lock.lobby = lobby
+
+            log.info(f"GameLift game session placement issued for lobby {lobby_id} by host player {player_id}")
+
+            # Notify members
+            receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id})
+
+def process_gamelift_queue_event(queue_event):
+    event_details = _get_event_details(queue_event)
+    event_type = event_details.get("type", None)
+    if event_type is None:
+        raise RuntimeError("No event type found")
+
+    log.info(f"Incoming '{event_type}' queue event: {event_details}")
+
+    if event_type == "PlacementFulfilled":
+        return _process_fulfilled_queue_event(event_details)
+    if event_type == "PlacementCancelled":
+        return _process_cancelled_queue_event(event_details)
+    if event_type == "PlacementTimedOut":
+        return _process_timed_out_queue_event(event_details)
+    if event_type == "PlacementFailed":
+        return _process_failed_queue_event(event_details)
+
+    raise RuntimeError(f"Unknown event '{event_type}'")
 
 # Helpers
 
@@ -412,6 +520,9 @@ def _generate_lobby_id() -> str:
 def _get_lobby_key(lobby_id: str) -> str:
     return g.redis.make_key(f"lobby:{lobby_id}:")
 
+def _get_lobby_placement_key(placement_id: str) -> str:
+    return g.redis.make_key(f"lobby-placement:{placement_id}:")
+
 def _get_player_lobby_key(player_id: int) -> str:
     return g.redis.make_key(f"player:{player_id}:lobby:")
 
@@ -473,6 +584,142 @@ class GameLiftRegionClient(object):
     def __getattr__(self, item):
         return getattr(self.__class__.__gamelift_clients_by_region[(self.region, self.tenant)], item)
 
+def _get_event_details(event):
+    if event.get("detail-type", None) != "GameLift Queue Placement Event":
+        raise RuntimeError("Event is not a GameLift Queue Placement Event!")
+    details = event.get("detail", None)
+    if details is None:
+        raise RuntimeError("Event is missing details!")
+    return details
+
+def _get_placement_duration(event_details: dict) -> float:
+    start_time = datetime.datetime.fromisoformat(event_details["startTime"].removesuffix("Z"))
+    end_time = datetime.datetime.fromisoformat(event_details["endTime"].removesuffix("Z"))
+
+    delta = end_time - start_time
+    return delta.total_seconds()
+
+def _process_fulfilled_queue_event(event_details: dict):
+    placement_id = event_details["placementId"]
+    duration = _get_placement_duration(event_details)
+
+    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
+        lobby_id = lobby_placement_lock.value
+
+        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.lobby
+
+            lobby["ip_address"] = event_details["ipAddress"]
+            lobby["port"] = event_details["port"]
+            lobby["status"] = "started"
+
+            log.info(f"Lobby match for lobby {lobby_id} has started. Placement duration: {duration}s")
+
+            lobby_lock.lobby = lobby
+
+            # Notify members
+            receiving_player_ids = _get_lobby_member_player_ids(lobby)
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarted", {"lobby_id": lobby_id, "status": lobby["status"]})
+
+def _process_cancelled_queue_event(event_details: dict):
+    placement_id = event_details["placementId"]
+    duration = _get_placement_duration(event_details)
+
+    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
+        lobby_id = lobby_placement_lock.value
+
+        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.lobby
+
+            lobby["status"] = "cancelled"
+
+            log.info(f"Lobby match placement for lobby {lobby_id} cancelled. Placement duration: {duration}s")
+
+            lobby_lock.lobby = lobby
+
+            # Notify members
+            receiving_player_ids = _get_lobby_member_player_ids(lobby)
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchCancelled", {"lobby_id": lobby_id, "status": lobby["status"]})
+
+
+def _process_timed_out_queue_event(event_details: dict):
+    placement_id = event_details["placementId"]
+    duration = _get_placement_duration(event_details)
+
+    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
+        lobby_id = lobby_placement_lock.value
+
+        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.lobby
+
+            lobby["status"] = "timed_out"
+
+            log.info(f"Lobby match placement for lobby {lobby_id} timed_out. Placement duration: {duration}s")
+
+            lobby_lock.lobby = lobby
+
+            # Notify members
+            receiving_player_ids = _get_lobby_member_player_ids(lobby)
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchTimedOut", {"lobby_id": lobby_id, "status": lobby["status"]})
+
+def _process_failed_queue_event(event_details: dict):
+    placement_id = event_details["placementId"]
+    duration = _get_placement_duration(event_details)
+
+    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
+        lobby_id = lobby_placement_lock.value
+
+        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.lobby
+
+            lobby["status"] = "timed_out"
+
+            log.info(f"Lobby match placement for lobby {lobby_id} failed. Placement duration: {duration}s")
+
+            lobby_lock.lobby = lobby
+
+            # Notify members
+            receiving_player_ids = _get_lobby_member_player_ids(lobby)
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchFailed", {"lobby_id": lobby_id, "status": lobby["status"]})
+
+class _GenericLock(object):
+    """
+    Context manager for synchronizing creation and modification of a redis value.
+    """
+    MAX_LOCK_WAIT_TIME_SECONDS = 30
+    TTL_SECONDS = 60 * 60 * 24
+
+    def __init__(self, key):
+        self._key = key
+        self._redis = g.redis
+        self._modified = False
+        self._value = None
+        self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, new_lobby):
+        self._value = new_lobby
+        self._modified = True
+
+    def __enter__(self):
+        self._lock.acquire(blocking=True)
+        self._value = self._redis.conn.get(self._key)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
+            with self._redis.conn.pipeline() as pipe:
+                if self._modified is True and exc_type is None:
+                    pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
+                    if self._value:
+                        pipe.set(self._key, str(self._value), ex=self.TTL_SECONDS)
+                pipe.execute()
+            self._lock.release()
+
 class _LockedLobby(object):
     """
     Context manager for synchronizing creation and modification of lobbies.
@@ -514,45 +761,6 @@ class _LockedLobby(object):
                 pipe.execute()
             self._lock.release()
 
-class _GenericLock(object):
-    """
-    Context manager for synchronizing creation and modification of a redis value.
-    """
-    MAX_LOCK_WAIT_TIME_SECONDS = 30
-    TTL_SECONDS = 60 * 60 * 24
-
-    def __init__(self, key):
-        self._key = key
-        self._redis = g.redis
-        self._modified = False
-        self._value = None
-        self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, new_lobby):
-        self._value = new_lobby
-        self._modified = True
-
-    def __enter__(self):
-        self._lock.acquire(blocking=True)
-        self._value = self._redis.conn.get(self._key)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
-            with self._redis.conn.pipeline() as pipe:
-                if self._modified is True and exc_type is None:
-                    pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
-                    if self._value:
-                        pipe.set(self._key, str(self._value), ex=self.TTL_SECONDS)
-                pipe.execute()
-            self._lock.release()
-
-
 class InvalidRequestException(Exception):
     def __init__(self, user_message):
         super().__init__(user_message)
@@ -562,9 +770,3 @@ class NotFoundException(Exception):
     def __init__(self, user_message):
         super().__init__(user_message)
         self.msg = user_message
-
-class GameliftClientException(Exception):
-    def __init__(self, user_message, debug_info):
-        super().__init__(user_message, debug_info)
-        self.msg = user_message
-        self.debugs = debug_info
