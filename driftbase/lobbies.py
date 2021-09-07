@@ -610,7 +610,7 @@ def _process_fulfilled_queue_event(event_details: dict):
             lobby = lobby_lock.lobby
 
             lobby["ip_address"] = event_details["ipAddress"]
-            lobby["port"] = event_details["port"]
+            lobby["port"] = int(event_details["port"])
             lobby["status"] = "started"
 
             log.info(f"Lobby match for lobby {lobby_id} has started. Placement duration: {duration}s")
