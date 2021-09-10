@@ -349,23 +349,10 @@ def start_lobby_match(player_id: int, lobby_id: str):
                     GameSessionQueueName=_get_tenant_config_value("lobby_game_session_queue"),
                     MaximumPlayerSessionCount=max_player_session_count,
                     GameSessionName=game_session_name,
-                    # GameSessionData="", # Don't see a use for this field right now that can't be done with GameProperties
                     GameProperties=[
                         {
                             "Key": "lobby",
                             "Value": "true",
-                        },
-                        {
-                            "Key": "lobby_id",
-                            "Value": lobby_id,
-                        },
-                        {
-                            "Key": "lobby_name",
-                            "Value": lobby_name,
-                        },
-                        {
-                            "Key": "lobby_map",
-                            "Value": lobby["map_name"],
                         },
                     ],
                     PlayerLatencies=player_latencies,
@@ -380,6 +367,20 @@ def start_lobby_match(player_id: int, lobby_id: str):
                         }
                         for member in lobby["members"]
                     ],
+                    GameSessionData=json.dumps({
+                        "lobby_id": lobby_id,
+                        "lobby_name": lobby_name,
+                        "lobby_map": lobby["map_name"],
+                        "lobby_members": [
+                            {
+                                "player_id": str(member["player_id"]),
+                                "player_name": member["player_name"],
+                                "team_name": member["team_name"],
+                                "host": member["host"],
+                            }
+                            for member in lobby["members"]
+                        ],
+                    }),
                 )
             except ParamValidationError as e:
                 raise flexmatch.GameliftClientException("Invalid parameters to request", str(e))
