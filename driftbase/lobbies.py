@@ -230,10 +230,12 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
 
                 if current_team and team_name != current_team:
                     member_updated = True
+                    ready = False
                     log.info(f"Player {player_id} in lobby {lobby_id} left team {current_team}")
 
                 if team_name and team_name != current_team and _can_join_team(lobby, team_name):
                     member_updated = True
+                    ready = False
                     log.info(f"Player {player_id} in lobby {lobby_id} joined team {team_name}")
 
                 member["team_name"] = team_name
