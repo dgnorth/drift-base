@@ -74,7 +74,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
                         "map_name": map_name,
                         "team_capacity": team_capacity,
                         "team_names": team_names,
-                        "create_date": str(datetime.datetime.utcnow()),
+                        "create_date": datetime.datetime.utcnow().isoformat(),
                         "start_date": None,
                         "status": "idle",
                         "members": [
@@ -84,7 +84,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
                                 "team_name": None,
                                 "ready": False,
                                 "host": True,
-                                "join_date": str(datetime.datetime.utcnow()),
+                                "join_date": datetime.datetime.utcnow().isoformat(),
                             }
                         ],
                     }
@@ -444,7 +444,7 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
                     "team_name": None,
                     "ready": False,
                     "host": False,
-                    "join_date": str(datetime.datetime.utcnow()),
+                    "join_date": datetime.datetime.utcnow().isoformat(),
                 }
             )
 
@@ -790,16 +790,16 @@ class _LockedLobby(object):
                 if self._modified is True and exc_type is None:
                     pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
                     if self._lobby:
-                        pipe.set(self._key, self._jsonify_lobby(), ex=self.TTL_SECONDS)
+                        pipe.set(self._key, json.dumps(self._lobby, default=self._json_serial), ex=self.TTL_SECONDS)
                 pipe.execute()
             self._lock.release()
 
-    def _jsonify_lobby(self):
-        if "game_session_placement" in self._lobby:
-            for datefield in ("StartTime", "EndTime"):
-                if datefield in self._lobby["game_session_placement"]:
-                    self._lobby["game_session_placement"][datefield] = str(self._lobby["game_session_placement"][datefield])
-        return json.dumps(self._lobby)
+    @staticmethod
+    def _json_serial(obj):
+        if isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+
+        raise TypeError(f"Type {type(obj)} not serializable")
 
 class InvalidRequestException(Exception):
     def __init__(self, user_message):
