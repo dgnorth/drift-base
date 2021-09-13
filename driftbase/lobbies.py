@@ -633,7 +633,7 @@ def _process_fulfilled_queue_event(event_details: dict):
             # Gather connection info for each player
             connection_options_by_player_id = {}
             for player in event_details["placedPlayerSessions"]:
-                player_id: int = player["playerId"]
+                player_id: int = int(player["playerId"])
                 player_session_id: str = player["playerSessionId"]
 
                 connection_options_by_player_id[player_id] = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
