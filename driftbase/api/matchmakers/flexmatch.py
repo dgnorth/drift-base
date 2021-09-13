@@ -21,7 +21,7 @@
 # EventAPI @ /matchmakers/flexmatch/events/ - endpoint "flexmatch_events"
 #   PUT exposed to AWS EventBridge to publish flexmatch events into Drift
 #
-# QueueEventAPI @ /matchmakers/flexmatch/queue_events/ - endpoint "queue_events"
+# QueueEventAPI @ /matchmakers/flexmatch/queue-events/ - endpoint "queue-events"
 #   PUT exposed to AWS EventBridge to publish flexmatch queue events
 
 from flask_smorest import Blueprint, abort
@@ -195,7 +195,7 @@ class FlexMatchEventAPI(MethodView):
         flexmatch.process_flexmatch_event(request.json)
         return {}, http_client.OK
 
-@bp.route("/queue-events", endpoint="queue_events")
+@bp.route("/queue-events", endpoint="queue-events")
 class FlexMatchQueueEventAPI(MethodView):
 
     @requires_roles("flexmatch_event")
@@ -212,7 +212,7 @@ def endpoint_info(*args):
         return {}
     ret = {
         "flexmatch_events": url_for("flexmatch.events", _external=True),
-        "flexmatch_queue": url_for("flexmatch.queue_events", _external=True),
+        "flexmatch_queue": url_for("flexmatch.queue-events", _external=True),
         "flexmatch_tickets": url_for("flexmatch.tickets", _external=True)
     }
     if current_user and current_user.get("player_id"):
