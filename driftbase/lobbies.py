@@ -631,26 +631,30 @@ def _process_fulfilled_queue_event(event_details: dict):
             connection_string = f"{ip_address}:{port}"
 
             # Gather connection info for each player
-            connection_info_by_player_id = {}
+            connection_options_by_player_id = {}
             for player in event_details["placedPlayerSessions"]:
                 player_id: int = player["playerId"]
                 player_session_id: str = player["playerSessionId"]
 
-                connection_info_by_player_id[player_id] = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
+                connection_options_by_player_id[player_id] = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
 
             # Post events to players one-by-one for unique connection info
             for member in lobby["members"]:
                 member_player_id: int = member["player_id"]
 
-                if member_player_id not in connection_info_by_player_id:
+                if member_player_id not in connection_options_by_player_id:
                     log.error(f"Player {member_player_id} didn't receive a player session. Event details: {event_details}")
                     continue
+
+                # Append spectator to connection options for non-team lobby members
+                if not member["team_name"]:
+                    connection_options_by_player_id[member_player_id] += "?SpectatorOnly=1"
 
                 event_data = {
                     "lobby_id": lobby_id,
                     "status": lobby["status"],
                     "connection_string": connection_string,
-                    "connection_options": connection_info_by_player_id[member_player_id],
+                    "connection_options": connection_options_by_player_id[member_player_id],
                 }
                 _post_lobby_event_to_members([member_player_id], "LobbyMatchStarted", event_data)
 
