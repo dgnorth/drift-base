@@ -325,14 +325,19 @@ def start_lobby_match(player_id: int, lobby_id: str):
             if player_id != host_player_id:
                 raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} without being the lobby host")
 
+            # Prevent issuing another placement request
+            if lobby["status"] == "starting":
+                raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} while the match is starting")
+
             # Request a game server from GameLift
             gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
             try:
                 lobby_name = lobby["lobby_name"]
-
                 placement_id = str(uuid.uuid4())
                 max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
                 game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
+
+                lobby["placement_id"] = placement_id
 
                 player_latencies = []
                 for member in lobby["members"]:
@@ -342,8 +347,6 @@ def start_lobby_match(player_id: int, lobby_id: str):
                             "RegionIdentifier": region,
                             "LatencyInMilliseconds": latency
                         })
-
-                lobby["placement_id"] = placement_id
 
                 log.info(f"Host player {player_id} is starting lobby match for lobby {lobby_id}. GameLift placement id: {placement_id}")
                 response = gamelift_client.start_game_session_placement(
@@ -401,7 +404,7 @@ def start_lobby_match(player_id: int, lobby_id: str):
 
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id})
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
 
 def process_gamelift_queue_event(queue_event):
     event_details = _get_event_details(queue_event)
@@ -787,9 +790,16 @@ class _LockedLobby(object):
                 if self._modified is True and exc_type is None:
                     pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
                     if self._lobby:
-                        pipe.set(self._key, json.dumps(self._lobby), ex=self.TTL_SECONDS)
+                        pipe.set(self._key, self._jsonify_lobby(), ex=self.TTL_SECONDS)
                 pipe.execute()
             self._lock.release()
+
+    def _jsonify_lobby(self):
+        if "game_session_placement" in self._lobby:
+            for datefield in ("StartTime", "EndTime"):
+                if datefield in self._lobby["game_session_placement"]:
+                    self._lobby["game_session_placement"][datefield] = str(self._lobby["game_session_placement"][datefield])
+        return json.dumps(self._lobby)
 
 class InvalidRequestException(Exception):
     def __init__(self, user_message):
