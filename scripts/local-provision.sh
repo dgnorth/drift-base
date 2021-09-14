@@ -12,11 +12,11 @@ set +a
 # Cache must be run from the host, as the cache URL doesn't resolve from within the container
 # In a live environment the config would get pulled from remote storage, and the cache would resolve properly
 
-docker run --rm -ti --network backend --env-file local.env \
+docker run --rm -ti --network backend --env-file $DIR/local.env \
   --mount "type=bind,source=$CONFIG_STORE,target=$CONFIG_STORE" \
   --mount "type=bind,source=$CONFIG_ORIGIN,target=$CONFIG_ORIGIN" \
   --entrypoint /bin/bash \
-  dev \
+  app_drift-base:latest \
   -c "driftconfig provision-tenant $TENANT $DEPLOYABLE"
 driftconfig cache $CONFIG
 

@@ -2,5 +2,5 @@
 
 docker run --rm -ti --network backend --env-file local.env \
   --entrypoint /bin/bash \
-  dev \
+  app_drift-base:latest \
   -c "alembic $(printf "${1+ %q}" "$@")"
