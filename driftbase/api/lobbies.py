@@ -2,19 +2,16 @@
     Custom game lobbies for private/direct matches
 """
 
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
-from drift.core.extensions.jwt import requires_roles
 from marshmallow import Schema, fields
 from flask.views import MethodView
-from flask import url_for, request
+from flask import url_for
 from drift.core.extensions.jwt import current_user
 from driftbase import lobbies
 from driftbase import flexmatch
 import http.client as http_client
 import logging
-
-
 
 bp = Blueprint("lobbies", "lobbies", url_prefix="/lobbies", description="Custom game lobbies for private/direct matches.")
 endpoints = Endpoints()

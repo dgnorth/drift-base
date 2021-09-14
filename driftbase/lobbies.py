@@ -1,5 +1,4 @@
 import logging
-import boto3
 import json
 import typing
 import random
@@ -8,7 +7,6 @@ import datetime
 import uuid
 from botocore.exceptions import ClientError, ParamValidationError
 from flask import g
-from aws_assume_role_lib import assume_role
 from driftbase.parties import get_player_party
 from driftbase.models.db import CorePlayer, Match
 from driftbase.messages import post_message
