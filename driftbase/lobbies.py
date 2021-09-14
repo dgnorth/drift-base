@@ -436,6 +436,9 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
         if not lobby:
             raise NotFoundException(f"Player {player_id} attempted to join lobby {lobby_id} which doesn't exist")
 
+        if lobby["status"] in ("starting", "started"):
+            raise NotFoundException(f"Player {player_id} attempted to join lobby {lobby_id} which has initiated the lobby match")
+
         if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
             lobby["members"].append(
                 {
