@@ -4,28 +4,24 @@
 
 import collections
 import datetime
+import http.client as http_client
 import logging
-import time
-
 import marshmallow as ma
+import time
 from dateutil import parser
-from drift.core.extensions.jwt import current_user
-from drift.utils import Url
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import http.client as http_client
-from sqlalchemy.exc import IntegrityError
 
-from driftbase.models.db import CounterEntry, Counter, CorePlayer, PlayerCounter
-from driftbase.counters import get_counter, clear_counter_cache
+from drift.core.extensions.jwt import current_user
+from drift.utils import Url
+from driftbase.counters import get_counter, get_player, get_or_create_counter_id, \
+    get_or_create_player_counter, add_count, check_and_update_player_counter, COUNTER_PERIODS
+from driftbase.models.db import CounterEntry, PlayerCounter
 
 log = logging.getLogger(__name__)
 
 bp = Blueprint("player_counters", __name__, url_prefix='/players', description="Counters for individual players")
-
-TOTAL_TIMESTAMP = datetime.datetime.strptime("2000-01-01", "%Y-%m-%d")
-COUNTER_PERIODS = ['total', 'month', 'day', 'hour', 'minute', 'second']
 
 
 class PlayerCounterRequestSchema(ma.Schema):
@@ -45,130 +41,6 @@ class PlayerCounterSchema(ma.Schema):
     name = ma.fields.String()
     total = ma.fields.Integer()
     periods = ma.fields.Dict()
-
-
-def get_player(player_id):
-    player = g.db.query(CorePlayer).get(player_id)
-    return player
-
-
-def get_or_create_counter_id(name, counter_type, db_session=None):
-    if not db_session:
-        db_session = g.db
-    name = name.lower()
-    counter = get_counter(name)
-    if counter:
-        return counter["counter_id"]
-
-    # we fall through here if the counter does not exist
-
-    # Note: counter type is only inserted for the first entry and then not updated again
-    row = db_session.query(Counter).filter(Counter.name == name).first()
-    if not row:
-        db_session.commit()
-        log.info("Creating new counter called %s", name)
-        try:
-            row = Counter(name=name, counter_type=counter_type)
-            db_session.add(row)
-            db_session.commit()
-        except IntegrityError as e:
-            # if someone has inserted the counter in the meantime, retrieve it
-            if "duplicate key" in repr(e):
-                db_session.rollback()
-                row = db_session.query(Counter).filter(Counter.name == name).first()
-            else:
-                raise
-
-        clear_counter_cache()
-    counter_id = row.counter_id
-
-    return counter_id
-
-
-def get_or_create_player_counter(counter_id, player_id):
-    player_counter = g.db.query(PlayerCounter) \
-                         .filter(PlayerCounter.player_id == player_id,
-                                 PlayerCounter.counter_id == counter_id) \
-                         .first()
-
-    if not player_counter:
-        log.info("Creating new player counter for counter_id %s", counter_id)
-        player_counter = PlayerCounter(counter_id=counter_id, player_id=player_id)
-        g.db.add(player_counter)
-    g.db.commit()
-    return player_counter
-
-
-def get_date_time_for_period(period, timestamp):
-    """
-    Clamps the timestamp according to the period
-    """
-    date_time = timestamp.replace(microsecond=0)
-    if period == 'total':
-        date_time = TOTAL_TIMESTAMP
-    elif period == 'month':
-        date_time = date_time.replace(day=1, hour=0, minute=0, second=0)
-    elif period == 'day':
-        date_time = date_time.replace(hour=0, minute=0, second=0)
-    elif period == 'hour':
-        date_time = date_time.replace(minute=0, second=0)
-    elif period == 'minute':
-        date_time = date_time.replace(second=0)
-    elif period == 'second':
-        # Note: second is wrongly named and should be 10seconds
-        date_time = date_time.replace(second=10 * int(date_time.second / 10))
-    return date_time
-
-
-def add_count(counter_id, player_id, timestamp, value, is_absolute=False,
-              context_id=0, db_session=None):
-    """
-    Add a count into each of the periods that we want to keep track of
-    """
-    if not db_session:
-        db_session = g.db
-    log.debug("add_count(%s, %s, %s, %s, %s, %s)" %
-              (counter_id, player_id, timestamp, value, is_absolute, context_id))
-    for period in COUNTER_PERIODS:
-        date_time = get_date_time_for_period(period, timestamp)
-        row = db_session.query(CounterEntry).filter(CounterEntry.counter_id == counter_id,
-                                                    CounterEntry.player_id == player_id,
-                                                    CounterEntry.period == period,
-                                                    CounterEntry.date_time == date_time).first()
-        if row:
-            if is_absolute:
-                row.value = value
-            else:
-                row.value += value
-        else:
-            entry = CounterEntry(counter_id=counter_id,
-                                 period=period,
-                                 date_time=date_time,
-                                 player_id=player_id,
-                                 value=value,
-                                 )
-            # we add the context_id for the non-bucketed (raw) data only
-            if period == "second":
-                entry.context_id = context_id
-            db_session.add(entry)
-
-
-def check_and_update_player_counter(player_counter, timestamp):
-    """
-    Updates the player_counter row with the latest info
-    Returns False if the timestamp has been updated before since we want to be idempotent
-    """
-
-    if player_counter.last_update == timestamp:
-        log.warning("Trying to update count for counter %s for player %s at '%s' again. "
-                    "Rejecting update",
-                    player_counter.counter_id, player_counter.player_id, timestamp)
-        return False
-    else:
-        player_counter.last_update = timestamp
-        player_counter.num_updates += 1
-
-    return True
 
 
 @bp.route("/<int:player_id>/counters", endpoint="list")
@@ -217,7 +89,7 @@ class CountersApi(MethodView):
 
     # we accept lists of PlayerCounterRequestSchema items 
     # so we cannot use the arguments field
-    #@bp.arguments(PlayerCounterRequestSchema)
+    # @bp.arguments(PlayerCounterRequestSchema)
     def patch(self, player_id):
         """
         Update counters for player
@@ -226,7 +98,7 @@ class CountersApi(MethodView):
         """
         return self._patch(player_id)
 
-    #@bp.arguments(PlayerCounterRequestSchema)
+    # @bp.arguments(PlayerCounterRequestSchema)
     def put(self, player_id):
         """
         Update counters for player
@@ -368,9 +240,9 @@ class CounterApi(MethodView):
         if not counter:
             abort(404)
         player_counter = g.db.query(PlayerCounter) \
-                             .filter(PlayerCounter.player_id == player_id,
-                                     PlayerCounter.counter_id == counter_id) \
-                             .first()
+            .filter(PlayerCounter.player_id == player_id,
+                    PlayerCounter.counter_id == counter_id) \
+            .first()
         if not player_counter:
             abort(404)
 
@@ -435,18 +307,18 @@ class CounterPeriodApi(MethodView):
             abort(404)
         if period == "all":
             counter_entries = g.db.query(CounterEntry) \
-                                  .filter(CounterEntry.player_id == player_id,
-                                          CounterEntry.counter_id == counter_id) \
-                                  .order_by(CounterEntry.period, CounterEntry.id)
+                .filter(CounterEntry.player_id == player_id,
+                        CounterEntry.counter_id == counter_id) \
+                .order_by(CounterEntry.period, CounterEntry.id)
             ret = collections.defaultdict(dict)
             for row in counter_entries:
                 ret[row.period][row.date_time.isoformat() + "Z"] = row.value
 
         else:
             counter_entries = g.db.query(CounterEntry) \
-                                  .filter(CounterEntry.player_id == player_id,
-                                          CounterEntry.counter_id == counter_id,
-                                          CounterEntry.period == period)
+                .filter(CounterEntry.player_id == player_id,
+                        CounterEntry.counter_id == counter_id,
+                        CounterEntry.period == period)
             ret = {}
             for row in counter_entries:
                 ret[row.date_time.isoformat() + "Z"] = row.value
@@ -462,8 +334,8 @@ class CounterTotalsApi(MethodView):
         Return the 'total' count for all counters belonging to the player.
         """
         counter_entries = g.db.query(CounterEntry) \
-                              .filter(CounterEntry.player_id == player_id,
-                                      CounterEntry.period == "total")
+            .filter(CounterEntry.player_id == player_id,
+                    CounterEntry.period == "total")
         ret = {}
         for row in counter_entries:
             counter = get_counter(row.counter_id)
