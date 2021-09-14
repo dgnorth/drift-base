@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError, ParamValidationError
 from flask import g
 from aws_assume_role_lib import assume_role
 from driftbase.parties import get_player_party
-from driftbase.models.db import CorePlayer
+from driftbase.models.db import CorePlayer, Match
 from driftbase.messages import post_message
 from driftbase import flexmatch
 
@@ -330,7 +330,7 @@ def start_lobby_match(player_id: int, lobby_id: str):
                 raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} while the match is starting")
 
             # Request a game server from GameLift
-            gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+            gamelift_client = flexmatch.GameLiftRegionClient(AWS_REGION, _get_tenant_name())
             try:
                 lobby_name = lobby["lobby_name"]
                 placement_id = str(uuid.uuid4())
@@ -424,6 +424,26 @@ def process_gamelift_queue_event(queue_event):
         return _process_failed_queue_event(event_details)
 
     raise RuntimeError(f"Unknown event '{event_type}'")
+
+def process_match_message(queue_name: str, message: dict):
+    log.debug(f"lobbies::process_match_message() received event in queue '{queue_name}': {message}")
+    event = message["event"]
+    if event == "match_status_changed":
+        match_id = message.get("match_id", None)
+        if match_id is None:
+            log.error(f"Malformed {event} event; 'match_id' is missing. Message: {message}")
+            return
+
+        match = g.db.query(Match).get(match_id)
+        if not match:
+            log.error(f"Match {match_id} not found")
+            return
+
+        if match.status == "ended":
+            return _process_match_ended(match)
+
+    else:
+        log.error(f"Unexpected event '{event}' published.")
 
 # Helpers
 
@@ -571,28 +591,6 @@ def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, ev
     for receiver_id in receiving_player_ids:
         post_message("players", int(receiver_id), "lobby", payload, expiry, sender_system=True)
 
-class GameLiftRegionClient(object):
-    __gamelift_clients_by_region = {}
-    __gamelift_sessions_by_region = {}
-
-    def __init__(self, region, tenant):
-        self.region = region
-        self.tenant = tenant
-        client = self.__class__.__gamelift_clients_by_region.get((region, tenant))
-        if client is None:
-            session = self.__class__.__gamelift_sessions_by_region.get((region, tenant))
-            if session is None:
-                session = boto3.Session(region_name=self.region)
-                role_to_assume = _get_tenant_config_value("aws_gamelift_role")
-                if role_to_assume:
-                    session = assume_role(session, role_to_assume)
-                self.__class__.__gamelift_sessions_by_region[(region, tenant)] = session
-            client = session.client("gamelift")
-            self.__class__.__gamelift_clients_by_region[(region, tenant)] = client
-
-    def __getattr__(self, item):
-        return getattr(self.__class__.__gamelift_clients_by_region[(self.region, self.tenant)], item)
-
 def _get_event_details(event):
     if event.get("detail-type", None) != "GameLift Queue Placement Event":
         raise RuntimeError("Event is not a GameLift Queue Placement Event!")
@@ -721,6 +719,40 @@ def _process_failed_queue_event(event_details: dict):
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby)
             _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchFailed", {"lobby_id": lobby_id, "status": lobby["status"]})
+
+def _process_match_ended(match: Match):
+    details = match.details
+    if details is None:
+        log.info(f"Ended match {match.match_id} has no details. Unable to determine if the match is a lobby match.")
+        return
+
+    log.debug(f"event details: {details}")
+    lobby_id = details.get("lobby_id", None)
+    if lobby_id is None:
+        log.info(f"Match {match.match_id} isn't a lobby match.")
+        return
+
+    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+        lobby = lobby_lock.lobby
+
+        if not lobby:
+            log.error(f"Lobby {lobby_id} not found for match {match.match_id}. Match details: {details}")
+            return
+
+        log.info(f"Match ended for lobby {lobby_id}. Deleting lobby.")
+
+        for member in lobby["members"]:
+            with _GenericLock(_get_player_lobby_key(member["player_id"])) as member_lobby_id_lock:
+                member_lobby_id_lock.value = None
+
+        # Delete the lobby
+        lobby_lock.lobby = None
+
+        log.info(f"Lobby {lobby_id} deleted.")
+
+        # Notify members
+        receiving_player_ids = _get_lobby_member_player_ids(lobby)
+        _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
 
 class _GenericLock(object):
     """
