@@ -2,58 +2,15 @@ import json
 import logging
 from dateutil import parser
 
-import six
 import http.client as http_client
 
 from flask import g, url_for
 from flask_smorest import abort
 
-from driftbase.models.db import Counter, MatchEvent
+from driftbase.models.db import MatchEvent
 log = logging.getLogger(__name__)
 
 EXPIRE_SECONDS = 86400
-
-
-def get_all_counters(force=False):
-    def get_all_counters_from_db():
-        counters = g.db.query(Counter).all()
-        all_counters = {}
-        for c in counters:
-            counter = {
-                "counter_id": c.counter_id,
-                "name": c.name,
-                "counter_type": c.counter_type,
-            }
-            all_counters[c.counter_id] = counter
-            all_counters[c.name] = counter
-        return all_counters
-    val = g.redis.get("counters")
-    if not val or force:
-        all_counters = get_all_counters_from_db()
-        g.redis.set("counters", json.dumps(all_counters), expire=60 * 10)
-    else:
-        try:
-            all_counters = json.loads(val)
-        except Exception:
-            log.error("Cannot decode '%s'", val)
-            raise
-    return all_counters
-
-
-def get_counter(counter_key):
-    counters = get_all_counters()
-    try:
-        return counters[six.text_type(counter_key)]
-    except KeyError:
-        log.info("Counter '%s' not found in cache. Fetching from db", counter_key)
-        log.info("Counter cache contains: %s" % (counters.keys()))
-        counters = get_all_counters(force=True)
-        return counters.get(counter_key, None)
-    return None
-
-
-def clear_counter_cache():
-    g.redis.delete("counter_names")
 
 
 def log_match_event(match_id, player_id, event_type_name, details=None, db_session=None):
