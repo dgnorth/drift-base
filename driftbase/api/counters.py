@@ -11,7 +11,7 @@ from flask_smorest import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.models.db import CorePlayer, Counter, CounterEntry
 from driftbase.players import get_playergroup_ids
-from driftbase.utils import get_all_counters, get_counter
+from driftbase.counters import get_all_counters, get_counter
 
 log = logging.getLogger(__name__)
 bp = Blueprint("counters", __name__, url_prefix="/counters", description="Counters")

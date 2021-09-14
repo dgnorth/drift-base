@@ -18,7 +18,7 @@ import http.client as http_client
 from sqlalchemy.exc import IntegrityError
 
 from driftbase.models.db import CounterEntry, Counter, CorePlayer, PlayerCounter
-from driftbase.utils import clear_counter_cache, get_counter
+from driftbase.counters import get_counter, clear_counter_cache
 
 log = logging.getLogger(__name__)
 
