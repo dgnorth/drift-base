@@ -27,24 +27,14 @@ class CreateLobbyRequestSchema(Schema):
     team_names = fields.List(fields.String(), required=True, metadata=dict(description="The unique names of the teams."))
     lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
     map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
-    custom_data = fields.Dict(
-        required=False,
-        keys=fields.Raw(),
-        values=fields.Raw(),
-        metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server")
-    )
+    custom_data = fields.String(required=False, metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server"))
 
 class UpdateLobbyRequestSchema(Schema):
     team_capacity = fields.Integer(required=False, metadata=dict(description="How many members can be in one team."))
     team_names = fields.List(fields.String(), required=False, metadata=dict(description="The unique names of the teams."))
     lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
     map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
-    custom_data = fields.Dict(
-        required=False,
-        keys=fields.Raw(),
-        values=fields.Raw(),
-        metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server")
-    )
+    custom_data = fields.String(required=False, metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server"))
 
 class LobbyMemberResponseSchema(Schema):
     player_id = fields.Integer(metadata=dict(description="The player id of the lobby member."))
