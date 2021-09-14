@@ -152,7 +152,7 @@ class LobbyAPI(MethodView):
             return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
 
 @bp.route("/<string:lobby_id>/members", endpoint="members")
-class LobbyAPI(MethodView):
+class LobbyMembersAPI(MethodView):
 
     @bp.response(http_client.CREATED)
     def post(self, lobby_id: str):
@@ -175,7 +175,7 @@ class LobbyAPI(MethodView):
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 @bp.route("/<string:lobby_id>/members/<int:member_player_id>", endpoint="member")
-class LobbyAPI(MethodView):
+class LobbyMemberAPI(MethodView):
 
     @bp.arguments(UpdateLobbyMemberRequestSchema)
     @bp.response(http_client.NO_CONTENT)
