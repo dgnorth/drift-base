@@ -30,12 +30,24 @@ class CreateLobbyRequestSchema(Schema):
     team_names = fields.List(fields.String(), required=True, metadata=dict(description="The unique names of the teams."))
     lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
     map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
+    custom_data = fields.Dict(
+        required=False,
+        keys=fields.Raw(),
+        values=fields.Raw(),
+        metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server")
+    )
 
 class UpdateLobbyRequestSchema(Schema):
     team_capacity = fields.Integer(required=False, metadata=dict(description="How many members can be in one team."))
     team_names = fields.List(fields.String(), required=False, metadata=dict(description="The unique names of the teams."))
     lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
     map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
+    custom_data = fields.Dict(
+        required=False,
+        keys=fields.Raw(),
+        values=fields.Raw(),
+        metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server")
+    )
 
 class LobbyMemberResponseSchema(Schema):
     player_id = fields.Integer(metadata=dict(description="The player id of the lobby member."))
@@ -56,6 +68,11 @@ class LobbyResponseSchema(Schema):
     start_date = fields.String(allow_none=True, metadata=dict(description="The UTC timestamp of when the lobby match was started."))
     status = fields.String(metadata=dict(description="The current status of the lobby."))
     members = fields.List(fields.Nested(LobbyMemberResponseSchema), metadata=dict(description="The lobby members."))
+    custom_data = fields.Dict(
+        keys=fields.Raw(),
+        values=fields.Raw(),
+        metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server")
+    )
 
     lobby_url = fields.Url(metadata=dict(description="URL for the lobby."))
     lobby_members_url = fields.Url(metadata=dict(description="URL for the lobby members."))
@@ -93,7 +110,14 @@ class LobbiesAPI(MethodView):
         try:
             player_id = current_user["player_id"]
 
-            lobby = lobbies.create_lobby(player_id, args.get("team_capacity"), args.get("team_names"), args.get("lobby_name"), args.get("map_name"))
+            lobby = lobbies.create_lobby(
+                player_id,
+                args.get("team_capacity"),
+                args.get("team_names"),
+                args.get("lobby_name"),
+                args.get("map_name"),
+                args.get("custom_data"),
+            )
 
             _populate_lobby_urls(lobby)
 
@@ -110,7 +134,14 @@ class LobbiesAPI(MethodView):
         Requesting player must be the lobby host.
         """
         try:
-            lobbies.update_lobby(current_user["player_id"], args.get("team_capacity"), args.get("team_names"), args.get("lobby_name"), args.get("map_name"))
+            lobbies.update_lobby(
+                current_user["player_id"],
+                args.get("team_capacity"),
+                args.get("team_names"),
+                args.get("lobby_name"),
+                args.get("map_name"),
+                args.get("custom_data"),
+            )
         except lobbies.NotFoundException as e:
             log.warning(e.msg)
             return {"error": e.msg}, http_client.NOT_FOUND

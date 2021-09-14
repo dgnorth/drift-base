@@ -42,7 +42,7 @@ def get_player_lobby(player_id: int):
 
             return lobby
 
-def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str]):
+def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[dict]):
     if get_player_party(player_id) is not None:
         raise InvalidRequestException(f"Failed to create lobby for player {player_id} due to player being in a party")
 
@@ -70,13 +70,14 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
 
                     new_lobby = {
                         "lobby_id": lobby_id,
-                        "lobby_name": lobby_name if lobby_name is not None else _get_tenant_config_value("default_lobby_name"),
+                        "lobby_name": lobby_name or _get_tenant_config_value("default_lobby_name"),
                         "map_name": map_name,
                         "team_capacity": team_capacity,
                         "team_names": team_names,
                         "create_date": datetime.datetime.utcnow().isoformat(),
                         "start_date": None,
                         "status": "idle",
+                        "custom_data": custom_data or {},
                         "members": [
                             {
                                 "player_id": player_id,
@@ -93,7 +94,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
                     lobby_lock.lobby = new_lobby
                     return new_lobby
 
-def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str]):
+def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[dict]):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
@@ -167,6 +168,14 @@ def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names
                     lobby_updated = True
                     log.info(f"Host player {player_id} changed map name from {old_map_name} to {map_name} for lobby {lobby_id}")
                     lobby["map_name"] = map_name
+
+            if custom_data:
+                old_custom_data = lobby["custom_data"]
+
+                if old_custom_data != custom_data:
+                    lobby_updated = True
+                    log.info(f"Host player {player_id} changed custom data from {old_custom_data} to {custom_data} for lobby {lobby_id}")
+                    lobby["custom_data"] = custom_data
 
             if lobby_updated:
                 lobby_lock.lobby = lobby
@@ -336,6 +345,7 @@ def start_lobby_match(player_id: int, lobby_id: str):
                 placement_id = str(uuid.uuid4())
                 max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
                 game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
+                custom_data = lobby["custom_data"]
 
                 lobby["placement_id"] = placement_id
 
@@ -385,6 +395,7 @@ def start_lobby_match(player_id: int, lobby_id: str):
                             }
                             for member in lobby["members"]
                         ],
+                        "lobby_custom_data": custom_data,
                     }),
                 )
             except ParamValidationError as e:
