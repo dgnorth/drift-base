@@ -55,17 +55,16 @@ class CountersApi(MethodView):
         """
         # TODO: Playercheck
         if not get_player(player_id):
-            abort(404, message="Player Not found")
+            abort(http_client.NOT_FOUND, message="Player Not found")
 
         # Cache all the values, we will need all of them anyway
         rows = g.db.query(PlayerCounter).filter(PlayerCounter.player_id == player_id)
         ret = []
         counter_ids = [row.counter_id for row in rows]
-        value_rows = g.db.query(CounterEntry.counter_id, CounterEntry.value) \
-            .filter(CounterEntry.player_id == player_id,
-                    CounterEntry.counter_id.in_(
-                        counter_ids),
-                    CounterEntry.period == "total").all()
+        value_rows = g.db.query(CounterEntry.counter_id, CounterEntry.value).filter(
+            CounterEntry.player_id == player_id,
+            CounterEntry.counter_id.in_(counter_ids),
+            CounterEntry.period == "total").all()
         counter_totals = {row.counter_id: row.value for row in value_rows}
         # Get all the cached counter metadata
         counters = get_all_counters()
