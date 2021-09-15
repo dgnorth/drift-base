@@ -415,8 +415,10 @@ def start_lobby_match(player_id: int, lobby_id: str):
             receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
             _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
 
-def process_gamelift_queue_event(queue_event):
-    event_details = _get_event_details(queue_event)
+def process_gamelift_queue_event(queue_name: str, message: dict):
+    log.debug(f"lobbies::process_gamelift_queue_event() received event in queue '{queue_name}': {message}")
+
+    event_details = _get_event_details(message)
     event_type = event_details.get("type", None)
     if event_type is None:
         raise RuntimeError("No event type found")
@@ -436,6 +438,7 @@ def process_gamelift_queue_event(queue_event):
 
 def process_match_message(queue_name: str, message: dict):
     log.debug(f"lobbies::process_match_message() received event in queue '{queue_name}': {message}")
+
     event = message["event"]
     if event == "match_status_changed":
         match_id = message.get("match_id", None)
@@ -599,7 +602,7 @@ def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, ev
     for receiver_id in receiving_player_ids:
         post_message("players", int(receiver_id), "lobby", payload, expiry, sender_system=True)
 
-def _get_event_details(event):
+def _get_event_details(event: dict):
     if event.get("detail-type", None) != "GameLift Queue Placement Event":
         raise RuntimeError("Event is not a GameLift Queue Placement Event!")
     details = event.get("detail", None)

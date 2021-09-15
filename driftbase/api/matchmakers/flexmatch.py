@@ -29,10 +29,9 @@ from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import requires_roles
 from marshmallow import Schema, fields
 from flask.views import MethodView
-from flask import url_for, request
+from flask import url_for, request, current_app
 from drift.core.extensions.jwt import current_user
 from driftbase import flexmatch
-from driftbase import lobbies
 import http.client as http_client
 import logging
 
@@ -202,7 +201,7 @@ class FlexMatchQueueEventAPI(MethodView):
     def put(self):
         # TODO: implement handling
         log.info(f"Queue event: {request.json}")
-        lobbies.process_gamelift_queue_event(request.json) # FIXME: Move this event handler to some other place since both FlexMatch and Lobbies need/want this
+        current_app.extensions["messagebus"].publish_message("gamelift_queue", request.json)
         return {}, http_client.OK
 
 @endpoints.register

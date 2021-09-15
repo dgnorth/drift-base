@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     app.messagebus.register_consumer(lobbies.process_match_message, "match")
+    app.messagebus.register_consumer(lobbies.process_gamelift_queue_event, "gamelift_queue")
     endpoints.init_app(app)
 
 class CreateLobbyRequestSchema(Schema):
