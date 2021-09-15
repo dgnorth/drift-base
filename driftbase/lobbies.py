@@ -443,14 +443,13 @@ def process_match_message(queue_name: str, message: dict):
             log.error(f"Malformed {event} event; 'match_id' is missing. Message: {message}")
             return
 
-        match = g.db.query(Match).get(match_id)
-        if not match:
-            log.error(f"Match {match_id} not found")
+        match_status = message.get("match_status", None)
+        if match_status is None:
+            log.error(f"Malformed {event} event; 'match_status' is missing. Message: {message}")
             return
 
-        if match.status == "ended":
-            return _process_match_ended(match)
-
+        if match_status == "ended":
+            return _process_match_ended(match_id)
     else:
         log.error(f"Unexpected event '{event}' published.")
 
@@ -729,7 +728,12 @@ def _process_failed_queue_event(event_details: dict):
             receiving_player_ids = _get_lobby_member_player_ids(lobby)
             _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchFailed", {"lobby_id": lobby_id, "status": lobby["status"]})
 
-def _process_match_ended(match: Match):
+def _process_match_ended(match_id: int):
+    match = g.db.query(Match).get(match_id)
+    if not match:
+        log.error(f"Match {match_id} not found")
+        return
+
     details = match.details
     if details is None:
         log.info(f"Ended match {match.match_id} has no details. Unable to determine if the match is a lobby match.")
