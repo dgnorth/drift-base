@@ -170,10 +170,11 @@ class LobbyAPI(MethodView):
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str):
         """
-        Leave or delete a lobby for the requesting player depending on if the player is the host or not.
+        Delete a lobby.
+        Requesting player must be the lobby host
         """
         try:
-            lobbies.delete_or_leave_lobby(current_user["player_id"], lobby_id)
+            lobbies.delete_lobby(current_user["player_id"], lobby_id)
         except lobbies.NotFoundException:
             pass
         except lobbies.InvalidRequestException as e:
@@ -225,10 +226,14 @@ class LobbyMemberAPI(MethodView):
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str, member_player_id: int):
         """
-        Kick the player from the lobby
+        Leave the lobby or kick a player from the lobby
         """
+        player_id = current_user["player_id"]
         try:
-            lobbies.kick_member(current_user["player_id"], member_player_id, lobby_id)
+            if player_id == member_player_id:
+                lobbies.leave_lobby(player_id, lobby_id)
+            else:
+                lobbies.kick_member(player_id, member_player_id, lobby_id)
         except lobbies.NotFoundException as e:
             log.warning(e.msg)
             return {"error": e.msg}, http_client.NOT_FOUND

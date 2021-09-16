@@ -59,7 +59,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
         # Leave/delete existing lobby if any
         if player_lobby_lock.value:
             log.info(f"Player {player_id} is creating a lobby while being a member of lobby {player_lobby_lock.value}")
-            _internal_delete_or_leave_lobby(player_id, player_lobby_lock.value)
+            _internal_leave_lobby(player_id, player_lobby_lock.value)
             player_lobby_lock.value = None
 
         player_name: str = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
@@ -192,7 +192,22 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
                 receiving_player_ids = _get_lobby_member_player_ids(lobby)
                 _post_lobby_event_to_members(receiving_player_ids, "LobbyUpdated", lobby)
 
-def delete_or_leave_lobby(player_id: int, expected_lobby_id: str):
+def delete_lobby(player_id: int, expected_lobby_id: str):
+    with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
+        lobby_id = player_lobby_lock.value
+
+        if not lobby_id:
+            log.info(f"Player {player_id} attempted to delete a lobby without being a member of any lobby")
+            return
+
+        if expected_lobby_id != lobby_id:
+            raise UnauthorizedException(f"Player {player_id} attempted to delete lobby {expected_lobby_id}, but isn't a member of that lobby. Player is in lobby {lobby_id}")
+
+        _internal_delete_lobby(player_id, lobby_id)
+
+        player_lobby_lock.value = None
+
+def leave_lobby(player_id: int, expected_lobby_id: str):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
@@ -201,9 +216,9 @@ def delete_or_leave_lobby(player_id: int, expected_lobby_id: str):
             return
 
         if expected_lobby_id != lobby_id:
-            raise UnauthorizedException(f"Player {player_id} attempted to delete lobby {expected_lobby_id}, but isn't a member of that lobby. Player is in lobby {lobby_id}")
+            raise UnauthorizedException(f"Player {player_id} attempted to leave lobby {expected_lobby_id}, but isn't a member of that lobby. Player is in lobby {lobby_id}")
 
-        _internal_delete_or_leave_lobby(player_id, lobby_id)
+        _internal_leave_lobby(player_id, lobby_id)
 
         player_lobby_lock.value = None
 
@@ -212,7 +227,7 @@ def join_lobby(player_id: int, lobby_id: str):
         # Already a part of another lobby
         if player_lobby_lock.value and player_lobby_lock.value != lobby_id:
             log.info(f"Player {player_id} is joining lobby {lobby_id} while being a member of lobby {player_lobby_lock.value}")
-            _internal_delete_or_leave_lobby(player_id, lobby_id)
+            _internal_leave_lobby(player_id, lobby_id)
             player_lobby_lock.value = None
 
         lobby = _internal_join_lobby(player_id, lobby_id)
@@ -278,16 +293,20 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         player_lobby_id = player_lobby_lock.value
 
+        if player_lobby_id != lobby_id:
+            raise UnauthorizedException(f"Player {player_id} attempted to kick player {member_id} from lobby {lobby_id} without being a member of the lobby")
+
         if player_id == member_id:
-            if lobby_id == player_lobby_id:
-                log.info(f"Player {player_id} is kicking themselves from the lobby {lobby_id}")
-                _internal_delete_or_leave_lobby(player_id, lobby_id)
-                return
-            else:
-                raise InvalidRequestException(f"Player {player_id} attempted to kick themselves from lobby {lobby_id} without being a member of the lobby")
+            log.info(f"Player {player_id} is kicking themselves from the lobby {lobby_id}")
+            _internal_leave_lobby(player_id, lobby_id)
+            player_lobby_lock.value = None
+            return
 
         with _GenericLock(_get_player_lobby_key(member_id)) as member_lobby_lock:
             member_lobby_id = member_lobby_lock.value
+
+            if member_lobby_id != player_lobby_id:
+                raise InvalidRequestException(f"Player {player_id} attempted to kick player {member_id} from lobby {lobby_id}, but they aren't in the same lobby")
 
             with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
                 lobby = lobby_lock.lobby
@@ -299,9 +318,6 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
 
                 if player_id != host_player_id:
                     raise InvalidRequestException(f"Player {player_id} attempted to kick member {member_id} from lobby {lobby_id} without being the lobby host")
-
-                if player_lobby_id != lobby_id:
-                    log.warning(f"Player {player_id} is supposed to be the host of lobby {lobby_id}, but is in lobby {player_lobby_id}")
 
                 current_length = len(lobby["members"])
 
@@ -315,9 +331,6 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
 
                     member_lobby_lock.value = None
                     lobby_lock.lobby = lobby
-
-                    if member_lobby_id != lobby_id:
-                        log.warning(f"Player {member_id} was kicked from lobby {lobby_id}, but was supposed to be in lobby {member_lobby_id}")
 
                     # Notify members
                     receiving_player_ids = _get_lobby_member_player_ids(lobby)
@@ -367,55 +380,85 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
 
         return lobby_lock.lobby
 
-def _internal_delete_or_leave_lobby(player_id: int, lobby_id: str):
+def _internal_leave_lobby(player_id: int, lobby_id: str):
     """
     Caller is responsible for handling the player lobby id lock value
     """
     with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
         lobby = lobby_lock.lobby
 
-        if lobby:
-            host_player_id = _get_lobby_host_player_id(lobby)
+        if not lobby:
+            raise NotFoundException(f"Player {player_id} attempted to leave lobby {lobby_id} which doesn't exist")
 
-            if host_player_id == player_id:
-                # Host is deleting the lobby
+        current_length = len(lobby["members"])
+        host_player_id = _get_lobby_host_player_id(lobby)
 
-                log.info(f"Lobby host player {player_id} deleted lobby {lobby_id}")
+        # Remove player from members list
+        lobby["members"] = [member for member in lobby["members"] if member["player_id"] != player_id]
 
-                for member in lobby["members"]:
-                    if not member["host"]:
-                        with _GenericLock(_get_player_lobby_key(member["player_id"])) as member_lobby_id_lock:
-                            member_lobby_id_lock.value = None
+        left = len(lobby["members"]) != current_length
 
-                # Delete the lobby
-                lobby_lock.lobby = None
+        if left:
+            log.info(f"Lobby member player {player_id} left lobby {lobby_id}")
 
-                # Notify members
-                receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
-                if receiving_player_ids: # Potentially empty if the host is alone in the lobby
-                    _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
+            if lobby["members"]:
+                # Promote new host if the host left
+
+                if host_player_id == player_id:
+                    # Host left the lobby, select the oldest member as host
+
+                    sorted_members = sorted(lobby["members"], key=lambda m: datetime.datetime.fromisoformat(m["join_date"]))
+                    sorted_members[0]["host"] = True
+
+                    new_host_player_id = sorted_members[0]["player_id"]
+
+                    log.info(f"Player {new_host_player_id} promoted to lobby host for lobby {lobby_id}")
+
+                    lobby["members"] = sorted_members
+
+                lobby_lock.lobby = lobby
+
+                # Notify remaining members
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberLeft", {"lobby_id": lobby_id, "members": lobby["members"]})
             else:
-                # Member is leaving the lobby
+                # No one left in the lobby, delete the lobby
 
-                current_length = len(lobby["members"])
+                log.info(f"No one left in lobby {lobby_id}. Lobby deleted.")
 
-                # Remove player from members list
-                lobby["members"] = [member for member in lobby["members"] if member["player_id"] != player_id]
-
-                left = len(lobby["members"]) != current_length
-
-                if left:
-                    log.info(f"Lobby member player {player_id} left lobby {lobby_id}")
-
-                    lobby_lock.lobby = lobby
-
-                    # Notify remaining members
-                    receiving_player_ids = _get_lobby_member_player_ids(lobby)
-                    _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberLeft", {"lobby_id": lobby_id, "members": lobby["members"]})
-                else:
-                    log.error(f"Lobby member player {player_id} attempted to leave lobby {lobby_id} without being a member")
+                lobby_lock.lobby = None
         else:
-            log.info(f"Player {player_id} attempted to leave lobby {lobby_id} which doesn't exist")
+            log.error(f"Lobby member player {player_id} attempted to leave lobby {lobby_id} without being a member")
+
+def _internal_delete_lobby(player_id: int, lobby_id: str):
+    """
+    Caller is responsible for handling the player lobby id lock value
+    """
+    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+        lobby = lobby_lock.lobby
+
+        if not lobby:
+            raise NotFoundException(f"Player {player_id} attempted to delete lobby {lobby_id} which doesn't exist")
+
+        host_player_id = _get_lobby_host_player_id(lobby)
+
+        if host_player_id != player_id:
+            raise InvalidRequestException(f"Player {player_id} attempted to delete lobby {lobby_id} without being the host")
+
+        log.info(f"Lobby host player {player_id} deleted lobby {lobby_id}")
+
+        for member in lobby["members"]:
+            if not member["host"]:
+                with _GenericLock(_get_player_lobby_key(member["player_id"])) as member_lobby_id_lock:
+                    member_lobby_id_lock.value = None
+
+        # Delete the lobby
+        lobby_lock.lobby = None
+
+        # Notify members
+        receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
+        if receiving_player_ids: # Potentially empty if the host is alone in the lobby
+            _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
 
 def _can_join_team(lobby: dict, team: str) -> bool:
     team_count = 0
