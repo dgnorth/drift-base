@@ -63,8 +63,7 @@ class LobbyResponseSchema(Schema):
     lobby_members_url = fields.Url(metadata=dict(description="URL for the lobby members."))
     lobby_member_url = fields.Url(metadata=dict(description="Lobby member URL for the player issuing the request."))
 
-    start_lobby_match_placement_url = fields.Url(metadata=dict(description="URL to start the lobby match placement."))
-    stop_lobby_match_placement_url = fields.Url(metadata=dict(description="URL to stop the lobby match placement."))
+    lobby_match_placement_url = fields.Url(metadata=dict(description="URL for the lobby match placement if there is an active match placement for the lobby"))
 
 class UpdateLobbyMemberRequestSchema(Schema):
     team_name = fields.String(allow_none=True, dump_default=None, metadata=dict(description="What team this lobby member is assigned to."))
@@ -280,6 +279,4 @@ def _populate_lobby_urls(lobby: dict):
     lobby_status = lobby["status"]
     placement_id = lobby.get("placement_id", None)
     if placement_id and lobby_status == "starting":
-        lobby["stop_lobby_match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=placement_id, _external=True)
-    elif lobby_status != "started":
-        lobby["start_lobby_match_placement_url"] = url_for("match-placements.match-placements", _external=True)
+        lobby["lobby_match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=placement_id, _external=True)

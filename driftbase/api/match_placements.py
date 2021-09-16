@@ -33,6 +33,8 @@ class MatchPlacementResponseSchema(Schema):
 
     lobby_id = fields.String(allow_none=True, metadata=dict(description="The lobby id if this is a lobby match"))
 
+    match_placement_url = fields.Url(metadata=dict(description="The URL for the match placement"))
+
 @bp.route("/", endpoint="match-placements")
 class MatchPlacementsAPI(MethodView):
 
@@ -44,7 +46,11 @@ class MatchPlacementsAPI(MethodView):
         """
         try:
             player_id = current_user["player_id"]
-            return match_placements.get_player_match_placement(player_id)
+            match_placement = match_placements.get_player_match_placement(player_id)
+
+            match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement["placement_id"], _external=True)
+
+            return match_placement
         except lobbies.NotFoundException as e:
             log.warning(e.msg)
             return {"error": f"No match placement found"}, http_client.NOT_FOUND
@@ -61,7 +67,11 @@ class MatchPlacementsAPI(MethodView):
         """
         player_id = current_user["player_id"]
         try:
-            return match_placements.start_lobby_match_placement(player_id, args.get("lobby_id"))
+            match_placement = match_placements.start_lobby_match_placement(player_id, args.get("lobby_id"))
+
+            match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement["placement_id"], _external=True)
+
+            return match_placement
         except lobbies.InvalidRequestException as e:
             log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
@@ -80,7 +90,11 @@ class MatchPlacementAPI(MethodView):
         """
         try:
             player_id = current_user["player_id"]
-            return match_placements.get_player_match_placement(player_id, match_placement_id)
+            match_placement = match_placements.get_player_match_placement(player_id, match_placement_id)
+
+            match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement_id, _external=True)
+
+            return match_placement
         except lobbies.NotFoundException as e:
             log.warning(e.msg)
             return {"error": f"Match placement {match_placement_id} not found"}, http_client.NOT_FOUND
@@ -113,7 +127,7 @@ class MatchPlacementAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     ret = {
-        "match-placements": url_for("match-placements.match-placements", _external=True)
+        "match_placements": url_for("match-placements.match-placements", _external=True)
     }
 
     if current_user and current_user.get("player_id"):
