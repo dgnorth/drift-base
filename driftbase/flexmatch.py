@@ -174,6 +174,23 @@ def process_flexmatch_event(flexmatch_event):
 
     raise RuntimeError(f"Unknown event '{event_type}'")
 
+def start_game_session_placement(**kwargs):
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        return gamelift_client.start_game_session_placement(**kwargs)
+    except ParamValidationError as e:
+        raise GameliftClientException("Invalid parameters to request", str(e))
+    except ClientError as e:
+        raise GameliftClientException("Failed to start game session placement", str(e))
+
+def stop_game_session_placement(placement_id: str):
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        return gamelift_client.stop_game_session_placement(PlacementId=placement_id)
+    except ParamValidationError as e:
+        raise GameliftClientException("Invalid parameters to request", str(e))
+    except ClientError as e:
+        raise GameliftClientException("Failed to stop game session placement", str(e))
 
 # Helpers
 

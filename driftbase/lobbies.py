@@ -4,11 +4,9 @@ import typing
 import random
 import string
 import datetime
-import uuid
-from botocore.exceptions import ClientError, ParamValidationError
 from flask import g
 from driftbase.parties import get_player_party
-from driftbase.models.db import CorePlayer, Match
+from driftbase.models.db import CorePlayer
 from driftbase.messages import post_message
 from driftbase import flexmatch
 
@@ -20,9 +18,15 @@ AWS_REGION = "eu-west-1"
 
 log = logging.getLogger(__name__)
 
-def get_player_lobby(player_id: int):
+def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
+
+        if not lobby_id:
+            raise NotFoundException(f"Player {player_id} attempted to fetch a lobby without being a member of any lobby")
+
+        if expected_lobby_id and expected_lobby_id != lobby_id:
+            raise UnauthorizedException(f"Player {player_id} attempted to fetch lobby {expected_lobby_id}, but isn't a member of that lobby. Player is in lobby {lobby_id}")
 
         with _LockedLobby(_get_lobby_key(player_lobby_lock.value)) as lobby_lock:
             lobby = lobby_lock.lobby
@@ -32,10 +36,13 @@ def get_player_lobby(player_id: int):
                 lobby_id = None
                 player_lobby_lock.value = lobby_id
 
-            log.info(f"Returning lobby {lobby_id} for player {player_id}")
+            if not lobby:
+                raise NotFoundException(f"Player {player_id} attempted to fetch their lobby, but none was found")
+
+            log.info(f"Returning lobby '{lobby_id}' for player '{player_id}'")
 
             # Sanity check that the player is a member of the lobby
-            if lobby and not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
+            if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
                 log.error(f"Player {player_id} is supposed to be in lobby {lobby_id} but isn't a member of the lobby")
 
             return lobby
@@ -45,7 +52,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
         raise InvalidRequestException(f"Failed to create lobby for player {player_id} due to player being in a party")
 
     matchmaking_ticket = flexmatch.get_player_ticket(player_id)
-    if matchmaking_ticket and matchmaking_ticket["Status"] not in ("MATCH_COMPLETED", "FAILED", "TIMED_OUT", "", None):
+    if matchmaking_ticket and matchmaking_ticket["Status"] not in ("MATCH_COMPLETE", "FAILED", "TIMED_OUT", "", None):
         raise InvalidRequestException(f"Failed to create lobby for player {player_id} due to player having an active matchmaking ticket")
 
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
@@ -92,12 +99,15 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
                     lobby_lock.lobby = new_lobby
                     return new_lobby
 
-def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[str]):
+def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[str]):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
         if not lobby_id:
             raise NotFoundException(f"Player {player_id} attempted to update a lobby without being a member of any lobby")
+
+        if expected_lobby_id != lobby_id:
+            raise UnauthorizedException(f"Player {player_id} attempted to update lobby {expected_lobby_id}, but isn't a member of that lobby. Player is in lobby {lobby_id}")
 
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
@@ -182,13 +192,16 @@ def update_lobby(player_id: int, team_capacity: typing.Optional[int], team_names
                 receiving_player_ids = _get_lobby_member_player_ids(lobby)
                 _post_lobby_event_to_members(receiving_player_ids, "LobbyUpdated", lobby)
 
-def delete_or_leave_lobby(player_id: int):
+def delete_or_leave_lobby(player_id: int, expected_lobby_id: str):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
         if not lobby_id:
             log.info(f"Player {player_id} attempted to leave a lobby without being a member of any lobby")
             return
+
+        if expected_lobby_id != lobby_id:
+            raise UnauthorizedException(f"Player {player_id} attempted to delete lobby {expected_lobby_id}, but isn't a member of that lobby. Player is in lobby {lobby_id}")
 
         _internal_delete_or_leave_lobby(player_id, lobby_id)
 
@@ -316,146 +329,6 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
                         log.warning(f"Player {member_id} is supposed to be in lobby {lobby_id} but isn't a member of the lobby")
                         member_lobby_lock.value = None
 
-def start_lobby_match(player_id: int, lobby_id: str):
-    with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
-
-        # Verify data integrity
-        player_lobby_id = player_lobby_lock.value
-        if player_lobby_id != lobby_id:
-            raise InvalidRequestException(f"Player {player_id} is attempting to start match for lobby {lobby_id}, but is supposed to be in lobby {player_lobby_id}")
-
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
-
-            # Verify host
-            host_player_id = _get_lobby_host_player_id(lobby)
-            if player_id != host_player_id:
-                raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} without being the lobby host")
-
-            # Prevent issuing another placement request
-            if lobby["status"] == "starting":
-                raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} while the match is starting")
-
-            # Request a game server from GameLift
-            gamelift_client = flexmatch.GameLiftRegionClient(AWS_REGION, _get_tenant_name())
-            try:
-                lobby_name = lobby["lobby_name"]
-                placement_id = str(uuid.uuid4())
-                max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
-                game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
-                custom_data = lobby["custom_data"]
-
-                lobby["placement_id"] = placement_id
-
-                player_latencies = []
-                for member in lobby["members"]:
-                    for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
-                        player_latencies.append({
-                            "PlayerId": str(member["player_id"]),
-                            "RegionIdentifier": region,
-                            "LatencyInMilliseconds": latency
-                        })
-
-                log.info(f"Host player {player_id} is starting lobby match for lobby {lobby_id}. GameLift placement id: {placement_id}")
-                response = gamelift_client.start_game_session_placement(
-                    PlacementId=placement_id,
-                    GameSessionQueueName=_get_tenant_config_value("lobby_game_session_queue"),
-                    MaximumPlayerSessionCount=max_player_session_count,
-                    GameSessionName=game_session_name,
-                    GameProperties=[
-                        {
-                            "Key": "lobby",
-                            "Value": "true",
-                        },
-                    ],
-                    PlayerLatencies=player_latencies,
-                    DesiredPlayerSessions=[
-                        {
-                            "PlayerId": str(member["player_id"]),
-                            "PlayerData": json.dumps({
-                                "player_name": member["player_name"],
-                                "team_name": member["team_name"],
-                                "host": member["host"],
-                            }),
-                        }
-                        for member in lobby["members"]
-                    ],
-                    GameSessionData=json.dumps({
-                        "lobby_id": lobby_id,
-                        "lobby_name": lobby_name,
-                        "lobby_map": lobby["map_name"],
-                        "lobby_members": [
-                            {
-                                "player_id": str(member["player_id"]),
-                                "player_name": member["player_name"],
-                                "team_name": member["team_name"],
-                                "host": member["host"],
-                            }
-                            for member in lobby["members"]
-                        ],
-                        "lobby_custom_data": custom_data,
-                    }),
-                )
-            except ParamValidationError as e:
-                raise flexmatch.GameliftClientException("Invalid parameters to request", str(e))
-            except ClientError as e:
-                raise flexmatch.GameliftClientException("Failed to start game session placement", str(e))
-
-            with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
-                lobby_placement_lock.value = lobby_id
-
-            lobby["status"] = "starting"
-            lobby["game_session_placement"] = response["GameSessionPlacement"]
-
-            lobby_lock.lobby = lobby
-
-            log.info(f"GameLift game session placement issued for lobby {lobby_id} by host player {player_id}")
-
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
-
-def process_gamelift_queue_event(queue_name: str, message: dict):
-    log.debug(f"lobbies::process_gamelift_queue_event() received event in queue '{queue_name}': {message}")
-
-    event_details = _get_event_details(message)
-    event_type = event_details.get("type", None)
-    if event_type is None:
-        raise RuntimeError("No event type found")
-
-    log.info(f"Incoming '{event_type}' queue event: {event_details}")
-
-    if event_type == "PlacementFulfilled":
-        return _process_fulfilled_queue_event(event_details)
-    if event_type == "PlacementCancelled":
-        return _process_cancelled_queue_event(event_details)
-    if event_type == "PlacementTimedOut":
-        return _process_timed_out_queue_event(event_details)
-    if event_type == "PlacementFailed":
-        return _process_failed_queue_event(event_details)
-
-    raise RuntimeError(f"Unknown event '{event_type}'")
-
-def process_match_message(queue_name: str, message: dict):
-    log.debug(f"lobbies::process_match_message() received event in queue '{queue_name}': {message}")
-
-    event = message["event"]
-    if event == "match_status_changed":
-        match_id = message.get("match_id", None)
-        if match_id is None:
-            log.error(f"Malformed {event} event; 'match_id' is missing. Message: {message}")
-            return
-
-        match_status = message.get("match_status", None)
-        if match_status is None:
-            log.error(f"Malformed {event} event; 'match_status' is missing. Message: {message}")
-            return
-
-        if match_status == "ended":
-            return _process_match_ended(match_id)
-    else:
-        log.error(f"Unexpected event '{event}' published.")
-
 # Helpers
 
 def _internal_join_lobby(player_id: int, lobby_id: str):
@@ -519,7 +392,8 @@ def _internal_delete_or_leave_lobby(player_id: int, lobby_id: str):
 
                 # Notify members
                 receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
-                _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
+                if receiving_player_ids: # Potentially empty if the host is alone in the lobby
+                    _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
             else:
                 # Member is leaving the lobby
 
@@ -560,9 +434,6 @@ def _generate_lobby_id() -> str:
 def _get_lobby_key(lobby_id: str) -> str:
     return g.redis.make_key(f"lobby:{lobby_id}:")
 
-def _get_lobby_placement_key(placement_id: str) -> str:
-    return g.redis.make_key(f"lobby-placement:{placement_id}:")
-
 def _get_player_lobby_key(player_id: int) -> str:
     return g.redis.make_key(f"player:{player_id}:lobby:")
 
@@ -602,174 +473,6 @@ def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, ev
     for receiver_id in receiving_player_ids:
         post_message("players", int(receiver_id), "lobby", payload, expiry, sender_system=True)
 
-def _get_event_details(event: dict):
-    if event.get("detail-type", None) != "GameLift Queue Placement Event":
-        raise RuntimeError("Event is not a GameLift Queue Placement Event!")
-    details = event.get("detail", None)
-    if details is None:
-        raise RuntimeError("Event is missing details!")
-    return details
-
-def _get_placement_duration(event_details: dict) -> float:
-    start_time = datetime.datetime.fromisoformat(event_details["startTime"].removesuffix("Z"))
-    end_time = datetime.datetime.fromisoformat(event_details["endTime"].removesuffix("Z"))
-
-    delta = end_time - start_time
-    return delta.total_seconds()
-
-def _process_fulfilled_queue_event(event_details: dict):
-    placement_id = event_details["placementId"]
-    duration = _get_placement_duration(event_details)
-
-    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
-        lobby_id = lobby_placement_lock.value
-
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
-
-            ip_address: str = event_details["ipAddress"]
-            port = int(event_details["port"])
-
-            lobby["ip_address"] = ip_address
-            lobby["port"] = port
-            lobby["status"] = "started"
-
-            log.info(f"Lobby match for lobby {lobby_id} has started. Placement duration: {duration}s")
-
-            lobby_lock.lobby = lobby
-
-            # Notify members
-
-            connection_string = f"{ip_address}:{port}"
-
-            # Gather connection info for each player
-            connection_options_by_player_id = {}
-            for player in event_details["placedPlayerSessions"]:
-                player_id: int = int(player["playerId"])
-                player_session_id: str = player["playerSessionId"]
-
-                connection_options_by_player_id[player_id] = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
-
-            # Post events to players one-by-one for unique connection info
-            for member in lobby["members"]:
-                member_player_id: int = member["player_id"]
-
-                if member_player_id not in connection_options_by_player_id:
-                    log.error(f"Player {member_player_id} didn't receive a player session. Event details: {event_details}")
-                    continue
-
-                # Append spectator to connection options for non-team lobby members
-                if not member["team_name"]:
-                    connection_options_by_player_id[member_player_id] += "?SpectatorOnly=1"
-
-                event_data = {
-                    "lobby_id": lobby_id,
-                    "status": lobby["status"],
-                    "connection_string": connection_string,
-                    "connection_options": connection_options_by_player_id[member_player_id],
-                }
-                _post_lobby_event_to_members([member_player_id], "LobbyMatchStarted", event_data)
-
-def _process_cancelled_queue_event(event_details: dict):
-    placement_id = event_details["placementId"]
-    duration = _get_placement_duration(event_details)
-
-    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
-        lobby_id = lobby_placement_lock.value
-
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
-
-            lobby["status"] = "cancelled"
-
-            log.info(f"Lobby match placement for lobby {lobby_id} cancelled. Placement duration: {duration}s")
-
-            lobby_lock.lobby = lobby
-
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby)
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchCancelled", {"lobby_id": lobby_id, "status": lobby["status"]})
-
-
-def _process_timed_out_queue_event(event_details: dict):
-    placement_id = event_details["placementId"]
-    duration = _get_placement_duration(event_details)
-
-    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
-        lobby_id = lobby_placement_lock.value
-
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
-
-            lobby["status"] = "timed_out"
-
-            log.info(f"Lobby match placement for lobby {lobby_id} timed_out. Placement duration: {duration}s")
-
-            lobby_lock.lobby = lobby
-
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby)
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchTimedOut", {"lobby_id": lobby_id, "status": lobby["status"]})
-
-def _process_failed_queue_event(event_details: dict):
-    placement_id = event_details["placementId"]
-    duration = _get_placement_duration(event_details)
-
-    with _GenericLock(_get_lobby_placement_key(placement_id)) as lobby_placement_lock:
-        lobby_id = lobby_placement_lock.value
-
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
-
-            lobby["status"] = "failed"
-
-            log.info(f"Lobby match placement for lobby {lobby_id} failed. Placement duration: {duration}s")
-
-            lobby_lock.lobby = lobby
-
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby)
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchFailed", {"lobby_id": lobby_id, "status": lobby["status"]})
-
-def _process_match_ended(match_id: int):
-    match = g.db.query(Match).get(match_id)
-    if not match:
-        log.error(f"Match {match_id} not found")
-        return
-
-    details = match.details
-    if details is None:
-        log.info(f"Ended match {match.match_id} has no details. Unable to determine if the match is a lobby match.")
-        return
-
-    log.debug(f"event details: {details}")
-    lobby_id = details.get("lobby_id", None)
-    if lobby_id is None:
-        log.info(f"Match {match.match_id} isn't a lobby match.")
-        return
-
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-        lobby = lobby_lock.lobby
-
-        if not lobby:
-            log.error(f"Lobby {lobby_id} not found for match {match.match_id}. Match details: {details}")
-            return
-
-        log.info(f"Match ended for lobby {lobby_id}. Deleting lobby.")
-
-        for member in lobby["members"]:
-            with _GenericLock(_get_player_lobby_key(member["player_id"])) as member_lobby_id_lock:
-                member_lobby_id_lock.value = None
-
-        # Delete the lobby
-        lobby_lock.lobby = None
-
-        log.info(f"Lobby {lobby_id} deleted.")
-
-        # Notify members
-        receiving_player_ids = _get_lobby_member_player_ids(lobby)
-        _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
-
 class _GenericLock(object):
     """
     Context manager for synchronizing creation and modification of a redis value.
@@ -789,8 +492,8 @@ class _GenericLock(object):
         return self._value
 
     @value.setter
-    def value(self, new_lobby):
-        self._value = new_lobby
+    def value(self, new_value):
+        self._value = new_value
         self._modified = True
 
     def __enter__(self):
@@ -862,6 +565,11 @@ class InvalidRequestException(Exception):
         self.msg = user_message
 
 class NotFoundException(Exception):
+    def __init__(self, user_message):
+        super().__init__(user_message)
+        self.msg = user_message
+
+class UnauthorizedException(Exception):
     def __init__(self, user_message):
         super().__init__(user_message)
         self.msg = user_message

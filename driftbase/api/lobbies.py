@@ -9,7 +9,6 @@ from flask.views import MethodView
 from flask import url_for
 from drift.core.extensions.jwt import current_user
 from driftbase import lobbies
-from driftbase import flexmatch
 import http.client as http_client
 import logging
 
@@ -19,8 +18,6 @@ log = logging.getLogger(__name__)
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    app.messagebus.register_consumer(lobbies.process_match_message, "match")
-    app.messagebus.register_consumer(lobbies.process_gamelift_queue_event, "gamelift_queue")
     endpoints.init_app(app)
 
 class CreateLobbyRequestSchema(Schema):
@@ -66,6 +63,9 @@ class LobbyResponseSchema(Schema):
     lobby_members_url = fields.Url(metadata=dict(description="URL for the lobby members."))
     lobby_member_url = fields.Url(metadata=dict(description="Lobby member URL for the player issuing the request."))
 
+    start_lobby_match_placement_url = fields.Url(metadata=dict(description="URL to start the lobby match placement."))
+    stop_lobby_match_placement_url = fields.Url(metadata=dict(description="URL to stop the lobby match placement."))
+
 class UpdateLobbyMemberRequestSchema(Schema):
     team_name = fields.String(allow_none=True, dump_default=None, metadata=dict(description="What team this lobby member is assigned to."))
     ready = fields.Bool(allow_none=True, dump_default=False, metadata=dict(description="Whether or not this player is ready to start the match."))
@@ -77,16 +77,20 @@ class LobbiesAPI(MethodView):
     def get(self):
         """
         Retrieve the lobby the requesting player is a member of, or empty dict if no such thing is found.
-        Returns a lobby or nothing if no lobby was found.
+        Returns a lobby.
         """
         player_id = current_user["player_id"]
 
-        lobby = lobbies.get_player_lobby(player_id)
-
-        if lobby:
+        try:
+            lobby = lobbies.get_player_lobby(player_id)
             _populate_lobby_urls(lobby)
-
-        return lobby or {}
+            return lobby
+        except lobbies.NotFoundException as e:
+            log.warning(e.msg)
+            return {"error": "No lobby found"}, http_client.NOT_FOUND
+        except lobbies.UnauthorizedException as e:
+            log.warning(e.msg)
+            return {"error": "Unauthorized access to specific lobby"}, http_client.UNAUTHORIZED
 
     @bp.arguments(CreateLobbyRequestSchema)
     @bp.response(http_client.CREATED, LobbyResponseSchema)
@@ -114,9 +118,31 @@ class LobbiesAPI(MethodView):
             log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
+@bp.route("/<string:lobby_id>", endpoint="lobby")
+class LobbyAPI(MethodView):
+
+    @bp.response(http_client.OK)
+    def get(self, lobby_id: str):
+        """
+        Retrieve the lobby the requesting player is a member of, or empty dict if no such thing is found.
+        Returns a lobby or nothing if no lobby was found.
+        """
+        player_id = current_user["player_id"]
+
+        try:
+            lobby = lobbies.get_player_lobby(player_id, lobby_id)
+            _populate_lobby_urls(lobby)
+            return lobby
+        except lobbies.NotFoundException as e:
+            log.warning(e.msg)
+            return {"error": f"Lobby {lobby_id} not found"}, http_client.NOT_FOUND
+        except lobbies.UnauthorizedException as e:
+            log.warning(e.msg)
+            return {"error": f"Unauthorized access to lobby {lobby_id}"}, http_client.UNAUTHORIZED
+
     @bp.arguments(UpdateLobbyRequestSchema)
     @bp.response(http_client.NO_CONTENT)
-    def patch(self, args):
+    def patch(self, args, lobby_id: str):
         """
         Update lobby info.
         Requesting player must be the lobby host.
@@ -124,6 +150,7 @@ class LobbiesAPI(MethodView):
         try:
             lobbies.update_lobby(
                 current_user["player_id"],
+                lobby_id,
                 args.get("team_capacity"),
                 args.get("team_names"),
                 args.get("lobby_name"),
@@ -136,40 +163,22 @@ class LobbiesAPI(MethodView):
         except lobbies.InvalidRequestException as e:
             log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
+        except lobbies.UnauthorizedException as e:
+            log.warning(e.msg)
+            return {"error": f"Unauthorized access to lobby {lobby_id}"}, http_client.UNAUTHORIZED
 
     @bp.response(http_client.NO_CONTENT)
-    def delete(self):
+    def delete(self, lobby_id: str):
         """
         Leave or delete a lobby for the requesting player depending on if the player is the host or not.
         """
         try:
-            lobbies.delete_or_leave_lobby(current_user["player_id"])
+            lobbies.delete_or_leave_lobby(current_user["player_id"], lobby_id)
+        except lobbies.NotFoundException:
+            pass
         except lobbies.InvalidRequestException as e:
             log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
-
-
-@bp.route("/<string:lobby_id>", endpoint="lobby")
-class LobbyAPI(MethodView):
-
-    @bp.response(http_client.NO_CONTENT)
-    def post(self, lobby_id: str):
-        """
-        Start the match for a specific lobby.
-        Requesting player must be the lobby host.
-        """
-        player_id = current_user["player_id"]
-        try:
-            lobbies.start_lobby_match(player_id, lobby_id)
-        except lobbies.NotFoundException as e:
-            log.warning(e.msg)
-            return {"error": e.msg}, http_client.NOT_FOUND
-        except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
-            return {"error": e.msg}, http_client.BAD_REQUEST
-        except flexmatch.GameliftClientException as e:
-            log.error(f"Failed to start lobby match for lobby {lobby_id} on behalf of player {player_id}: Gamelift response:\n{e.debugs}")
-            return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
 
 @bp.route("/<string:lobby_id>/members", endpoint="members")
 class LobbyMembersAPI(MethodView):
@@ -236,13 +245,18 @@ def endpoint_info(*args):
 
     if current_user and current_user.get("player_id"):
         player_id = current_user["player_id"]
-        player_lobby = lobbies.get_player_lobby(player_id)
-        if player_lobby:
+
+        try:
+            player_lobby = lobbies.get_player_lobby(player_id)
             lobby_id = player_lobby["lobby_id"]
 
             ret["my_lobby"] = url_for("lobbies.lobby", lobby_id=lobby_id, _external=True)
             ret["my_lobby_members"] = url_for("lobbies.members", lobby_id=lobby_id, _external=True)
             ret["my_lobby_member"] = url_for("lobbies.member", lobby_id=lobby_id, member_player_id=player_id, _external=True)
+        except lobbies.NotFoundException:
+            pass
+        except lobbies.UnauthorizedException as e:
+            log.error(e.msg)
 
     return ret
 
@@ -257,3 +271,10 @@ def _populate_lobby_urls(lobby: dict):
 
     for member in lobby["members"]:
         member["lobby_member_url"] = url_for("lobbies.member", lobby_id=lobby_id, member_player_id=member["player_id"], _external=True)
+
+    lobby_status = lobby["status"]
+    placement_id = lobby.get("placement_id", None)
+    if placement_id and lobby_status == "starting":
+        lobby["stop_lobby_match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=placement_id, _external=True)
+    elif lobby_status != "started":
+        lobby["start_lobby_match_placement_url"] = url_for("match-placements.match-placements", _external=True)
