@@ -16,7 +16,7 @@ from flask_smorest import Blueprint, abort
 from drift.core.extensions.jwt import current_user
 from drift.utils import Url
 from driftbase.counters import get_counter, get_player, get_or_create_counter_id, \
-    get_or_create_player_counter, add_count, check_and_update_player_counter, COUNTER_PERIODS
+    get_or_create_player_counter, add_count, check_and_update_player_counter, COUNTER_PERIODS, get_all_counters
 from driftbase.models.db import CounterEntry, PlayerCounter
 
 log = logging.getLogger(__name__)
@@ -55,13 +55,28 @@ class CountersApi(MethodView):
         """
         # TODO: Playercheck
         if not get_player(player_id):
-            abort(404, message="Player Not found")
+            abort(http_client.NOT_FOUND, message="Player Not found")
 
+        # Cache all the values, we will need all of them anyway
         rows = g.db.query(PlayerCounter).filter(PlayerCounter.player_id == player_id)
         ret = []
+        counter_ids = [row.counter_id for row in rows]
+        value_rows = g.db.query(CounterEntry.counter_id, CounterEntry.value).filter(
+            CounterEntry.player_id == player_id,
+            CounterEntry.counter_id.in_(counter_ids),
+            CounterEntry.period == "total").all()
+        counter_totals = {row.counter_id: row.value for row in value_rows}
+        # Get all the cached counter metadata
+        counters = get_all_counters()
+
         for row in rows:
             counter_id = row.counter_id
-            counter = get_counter(counter_id)
+            try:
+                counter = counters[counter_id]
+            except KeyError:
+                # if a counter is missing, the cache was stale, so refresh it
+                counters = get_all_counters(force=True)
+                counter = counters[counter_id]
             entry = {
                 "counter_id": counter_id,
                 "player_id": player_id,
@@ -76,13 +91,9 @@ class CountersApi(MethodView):
                 entry["periods"][period] = url_for("player_counters.period", player_id=player_id,
                                                    counter_id=counter_id, period=period,
                                                    _external=True)
-            total = g.db.query(CounterEntry.value).filter(CounterEntry.player_id == player_id,
-                                                          CounterEntry.counter_id == counter_id,
-                                                          CounterEntry.period == "total").first()
+            total = counter_totals.get(counter_id, None)
             if total:
-                entry["total"] = total.value
-            else:
-                entry["total"] = 0
+                entry["total"] = total
             ret.append(entry)
 
         return ret
