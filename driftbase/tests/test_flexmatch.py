@@ -453,6 +453,36 @@ class FlexMatchTest(_BaseFlexmatchTest):
             response = self.get(ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["Status"], "MATCH_COMPLETE")
 
+    def test_notification_of_events_isnt_sent_to_players_if_event_refers_to_foreign_ticket(self):
+        # Start matchmaking/issue ticket
+        username, ticket_url, first_ticket = self._initiate_matchmaking()
+        self.assertEqual(first_ticket["Status"], "QUEUED")
+        player_id = self.player_id
+        # Cancel the first ticket and issue a new one
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
+            self.assertEqual(response["status"], "Deleted")
+        _, ticket_url, second_ticket = self._initiate_matchmaking(username)
+        events_url = self.endpoints["flexmatch_events"]
+        # PUT a matchmaking_searching event for original ticket
+        with self._managed_bearer_token_user():
+            details = self._get_event_details(first_ticket["TicketId"], {"playerId": player_id}, "MatchmakingSearching")
+            data = self._get_event_data(details)
+            self.put(events_url, data=data, expected_status_code=http_client.OK)
+        # Assert no notification is sent
+        self.auth(username)
+        notification, _ = self.get_player_notification("matchmaking", "MatchmakingSearching")
+        self.assertIsNone(notification)
+        # PUT a matchmaking_cancelled event for original ticket
+        with self._managed_bearer_token_user():
+            details = self._get_event_details(first_ticket["TicketId"], {"playerId": player_id}, "MatchmakingCancelled")
+            data = self._get_event_data(details)
+            self.put(events_url, data=data, expected_status_code=http_client.OK)
+        # Assert no notification is sent.
+        self.auth(username)
+        notification, _ = self.get_player_notification("matchmaking", "MatchmakingCancelled")
+        self.assertIsNone(notification)
+
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
@@ -744,7 +774,6 @@ class MockGameLiftClient(object):
         """
         import datetime
         from dateutil.tz import tzlocal
-        # MEMO TO SELF: the current processor re-uses the status field in redis for ticket events later, so we never actually see the status, just the latest mm event
         return {
             "MatchmakingTicket": {
                 "TicketId": str(uuid.uuid4()),
