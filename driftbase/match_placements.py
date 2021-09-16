@@ -129,14 +129,16 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
 
             log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: {json.dumps(response)}")
 
+            match_placement = {
+                "placement_id": placement_id,
+                "player_id": player_id,
+                "match_provider": match_provider,
+                "lobby_id": lobby_id,
+                "status": "pending",
+            }
+
             with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
-                match_placement_lock.value = {
-                    "placement_id": placement_id,
-                    "player_id": player_id,
-                    "match_provider": match_provider,
-                    "lobby_id": lobby_id,
-                    "status": "pending",
-                }
+                match_placement_lock.value = match_placement
 
             with _GenericLock(_get_player_match_placement_key(player_id)) as player_match_placement_lock:
                 player_match_placement_lock.value = placement_id
@@ -151,7 +153,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
             receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
             _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
 
-            return {"placement_id": placement_id}
+            return match_placement
 
 def stop_player_match_placement(player_id: int, expected_match_placement_id: str):
     with _GenericLock(_get_player_match_placement_key(player_id)) as player_match_placement_lock:
@@ -175,9 +177,15 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
                 if match_provider != "gamelift":
                     raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
 
+                placement_status = placement["status"]
+                if placement_status != "pending":
+                    raise InvalidRequestException(f"Player {player_id} attempted to stop match placement {expected_match_placement_id}, but the placement is in status '{placement_status}'")
+
                 response = flexmatch.stop_game_session_placement(placement_id)
 
                 log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: {json.dumps(response)}")
+
+                log.info(f"Player {player_id} stopped match placement {placement_id}")
 
                 match_placement_lock.value = None
 

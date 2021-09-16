@@ -390,6 +390,9 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
         if not lobby:
             raise NotFoundException(f"Player {player_id} attempted to leave lobby {lobby_id} which doesn't exist")
 
+        if lobby["status"] == "starting":
+            raise InvalidRequestException(f"Player {player_id} attempted to leave lobby {lobby_id} while the lobby match is starting")
+
         current_length = len(lobby["members"])
         host_player_id = _get_lobby_host_player_id(lobby)
 
