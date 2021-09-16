@@ -127,7 +127,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                 }),
             )
 
-            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: {json.dumps(response)}")
+            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: {_jsonify(response)}")
 
             match_placement = {
                 "placement_id": placement_id,
@@ -183,7 +183,7 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
 
                 response = flexmatch.stop_game_session_placement(placement_id)
 
-                log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: {json.dumps(response)}")
+                log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: {_jsonify(response)}")
 
                 log.info(f"Player {player_id} stopped match placement {placement_id}")
 
@@ -265,10 +265,10 @@ def _get_placement_duration(event_details: dict) -> float:
     delta = end_time - start_time
     return delta.total_seconds()
 
-def _validate_placement_for_queue_event(placement_id: str, placement: dict):
+def _validate_gamelift_placement_for_queue_event(placement_id: str, placement: dict) -> bool:
     if not placement:
         log.info(f"GameLift placement '{placement_id}' not found in match placements. Ignoring.")
-        return
+        return False
 
     lobby_id = placement.get("lobby_id", None)
     if not lobby_id:
@@ -278,6 +278,8 @@ def _validate_placement_for_queue_event(placement_id: str, placement: dict):
     with _GenericLock(_get_player_match_placement_key(placement["player_id"])) as player_match_placement_lock:
         player_match_placement_lock.value = None
 
+    return True
+
 def _process_fulfilled_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
     duration = _get_placement_duration(event_details)
@@ -285,7 +287,8 @@ def _process_fulfilled_queue_event(event_details: dict):
     with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
-        _validate_placement_for_queue_event(placement_id, placement)
+        if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
+            return
 
         lobby_id = placement["lobby_id"]
         placement["status"] = "completed"
@@ -345,7 +348,8 @@ def _process_cancelled_queue_event(event_details: dict):
     with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
-        _validate_placement_for_queue_event(placement_id, placement)
+        if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
+            return
 
         lobby_id = placement["lobby_id"]
         placement["status"] = "cancelled"
@@ -373,7 +377,8 @@ def _process_timed_out_queue_event(event_details: dict):
     with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
-        _validate_placement_for_queue_event(placement_id, placement)
+        if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
+            return
 
         lobby_id = placement["lobby_id"]
         placement["status"] = "timed_out"
@@ -400,7 +405,8 @@ def _process_failed_queue_event(event_details: dict):
     with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
-        _validate_placement_for_queue_event(placement_id, placement)
+        if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
+            return
 
         lobby_id = placement["lobby_id"]
         placement["status"] = "failed"
@@ -458,6 +464,15 @@ def _process_match_ended(match_id: int):
         # Notify members
         receiving_player_ids = _get_lobby_member_player_ids(lobby)
         _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
+
+def _jsonify(d: dict) -> str:
+    def _json_serial(obj):
+        if isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+
+        return str(obj)
+
+    return json.dumps(d, default=_json_serial)
 
 class _JsonLock(object):
     """
