@@ -283,15 +283,15 @@ def _process_searching_event(event):
             _post_matchmaking_event_to_members(player_id, "MatchmakingSearching")
 
 def _process_potential_match_event(event):
-    players_by_team = defaultdict(set)
-    players_by_ticket = defaultdict(set)  # For sanity checking
-    for ticket in event["tickets"]:
-        ticket_id = ticket["ticketId"]
-        for player in ticket["players"]:
+    playerids_by_teamid = defaultdict(set)
+    playerids_by_ticketid = defaultdict(set)  # For sanity checking
+    for event_ticket in event["tickets"]:
+        ticket_id = event_ticket["ticketId"]
+        for player in event_ticket["players"]:
             player_id = int(player["playerId"])
-            players_by_ticket[ticket_id].add(player_id)
-            players_by_team[player["team"]].add(player_id)
-    team_data = {team: list(players) for team, players in players_by_team.items()}
+            playerids_by_ticketid[ticket_id].add(player_id)
+            playerids_by_teamid[player["team"]].add(player_id)
+    team_data = {team: list(players) for team, players in playerids_by_teamid.items()}
 
     match_id = event["matchId"]
     acceptance_required = event["acceptanceRequired"]
@@ -316,12 +316,13 @@ def _process_potential_match_event(event):
                 log.info(f"PotentialMatchCreated event for ticket {player_ticket['TicketId']} in state {player_ticket['Status']} doesn't make sense.  Probably out of order delivery; ignoring.")
                 continue
             # sanity check
-            if player_id not in players_by_ticket.get(player_ticket["TicketId"], []):
-                for ticket, players in players_by_ticket.items():
-                    if player_id in players:
-                        log.warning(f"Weird, player {player_id} is registered to ticket {player_ticket['TicketId']} but this update pegs him on ticket {ticket}")
+            if player_id not in playerids_by_ticketid.get(player_ticket["TicketId"], []):
+                for ticketid, playerids in playerids_by_ticketid.items():
+                    if player_id in playerids:
+                        log.warning(f"Weird, player {player_id} is registered to ticket {player_ticket['TicketId']} but this update pegs him on ticket {ticketid}")
                         break
-            log.info(f"Updating ticket {ticket['ticketId']} for player key {ticket_key} from {player_ticket['Status']} to {new_state}")
+
+            log.info(f"Updating ticket {player_ticket['TicketId']} for player key {ticket_key} from {player_ticket['Status']} to {new_state}")
             player_ticket["Status"] = new_state
             player_ticket["MatchId"] = match_id
             ticket_lock.ticket = player_ticket
