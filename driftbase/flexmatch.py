@@ -241,22 +241,17 @@ def _get_event_details(event):
     return details
 
 def _process_searching_event(event):
-    # This block is probably useless, but it sanity checks...
-    players_by_ticket = defaultdict(set)
-    for ticket in event["tickets"]:
-        ticket_id = ticket["ticketId"]
-        for player in ticket["players"]:
-            players_by_ticket[ticket_id].add(int(player["playerId"]))
-
     updated_tickets = set()
-    game_session_info = event["gameSessionInfo"]
-    for player in game_session_info["players"]:
+    for ticket_id, player in _ticket_players(event):
         player_id = int(player["playerId"])
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
             if player_ticket is None:  # This is either a back fill ticket (i.e. not issued by us) or an event for a already deleted ticket.
                 log.info(f"Ignoring back-fill ticket with player {player_id} in it as current player.")
+                continue
+            if ticket_id != player_ticket["TicketId"]:
+                log.info(f"'SEARCHING' event has player {player_id} on ticket {ticket_id}, which doesn't match his current ticket {player_ticket['TicketId']}. Ignoring this player/ticket combo update")
                 continue
             if ticket_key in updated_tickets:
                 log.info(f"Skipping update on ticket for player {player_id} as it resolves to previously updated ticket key {ticket_key}")
@@ -270,27 +265,19 @@ def _process_searching_event(event):
             if player_ticket["Status"] not in ("QUEUED", "REQUIRES_ACCEPTANCE"):
                 log.info(f"MatchmakingSearching event for ticket {player_ticket['TicketId']} in state {player_ticket['Status']} doesn't make sense.  Probably out of order delivery; ignoring.")
                 continue
-            # sanity check
-            if player_id not in players_by_ticket.get(player_ticket["TicketId"], []):
-                for ticket, players in players_by_ticket.items():
-                    if player_id in players:
-                        log.warning(f"Weird, player {player_id} is registered to ticket {player_ticket['TicketId']} but this update pegs him on ticket {ticket}")
-                        break
             log.info(f"Updating ticket {player_ticket['TicketId']} from {player_ticket['Status']} to SEARCHING")
             player_ticket["Status"] = "SEARCHING"
             ticket_lock.ticket = player_ticket
             updated_tickets.add(ticket_key)
-            _post_matchmaking_event_to_members(player_id, "MatchmakingSearching")
+            _post_matchmaking_event_to_members([player_id], "MatchmakingSearching")
 
 def _process_potential_match_event(event):
     playerids_by_teamid = defaultdict(set)
     playerids_by_ticketid = defaultdict(set)  # For sanity checking
-    for event_ticket in event["tickets"]:
-        ticket_id = event_ticket["ticketId"]
-        for player in event_ticket["players"]:
-            player_id = int(player["playerId"])
-            playerids_by_ticketid[ticket_id].add(player_id)
-            playerids_by_teamid[player["team"]].add(player_id)
+    for event_ticket_id, player in _ticket_players(event):
+        player_id = int(player["playerId"])
+        playerids_by_ticketid[event_ticket_id].add(player_id)
+        playerids_by_teamid[player["team"]].add(player_id)
     team_data = {team: list(players) for team, players in playerids_by_teamid.items()}
 
     match_id = event["matchId"]
@@ -342,16 +329,14 @@ def _process_matchmaking_succeeded_event(event):
     connection_string = f"{ip_address}:{port}"
     connection_info_by_player_id = {}
     players_by_ticket = defaultdict(set)  # For sanity checking
-    for ticket in event["tickets"]:
-        ticket_id = ticket["ticketId"]
-        for player in ticket["players"]:
-            player_id = int(player["playerId"])
-            players_by_ticket[ticket_id].add(player_id)
-            if "playerSessionId" not in player:
-                log.warning(f"player {player_id} has no playerSessionId in a MatchmakingSucceeded event. Dumping event for analysis:")
-                log.warning(event)
-                continue
-            connection_info_by_player_id[player_id] = f"PlayerSessionId={player['playerSessionId']}?PlayerId={player_id}"
+    for ticket_id, player in _ticket_players(event):
+        player_id = int(player["playerId"])
+        players_by_ticket[ticket_id].add(player_id)
+        if "playerSessionId" not in player:
+            log.warning(f"player {player_id} has no playerSessionId in a MatchmakingSucceeded event. Dumping event for analysis:")
+            log.warning(event)
+            continue
+        connection_info_by_player_id[player_id] = f"PlayerSessionId={player['playerSessionId']}?PlayerId={player_id}"
 
     for player in game_session_info["players"]:
         player_id = int(player["playerId"])
@@ -389,30 +374,31 @@ def _process_matchmaking_succeeded_event(event):
                 }
                 _post_matchmaking_event_to_members([receiver_id], "MatchmakingSuccess", event_data=event_data)
 
-
 def _process_matchmaking_cancelled_event(event):
-    for ticket in event["tickets"]:
-        ticket_id = ticket["ticketId"]
-        for player in ticket["players"]:
-            player_id = player["playerId"]
-            ticket_key = _get_player_ticket_key(player_id)
-            with _LockedTicket(ticket_key) as ticket_lock:
-                player_ticket = ticket_lock.ticket
-                if player_ticket is None:
-                    continue  # Normal, player cancelled the ticket and we've already cleared it from the cache
-                if player_ticket["Status"] == "COMPLETED" and ticket_id != player_ticket["TicketId"]:
-                    # MATCH_COMPLETE is not a flexmatch status, but I want to differentiate between statuses arising from the
-                    # cancelling of backfill tickets and other states
-                    log.info(f"Found player {player_id} in a foreign ticket being cancelled, where the actual players ticket is in 'COMPLETED' state."
-                             " Inferring a backfill ticket being cancelled and thus setting player ticket to 'MATCH_COMPLETE'.")
-                    player_ticket["Status"] = "MATCH_COMPLETE"
-                elif player_ticket["Status"] == "MATCH_COMPLETE" and ticket_id != player_ticket["TicketId"]:
-                    log.info(f"Found player {player_id} in a foreign ticket being cancelled, where the actual players ticket is in 'MATCH_COMPLETE' state."
-                        " Inferring a backfill ticket being cancelled and not updating player ticket.")
+    for ticket_id, player in _ticket_players(event):
+        player_id = player["playerId"]
+        ticket_key = _get_player_ticket_key(player_id)
+        with _LockedTicket(ticket_key) as ticket_lock:
+            player_ticket = ticket_lock.ticket
+            if player_ticket is None:
+                continue  # Normal, player cancelled the ticket and we've already cleared it from the cache
+            if ticket_id != player_ticket["TicketId"]:
+                # This block is a hack (heuristics); we should mark MATCH_COMPLETE via an explicit event.
+                # MATCH_COMPLETE is not a flexmatch status, but I want to differentiate between statuses arising from the
+                # cancelling of backfill tickets and other states
+                log.info(f"'CANCELLED' event has player {player_id} on ticket {ticket_id} when his active ticket {player_ticket['TicketId']} is in state {player_ticket['Status']}.")
+                if player_ticket["Status"] in ("MATCH_COMPLETE", "COMPLETED"):
+                    log.info(f"Found player {player_id} in a foreign ticket being cancelled. Inferring a backfill ticket being cancelled")
+                    if player_ticket["Status"] == "COMPLETED":
+                        log.info(f"Setting player ticket {player_ticket['TicketId']} to state 'MATCH_COMPLETE'.")
+                        player_ticket["Status"] = "MATCH_COMPLETE"
+                        ticket_lock.ticket = player_ticket
                 else:
-                    player_ticket["Status"] = "CANCELLED"
-                    _post_matchmaking_event_to_members([player_id], "MatchmakingCancelled")
-                ticket_lock.ticket = player_ticket
+                    log.info(f"Ignoring this player/ticket combo update.")
+                continue
+            player_ticket["Status"] = "CANCELLED"
+            _post_matchmaking_event_to_members([player_id], "MatchmakingCancelled")
+            ticket_lock.ticket = player_ticket
 
 def _process_accept_match_event(event):
     game_session_info = event["gameSessionInfo"]
@@ -460,57 +446,58 @@ def _process_accept_match_completed_event(event):
 
 def _process_matchmaking_timeout_event(event):
     players_to_notify = set()
-    for ticket in event["tickets"]:
-        ticket_id = ticket["ticketId"]
-        for player in ticket["players"]:
-            player_id = int(player["playerId"])
-            ticket_key = _get_player_ticket_key(player_id)
-            with _LockedTicket(ticket_key) as ticket_lock:
-                player_ticket = ticket_lock.ticket
-                if player_ticket is None:
-                    log.warning(f"Timeout event for ticket {ticket_id} includes player {player_id} who has no ticket.")
-                    continue
-                if ticket_id != player_ticket["TicketId"]:
-                    # Maybe a timeout on a backfill ticket?
-                    log.warning(f"Timeout event for ticket {ticket_id} includes player {player_id} who has ticket {player_ticket['TicketId']}.")
-                    continue
-                if player_ticket.get("GameSessionConnectionInfo", None) is not None:
-                    # If we've recorded a session, then the player has been placed in a match already
-                    log.info(f"Player {player_id} has a session attached to his ticket.  Timeout is nonsensical here. Ignoring.")
-                    continue
-                player_ticket["Status"] = "TIMED_OUT"
-                ticket_lock.ticket = player_ticket
-                players_to_notify.add(player_id)
+    for ticket_id, player in _ticket_players(event):
+        player_id = int(player["playerId"])
+        ticket_key = _get_player_ticket_key(player_id)
+        with _LockedTicket(ticket_key) as ticket_lock:
+            player_ticket = ticket_lock.ticket
+            if player_ticket is None:
+                log.warning(f"Timeout event for ticket {ticket_id} includes player {player_id} who has no ticket.")
+                continue
+            if ticket_id != player_ticket["TicketId"]:
+                # Maybe a timeout on a backfill ticket?
+                log.warning(f"Timeout event for ticket {ticket_id} includes player {player_id} who has ticket {player_ticket['TicketId']}.")
+                continue
+            if player_ticket.get("GameSessionConnectionInfo", None) is not None:
+                # If we've recorded a session, then the player has been placed in a match already
+                log.info(f"Player {player_id} has a session attached to his ticket.  Timeout is nonsensical here. Ignoring.")
+                continue
+            player_ticket["Status"] = "TIMED_OUT"
+            ticket_lock.ticket = player_ticket
+            players_to_notify.add(player_id)
     if players_to_notify:
         _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": "TimeOut"})
 
 def _process_matchmaking_failed_event(event):
     # FIXME: This is pretty much the same as a timeout; refactor
     players_to_notify = set()
-    for ticket in event["tickets"]:
-        ticket_id = ticket["ticketId"]
-        for player in ticket["players"]:
-            player_id = int(player["playerId"])
-            ticket_key = _get_player_ticket_key(player_id)
-            with _LockedTicket(ticket_key) as ticket_lock:
-                player_ticket = ticket_lock.ticket
-                if player_ticket is None:
-                    log.warning(f"Failed event for ticket {ticket_id} includes player {player_id} who has no ticket.")
-                    continue
-                if ticket_id != player_ticket["TicketId"]:
-                    # Maybe a failure on a backfill ticket?
-                    log.warning(f"Failed event for ticket {ticket_id} includes player {player_id} who has ticket {player_ticket['TicketId']}.")
-                    continue
-                if player_ticket.get("GameSessionConnectionInfo", None) is not None:
-                    # If we've recorded a session, then the player has been placed in a match already
-                    log.info(f"Player {player_id} has a session attached to his ticket.  Timeout is nonsensical here. Ignoring.")
-                    continue
-                player_ticket["Status"] = "FAILED"
-                ticket_lock.ticket = player_ticket
-                players_to_notify.add(player_id)
+    for ticket_id, player in _ticket_players(event):
+        player_id = int(player["playerId"])
+        ticket_key = _get_player_ticket_key(player_id)
+        with _LockedTicket(ticket_key) as ticket_lock:
+            player_ticket = ticket_lock.ticket
+            if player_ticket is None:
+                log.warning(f"Failed event for ticket {ticket_id} includes player {player_id} who has no ticket.")
+                continue
+            if ticket_id != player_ticket["TicketId"]:
+                # Maybe a failure on a backfill ticket?
+                log.warning(f"Failed event for ticket {ticket_id} includes player {player_id} who has ticket {player_ticket['TicketId']}.")
+                continue
+            if player_ticket.get("GameSessionConnectionInfo", None) is not None:
+                # If we've recorded a session, then the player has been placed in a match already
+                log.info(f"Player {player_id} has a session attached to his ticket.  Timeout is nonsensical here. Ignoring.")
+                continue
+            player_ticket["Status"] = "FAILED"
+            ticket_lock.ticket = player_ticket
+            players_to_notify.add(player_id)
     if players_to_notify:
         _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": event["reason"]})
 
+def _ticket_players(event):
+    """ Generator function for players in tickets """
+    for ticket in event["tickets"]:
+        for player in ticket["players"]:
+            yield ticket["ticketId"], player
 
 class GameLiftRegionClient(object):
     __gamelift_clients_by_region = {}
