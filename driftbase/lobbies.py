@@ -224,10 +224,12 @@ def leave_lobby(player_id: int, expected_lobby_id: str):
 
 def join_lobby(player_id: int, lobby_id: str):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
+        player_lobby_id = player_lobby_lock.value
+
         # Already a part of another lobby
-        if player_lobby_lock.value and player_lobby_lock.value != lobby_id:
-            log.info(f"Player {player_id} is joining lobby {lobby_id} while being a member of lobby {player_lobby_lock.value}")
-            _internal_leave_lobby(player_id, lobby_id)
+        if player_lobby_id and player_lobby_id != lobby_id:
+            log.info(f"Player {player_id} is joining lobby {lobby_id} while being a member of lobby {player_lobby_id}")
+            _internal_leave_lobby(player_id, player_lobby_id)
             player_lobby_lock.value = None
 
         lobby = _internal_join_lobby(player_id, lobby_id)
