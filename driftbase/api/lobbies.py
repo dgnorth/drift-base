@@ -137,7 +137,7 @@ class LobbyAPI(MethodView):
             return {"error": f"Lobby {lobby_id} not found"}, http_client.NOT_FOUND
         except lobbies.UnauthorizedException as e:
             log.warning(e.msg)
-            return {"error": f"Unauthorized access to lobby {lobby_id}"}, http_client.UNAUTHORIZED
+            return {"error": f"Unauthorized access to lobby '{lobby_id}'"}, http_client.UNAUTHORIZED
 
     @bp.arguments(UpdateLobbyRequestSchema)
     @bp.response(http_client.NO_CONTENT)
@@ -164,7 +164,7 @@ class LobbyAPI(MethodView):
             return {"error": e.msg}, http_client.BAD_REQUEST
         except lobbies.UnauthorizedException as e:
             log.warning(e.msg)
-            return {"error": f"Unauthorized access to lobby {lobby_id}"}, http_client.UNAUTHORIZED
+            return {"error": f"Unauthorized access to lobby '{lobby_id}'"}, http_client.UNAUTHORIZED
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str):

@@ -23,20 +23,20 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
         placement_id = player_match_placement_lock.value
 
         if not placement_id:
-            raise NotFoundException(f"Player {player_id} attempted to fetch a match placement without having a match placement")
+            raise NotFoundException(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
 
         if expected_match_placement_id and expected_match_placement_id != placement_id:
-            raise UnauthorizedException(f"Player {player_id} attempted to fetch match placement {expected_match_placement_id}, but the player didn't issue the match placement")
+            raise UnauthorizedException(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
 
         with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             placement = match_placement_lock.value
 
             if not placement and placement_id:
-                log.warning(f"Player {player_id} is assigned to match placement {placement_id} but the match placement doesn't exist")
+                log.warning(f"Player '{player_id}' is assigned to match placement '{placement_id}' but the match placement doesn't exist")
                 placement_id = None
                 player_match_placement_lock.value = placement_id
 
-            log.info(f"Returning match placement {placement_id} for player {player_id}")
+            log.info(f"Returning match placement '{placement_id}' for player '{player_id}'")
 
             return placement
 
@@ -46,22 +46,22 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
         # Verify data integrity
         player_lobby_id = player_lobby_lock.value
         if player_lobby_id != lobby_id:
-            raise InvalidRequestException(f"Player {player_id} is attempting to start match for lobby {lobby_id}, but is supposed to be in lobby {player_lobby_id}")
+            raise InvalidRequestException(f"Player '{player_id}' is attempting to start match for lobby '{lobby_id}', but is supposed to be in lobby '{player_lobby_id}'")
 
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
 
             if not lobby:
-                raise InvalidRequestException(f"Player {player_id} is attempting to start match for nonexistent lobby {lobby_id}")
+                raise InvalidRequestException(f"Player '{player_id}' is attempting to start match for nonexistent lobby '{lobby_id}'")
 
             # Verify host
             host_player_id = _get_lobby_host_player_id(lobby)
             if player_id != host_player_id:
-                raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} without being the lobby host")
+                raise InvalidRequestException(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' without being the lobby host")
 
             # Prevent issuing another placement request
             if lobby["status"] == "starting":
-                raise InvalidRequestException(f"Player {player_id} attempted to start the match for lobby {lobby_id} while the match is starting")
+                raise InvalidRequestException(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' while the match is starting")
             
             # Select match provider
             match_provider = _get_tenant_config_value("default_match_provider")
@@ -86,7 +86,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                         "LatencyInMilliseconds": latency
                     })
 
-            log.info(f"Host player {player_id} is starting lobby match for lobby {lobby_id}. GameLift placement id: {placement_id}")
+            log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}'. GameLift placement id: '{placement_id}'")
             response = flexmatch.start_game_session_placement(
                 PlacementId=placement_id,
                 GameSessionQueueName=lobbies._get_tenant_config_value("lobby_game_session_queue"),
@@ -127,7 +127,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                 }),
             )
 
-            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: {_jsonify(response)}")
+            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
 
             match_placement = {
                 "placement_id": placement_id,
@@ -147,7 +147,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
 
             lobby_lock.lobby = lobby
 
-            log.info(f"GameLift game session placement issued for lobby {lobby_id} by host player {player_id}")
+            log.info(f"GameLift game session placement issued for lobby '{lobby_id}' by host player '{player_id}'")
 
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
@@ -160,10 +160,10 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
         placement_id = player_match_placement_lock.value
 
         if not placement_id:
-            raise NotFoundException(f"Player {player_id} attempted to stop a match placement without having a match placement")
+            raise NotFoundException(f"Player '{player_id}' attempted to stop a match placement without having a match placement")
 
         if expected_match_placement_id != placement_id:
-            raise UnauthorizedException(f"Player {player_id} attempted to stop match placement {expected_match_placement_id}, but the player didn't issue the match placement")
+            raise UnauthorizedException(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
 
         with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             placement = match_placement_lock.value
@@ -179,27 +179,27 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
 
                 placement_status = placement["status"]
                 if placement_status != "pending":
-                    raise InvalidRequestException(f"Player {player_id} attempted to stop match placement {expected_match_placement_id}, but the placement is in status '{placement_status}'")
+                    raise InvalidRequestException(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the placement is in status '{placement_status}'")
 
                 response = flexmatch.stop_game_session_placement(placement_id)
 
-                log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: {_jsonify(response)}")
+                log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
 
-                log.info(f"Player {player_id} stopped match placement {placement_id}")
+                log.info(f"Player '{player_id}' stopped match placement '{placement_id}'")
 
                 match_placement_lock.value = None
 
         player_match_placement_lock.value = None
 
 def process_gamelift_queue_event(queue_name: str, message: dict):
-    log.debug(f"match-placements::process_gamelift_queue_event() received event in queue '{queue_name}': {message}")
+    log.debug(f"match-placements::process_gamelift_queue_event() received event in queue '{queue_name}': '{message}'")
 
     event_details = _get_event_details(message)
     event_type = event_details.get("type", None)
     if event_type is None:
-        raise RuntimeError("No event type found")
+        raise RuntimeError(f"No event type found. Message: '{message}'")
 
-    log.info(f"Incoming '{event_type}' queue event: {event_details}")
+    log.info(f"Incoming '{event_type}' queue event: '{event_details}'")
 
     if event_type == "PlacementFulfilled":
         return _process_fulfilled_queue_event(event_details)
@@ -213,18 +213,18 @@ def process_gamelift_queue_event(queue_name: str, message: dict):
     raise RuntimeError(f"Unknown event '{event_type}'")
 
 def process_match_message(queue_name: str, message: dict):
-    log.debug(f"match-placements::process_match_message() received event in queue '{queue_name}': {message}")
+    log.debug(f"match-placements::process_match_message() received event in queue '{queue_name}': '{message}'")
 
     event = message["event"]
     if event == "match_status_changed":
         match_id = message.get("match_id", None)
         if match_id is None:
-            log.error(f"Malformed {event} event; 'match_id' is missing. Message: {message}")
+            log.error(f"Malformed '{event}' event; 'match_id' is missing. Message: '{message}'")
             return
 
         match_status = message.get("match_status", None)
         if match_status is None:
-            log.error(f"Malformed {event} event; 'match_status' is missing. Message: {message}")
+            log.error(f"Malformed '{event}' event; 'match_status' is missing. Message: '{message}'")
             return
 
         if match_status == "ended":
@@ -305,7 +305,7 @@ def _process_fulfilled_queue_event(event_details: dict):
             lobby["port"] = port
             lobby["status"] = "started"
 
-            log.info(f"Lobby match for lobby {lobby_id} has started.")
+            log.info(f"Lobby match for lobby '{lobby_id}' has started.")
 
             lobby_lock.lobby = lobby
 
@@ -326,7 +326,7 @@ def _process_fulfilled_queue_event(event_details: dict):
                 member_player_id: int = member["player_id"]
 
                 if member_player_id not in connection_options_by_player_id:
-                    log.error(f"Player {member_player_id} didn't receive a player session. Event details: {event_details}")
+                    log.error(f"Player '{member_player_id}' didn't receive a player session. Event details: '{event_details}'")
                     continue
 
                 # Append spectator to connection options for non-team lobby members
@@ -361,7 +361,7 @@ def _process_cancelled_queue_event(event_details: dict):
 
             lobby["status"] = "cancelled"
 
-            log.info(f"Lobby match placement for lobby {lobby_id} cancelled.")
+            log.info(f"Lobby match placement for lobby '{lobby_id}' cancelled.")
 
             lobby_lock.lobby = lobby
 
@@ -390,7 +390,7 @@ def _process_timed_out_queue_event(event_details: dict):
 
             lobby["status"] = "timed_out"
 
-            log.info(f"Lobby match placement for lobby {lobby_id} timed_out.")
+            log.info(f"Lobby match placement for lobby '{lobby_id}' timed_out.")
 
             lobby_lock.lobby = lobby
 
@@ -418,7 +418,7 @@ def _process_failed_queue_event(event_details: dict):
 
             lobby["status"] = "failed"
 
-            log.info(f"Lobby match placement for lobby {lobby_id} failed.")
+            log.info(f"Lobby match placement for lobby '{lobby_id}' failed.")
 
             lobby_lock.lobby = lobby
 
@@ -429,28 +429,28 @@ def _process_failed_queue_event(event_details: dict):
 def _process_match_ended(match_id: int):
     match = g.db.query(Match).get(match_id)
     if not match:
-        log.error(f"Match {match_id} not found")
+        log.error(f"Match '{match_id}' not found")
         return
 
     details = match.details
     if details is None:
-        log.info(f"Ended match {match.match_id} has no details. Unable to determine if the match is a lobby match.")
+        log.info(f"Ended match '{match.match_id}' has no details. Unable to determine if the match is a lobby match.")
         return
 
     log.debug(f"event details: {details}")
     lobby_id = details.get("lobby_id", None)
     if lobby_id is None:
-        log.info(f"Match {match.match_id} isn't a lobby match.")
+        log.info(f"Match '{match.match_id}' isn't a lobby match.")
         return
 
     with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
         lobby = lobby_lock.lobby
 
         if not lobby:
-            log.error(f"Lobby {lobby_id} not found for match {match.match_id}. Match details: {details}")
+            log.error(f"Lobby '{lobby_id}' not found for match '{match.match_id}'. Match details: '{details}'")
             return
 
-        log.info(f"Match ended for lobby {lobby_id}. Deleting lobby.")
+        log.info(f"Match ended for lobby '{lobby_id}'. Deleting lobby.")
 
         for member in lobby["members"]:
             with _GenericLock(_get_player_lobby_key(member["player_id"])) as member_lobby_id_lock:
@@ -459,7 +459,7 @@ def _process_match_ended(match_id: int):
         # Delete the lobby
         lobby_lock.lobby = None
 
-        log.info(f"Lobby {lobby_id} deleted.")
+        log.info(f"Lobby '{lobby_id}' deleted.")
 
         # Notify members
         receiving_player_ids = _get_lobby_member_player_ids(lobby)
