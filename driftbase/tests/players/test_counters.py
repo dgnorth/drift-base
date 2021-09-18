@@ -180,7 +180,7 @@ class CountersTests(DriftBaseTestCase):
         self.assertEqual(r.json()[name], val)
 
     def test_counters_multiple(self):
-        # test writing to the same counter more than once. The total count should upgade
+        # test writing to the same counter more than once. The total count should upgrade
         self.auth(username=uuid_string())
         player_url = self.endpoints["my_player"]
         r = self.get(player_url)
@@ -207,9 +207,14 @@ class CountersTests(DriftBaseTestCase):
         r = self.patch(counter_url, data=data)
 
         timestamp = datetime.datetime(2016, 1, 1, 10, 2, 2)
+        third_val = 42
         absolute_val = 666
         absolute_name = "my_absolute_counter"
-        data = [{"name": absolute_name,
+        data = [{"name": name,
+                 "value": third_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"},
+                {"name": absolute_name,
                  "value": absolute_val,
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "absolute"}]
@@ -218,5 +223,5 @@ class CountersTests(DriftBaseTestCase):
 
         r = self.get(countertotals_url)
         self.assertEqual(len(r.json()), 2)
-        self.assertEqual(r.json()[name], val + second_val)
+        self.assertEqual(r.json()[name], val + second_val + third_val)
         self.assertEqual(r.json()[absolute_name], absolute_val)

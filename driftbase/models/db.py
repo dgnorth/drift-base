@@ -1,7 +1,7 @@
 import datetime
 
 from drift.orm import ModelBase, utc_now, Base
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy import (
     Column,
     Integer,
@@ -228,6 +228,8 @@ class PlayerCounter(ModelBase):
     num_updates = Column(Integer, nullable=False, default=1)
     last_update = Column(DateTime, nullable=True)
 
+    UniqueConstraint(counter_id, player_id)
+
 
 class CounterEntry(Base):
     __tablename__ = "ck_counterentries"
@@ -254,6 +256,8 @@ class CounterEntry(Base):
     date_time = Column(DateTime, nullable=False, index=True, server_default=utc_now)
     value = Column(Float, nullable=False)
     context_id = Column(Integer, nullable=True, index=True)
+
+    UniqueConstraint(counter_id, player_id, period, date_time)
 
 
 # GameServer models

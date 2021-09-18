@@ -16,7 +16,8 @@ from flask_smorest import Blueprint, abort
 from drift.core.extensions.jwt import current_user
 from drift.utils import Url
 from driftbase.counters import get_counter, get_player, get_or_create_counter_id, \
-    get_or_create_player_counter, add_count, check_and_update_player_counter, COUNTER_PERIODS, get_all_counters
+    get_or_create_player_counter, add_count, check_and_update_player_counter, COUNTER_PERIODS, get_all_counters, \
+    batch_get_or_create_counter_ids, batch_get_or_create_player_counters, batch_update_counter_entries
 from driftbase.models.db import CounterEntry, PlayerCounter
 
 log = logging.getLogger(__name__)
@@ -196,16 +197,19 @@ class CountersApi(MethodView):
                 g.redis.incr(key, value, expire=ex)
             log.info("Added %s to redis in %.2fsec", name, time.time() - redis_start_time)
 
-        for counter_name, counter_info in counters.items():
-            counter_id = get_or_create_counter_id(counter_name, counter_info["counter_type"])
-            player_counter = get_or_create_player_counter(counter_id, player_id)
-            counter_info["player_counter"] = player_counter
-            counter_info["counter_id"] = counter_id
+        counters_by_id = {}
+        counter_ids = batch_get_or_create_counter_ids([(k, v["counter_type"]) for k, v in counters.items()])
+        for e in counter_ids:
+            counters[e[1]]["counter_id"] = e[0]
+            counters[e[1]].update({"name": e[1]})
+            counters_by_id[e[0]] = counters[e[1]]
 
-        g.db.commit()
+        player_counter_ids = batch_get_or_create_player_counters(player_id, [v["counter_id"] for k, v in counters.items()])
+        for e in player_counter_ids:
+            counters[counters_by_id[e[1]]["name"]]["player_counter"] = dict(id=e[0], last_update=e[2])
 
         # now we should have any needed counters and player_counters created
-
+        entries = {}
         for entry in args:
             name = entry.get("name")
             counter = counters.get(name)
@@ -213,27 +217,17 @@ class CountersApi(MethodView):
                 continue
 
             value = float(entry["value"])
-            # timestamp = parser.parse(entry["timestamp"].replace("Z", ""))
-            # NOTE: We use the server timestamp instead since the client one might be way off.
-            #       We need to figure out a good method to allow the client to send timestamps
-            #       that we can trust
             timestamp = datetime.datetime.utcnow()
             counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
             context_id = int(entry.get("context_id", 0))
             is_absolute = (counter_type == "absolute")
             counter_id = counter["counter_id"]
+            entries[name] = dict(counter_id=counter_id, context_id=context_id, is_absolute=is_absolute, timestamp=timestamp, value=value)
 
-            ok = check_and_update_player_counter(counter["player_counter"], timestamp)
-            if not ok:
-                # Note: This never happens now since we are using the server time for the timestamp
-                result[name] = "duplicate"
-                continue
+        batch_update_counter_entries(player_id, entries)
 
-            add_count(counter_id, player_id, timestamp, value, is_absolute=is_absolute,
-                      context_id=context_id)
-            result[name] = "OK"
-
-        g.db.commit()
+        for entry in args:
+            result[entry["name"]] = "OK"
 
         log.info("patch(%s) done in %.2fs!", player_id, time.time() - start_time)
         return jsonify(result)
