@@ -55,10 +55,6 @@ def get_counter(counter_key):
         return counters.get(counter_key, None)
 
 
-def clear_counter_cache():
-    g.redis.delete("counter_names")
-
-
 def get_player(player_id):
     player = g.db.query(CorePlayer).get(player_id)
     return player
@@ -117,53 +113,6 @@ def batch_update_counter_entries(player_id, entries, db_session=None):
         stm2 = stm.on_conflict_do_update(index_elements=['counter_id', 'player_id', 'period', 'date_time'], set_=dict(value=CounterEntry.value + stm.excluded.value))
         db_session.execute(stm2)
         db_session.commit()
-
-
-def get_or_create_counter_id(name, counter_type, db_session=None):
-    if not db_session:
-        db_session = g.db
-    name = name.lower()
-    counter = get_counter(name)
-    if counter:
-        return counter["counter_id"]
-
-    # we fall through here if the counter does not exist
-
-    # Note: counter type is only inserted for the first entry and then not updated again
-    row = db_session.query(Counter).filter(Counter.name == name).first()
-    if not row:
-        db_session.commit()
-        log.info("Creating new counter called %s", name)
-        try:
-            row = Counter(name=name, counter_type=counter_type)
-            db_session.add(row)
-            db_session.commit()
-        except IntegrityError as e:
-            # if someone has inserted the counter in the meantime, retrieve it
-            if "duplicate key" in repr(e):
-                db_session.rollback()
-                row = db_session.query(Counter).filter(Counter.name == name).first()
-            else:
-                raise
-
-        clear_counter_cache()
-    counter_id = row.counter_id
-
-    return counter_id
-
-
-def get_or_create_player_counter(counter_id, player_id):
-    player_counter = g.db.query(PlayerCounter) \
-        .filter(PlayerCounter.player_id == player_id,
-                PlayerCounter.counter_id == counter_id) \
-        .first()
-
-    if not player_counter:
-        log.info("Creating new player counter for counter_id %s", counter_id)
-        player_counter = PlayerCounter(counter_id=counter_id, player_id=player_id)
-        g.db.add(player_counter)
-    g.db.commit()
-    return player_counter
 
 
 def get_date_time_for_period(period, timestamp):
