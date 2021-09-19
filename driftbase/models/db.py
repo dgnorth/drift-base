@@ -218,7 +218,7 @@ class Counter(ModelBase):
 class PlayerCounter(ModelBase):
     __tablename__ = "ck_playercounters"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     counter_id = Column(
         Integer, ForeignKey("ck_counters.counter_id"), nullable=False, index=True
     )
@@ -234,7 +234,7 @@ class PlayerCounter(ModelBase):
 class CounterEntry(Base):
     __tablename__ = "ck_counterentries"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     counter_id = Column(
         Integer, ForeignKey("ck_counters.counter_id"), nullable=False, index=True
     )
