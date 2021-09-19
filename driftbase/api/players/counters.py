@@ -180,16 +180,28 @@ class CountersApi(MethodView):
                 continue
 
             counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
-            # FIXME: Prove that this fails if the same counter is updated twice in the same patch
-            counters[name] = dict(counter_type=counter_type, value=float(entry["value"]),
-                                  context_id=int(entry.get("context_id", 0)), is_absolute=(counter_type == "absolute"),
-                                  timestamp=timestamp
-                                  )
+            counter = counters.get(name)
+            is_absolute = counter_type == "absolute"
+            value = float(entry["value"])
+            # ensure that multiple updates all get applied
+            # theoretically these should be individual entries, if the client flushes at a low rate,
+            # but since we don't trust the client's time stamp, it's better to merge them for now
+            if counter:
+                if is_absolute:
+                    counter["value"] = value
+                else:
+                    counter["value"] += value
+            else:
+                counters[name] = dict(counter_type=counter_type, value=float(entry["value"]),
+                                      context_id=int(entry.get("context_id", 0)),
+                                      is_absolute=(counter_type == "absolute"),
+                                      timestamp=timestamp
+                                      )
 
         counters_by_id = []
         counter_ids = batch_get_or_create_counter_ids([(k, v["counter_type"]) for k, v in counters.items()])
         for (counter_id, name) in counter_ids:
-            counters[name].update(dict(counter_id=counter_id, name=name))
+            counters[name].update(dict(counter_id=counter_id))
             counters_by_id.append(counter_id)
 
         batch_get_or_create_player_counters(player_id, counters_by_id)

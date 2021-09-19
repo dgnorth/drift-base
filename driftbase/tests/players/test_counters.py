@@ -225,3 +225,28 @@ class CountersTests(DriftBaseTestCase):
         self.assertEqual(len(r.json()), 2)
         self.assertEqual(r.json()[name], val + second_val + third_val)
         self.assertEqual(r.json()[absolute_name], absolute_val)
+
+        timestamp = datetime.datetime(2016, 1, 1, 10, 2, 4)
+        fourth_val = 89
+        fifth_val = 100
+        absolute_val = 123
+        absolute_name = "my_absolute_counter"
+        data = [{"name": name,
+                 "value": fourth_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"},
+                {"name": name,
+                 "value": fifth_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"},
+                {"name": absolute_name,
+                 "value": absolute_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "absolute"}]
+
+        r = self.patch(counter_url, data=data)
+
+        r = self.get(countertotals_url)
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(r.json()[name], val + second_val + third_val + fourth_val + fifth_val)
+        self.assertEqual(r.json()[absolute_name], absolute_val)
