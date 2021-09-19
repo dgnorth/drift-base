@@ -15,8 +15,8 @@ from flask_smorest import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.utils import Url
-from driftbase.counters import get_counter, get_player, get_or_create_counter_id, \
-    get_or_create_player_counter, add_count, check_and_update_player_counter, COUNTER_PERIODS, get_all_counters, \
+from driftbase.counters import get_counter, get_player, add_count, check_and_update_player_counter, COUNTER_PERIODS, \
+    get_all_counters, \
     batch_get_or_create_counter_ids, batch_get_or_create_player_counters, batch_update_counter_entries
 from driftbase.models.db import CounterEntry, PlayerCounter
 
@@ -158,7 +158,7 @@ class CountersApi(MethodView):
         # counters here, once per counter
         result = {}
         counters = {}
-        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.datetime.utcnow()
         for entry in args:
             log.debug("Adding count for player %s: %s" % (player_id, entry))
 
@@ -179,52 +179,22 @@ class CountersApi(MethodView):
                 result[name] = "Illegal counter type. Expecting: %s" % ",".join(LEGAL_COUNTER_TYPES)
                 continue
 
-            counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE)
-            counters[name] = {"counter_type": counter_type}
-
-            context_id = int(entry.get("context_id", 0))
-
-            redis_start_time = time.time()
-            # write the counter into redis as well. I will refactor the db calls out
-            # and use only redis here in the future
-            value = int(entry["value"])
-            key = 'counters:%s:%s:%s:%s:%s' % (name, counter_type, player_id, timestamp, context_id)
-            # expire in 1 day
-            ex = 86400
-            if counter_type == "absolute":
-                g.redis.set(key, value, expire=ex)
-            else:
-                g.redis.incr(key, value, expire=ex)
-            log.info("Added %s to redis in %.2fsec", name, time.time() - redis_start_time)
-
-        counters_by_id = {}
-        counter_ids = batch_get_or_create_counter_ids([(k, v["counter_type"]) for k, v in counters.items()])
-        for e in counter_ids:
-            counters[e[1]]["counter_id"] = e[0]
-            counters[e[1]].update({"name": e[1]})
-            counters_by_id[e[0]] = counters[e[1]]
-
-        player_counter_ids = batch_get_or_create_player_counters(player_id, [v["counter_id"] for k, v in counters.items()])
-        for e in player_counter_ids:
-            counters[counters_by_id[e[1]]["name"]]["player_counter"] = dict(id=e[0], last_update=e[2])
-
-        # now we should have any needed counters and player_counters created
-        entries = {}
-        for entry in args:
-            name = entry.get("name")
-            counter = counters.get(name)
-            if not counter:
-                continue
-
-            value = float(entry["value"])
-            timestamp = datetime.datetime.utcnow()
             counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
-            context_id = int(entry.get("context_id", 0))
-            is_absolute = (counter_type == "absolute")
-            counter_id = counter["counter_id"]
-            entries[name] = dict(counter_id=counter_id, context_id=context_id, is_absolute=is_absolute, timestamp=timestamp, value=value)
+            # FIXME: Prove that this fails if the same counter is updated twice in the same patch
+            counters[name] = dict(counter_type=counter_type, value=float(entry["value"]),
+                                  context_id=int(entry.get("context_id", 0)), is_absolute=(counter_type == "absolute"),
+                                  timestamp=timestamp
+                                  )
 
-        batch_update_counter_entries(player_id, entries)
+        counters_by_id = []
+        counter_ids = batch_get_or_create_counter_ids([(k, v["counter_type"]) for k, v in counters.items()])
+        for (counter_id, name) in counter_ids:
+            counters[name].update(dict(counter_id=counter_id, name=name))
+            counters_by_id.append(counter_id)
+
+        batch_get_or_create_player_counters(player_id, counters_by_id)
+
+        batch_update_counter_entries(player_id, counters)
 
         for entry in args:
             result[entry["name"]] = "OK"

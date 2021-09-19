@@ -65,17 +65,23 @@ def get_player(player_id):
 
 
 def batch_get_or_create_counter_ids(counters, db_session=None):
+    """
+    return [(counter_id, name), ...]
+    """
     if not db_session:
         db_session = g.db
 
     values = [{"name": name, "counter_type": counter_type} for (name, counter_type) in counters]
-    stm = insert(Counter).returning(Counter.counter_id, Counter.name, Counter.counter_type).values(values)
+    stm = insert(Counter).returning(Counter.counter_id, Counter.name).values(values)
     stm2 = stm.on_conflict_do_update(index_elements=['name'], set_=dict(name=stm.excluded.name))
     result = db_session.execute(stm2)
     return result
 
 
 def batch_get_or_create_player_counters(player_id, counter_ids, db_session=None):
+    """
+    return [(id, counter_id, last_update)]
+    """
     if not db_session:
         db_session = g.db
 
