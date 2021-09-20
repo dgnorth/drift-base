@@ -202,7 +202,7 @@ class CountersApi(MethodView):
         counter_ids = []
         counters = batch_get_or_create_counters([(k, v["counter_type"]) for k, v in counter_updates.items()])
         for (counter_id, name) in counters:
-            counter_updates[name].update(dict(counter_id=counter_id))
+            counter_updates[name]["counter_id"] = counter_id
             counter_ids.append(counter_id)
 
         # Player counters keep track of which counters have ever been set for a given player

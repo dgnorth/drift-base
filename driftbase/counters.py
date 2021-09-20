@@ -110,7 +110,6 @@ def batch_update_counter_entries(player_id, entries, db_session=None):
             index_elements=['counter_id', 'player_id', 'period', 'date_time'],
             set_=dict(value=insert_clause.excluded.value))
         db_session.execute(update_clause)
-        db_session.commit()
 
     if len(counter_values):
         insert_clause = insert(CounterEntry).values(counter_values)
@@ -118,7 +117,8 @@ def batch_update_counter_entries(player_id, entries, db_session=None):
             index_elements=['counter_id', 'player_id', 'period', 'date_time'],
             set_=dict(value=CounterEntry.value + insert_clause.excluded.value))
         db_session.execute(update_clause)
-        db_session.commit()
+
+    db_session.commit()
 
 
 def get_date_time_for_period(period, timestamp):
