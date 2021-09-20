@@ -120,6 +120,10 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
             if host_player_id != player_id:
                 raise InvalidRequestException(f"Player '{player_id}' attempted to update a lobby without being the lobby host")
 
+            # Prevent updating the lobby if the match has been initiated
+            if _lobby_match_initiated(lobby):
+                raise InvalidRequestException(f"Player '{player_id}' attempted to update lobby '{lobby_id}' which has initiated the lobby match")
+
             lobby_updated = False
 
             if team_capacity is not None:
@@ -254,6 +258,10 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
                 # TODO: Support updating other member's info as the host
                 raise InvalidRequestException(f"The host updating other member's info not supported")
 
+            # Prevent updating lobby member if the lobby match has been initiated
+            if _lobby_match_initiated(lobby):
+                raise InvalidRequestException(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' which has initiated the lobby match")
+
             member_updated = False
 
             for member in lobby["members"]:
@@ -354,9 +362,6 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
 
         if not lobby:
             raise NotFoundException(f"Player '{player_id}' attempted to join lobby '{lobby_id}' which doesn't exist")
-
-        if lobby["status"] in ("starting", "started"):
-            raise NotFoundException(f"Player '{player_id}' attempted to join lobby '{lobby_id}' which has initiated the lobby match")
 
         if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
             lobby["members"].append(
@@ -464,6 +469,9 @@ def _internal_delete_lobby(player_id: int, lobby_id: str):
         receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
         if receiving_player_ids: # Potentially empty if the host is alone in the lobby
             _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
+
+def _lobby_match_initiated(lobby: dict) -> bool:
+    return lobby["status"] in ("starting", "started")
 
 def _can_join_team(lobby: dict, team: str) -> bool:
     team_count = 0

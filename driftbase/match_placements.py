@@ -108,7 +108,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                             "host": member["host"],
                         }),
                     }
-                    for member in lobby["members"]
+                    for member in lobby["members"] if member["team_name"]
                 ],
                 GameSessionData=json.dumps({
                     "lobby_id": lobby_id,
@@ -301,8 +301,9 @@ def _process_fulfilled_queue_event(event_details: dict):
             ip_address: str = event_details["ipAddress"]
             port = int(event_details["port"])
 
-            lobby["ip_address"] = ip_address
-            lobby["port"] = port
+            connection_string = f"{ip_address}:{port}"
+
+            lobby["connection_string"] = connection_string
             lobby["status"] = "started"
 
             log.info(f"Lobby match for lobby '{lobby_id}' has started.")
@@ -310,8 +311,6 @@ def _process_fulfilled_queue_event(event_details: dict):
             lobby_lock.lobby = lobby
 
             # Notify members
-
-            connection_string = f"{ip_address}:{port}"
 
             # Gather connection info for each player
             connection_options_by_player_id = {}
@@ -325,19 +324,20 @@ def _process_fulfilled_queue_event(event_details: dict):
             for member in lobby["members"]:
                 member_player_id: int = member["player_id"]
 
-                if member_player_id not in connection_options_by_player_id:
-                    log.error(f"Player '{member_player_id}' didn't receive a player session. Event details: '{event_details}'")
-                    continue
+                # Spectator only connection options for non-team lobby members
+                connection_options = connection_options_by_player_id.get(member_player_id, "SpectatorOnly=1")
 
-                # Append spectator to connection options for non-team lobby members
-                if not member["team_name"]:
-                    connection_options_by_player_id[member_player_id] += "?SpectatorOnly=1"
+                # Sanity check that if the player is assigned to a team, the player MUST have received a player session
+                member_team_name = member["team_name"]
+                if member_team_name and member_player_id not in connection_options_by_player_id:
+                    log.error(f"Player '{member_player_id}' in team '{member_team_name}' didn't receive a player session. Event details: '{event_details}'")
+                    continue
 
                 event_data = {
                     "lobby_id": lobby_id,
                     "status": lobby["status"],
                     "connection_string": connection_string,
-                    "connection_options": connection_options_by_player_id[member_player_id],
+                    "connection_options": connection_options,
                 }
                 _post_lobby_event_to_members([member_player_id], "LobbyMatchStarted", event_data)
 
