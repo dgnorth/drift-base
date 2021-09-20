@@ -79,7 +79,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
             raise GameliftClientException("Failed to start matchmaking", str(e))
 
         ticket_lock.ticket = response["MatchmakingTicket"]
-        log.info(f"New ticket {ticket_lock.ticket['TicketId']} issued by {player_id}")
+        log.info(f"New ticket {ticket_lock.ticket['TicketId']} issued by player {player_id}")
         _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket_lock.ticket["TicketId"], _external=True)})
         return ticket_lock.ticket
 
@@ -121,7 +121,7 @@ def update_player_acceptance(ticket_id, player_id, match_id, acceptance):
             log.warning(f"Request to update acceptance for player {player_id} who has no ticket. Ignoring")
             return
         if player_ticket["TicketId"] != ticket_id:
-            log.warning(f"Cannot update acceptance on ticket {ticket_id} as it is not players {player_id} active ticket")
+            log.warning(f"Cannot update acceptance on ticket {ticket_id} as it is not player {player_id}'s active ticket")
             return
         log.info(f"Updating acceptance state of ticket {ticket_id} for player {player_id}")
         if player_ticket["Status"] != "REQUIRES_ACCEPTANCE":
@@ -258,7 +258,7 @@ def _process_searching_event(event):
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
                 # If we've recorded a session, then the player is in a match already and this is either a backfill ticket or a very much out of order ticket
-                log.info(f"Player {player_id} has a session already. Not updating {player_ticket['TicketId']}")
+                log.info(f"Existing session for player {player_id} found. Not updating {player_ticket['TicketId']}")
                 continue
             if player_ticket["Status"] == "SEARCHING":
                 continue  # Save on redis calls
