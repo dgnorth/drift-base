@@ -17,8 +17,13 @@ from drift.core.extensions.jwt import current_user
 from drift.utils import Url
 from driftbase.counters import get_counter, get_player, add_count, check_and_update_player_counter, COUNTER_PERIODS, \
     get_all_counters, \
-    batch_get_or_create_counter_ids, batch_get_or_create_player_counters, batch_update_counter_entries
+    batch_get_or_create_counters, batch_create_player_counters, batch_update_counter_entries
 from driftbase.models.db import CounterEntry, PlayerCounter
+
+COUNTER_TYPE_COUNT = "count"
+COUNTER_TYPE_ABSOLUTE = "absolute"
+DEFAULT_COUNTER_TYPE = COUNTER_TYPE_COUNT
+LEGAL_COUNTER_TYPES = (COUNTER_TYPE_COUNT, COUNTER_TYPE_ABSOLUTE)
 
 log = logging.getLogger(__name__)
 
@@ -141,8 +146,6 @@ class CountersApi(MethodView):
             abort(http_client.UNAUTHORIZED, message=message)
 
         start_time = time.time()
-        DEFAULT_COUNTER_TYPE = "count"
-        LEGAL_COUNTER_TYPES = (DEFAULT_COUNTER_TYPE, "absolute")
         args = request.json
 
         if not isinstance(args, list):
@@ -153,63 +156,62 @@ class CountersApi(MethodView):
 
         required_keys = ("name", "value", "timestamp")
 
-        # we might have several entries with the same counter_name.
-        # Therefore we do any work for creating and updating these
-        # counters here, once per counter
+        # Sort out invalid entries, and merge all operations on the same counter
         result = {}
-        counters = {}
+        counter_updates = {}
         timestamp = datetime.datetime.utcnow()
-        for entry in args:
-            log.debug("Adding count for player %s: %s" % (player_id, entry))
+        for update in args:
+            log.debug("Adding count for player %s: %s" % (player_id, update))
 
             try:
-                name = entry["name"]
+                name = update["name"]
             except Exception:
                 continue
             missing_keys = []
             for k in required_keys:
-                if k not in entry:
+                if k not in update:
                     missing_keys.append(k)
             if missing_keys:
                 result[name] = "Missing keys: %s" % ",".join(missing_keys)
                 continue
 
-            counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
+            counter_type = update.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
             if counter_type not in LEGAL_COUNTER_TYPES:
                 result[name] = "Illegal counter type. Expecting: %s" % ",".join(LEGAL_COUNTER_TYPES)
                 continue
 
-            counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
-            counter = counters.get(name)
-            is_absolute = counter_type == "absolute"
-            value = float(entry["value"])
+            is_absolute = counter_type == COUNTER_TYPE_ABSOLUTE
+            value = float(update["value"])
+            context_id = int(update.get("context_id", 0))
             # ensure that multiple updates all get applied
             # theoretically these should be individual entries, if the client flushes at a low rate,
             # but since we don't trust the client's time stamp, it's better to merge them for now
-            if counter:
+            update_entry = counter_updates.get(name)
+            if update_entry:
                 if is_absolute:
-                    counter["value"] = value
+                    update_entry["value"] = value
                 else:
-                    counter["value"] += value
+                    update_entry["value"] += value
             else:
-                counters[name] = dict(counter_type=counter_type, value=float(entry["value"]),
-                                      context_id=int(entry.get("context_id", 0)),
-                                      is_absolute=(counter_type == "absolute"),
-                                      timestamp=timestamp
-                                      )
+                counter_updates[name] = dict(counter_type=counter_type, value=value,
+                                             context_id=context_id,
+                                             is_absolute=is_absolute,
+                                             timestamp=timestamp
+                                             )
 
-        counters_by_id = []
-        counter_ids = batch_get_or_create_counter_ids([(k, v["counter_type"]) for k, v in counters.items()])
-        for (counter_id, name) in counter_ids:
-            counters[name].update(dict(counter_id=counter_id))
-            counters_by_id.append(counter_id)
+        counter_ids = []
+        counters = batch_get_or_create_counters([(k, v["counter_type"]) for k, v in counter_updates.items()])
+        for (counter_id, name) in counters:
+            counter_updates[name].update(dict(counter_id=counter_id))
+            counter_ids.append(counter_id)
 
-        batch_get_or_create_player_counters(player_id, counters_by_id)
+        # Player counters keep track of which counters have ever been set for a given player
+        batch_create_player_counters(player_id, counter_ids)
 
-        batch_update_counter_entries(player_id, counters)
+        batch_update_counter_entries(player_id, counter_updates)
 
-        for entry in args:
-            result[entry["name"]] = "OK"
+        for update in counters:
+            result[update["name"]] = "OK"
 
         log.info("patch(%s) done in %.2fs!", player_id, time.time() - start_time)
         return jsonify(result)

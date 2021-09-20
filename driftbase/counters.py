@@ -4,7 +4,6 @@ import logging
 import six
 from flask import g
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
 
 from driftbase.models.db import Counter, CorePlayer, PlayerCounter, CounterEntry
 
@@ -60,7 +59,7 @@ def get_player(player_id):
     return player
 
 
-def batch_get_or_create_counter_ids(counters, db_session=None):
+def batch_get_or_create_counters(counters, db_session=None):
     """
     return [(counter_id, name), ...]
     """
@@ -68,24 +67,25 @@ def batch_get_or_create_counter_ids(counters, db_session=None):
         db_session = g.db
 
     values = [{"name": name, "counter_type": counter_type} for (name, counter_type) in counters]
-    stm = insert(Counter).returning(Counter.counter_id, Counter.name).values(values)
-    stm2 = stm.on_conflict_do_update(index_elements=['name'], set_=dict(name=stm.excluded.name))
-    result = db_session.execute(stm2)
+    insert_clause = insert(Counter).returning(Counter.counter_id, Counter.name).values(values)
+    # This is essentially a no-op, but it's required to ensure we get all the IDs back in the result
+    update_clause = insert_clause.on_conflict_do_update(index_elements=['name'],
+                                                        set_=dict(name=insert_clause.excluded.name))
+    result = db_session.execute(update_clause)
     return result
 
 
-def batch_get_or_create_player_counters(player_id, counter_ids, db_session=None):
+def batch_create_player_counters(player_id, counter_ids, db_session=None):
     """
-    return [(id, counter_id, last_update)]
+    Create all missing player counters for the specified counter IDs
     """
     if not db_session:
         db_session = g.db
 
     values = [{"counter_id": counter_id, "player_id": player_id} for counter_id in counter_ids]
-    stm = insert(PlayerCounter).returning(PlayerCounter.id, PlayerCounter.counter_id, PlayerCounter.last_update).values(values)
-    stm2 = stm.on_conflict_do_nothing(index_elements=['counter_id', 'player_id'])
-    result = db_session.execute(stm2)
-    return result
+    insert_clause = insert(PlayerCounter).values(values)
+    fallback_clause = insert_clause.on_conflict_do_nothing(index_elements=['counter_id', 'player_id'])
+    return db_session.execute(fallback_clause)
 
 
 def batch_update_counter_entries(player_id, entries, db_session=None):
@@ -97,21 +97,27 @@ def batch_update_counter_entries(player_id, entries, db_session=None):
     for k, e in entries.items():
         for period in COUNTER_PERIODS:
             date_time = get_date_time_for_period(period, e["timestamp"])
-            entry = dict(counter_id=e["counter_id"], player_id=player_id, period=period, date_time=date_time, value=e["value"])
+            entry = dict(counter_id=e["counter_id"], player_id=player_id, period=period, date_time=date_time,
+                         value=e["value"])
             if e["is_absolute"]:
                 absolute_values.append(entry)
             else:
                 counter_values.append(entry)
+
     if len(absolute_values):
-        stm = insert(CounterEntry).values(absolute_values)
-        stm2 = stm.on_conflict_do_update(index_elements=['counter_id', 'player_id', 'period', 'date_time'], set_=dict(value=stm.excluded.value))
-        db_session.execute(stm2)
+        insert_clause = insert(CounterEntry).values(absolute_values)
+        update_clause = insert_clause.on_conflict_do_update(
+            index_elements=['counter_id', 'player_id', 'period', 'date_time'],
+            set_=dict(value=insert_clause.excluded.value))
+        db_session.execute(update_clause)
         db_session.commit()
 
     if len(counter_values):
-        stm = insert(CounterEntry).values(counter_values)
-        stm2 = stm.on_conflict_do_update(index_elements=['counter_id', 'player_id', 'period', 'date_time'], set_=dict(value=CounterEntry.value + stm.excluded.value))
-        db_session.execute(stm2)
+        insert_clause = insert(CounterEntry).values(counter_values)
+        update_clause = insert_clause.on_conflict_do_update(
+            index_elements=['counter_id', 'player_id', 'period', 'date_time'],
+            set_=dict(value=CounterEntry.value + insert_clause.excluded.value))
+        db_session.execute(update_clause)
         db_session.commit()
 
 
