@@ -19,41 +19,45 @@ AWS_REGION = "eu-west-1"
 log = logging.getLogger(__name__)
 
 def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
+    lobby = None
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
         if not lobby_id:
-            raise NotFoundException(f"Player '{player_id}' attempted to fetch a lobby without being a member of any lobby")
+            log.info(f"Player '{player_id}' attempted to fetch a lobby without being a member of any lobby")
+            raise NotFoundException("No lobby found")
 
         if expected_lobby_id and expected_lobby_id != lobby_id:
-            raise UnauthorizedException(f"Player '{player_id}' attempted to fetch lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            log.warning(f"Player '{player_id}' attempted to fetch lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
-        with _LockedLobby(_get_lobby_key(player_lobby_lock.value)) as lobby_lock:
+        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
 
-            if not lobby and lobby_id:
-                log.warning(f"Player '{player_id}' is assigned to lobby '{lobby_id}' but the lobby doesn't exist")
-                lobby_id = None
-                player_lobby_lock.value = lobby_id
-
             if not lobby:
-                raise NotFoundException(f"Player '{player_id}' attempted to fetch their lobby, but none was found")
+                log.warning(f"Player '{player_id}' is assigned to lobby '{lobby_id}' but the lobby doesn't exist")
+                player_lobby_lock.value = None
+            else:
+                log.info(f"Returning lobby '{lobby_id}' for player '{player_id}'")
 
-            log.info(f"Returning lobby '{lobby_id}' for player '{player_id}'")
+                # Sanity check that the player is a member of the lobby
+                if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
+                    log.error(f"Player '{player_id}' is supposed to be in lobby '{lobby_id}' but isn't a member of the lobby")
 
-            # Sanity check that the player is a member of the lobby
-            if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
-                log.error(f"Player '{player_id}' is supposed to be in lobby '{lobby_id}' but isn't a member of the lobby")
+    if not lobby:
+        raise NotFoundException("No lobby found")
 
-            return lobby
+    return lobby
 
 def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[str]):
     if get_player_party(player_id) is not None:
-        raise InvalidRequestException(f"Failed to create lobby for player '{player_id}' due to player being in a party")
+        log.warning(f"Failed to create lobby for player '{player_id}' due to player being in a party")
+        raise InvalidRequestException(f"Cannot create a lobby while in a party")
 
     matchmaking_ticket = flexmatch.get_player_ticket(player_id)
     if matchmaking_ticket and matchmaking_ticket["Status"] not in ("MATCH_COMPLETE", "FAILED", "TIMED_OUT", "", None):
-        raise InvalidRequestException(f"Failed to create lobby for player '{player_id}' due to player having an active matchmaking ticket")
+        log.warning(f"Failed to create lobby for player '{player_id}' due to player having an active matchmaking ticket")
+        raise InvalidRequestException(f"Cannot create a lobby while matchmaking")
 
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         # Leave/delete existing lobby if any
@@ -104,11 +108,9 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
-        if not lobby_id:
-            raise NotFoundException(f"Player '{player_id}' attempted to update a lobby without being a member of any lobby")
-
         if expected_lobby_id != lobby_id:
-            raise UnauthorizedException(f"Player '{player_id}' attempted to update lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            log.warning(f"Player '{player_id}' attempted to update lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
@@ -119,11 +121,13 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
             host_player_id = _get_lobby_host_player_id(lobby)
 
             if host_player_id != player_id:
-                raise InvalidRequestException(f"Player '{player_id}' attempted to update a lobby without being the lobby host")
+                log.warning(f"Player '{player_id}' attempted to update a lobby without being the lobby host")
+                raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can update the lobby")
 
             # Prevent updating the lobby if the match has been initiated
             if _lobby_match_initiated(lobby):
-                raise InvalidRequestException(f"Player '{player_id}' attempted to update lobby '{lobby_id}' which has initiated the lobby match")
+                log.warning(f"Player '{player_id}' attempted to update lobby '{lobby_id}' which has initiated the lobby match")
+                raise InvalidRequestException(f"Cannot update the lobby after the lobby match has been initiated")
 
             lobby_updated = False
 
@@ -206,7 +210,8 @@ def delete_lobby(player_id: int, expected_lobby_id: str):
             return
 
         if expected_lobby_id != lobby_id:
-            raise UnauthorizedException(f"Player '{player_id}' attempted to delete lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            log.warning(f"Player '{player_id}' attempted to delete lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
         _internal_delete_lobby(player_id, lobby_id)
 
@@ -221,7 +226,8 @@ def leave_lobby(player_id: int, expected_lobby_id: str):
             return
 
         if expected_lobby_id != lobby_id:
-            raise UnauthorizedException(f"Player '{player_id}' attempted to leave lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            log.warning(f"Player '{player_id}' attempted to leave lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
+            raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
         _internal_leave_lobby(player_id, lobby_id)
 
@@ -247,6 +253,10 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         player_lobby_id = player_lobby_lock.value
 
+        if player_lobby_id != lobby_id:
+            log.warning(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' without being in the lobby")
+            raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
+
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
 
@@ -254,14 +264,15 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
                 host_player_id = _get_lobby_host_player_id(lobby)
 
                 if player_id != host_player_id:
-                    raise InvalidRequestException(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' without being a the lobby host")
+                    log.warning(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' without being a the lobby host")
+                    raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can update other members")
 
-                # TODO: Support updating other member's info as the host
-                raise InvalidRequestException(f"The host updating other member's info not supported")
+                log.info(f"Host player '{player_id}' is updating member '{member_id}' in lobby '{lobby_id}'")
 
             # Prevent updating lobby member if the lobby match has been initiated
             if _lobby_match_initiated(lobby):
-                raise InvalidRequestException(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' which has initiated the lobby match")
+                log.warning(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' which has initiated the lobby match")
+                raise InvalidRequestException(f"Cannot update lobby after the lobby match has been initialized")
 
             member_updated = False
 
@@ -272,7 +283,8 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
                 current_team = member["team_name"]
 
                 if team_name and team_name not in lobby["team_names"]:
-                    raise InvalidRequestException(f"Player '{player_id}' attempted to join invalid team '{team_name}'")
+                    log.warning(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' with invalid team name '{team_name}'")
+                    raise InvalidRequestException(f"Team name '{team_name}' is invalid")
 
                 if current_team and team_name != current_team:
                     member_updated = True
@@ -305,7 +317,8 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
         player_lobby_id = player_lobby_lock.value
 
         if player_lobby_id != lobby_id:
-            raise UnauthorizedException(f"Player '{player_id}' attempted to kick player '{member_id}' from lobby '{lobby_id}' without being a member of the lobby")
+            log.warning(f"Player '{player_id}' attempted to kick member '{member_id}' in lobby '{lobby_id}' without being in the lobby")
+            raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
 
         if player_id == member_id:
             log.info(f"Player '{player_id}' is kicking themselves from the lobby '{lobby_id}'")
@@ -317,18 +330,20 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
             member_lobby_id = member_lobby_lock.value
 
             if member_lobby_id != player_lobby_id:
-                raise InvalidRequestException(f"Player '{player_id}' attempted to kick player '{member_id}' from lobby '{lobby_id}', but they aren't in the same lobby")
+                log.warning(f"Player '{player_id}' attempted to kick player '{member_id}' from lobby '{lobby_id}', but they aren't in the same lobby")
+                raise InvalidRequestException(f"You and player {member_id} aren't in the same lobby")
 
             with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
                 lobby = lobby_lock.lobby
 
                 if not lobby:
-                    raise NotFoundException(f"Player '{player_id}' attempted to kick player '{member_id}' from lobby '{lobby_id}' which doesn't exist")
+                    raise RuntimeError(f"Player '{player_id}' attempted to kick player '{member_id}' from lobby '{lobby_id}' which doesn't exist")
 
                 host_player_id = _get_lobby_host_player_id(lobby)
 
                 if player_id != host_player_id:
-                    raise InvalidRequestException(f"Player '{player_id}' attempted to kick member '{member_id}' from lobby '{lobby_id}' without being the lobby host")
+                    log.warning(f"Player '{player_id}' attempted to kick member '{member_id}' from lobby '{lobby_id}' without being the lobby host")
+                    raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can kick other members")
 
                 current_length = len(lobby["members"])
 
@@ -362,7 +377,8 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
         lobby = lobby_lock.lobby
 
         if not lobby:
-            raise NotFoundException(f"Player '{player_id}' attempted to join lobby '{lobby_id}' which doesn't exist")
+            log.warning(f"Player '{player_id}' attempted to join lobby '{lobby_id}' which doesn't exist")
+            raise NotFoundException(f"Lobby {lobby_id} doesn't exist")
 
         if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
             lobby["members"].append(
@@ -396,19 +412,21 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
         lobby = lobby_lock.lobby
 
         if not lobby:
-            raise NotFoundException(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' which doesn't exist")
+            log.warning(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' which doesn't exist")
+            raise NotFoundException(f"Lobby {lobby_id} doesn't exist")
 
         if lobby["status"] == "starting":
             placement_date = datetime.datetime.fromisoformat(lobby["placement_date"])
             now = datetime.datetime.utcnow()
 
-            duration = now - placement_date
+            duration = (now - placement_date).total_seconds()
             leave_lock_duration = _get_tenant_config_value("lobby_match_starting_leave_lock_duration_seconds")
 
-            if duration.total_seconds() > leave_lock_duration:
-                log.error(f"Player '{player_id}' is leaving lobby '{lobby_id}' which has been starting the lobby match for '{duration}' seconds. Configured leave lock duration is '{leave_lock_duration}'. Allowing the player to leave. Lobby may be borked")
+            if duration > leave_lock_duration:
+                log.warning(f"Player '{player_id}' is leaving lobby '{lobby_id}' which has been starting the lobby match for '{duration}' seconds. Configured leave lock duration is '{leave_lock_duration}'. Allowing the player to leave. Lobby may be borked")
             else:
-                raise InvalidRequestException(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' while the lobby match is starting")
+                log.warning(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' while the lobby match is starting")
+                raise InvalidRequestException(f"Cannot leave the lobby while the lobby match is starting. You can leave after {leave_lock_duration - duration} seconds")
 
         current_length = len(lobby["members"])
         host_player_id = _get_lobby_host_player_id(lobby)
@@ -458,12 +476,14 @@ def _internal_delete_lobby(player_id: int, lobby_id: str):
         lobby = lobby_lock.lobby
 
         if not lobby:
-            raise NotFoundException(f"Player '{player_id}' attempted to delete lobby '{lobby_id}' which doesn't exist")
+            log.warning(f"Player '{player_id}' attempted to delete lobby '{lobby_id}' which doesn't exist")
+            return
 
         host_player_id = _get_lobby_host_player_id(lobby)
 
         if host_player_id != player_id:
-            raise InvalidRequestException(f"Player '{player_id}' attempted to delete lobby '{lobby_id}' without being the host")
+            log.warning(f"Player '{player_id}' attempted to delete lobby '{lobby_id}' without being the host")
+            raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can delete the lobby")
 
         log.info(f"Lobby host player '{player_id}' deleted lobby '{lobby_id}'")
 

@@ -52,11 +52,9 @@ class MatchPlacementsAPI(MethodView):
 
             return match_placement
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
-            return {"error": f"No match placement found"}, http_client.NOT_FOUND
+            return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.UnauthorizedException as e:
-            log.warning(e.msg)
-            return {"error": f"Unauthorized access to specific match placement"}, http_client.UNAUTHORIZED
+            return {"error": e.msg}, http_client.UNAUTHORIZED
 
     @bp.arguments(CreateMatchPlacementRequestSchema)
     @bp.response(http_client.CREATED, MatchPlacementResponseSchema)
@@ -73,7 +71,6 @@ class MatchPlacementsAPI(MethodView):
 
             return match_placement
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
         except flexmatch.GameliftClientException as e:
             log.error(f"Failed to start match placement for player '{player_id}': Gamelift response:\n'{e.debugs}'")
@@ -96,11 +93,9 @@ class MatchPlacementAPI(MethodView):
 
             return match_placement
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
             return {"error": f"Match placement '{match_placement_id}' not found"}, http_client.NOT_FOUND
         except lobbies.UnauthorizedException as e:
-            log.warning(e.msg)
-            return {"error": f"Unauthorized access to match placement '{match_placement_id}'"}, http_client.UNAUTHORIZED
+            return {"error": e.msg}, http_client.UNAUTHORIZED
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, match_placement_id: str):
@@ -114,14 +109,12 @@ class MatchPlacementAPI(MethodView):
         except lobbies.NotFoundException:
             pass
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
         except flexmatch.GameliftClientException as e:
             log.error(f"Failed to stop match placement for player '{player_id}': Gamelift response:\n'{e.debugs}'")
             return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
         except lobbies.UnauthorizedException as e:
-            log.warning(e.msg)
-            return {"error": f"Unauthorized access to match placement '{match_placement_id}'"}, http_client.UNAUTHORIZED
+            return {"error": e.msg}, http_client.UNAUTHORIZED
 
 
 @endpoints.register

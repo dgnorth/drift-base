@@ -88,11 +88,9 @@ class LobbiesAPI(MethodView):
             _populate_lobby_urls(lobby)
             return lobby
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
-            return {"error": "No lobby found"}, http_client.NOT_FOUND
+            return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.UnauthorizedException as e:
-            log.warning(e.msg)
-            return {"error": "Unauthorized access to specific lobby"}, http_client.UNAUTHORIZED
+            return {"error": e.msg}, http_client.UNAUTHORIZED
 
     @bp.arguments(CreateLobbyRequestSchema)
     @bp.response(http_client.CREATED, LobbyResponseSchema)
@@ -117,7 +115,6 @@ class LobbiesAPI(MethodView):
 
             return lobby
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 @bp.route("/<string:lobby_id>", endpoint="lobby")
@@ -136,11 +133,9 @@ class LobbyAPI(MethodView):
             _populate_lobby_urls(lobby)
             return lobby
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
             return {"error": f"Lobby {lobby_id} not found"}, http_client.NOT_FOUND
         except lobbies.UnauthorizedException as e:
-            log.warning(e.msg)
-            return {"error": f"Unauthorized access to lobby '{lobby_id}'"}, http_client.UNAUTHORIZED
+            return {"error": e.msg}, http_client.UNAUTHORIZED
 
     @bp.arguments(UpdateLobbyRequestSchema)
     @bp.response(http_client.NO_CONTENT)
@@ -160,14 +155,11 @@ class LobbyAPI(MethodView):
                 args.get("custom_data"),
             )
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
         except lobbies.UnauthorizedException as e:
-            log.warning(e.msg)
-            return {"error": f"Unauthorized access to lobby '{lobby_id}'"}, http_client.UNAUTHORIZED
+            return {"error": e.msg}, http_client.UNAUTHORIZED
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str):
@@ -180,7 +172,6 @@ class LobbyAPI(MethodView):
         except lobbies.NotFoundException:
             pass
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 @bp.route("/<string:lobby_id>/members", endpoint="members")
@@ -200,10 +191,8 @@ class LobbyMembersAPI(MethodView):
 
             return lobby
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 @bp.route("/<string:lobby_id>/members/<int:member_player_id>", endpoint="member")
@@ -219,10 +208,8 @@ class LobbyMemberAPI(MethodView):
         try:
             lobbies.update_lobby_member(current_user["player_id"], member_player_id, lobby_id, args.get("team_name"), args.get("ready"))
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
     @bp.response(http_client.NO_CONTENT)
@@ -237,10 +224,8 @@ class LobbyMemberAPI(MethodView):
             else:
                 lobbies.kick_member(player_id, member_player_id, lobby_id)
         except lobbies.NotFoundException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
-            log.warning(e.msg)
             return {"error": e.msg}, http_client.BAD_REQUEST
 
 

@@ -19,26 +19,31 @@ Only lobby matches with GameLift provider supported at the time of writing!!!
 log = logging.getLogger(__name__)
 
 def get_player_match_placement(player_id: int, expected_match_placement_id: typing.Optional[str] = None) -> dict:
+    placement = None
     with _GenericLock(_get_player_match_placement_key(player_id)) as player_match_placement_lock:
         placement_id = player_match_placement_lock.value
 
         if not placement_id:
-            raise NotFoundException(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
+            log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
+            raise NotFoundException("No match placement found")
 
         if expected_match_placement_id and expected_match_placement_id != placement_id:
-            raise UnauthorizedException(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
+            log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
+            raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
 
         with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             placement = match_placement_lock.value
 
-            if not placement and placement_id:
+            if not placement:
                 log.warning(f"Player '{player_id}' is assigned to match placement '{placement_id}' but the match placement doesn't exist")
-                placement_id = None
-                player_match_placement_lock.value = placement_id
+                player_match_placement_lock.value = None
+            else:
+                log.info(f"Returning match placement '{placement_id}' for player '{player_id}'")
 
-            log.info(f"Returning match placement '{placement_id}' for player '{player_id}'")
+    if not placement:
+        raise NotFoundException("No match placement found")
 
-            return placement
+    return placement
 
 def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
@@ -46,22 +51,25 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
         # Verify data integrity
         player_lobby_id = player_lobby_lock.value
         if player_lobby_id != lobby_id:
-            raise InvalidRequestException(f"Player '{player_id}' is attempting to start match for lobby '{lobby_id}', but is supposed to be in lobby '{player_lobby_id}'")
+            log.warning(f"Player '{player_id}' is attempting to start match for lobby '{lobby_id}', but is supposed to be in lobby '{player_lobby_id}'")
+            raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
 
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.lobby
 
             if not lobby:
-                raise InvalidRequestException(f"Player '{player_id}' is attempting to start match for nonexistent lobby '{lobby_id}'")
+                raise RuntimeError(f"Player '{player_id}' is attempting to start match for nonexistent lobby '{lobby_id}'. Player is supposed to be in said lobby")
 
             # Verify host
             host_player_id = _get_lobby_host_player_id(lobby)
             if player_id != host_player_id:
-                raise InvalidRequestException(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' without being the lobby host")
+                log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' without being the lobby host")
+                raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can start the lobby match")
 
             # Prevent issuing another placement request
             if lobby["status"] == "starting":
-                raise InvalidRequestException(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' while the match is starting")
+                log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' while the match is starting")
+                raise InvalidRequestException(f"An active match placement is already in progress for the lobby")
             
             # Select match provider
             match_provider = _get_tenant_config_value("default_match_provider")
@@ -160,11 +168,9 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
     with _GenericLock(_get_player_match_placement_key(player_id)) as player_match_placement_lock:
         placement_id = player_match_placement_lock.value
 
-        if not placement_id:
-            raise NotFoundException(f"Player '{player_id}' attempted to stop a match placement without having a match placement")
-
         if expected_match_placement_id != placement_id:
-            raise UnauthorizedException(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
+            log.warning(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
+            raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
 
         with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             placement = match_placement_lock.value
@@ -180,7 +186,8 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
 
                 placement_status = placement["status"]
                 if placement_status != "pending":
-                    raise InvalidRequestException(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the placement is in status '{placement_status}'")
+                    log.warning(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the placement is in status '{placement_status}'")
+                    raise InvalidRequestException(f"Cannot stop a match placement in status {placement_status}")
 
                 response = flexmatch.stop_game_session_placement(placement_id)
 
