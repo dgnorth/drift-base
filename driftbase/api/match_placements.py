@@ -30,6 +30,7 @@ class MatchPlacementResponseSchema(Schema):
     player_id = fields.Integer(metadata=dict(description="The id of the player who issued the match placement."))
     match_provider = fields.String(metadata=dict(description="The service that is providing the match."))
     status = fields.String(metadata=dict(description="The match placement status."))
+    create_date = fields.String(metadata=dict(description="The UTC timestamp of when the match placement was created."))
 
     lobby_id = fields.String(allow_none=True, metadata=dict(description="The lobby id if this is a lobby match"))
 

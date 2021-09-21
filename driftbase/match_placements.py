@@ -143,6 +143,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                 "match_provider": match_provider,
                 "lobby_id": lobby_id,
                 "status": "pending",
+                "create_date": datetime.datetime.utcnow().isoformat(),
             }
 
             with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
