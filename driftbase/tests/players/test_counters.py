@@ -30,6 +30,8 @@ class CountersTests(DriftBaseTestCase):
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "count"}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_counter"])
+
         r = self.get(counter_url)
 
         # verify that we have one value per period
@@ -62,6 +64,7 @@ class CountersTests(DriftBaseTestCase):
         # Log on as a service and retry
         self.auth_service()
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_counter"])
 
     @unittest.skip("Disabled because we are now using the servertime for the timestamp and "
                    "will therefore never get duplicate timestamps.")
@@ -79,6 +82,7 @@ class CountersTests(DriftBaseTestCase):
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "count"}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_counter"])
         r = self.get(counter_url)
 
         # verify that we have one value per period
@@ -104,6 +108,7 @@ class CountersTests(DriftBaseTestCase):
         timestamp += datetime.timedelta(days=1)
         data[0]["timestamp"] = timestamp.isoformat()
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_counter"])
 
         r = self.get(period_urls["minute"])
         self.assertEqual(len(r.json().values()), 2)
@@ -123,6 +128,7 @@ class CountersTests(DriftBaseTestCase):
                  "counter_type": "count",
                  "context_id": 666}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_counter"])
 
     def test_counters_absolute(self):
         self.auth(username=uuid_string())
@@ -137,6 +143,7 @@ class CountersTests(DriftBaseTestCase):
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "absolute"}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_absolute_counter"])
 
         r = self.get(counter_url)
         period_urls = r.json()[0]["periods"]
@@ -151,6 +158,7 @@ class CountersTests(DriftBaseTestCase):
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "absolute"}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_absolute_counter"])
 
         r = self.get(period_urls["total"])
         self.assertEqual(list(r.json().values())[0], val)
@@ -173,6 +181,7 @@ class CountersTests(DriftBaseTestCase):
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "count"}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()[name])
         r = self.get(countertotals_url)
 
         self.assertEqual(len(r.json()), 1)
@@ -180,7 +189,7 @@ class CountersTests(DriftBaseTestCase):
         self.assertEqual(r.json()[name], val)
 
     def test_counters_multiple(self):
-        # test writing to the same counter more than once. The total count should upgade
+        # test writing to the same counter more than once. The total count should upgrade
         self.auth(username=uuid_string())
         player_url = self.endpoints["my_player"]
         r = self.get(player_url)
@@ -195,6 +204,7 @@ class CountersTests(DriftBaseTestCase):
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "count"}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()[name])
 
         timestamp = datetime.datetime(2016, 1, 1, 10, 2, 3)
         second_val = 99
@@ -203,20 +213,53 @@ class CountersTests(DriftBaseTestCase):
                  "value": second_val,
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "count"}]
-
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()[name])
 
         timestamp = datetime.datetime(2016, 1, 1, 10, 2, 2)
+        third_val = 42
         absolute_val = 666
         absolute_name = "my_absolute_counter"
-        data = [{"name": absolute_name,
+        data = [{"name": name,
+                 "value": third_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"},
+                {"name": absolute_name,
                  "value": absolute_val,
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "absolute"}]
-
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()[name])
+        self.assertEqual("OK", r.json()[absolute_name])
 
         r = self.get(countertotals_url)
         self.assertEqual(len(r.json()), 2)
-        self.assertEqual(r.json()[name], val + second_val)
+        self.assertEqual(r.json()[name], val + second_val + third_val)
+        self.assertEqual(r.json()[absolute_name], absolute_val)
+
+        timestamp = datetime.datetime(2016, 1, 1, 10, 2, 4)
+        fourth_val = 89
+        fifth_val = 100
+        absolute_val = 123
+        absolute_name = "my_absolute_counter"
+        data = [{"name": name,
+                 "value": fourth_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"},
+                {"name": name,
+                 "value": fifth_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"},
+                {"name": absolute_name,
+                 "value": absolute_val,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "absolute"}]
+        r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()[name])
+        self.assertEqual("OK", r.json()[absolute_name])
+        self.assertEqual(2, len(r.json().keys()))
+
+        r = self.get(countertotals_url)
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(r.json()[name], val + second_val + third_val + fourth_val + fifth_val)
         self.assertEqual(r.json()[absolute_name], absolute_val)

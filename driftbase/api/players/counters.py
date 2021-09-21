@@ -15,9 +15,15 @@ from flask_smorest import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.utils import Url
-from driftbase.counters import get_counter, get_player, get_or_create_counter_id, \
-    get_or_create_player_counter, add_count, check_and_update_player_counter, COUNTER_PERIODS, get_all_counters
+from driftbase.counters import get_counter, get_player, add_count, check_and_update_player_counter, COUNTER_PERIODS, \
+    get_all_counters, \
+    batch_get_or_create_counters, batch_create_player_counters, batch_update_counter_entries
 from driftbase.models.db import CounterEntry, PlayerCounter
+
+COUNTER_TYPE_COUNT = "count"
+COUNTER_TYPE_ABSOLUTE = "absolute"
+DEFAULT_COUNTER_TYPE = COUNTER_TYPE_COUNT
+LEGAL_COUNTER_TYPES = (COUNTER_TYPE_COUNT, COUNTER_TYPE_ABSOLUTE)
 
 log = logging.getLogger(__name__)
 
@@ -140,8 +146,6 @@ class CountersApi(MethodView):
             abort(http_client.UNAUTHORIZED, message=message)
 
         start_time = time.time()
-        DEFAULT_COUNTER_TYPE = "count"
-        LEGAL_COUNTER_TYPES = (DEFAULT_COUNTER_TYPE, "absolute")
         args = request.json
 
         if not isinstance(args, list):
@@ -152,88 +156,62 @@ class CountersApi(MethodView):
 
         required_keys = ("name", "value", "timestamp")
 
-        # we might have several entries with the same counter_name.
-        # Therefore we do any work for creating and updating these
-        # counters here, once per counter
+        # Sort out invalid entries, and merge all operations on the same counter
         result = {}
-        counters = {}
-        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        for entry in args:
-            log.debug("Adding count for player %s: %s" % (player_id, entry))
+        counter_updates = {}
+        timestamp = datetime.datetime.utcnow()
+        for update in args:
+            log.debug("Adding count for player %s: %s" % (player_id, update))
 
             try:
-                name = entry["name"]
+                name = update["name"]
             except Exception:
                 continue
             missing_keys = []
             for k in required_keys:
-                if k not in entry:
+                if k not in update:
                     missing_keys.append(k)
             if missing_keys:
                 result[name] = "Missing keys: %s" % ",".join(missing_keys)
                 continue
 
-            counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
+            counter_type = update.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
             if counter_type not in LEGAL_COUNTER_TYPES:
                 result[name] = "Illegal counter type. Expecting: %s" % ",".join(LEGAL_COUNTER_TYPES)
                 continue
 
-            counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE)
-            counters[name] = {"counter_type": counter_type}
-
-            context_id = int(entry.get("context_id", 0))
-
-            redis_start_time = time.time()
-            # write the counter into redis as well. I will refactor the db calls out
-            # and use only redis here in the future
-            value = int(entry["value"])
-            key = 'counters:%s:%s:%s:%s:%s' % (name, counter_type, player_id, timestamp, context_id)
-            # expire in 1 day
-            ex = 86400
-            if counter_type == "absolute":
-                g.redis.set(key, value, expire=ex)
+            is_absolute = counter_type == COUNTER_TYPE_ABSOLUTE
+            value = float(update["value"])
+            context_id = int(update.get("context_id", 0))
+            # ensure that multiple updates all get applied
+            # theoretically these should be individual entries, if the client flushes at a low rate,
+            # but since we don't trust the client's time stamp, it's better to merge them for now
+            update_entry = counter_updates.get(name)
+            if update_entry:
+                if is_absolute:
+                    update_entry["value"] = value
+                else:
+                    update_entry["value"] += value
             else:
-                g.redis.incr(key, value, expire=ex)
-            log.info("Added %s to redis in %.2fsec", name, time.time() - redis_start_time)
+                counter_updates[name] = dict(counter_type=counter_type, value=value,
+                                             context_id=context_id,
+                                             is_absolute=is_absolute,
+                                             timestamp=timestamp
+                                             )
 
-        for counter_name, counter_info in counters.items():
-            counter_id = get_or_create_counter_id(counter_name, counter_info["counter_type"])
-            player_counter = get_or_create_player_counter(counter_id, player_id)
-            counter_info["player_counter"] = player_counter
-            counter_info["counter_id"] = counter_id
+        counter_ids = []
+        counters = batch_get_or_create_counters([(k, v["counter_type"]) for k, v in counter_updates.items()])
+        for (counter_id, name) in counters:
+            counter_updates[name]["counter_id"] = counter_id
+            counter_ids.append(counter_id)
 
-        g.db.commit()
+        # Player counters keep track of which counters have ever been set for a given player
+        batch_create_player_counters(player_id, counter_ids)
 
-        # now we should have any needed counters and player_counters created
+        batch_update_counter_entries(player_id, counter_updates)
 
-        for entry in args:
-            name = entry.get("name")
-            counter = counters.get(name)
-            if not counter:
-                continue
-
-            value = float(entry["value"])
-            # timestamp = parser.parse(entry["timestamp"].replace("Z", ""))
-            # NOTE: We use the server timestamp instead since the client one might be way off.
-            #       We need to figure out a good method to allow the client to send timestamps
-            #       that we can trust
-            timestamp = datetime.datetime.utcnow()
-            counter_type = entry.get("counter_type", DEFAULT_COUNTER_TYPE).lower()
-            context_id = int(entry.get("context_id", 0))
-            is_absolute = (counter_type == "absolute")
-            counter_id = counter["counter_id"]
-
-            ok = check_and_update_player_counter(counter["player_counter"], timestamp)
-            if not ok:
-                # Note: This never happens now since we are using the server time for the timestamp
-                result[name] = "duplicate"
-                continue
-
-            add_count(counter_id, player_id, timestamp, value, is_absolute=is_absolute,
-                      context_id=context_id)
+        for name in counter_updates.keys():
             result[name] = "OK"
-
-        g.db.commit()
 
         log.info("patch(%s) done in %.2fs!", player_id, time.time() - start_time)
         return jsonify(result)

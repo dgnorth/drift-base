@@ -3,7 +3,7 @@ import json
 import logging
 import six
 from flask import g
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert
 
 from driftbase.models.db import Counter, CorePlayer, PlayerCounter, CounterEntry
 
@@ -54,60 +54,71 @@ def get_counter(counter_key):
         return counters.get(counter_key, None)
 
 
-def clear_counter_cache():
-    g.redis.delete("counter_names")
-
-
 def get_player(player_id):
     player = g.db.query(CorePlayer).get(player_id)
     return player
 
 
-def get_or_create_counter_id(name, counter_type, db_session=None):
+def batch_get_or_create_counters(counters, db_session=None):
+    """
+    return [(counter_id, name), ...]
+    """
     if not db_session:
         db_session = g.db
-    name = name.lower()
-    counter = get_counter(name)
-    if counter:
-        return counter["counter_id"]
 
-    # we fall through here if the counter does not exist
+    values = [{"name": name, "counter_type": counter_type} for (name, counter_type) in counters]
+    insert_clause = insert(Counter).returning(Counter.counter_id, Counter.name).values(values)
+    # This is essentially a no-op, but it's required to ensure we get all the IDs back in the result
+    update_clause = insert_clause.on_conflict_do_update(index_elements=['name'],
+                                                        set_=dict(name=insert_clause.excluded.name))
+    result = db_session.execute(update_clause)
+    return result
 
-    # Note: counter type is only inserted for the first entry and then not updated again
-    row = db_session.query(Counter).filter(Counter.name == name).first()
-    if not row:
-        db_session.commit()
-        log.info("Creating new counter called %s", name)
-        try:
-            row = Counter(name=name, counter_type=counter_type)
-            db_session.add(row)
-            db_session.commit()
-        except IntegrityError as e:
-            # if someone has inserted the counter in the meantime, retrieve it
-            if "duplicate key" in repr(e):
-                db_session.rollback()
-                row = db_session.query(Counter).filter(Counter.name == name).first()
+
+def batch_create_player_counters(player_id, counter_ids, db_session=None):
+    """
+    Create all missing player counters for the specified counter IDs
+    """
+    if not db_session:
+        db_session = g.db
+
+    values = [{"counter_id": counter_id, "player_id": player_id} for counter_id in counter_ids]
+    insert_clause = insert(PlayerCounter).values(values)
+    fallback_clause = insert_clause.on_conflict_do_nothing(index_elements=['counter_id', 'player_id'])
+    return db_session.execute(fallback_clause)
+
+
+def batch_update_counter_entries(player_id, entries, db_session=None):
+    if not db_session:
+        db_session = g.db
+
+    absolute_values = []
+    counter_values = []
+    for k, e in entries.items():
+        for period in COUNTER_PERIODS:
+            date_time = get_date_time_for_period(period, e["timestamp"])
+            entry = dict(counter_id=e["counter_id"], player_id=player_id, period=period, date_time=date_time,
+                         value=e["value"])
+            if e["is_absolute"]:
+                absolute_values.append(entry)
             else:
-                raise
+                counter_values.append(entry)
 
-        clear_counter_cache()
-    counter_id = row.counter_id
+    if len(absolute_values):
+        insert_clause = insert(CounterEntry).values(absolute_values)
+        update_clause = insert_clause.on_conflict_do_update(
+            index_elements=['counter_id', 'player_id', 'period', 'date_time'],
+            set_=dict(value=insert_clause.excluded.value))
+        db_session.execute(update_clause)
 
-    return counter_id
+    if len(counter_values):
+        insert_clause = insert(CounterEntry).values(counter_values)
+        update_clause = insert_clause.on_conflict_do_update(
+            index_elements=['counter_id', 'player_id', 'period', 'date_time'],
+            set_=dict(value=CounterEntry.value + insert_clause.excluded.value))
+        db_session.execute(update_clause)
 
-
-def get_or_create_player_counter(counter_id, player_id):
-    player_counter = g.db.query(PlayerCounter) \
-        .filter(PlayerCounter.player_id == player_id,
-                PlayerCounter.counter_id == counter_id) \
-        .first()
-
-    if not player_counter:
-        log.info("Creating new player counter for counter_id %s", counter_id)
-        player_counter = PlayerCounter(counter_id=counter_id, player_id=player_id)
-        g.db.add(player_counter)
-    g.db.commit()
-    return player_counter
+    db_session.commit()
 
 
 def get_date_time_for_period(period, timestamp):
