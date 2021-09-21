@@ -210,8 +210,8 @@ class CountersApi(MethodView):
 
         batch_update_counter_entries(player_id, counter_updates)
 
-        for update in counters:
-            result[update["name"]] = "OK"
+        for name in counter_updates.keys():
+            result[name] = "OK"
 
         log.info("patch(%s) done in %.2fs!", player_id, time.time() - start_time)
         return jsonify(result)

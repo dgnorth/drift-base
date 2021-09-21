@@ -30,6 +30,8 @@ class CountersTests(DriftBaseTestCase):
                  "timestamp": timestamp.isoformat(),
                  "counter_type": "count"}]
         r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()["my_counter"])
+
         r = self.get(counter_url)
 
         # verify that we have one value per period
