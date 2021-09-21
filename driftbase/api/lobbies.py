@@ -51,6 +51,7 @@ class LobbyResponseSchema(Schema):
     map_name = fields.String(allow_none=True, metadata=dict(description="The map name for the lobby."))
     create_date = fields.String(metadata=dict(description="The UTC timestamp of when the lobby was created."))
     start_date = fields.String(allow_none=True, metadata=dict(description="The UTC timestamp of when the lobby match was started."))
+    placement_date = fields.String(allow_none=True, metadata=dict(description="The UTC timestamp of when the lobby match placement was started."))
     status = fields.String(metadata=dict(description="The current status of the lobby."))
     members = fields.List(fields.Nested(LobbyMemberResponseSchema), metadata=dict(description="The lobby members."))
     custom_data = fields.Dict(

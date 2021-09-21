@@ -81,6 +81,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
                         "team_names": team_names,
                         "create_date": datetime.datetime.utcnow().isoformat(),
                         "start_date": None,
+                        "placement_date": None,
                         "status": "idle",
                         "custom_data": custom_data,
                         "members": [
@@ -398,7 +399,16 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
             raise NotFoundException(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' which doesn't exist")
 
         if lobby["status"] == "starting":
-            raise InvalidRequestException(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' while the lobby match is starting")
+            placement_date = datetime.datetime.fromisoformat(lobby["placement_date"])
+            now = datetime.datetime.utcnow()
+
+            duration = now - placement_date
+            leave_lock_duration = _get_tenant_config_value("lobby_match_starting_leave_lock_duration_seconds")
+
+            if duration.total_seconds() > leave_lock_duration:
+                log.error(f"Player '{player_id}' is leaving lobby '{lobby_id}' which has been starting the lobby match for '{duration}' seconds. Configured leave lock duration is '{leave_lock_duration}'. Allowing the player to leave. Lobby may be borked")
+            else:
+                raise InvalidRequestException(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' while the lobby match is starting")
 
         current_length = len(lobby["members"])
         host_player_id = _get_lobby_host_player_id(lobby)

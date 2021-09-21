@@ -144,6 +144,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                 player_match_placement_lock.value = placement_id
 
             lobby["status"] = "starting"
+            lobby["placement_date"] = datetime.datetime.utcnow().isoformat()
 
             lobby_lock.lobby = lobby
 
@@ -305,6 +306,7 @@ def _process_fulfilled_queue_event(event_details: dict):
 
             lobby["connection_string"] = connection_string
             lobby["status"] = "started"
+            lobby["start_date"] = datetime.datetime.utcnow().isoformat()
 
             log.info(f"Lobby match for lobby '{lobby_id}' has started.")
 
