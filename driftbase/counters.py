@@ -66,6 +66,11 @@ def batch_get_or_create_counters(counters, db_session=None):
     if not db_session:
         db_session = g.db
 
+    # Sorting the counters by name to avoid deadlocks when multiple clients try to add the same new counters
+    # The most likely scenario in which this would be needed is when a server process tries to update multiple
+    # players' counters at the same time after a new client has been deployed with new counters
+    # https://dba.stackexchange.com/questions/194756/deadlock-with-multi-row-inserts-despite-on-conflict-do-nothing/195220#195220
+    counters.sort(key=lambda x: x[0])
     values = [{"name": name, "counter_type": counter_type} for (name, counter_type) in counters]
     insert_clause = insert(Counter).returning(Counter.counter_id, Counter.name).values(values)
     # This is essentially a no-op, but it's required to ensure we get all the IDs back in the result
