@@ -12,7 +12,7 @@ import http.client as http_client
 from driftbase.messages import post_message
 from driftbase.models.db import CorePlayer
 from driftbase.parties import accept_party_invite, get_player_party, get_party_members, leave_party, disband_party, \
-    create_party_invite, decline_party_invite
+    create_party_invite, decline_party_invite, get_max_players_per_party
 
 log = logging.getLogger(__name__)
 
@@ -157,6 +157,7 @@ class PartyInvitesAPI(MethodView):
     def post(self, args):
         my_player_id = current_user['player_id']
         my_player = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == my_player_id).first()
+        members = get_party_members(get_player_party(my_player_id))
         player_id = args.get('player_id')
         if my_player_id == player_id:
             abort(http_client.BAD_REQUEST, message="You can't invite yourself to a party")
@@ -165,6 +166,10 @@ class PartyInvitesAPI(MethodView):
         if player is None:
             log.debug("Player {} tried to invite non-existing player {} to a party".format(my_player_id, player_id))
             abort(http_client.BAD_REQUEST, message="Invited player doesn't exist")
+
+        if len(members) >= get_max_players_per_party():
+            log.debug(f"Player {my_player_id} tried to invite to a party that was already full")
+            abort(http_client.BAD_REQUEST, message="Party is already full")
 
         party_id = args.get('party_id')
         invite_id = create_party_invite(party_id, my_player_id, player_id)
