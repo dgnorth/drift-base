@@ -44,6 +44,8 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
                 # Sanity check that the player is a member of the lobby
                 if not _get_lobby_member(lobby, player_id):
                     log.error(f"Player '{player_id}' is supposed to be in lobby '{lobby_id}' but isn't a member of the lobby")
+                else:
+                    lobby = _get_personalized_lobby(lobby, player_id)
 
     if not lobby:
         raise NotFoundException("No lobby found")
@@ -371,7 +373,7 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
 
 # Helpers
 
-def _internal_join_lobby(player_id: int, lobby_id: str):
+def _internal_join_lobby(player_id: int, lobby_id: str) -> dict:
     player_name: str = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
 
     with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
@@ -381,19 +383,15 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
             log.warning(f"Player '{player_id}' attempted to join lobby '{lobby_id}' which doesn't exist")
             raise NotFoundException(f"Lobby {lobby_id} doesn't exist")
 
-        member = _get_lobby_member(lobby, player_id)
-
-        if not member:
-            member = {
+        if not _get_lobby_member(lobby, player_id):
+            lobby["members"].append({
                 "player_id": player_id,
                 "player_name": player_name,
                 "team_name": None,
                 "ready": False,
                 "host": False,
                 "join_date": datetime.datetime.utcnow().isoformat(),
-            }
-
-            lobby["members"].append(member)
+            })
 
             lobby_lock.lobby = lobby
 
@@ -405,25 +403,30 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
         else:
             log.info(f"Player '{player_id}' attempted to join lobby '{lobby_id}' while already being a member")
 
-        # Add personalized connection options if the match has started
-        if _lobby_match_initiated(lobby) and lobby.get("connection_string", None):
-            # TODO: Think about where this code should reside since it's match and GameLift specific
+        return _get_personalized_lobby(lobby, player_id)
 
-            player_lobby = copy.deepcopy(lobby)
+def _get_personalized_lobby(lobby: dict, player_id: int) -> dict:
+    # Add personalized connection options if the match has started
+    if _lobby_match_initiated(lobby) and lobby.get("connection_string", None):
+        # TODO: Think about where this code should reside since it's match and GameLift specific
 
-            # Default to spectator
-            connection_options = "SpectatorOnly=1"
+        player_lobby = copy.deepcopy(lobby)
 
-            if member["team_name"]:
-                # Player is a part of a team. Ensure the player has a player session
-                player_session_id = _ensure_player_session(lobby, player_id, member)
+        # Default to spectator
+        connection_options = "SpectatorOnly=1"
 
-                connection_options = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
+        member = _get_lobby_member(lobby, player_id)
 
-            player_lobby["connection_options"] = connection_options
-            return player_lobby
+        if member["team_name"]:
+            # Player is a part of a team. Ensure the player has a player session
+            player_session_id = _ensure_player_session(lobby, player_id, member)
 
-        return lobby
+            connection_options = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
+
+        player_lobby["connection_options"] = connection_options
+        return player_lobby
+
+    return lobby
 
 def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> str:
     from driftbase import match_placements
