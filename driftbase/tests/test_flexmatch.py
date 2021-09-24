@@ -695,10 +695,10 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         member1, member2, host = self._create_party(party_size=3)
         # Start matchmaking as a team, check if all members are in ticket
         _, _, ticket = self._initiate_matchmaking(host["name"])
-        ticket_players = {p["PlayerId"] for p in ticket["Players"]}
+        ticket_players = {int(p["PlayerId"]) for p in ticket["Players"]}
         player_info = []
         for player in (member1, member2, host):
-            self.assertIn(str(player["id"]), ticket_players)
+            self.assertIn(player["id"], ticket_players)
             player_info.append({"playerId": str(player["id"]), "team": "winners"})
         # PUT a PotentialMatchCreated event
         events_url = self.endpoints["flexmatch_events"]
@@ -710,6 +710,8 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.auth(username=player["name"])
             notification, _ = self.get_player_notification("matchmaking", "PotentialMatchCreated")
             self.assertIsInstance(notification, dict)
+            self.assertEqual(notification["event"], "PotentialMatchCreated")
+            self.assertSetEqual(ticket_players, set(notification["data"]["teams"]["winners"]))
 
 
 class MockGameLiftClient(object):
