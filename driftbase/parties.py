@@ -206,9 +206,13 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
     with g.redis.conn.pipeline() as pipe:
         while time() < end:
             try:
-                pipe.watch(invited_player_party_key)
-
+                pipe.watch(invited_player_party_key, inviting_player_party_key)
                 inviting_player_party_id = pipe.get(inviting_player_party_key)
+                members = get_party_members(inviting_player_party_id)
+                if len(members) >= get_max_players_per_party():
+                    log.debug(f"Player {inviting_player_party_id} tried to invite to a party that was already full")
+                    abort(http_client.BAD_REQUEST, message="Party is already full")
+
                 if inviting_player_party_id:
                     party_players_key = make_party_players_key(int(inviting_player_party_id))
                     pipe.multi()
