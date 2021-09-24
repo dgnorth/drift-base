@@ -659,3 +659,33 @@ class UnauthorizedException(Exception):
     def __init__(self, user_message):
         super().__init__(user_message)
         self.msg = user_message
+
+###################################################################
+"""
+Admin stuff for the tournament.
+!!!SHOULD NOT BE MERGED INTO DEVELOP BRANCH!!!
+"""
+
+def admin_delete_lobby_force(lobby_id: str):
+    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+        lobby = lobby_lock.lobby
+
+        if not lobby:
+            log.warning(f"Admin attempted to delete lobby '{lobby_id}', but it doesn't exist")
+            return f"Lobby {lobby_id} doesn't exist"
+
+        log.warning(f"Admin is forcefully deleting lobby '{lobby_id}'")
+
+        for member in lobby["members"]:
+            with _GenericLock(_get_player_lobby_key(member["player_id"])) as member_lobby_id_lock:
+                member_lobby_id_lock.value = None
+
+        # Delete the lobby
+        lobby_lock.lobby = None
+
+        # Notify members
+        receiving_player_ids = _get_lobby_member_player_ids(lobby)
+        _post_lobby_event_to_members(receiving_player_ids, "LobbyDeleted", {"lobby_id": lobby_id})
+
+        return f"Lobby {lobby_id} deleted"
+
