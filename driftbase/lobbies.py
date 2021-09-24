@@ -4,6 +4,7 @@ import typing
 import random
 import string
 import datetime
+import copy
 from flask import g
 from driftbase.parties import get_player_party
 from driftbase.models.db import CorePlayer
@@ -41,7 +42,7 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
                 log.info(f"Returning lobby '{lobby_id}' for player '{player_id}'")
 
                 # Sanity check that the player is a member of the lobby
-                if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
+                if not _get_lobby_member(lobby, player_id):
                     log.error(f"Player '{player_id}' is supposed to be in lobby '{lobby_id}' but isn't a member of the lobby")
 
     if not lobby:
@@ -380,17 +381,19 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
             log.warning(f"Player '{player_id}' attempted to join lobby '{lobby_id}' which doesn't exist")
             raise NotFoundException(f"Lobby {lobby_id} doesn't exist")
 
-        if not next((member for member in lobby["members"] if member["player_id"] == player_id), None):
-            lobby["members"].append(
-                {
-                    "player_id": player_id,
-                    "player_name": player_name,
-                    "team_name": None,
-                    "ready": False,
-                    "host": False,
-                    "join_date": datetime.datetime.utcnow().isoformat(),
-                }
-            )
+        member = _get_lobby_member(lobby, player_id)
+
+        if not member:
+            member = {
+                "player_id": player_id,
+                "player_name": player_name,
+                "team_name": None,
+                "ready": False,
+                "host": False,
+                "join_date": datetime.datetime.utcnow().isoformat(),
+            }
+
+            lobby["members"].append(member)
 
             lobby_lock.lobby = lobby
 
@@ -402,7 +405,64 @@ def _internal_join_lobby(player_id: int, lobby_id: str):
         else:
             log.info(f"Player '{player_id}' attempted to join lobby '{lobby_id}' while already being a member")
 
-        return lobby_lock.lobby
+        # Add personalized connection options if the match has started
+        if _lobby_match_initiated(lobby) and lobby.get("connection_string", None):
+            # TODO: Think about where this code should reside since it's match and GameLift specific
+
+            player_lobby = copy.deepcopy(lobby)
+
+            # Default to spectator
+            connection_options = "SpectatorOnly=1"
+
+            if member["team_name"]:
+                # Player is a part of a team. Ensure the player has a player session
+                player_session_id = _ensure_player_session(lobby, player_id, member)
+
+                connection_options = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
+
+            player_lobby["connection_options"] = connection_options
+            return player_lobby
+
+        return lobby
+
+def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> str:
+    from driftbase import match_placements
+
+    lobby_id = lobby["lobby_id"]
+    placement_id = lobby.get("placement_id", None)
+
+    if not placement_id:
+        raise RuntimeError(f"Failed to ensure player session for player '{player_id}' in lobby '{lobby_id}'. Lobby has no placement id")
+
+    with match_placements._JsonLock(match_placements._get_match_placement_key(placement_id)) as match_placement_lock:
+        placement = match_placement_lock.value
+
+        if not placement:
+            raise RuntimeError(f"Failed to ensure player session for player '{player_id}' in lobby '{lobby_id}'. No placement exists for placement id '{placement_id}'")
+
+        game_session_arn = placement.get("game_session_arn", None)
+
+        if not game_session_arn:
+            raise RuntimeError(f"Failed to ensure player session for player '{player_id}' in lobby '{lobby_id}'. No game session arn exists for placement id '{placement_id}'")
+
+        # Check if player has a valid player session
+        player_sessions = flexmatch.describe_player_sessions(GameSessionId=game_session_arn)
+        for player_session in player_sessions:
+            if player_session["PlayerId"] == str(player_id) and player_session["Status"] in ("RESERVED", "ACTIVE"):
+                return player_session["PlayerSessionId"]
+
+        # Create new player session since no valid one was found
+        response = flexmatch.create_player_session(
+            GameSessionId=game_session_arn,
+            PlayerId=str(player_id),
+            PlayerData=json.dumps({
+                "player_name": member["player_name"],
+                "team_name": member["team_name"],
+                "host": member["host"],
+            }),
+        )
+
+        return response["PlayerSession"]["PlayerSessionId"]
 
 def _internal_leave_lobby(player_id: int, lobby_id: str):
     """
@@ -512,6 +572,9 @@ def _can_join_team(lobby: dict, team: str) -> bool:
             team_count += 1
 
     return team_count < team_capacity
+
+def _get_lobby_member(lobby: dict, player_id: int) -> typing.Optional[dict]:
+    return next((member for member in lobby["members"] if member["player_id"] == player_id), None)
 
 def _generate_lobby_id() -> str:
     lobby_id_length = _get_tenant_config_value("lobby_id_length")

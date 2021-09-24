@@ -301,6 +301,7 @@ def _process_fulfilled_queue_event(event_details: dict):
 
         lobby_id = placement["lobby_id"]
         placement["status"] = "completed"
+        placement["game_session_arn"] = event_details["gameSessionArn"]
 
         log.info(f"Placement '{placement_id}' completed. Duration: '{duration}s'")
 

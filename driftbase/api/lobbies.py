@@ -61,6 +61,7 @@ class LobbyResponseSchema(Schema):
     )
 
     connection_string = fields.String(allow_none=True, metadata=dict(description="The IP and port of the lobby match if it has started."))
+    connection_options = fields.String(allow_none=True, metadata=dict(description="Connection options for the requesting player"))
 
     lobby_url = fields.Url(metadata=dict(description="URL for the lobby."))
     lobby_members_url = fields.Url(metadata=dict(description="URL for the lobby members."))
