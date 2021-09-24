@@ -690,6 +690,27 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         self.assertIsInstance(notification, dict)
         self.assertEqual(notification["data"]["reason"], details["reason"])
 
+    def test_potential_match_notification_is_sent_to_all_party_members(self):
+        # Create a team
+        member1, member2, host = self._create_party(party_size=3)
+        # Start matchmaking as a team, check if all members are in ticket
+        _, _, ticket = self._initiate_matchmaking(host["name"])
+        ticket_players = {p["PlayerId"] for p in ticket["Players"]}
+        player_info = []
+        for player in (member1, member2, host):
+            self.assertIn(str(player["id"]), ticket_players)
+            player_info.append({"playerId": str(player["id"]), "team": "winners"})
+        # PUT a PotentialMatchCreated event
+        events_url = self.endpoints["flexmatch_events"]
+        details = self._get_event_details(ticket["TicketId"], player_info, "PotentialMatchCreated", acceptanceRequired=False, acceptanceTimeout=123)
+        with self._managed_bearer_token_user():
+            self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
+        # Check if all team members get the PLACING notification
+        for player in (member1, member2, host):
+            self.auth(username=player["name"])
+            notification, _ = self.get_player_notification("matchmaking", "PotentialMatchCreated")
+            self.assertIsInstance(notification, dict)
+
 
 class MockGameLiftClient(object):
     def __init__(self, *args, **kwargs):

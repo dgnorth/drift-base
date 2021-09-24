@@ -297,8 +297,6 @@ def _process_potential_match_event(event):
                 # If we've recorded a session, then the player has been placed in a match already
                 log.info(f"Player {player_id} has a session already. Not updating {player_ticket['TicketId']}")
                 continue
-            if player_ticket["Status"] == new_state:
-                continue
             if player_ticket["Status"] not in ("QUEUED", "SEARCHING", "REQUIRES_ACCEPTANCE", "PLACING"):
                 log.info(f"PotentialMatchCreated event for ticket {player_ticket['TicketId']} in state {player_ticket['Status']} doesn't make sense.  Probably out of order delivery; ignoring.")
                 continue
@@ -309,10 +307,13 @@ def _process_potential_match_event(event):
                         log.warning(f"Weird, player {player_id} is registered to ticket {player_ticket['TicketId']} but this update pegs him on ticket {ticketid}")
                         break
 
-            log.info(f"Updating ticket {player_ticket['TicketId']} for player key {ticket_key} from {player_ticket['Status']} to {new_state}")
-            player_ticket["Status"] = new_state
-            player_ticket["MatchId"] = match_id
-            ticket_lock.ticket = player_ticket
+            if player_ticket["Status"] != new_state:
+                log.info(f"Updating ticket {player_ticket['TicketId']} for player key {ticket_key} from {player_ticket['Status']} to {new_state}")
+                player_ticket["Status"] = new_state
+                player_ticket["MatchId"] = match_id
+                ticket_lock.ticket = player_ticket
+            else:
+                log.info(f"Party ticket {player_ticket['TicketId']} for player key {ticket_key} already updated.")
 
             message_data = {
                 "teams": team_data,
