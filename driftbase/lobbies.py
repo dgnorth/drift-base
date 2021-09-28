@@ -429,15 +429,15 @@ def _get_personalized_lobby(lobby: dict, player_id: int) -> dict:
         if member["team_name"]:
             # Player is a part of a team. Ensure the player has a player session
             player_session_id = _ensure_player_session(lobby, player_id, member)
-
-            connection_options = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
+            if player_session_id:
+                connection_options = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
 
         player_lobby["connection_options"] = connection_options
         return player_lobby
 
     return lobby
 
-def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> str:
+def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> typing.Optional[str]:
     from driftbase import match_placements
 
     lobby_id = lobby["lobby_id"]
@@ -457,9 +457,21 @@ def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> str:
         if not game_session_arn:
             raise RuntimeError(f"Failed to ensure player session for player '{player_id}' in lobby '{lobby_id}'. No game session arn exists for placement id '{placement_id}'")
 
+        # Check if the game session is still valid
+        game_sessions = flexmatch.describe_game_sessions(GameSessionId=game_session_arn)
+        if len(game_sessions["GameSessions"]) == 0:
+            log.warning(f"Unable to ensure a player session for player '{player_id}' in lobby '{lobby_id}'. Game session '{game_session_arn}' not found. Assuming the game session has been deleted/cleaned up")
+            return None
+
+        game_session = game_sessions["GameSessions"][0]
+        game_session_status = game_session["Status"]
+        if game_session_status not in ("ACTIVE", "ACTIVATING"):
+            log.warning(f"Unable to ensure a player session for player '{player_id}' in lobby '{lobby_id}'. Game session '{game_session_arn}' is in status '{game_session_status}'")
+            return None
+
         # Check if player has a valid player session
         player_sessions = flexmatch.describe_player_sessions(GameSessionId=game_session_arn)
-        for player_session in player_sessions:
+        for player_session in player_sessions["PlayerSessions"]:
             if player_session["PlayerId"] == str(player_id) and player_session["Status"] in ("RESERVED", "ACTIVE"):
                 return player_session["PlayerSessionId"]
 
