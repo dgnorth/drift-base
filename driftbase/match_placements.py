@@ -303,6 +303,8 @@ def _process_fulfilled_queue_event(event_details: dict):
         placement["status"] = "completed"
         placement["game_session_arn"] = event_details["gameSessionArn"]
 
+        match_placement_lock.value = placement
+
         log.info(f"Placement '{placement_id}' completed. Duration: '{duration}s'")
 
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
@@ -365,6 +367,8 @@ def _process_cancelled_queue_event(event_details: dict):
         lobby_id = placement["lobby_id"]
         placement["status"] = "cancelled"
 
+        match_placement_lock.value = placement
+
         log.info(f"Placement '{placement_id}' cancelled. Duration: '{duration}s'")
 
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
@@ -394,6 +398,8 @@ def _process_timed_out_queue_event(event_details: dict):
         lobby_id = placement["lobby_id"]
         placement["status"] = "timed_out"
 
+        match_placement_lock.value = placement
+
         log.info(f"Placement '{placement_id}' timed out. Duration: '{duration}s'")
 
         with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
@@ -421,6 +427,8 @@ def _process_failed_queue_event(event_details: dict):
 
         lobby_id = placement["lobby_id"]
         placement["status"] = "failed"
+
+        match_placement_lock.value = placement
 
         log.info(f"Placement '{placement_id}' failed. Duration: '{duration}s'")
 
