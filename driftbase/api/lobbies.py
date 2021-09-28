@@ -115,6 +115,8 @@ class LobbiesAPI(MethodView):
             _populate_lobby_urls(lobby)
 
             return lobby
+        except lobbies.NotFoundException as e:
+            return {"error": e.msg}, http_client.NOT_FOUND
         except lobbies.InvalidRequestException as e:
             return {"error": e.msg}, http_client.BAD_REQUEST
 
@@ -133,7 +135,7 @@ class LobbyAPI(MethodView):
             lobby = lobbies.get_player_lobby(player_id, lobby_id)
             _populate_lobby_urls(lobby)
             return lobby
-        except lobbies.NotFoundException as e:
+        except lobbies.NotFoundException:
             return {"error": f"Lobby {lobby_id} not found"}, http_client.NOT_FOUND
         except lobbies.UnauthorizedException as e:
             return {"error": e.msg}, http_client.UNAUTHORIZED

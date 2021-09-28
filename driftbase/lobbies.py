@@ -66,7 +66,10 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
         # Leave/delete existing lobby if any
         if player_lobby_lock.value:
             log.info(f"Player '{player_id}' is creating a lobby while being a member of lobby {player_lobby_lock.value}")
-            _internal_leave_lobby(player_id, player_lobby_lock.value)
+            try:
+                _internal_leave_lobby(player_id, player_lobby_lock.value)
+            except NotFoundException:
+                pass
             player_lobby_lock.value = None
 
         player_name: str = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
@@ -243,7 +246,10 @@ def join_lobby(player_id: int, lobby_id: str):
         # Already a part of another lobby
         if player_lobby_id and player_lobby_id != lobby_id:
             log.info(f"Player '{player_id}' is joining lobby '{lobby_id}' while being a member of lobby '{player_lobby_id}'")
-            _internal_leave_lobby(player_id, player_lobby_id)
+            try:
+                _internal_leave_lobby(player_id, player_lobby_id)
+            except NotFoundException:
+                pass
             player_lobby_lock.value = None
 
         lobby = _internal_join_lobby(player_id, lobby_id)
@@ -325,7 +331,10 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
 
         if player_id == member_id:
             log.info(f"Player '{player_id}' is kicking themselves from the lobby '{lobby_id}'")
-            _internal_leave_lobby(player_id, lobby_id)
+            try:
+                _internal_leave_lobby(player_id, lobby_id)
+            except NotFoundException:
+                pass
             player_lobby_lock.value = None
             return
 
