@@ -182,6 +182,11 @@ class CountersApi(MethodView):
 
             is_absolute = counter_type == COUNTER_TYPE_ABSOLUTE
             value = float(update["value"])
+
+            # Skip no-op values
+            if not is_absolute and value == 0.0:
+                continue
+
             context_id = int(update.get("context_id", 0))
             # ensure that multiple updates all get applied
             # theoretically these should be individual entries, if the client flushes at a low rate,
