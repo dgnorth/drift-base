@@ -26,7 +26,8 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
 
         if not lobby_id:
             log.info(f"Player '{player_id}' attempted to fetch a lobby without being a member of any lobby")
-            raise NotFoundException("No lobby found")
+            message = f"Lobby {expected_lobby_id} not found" if expected_lobby_id else "No lobby found"
+            raise NotFoundException(message)
 
         if expected_lobby_id and expected_lobby_id != lobby_id:
             log.warning(f"Player '{player_id}' attempted to fetch lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
