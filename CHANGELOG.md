@@ -13,6 +13,36 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.5.4
+
+### Optimizations
+
+- Further improvements of player counters
+- Use BigInt for counter IDs
+
+### Bug fixes
+
+- Fix logging of queue events
+- Fix bug where notification of a potential match would only be sent to one player in a party
+- Fix a bug where a player who joins a party while having a matchmaking ticket would have both marked active, potentially causing the whole party to fail to join a match.
+
+## 0.5.3
+
+### Bug fixes
+
+- Fix a race issue causing wrong notification being sent to players if they managed to issue a 2nd ticket before being notified about the cancellation of the first
+
+## 0.5.2
+
+### Optimizations
+
+- Optimize reporting and fetching of player counters which was unacceptably slow for any non-trival amount of counters
+
+## 0.5.1
+
+### Bug fixes
+- Fixing a shadowing bug in drift-flexmatch causing PotentialMatchCreated to fail on foreign tickets
+
 ## 0.5.0
 
 ### New Features
