@@ -23,15 +23,15 @@ log = logging.getLogger(__name__)
 # Latency reporting
 
 def update_player_latency(player_id, region, latency_ms):
-    region_key = _get_player_latency_key(player_id) + region
+    region_key = _make_player_latency_key(player_id) + region
     with g.redis.conn.pipeline() as pipe:
         pipe.lpush(region_key, latency_ms)
         pipe.ltrim(region_key, 0, NUM_VALUES_FOR_LATENCY_AVERAGE-1)
-        pipe.sadd(_get_player_regions_key(player_id), region)
+        pipe.sadd(_make_player_regions_key(player_id), region)
         pipe.execute()
 
 def get_player_latency_averages(player_id):
-    player_latency_key = _get_player_latency_key(player_id)
+    player_latency_key = _make_player_latency_key(player_id)
     regions = _get_player_regions(player_id)
     with g.redis.conn.pipeline() as pipe:
         for region in regions:
@@ -83,31 +83,33 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
         _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket_lock.ticket["TicketId"], _external=True)})
         return ticket_lock.ticket
 
+def _cancel_locked_ticket(ticket_lock, player_id):
+    ticket = ticket_lock.ticket
+    if ticket["Status"] in ("COMPLETED", "PLACING", "REQUIRES_ACCEPTANCE"):
+        log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
+        return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
+    log.info(f"Cancelling ticket {ticket['TicketId']} for player {player_id}, currently in state {ticket['Status']}")
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
+    except ClientError as e:
+        log.warning(f"ClientError from gamelift. Response: {e.response}")
+        if e.response["Error"]["Code"] != "InvalidRequestException":
+            raise GameliftClientException("Failed to cancel matchmaking ticket", str(e))
+    log.info(f"Clearing player {player_id}'s ticket from cache: {ticket_lock.ticket}")
+    ticket_lock.ticket = None
+    _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
+    return ticket
 
 def cancel_player_ticket(player_id, ticket_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
-        ticket = ticket_lock.ticket
-        if not ticket:
-            log.info(f"Not cancelling non-existent ticket for player {player_id}")
-            return
-        if ticket_id != ticket["TicketId"]:
-            log.warning(f"Ticket {ticket_id} isn't registered to player {player_id}. Not cancelling.")
-            return
-        if ticket["Status"] in ("COMPLETED", "PLACING", "REQUIRES_ACCEPTANCE"):
-            log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
-            return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
-        log.info(f"Cancelling ticket {ticket['TicketId']} for player {player_id}, currently in state {ticket['Status']}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
-        try:
-            response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
-        except ClientError as e:
-            log.warning(f"ClientError from gamelift. Response: {e.response}")
-            if e.response["Error"]["Code"] != "InvalidRequestException":
-                raise GameliftClientException("Failed to cancel matchmaking ticket", str(e))
-        log.info(f"Clearing player {player_id}'s ticket from cache: {ticket_lock.ticket}")
-        ticket_lock.ticket = None
-        _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
-        return ticket
+        if ticket_lock.ticket and ticket_id == ticket_lock.ticket["TicketId"]:
+            return _cancel_locked_ticket(ticket_lock, player_id)
+    if get_player_party(player_id):
+        with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
+            return _cancel_locked_ticket(ticket_lock, player_id)
+    return None
+
 
 def get_player_ticket(player_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
@@ -177,22 +179,28 @@ def process_flexmatch_event(flexmatch_event):
 
 def _get_player_regions(player_id):
     """ Return a list of regions for whom 'player_id' has reported latency values. """
-    regions_key = _get_player_regions_key(player_id)
+    regions_key = _make_player_regions_key(player_id)
     if g.redis.conn.exists(regions_key):
-        return g.redis.conn.smembers(_get_player_regions_key(player_id))
+        return g.redis.conn.smembers(_make_player_regions_key(player_id))
     return set()
 
-def _get_player_latency_key(player_id):
+def _make_player_latency_key(player_id):
     return g.redis.make_key(f"player:{player_id}:latencies:")
 
-def _get_player_regions_key(player_id):
+def _make_player_regions_key(player_id):
     return g.redis.make_key(f"player:{player_id}:regions:")
+
+def _make_player_ticket_key(player_id):
+    return g.redis.make_key(f"player:{player_id}:flexmatch:")
+
+def _make_party_ticket_key(party_id):
+    return g.redis.make_key(f"party:{party_id}:flexmatch:")
 
 def _get_player_ticket_key(player_id):
     player_party_id = get_player_party(player_id)
     if player_party_id is not None:
-        return g.redis.make_key(f"party:{player_party_id}:flexmatch:")
-    return g.redis.make_key(f"player:{player_id}:flexmatch:")
+        return _make_party_ticket_key(player_party_id)
+    return _make_player_ticket_key(player_id)
 
 def _get_player_party_members(player_id):
     """ Return the full list of players who share a party with 'player_id', including 'player_id'. If 'player_id' isn't

@@ -483,6 +483,23 @@ class FlexMatchTest(_BaseFlexmatchTest):
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingCancelled")
         self.assertIsNone(notification)
 
+    def test_player_can_cancel_individual_ticket_after_joining_party_while_searching(self):
+        #  Start matchmaking solo
+        username, ticket_url, first_ticket = self._initiate_matchmaking()
+        player_id = self.player_id
+        #  Join party
+        party = self._create_party(party_size=2)
+        # _create_party doesn't log last member out, so we can just invite
+        inviter_id = self.player_id
+        r = self.post(self.endpoints["party_invites"], data={'player_id': player_id}, expected_status_code=http_client.CREATED).json()
+        self.auth(username=username)
+        notification, _ = self.get_player_notification("party_notification", "invite")
+        self.patch(notification['invite_url'], data={'inviter_id': inviter_id}, expected_status_code=http_client.OK)
+        #  Player attempts to cancel old ticket
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            r = self.delete(ticket_url, expected_status_code=http_client.OK).json()
+        self.assertDictEqual(r, {"status": "Deleted"})
+
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
