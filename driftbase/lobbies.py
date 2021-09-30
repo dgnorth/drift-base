@@ -6,10 +6,9 @@ import string
 import datetime
 import copy
 from flask import g
-from driftbase.parties import get_player_party
 from driftbase.models.db import CorePlayer
 from driftbase.messages import post_message
-from driftbase import flexmatch
+from driftbase import flexmatch, parties
 
 from driftbase.resources.lobbies import TIER_DEFAULTS
 
@@ -54,7 +53,7 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
     return lobby
 
 def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[str]):
-    if get_player_party(player_id) is not None:
+    if parties.get_player_party(player_id) is not None:
         log.warning(f"Failed to create lobby for player '{player_id}' due to player being in a party")
         raise InvalidRequestException(f"Cannot create a lobby while in a party")
 
@@ -123,7 +122,9 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
             lobby = lobby_lock.lobby
 
             if not lobby:
-                raise RuntimeError(f"Player '{player_id}' attempted to update lobby '{lobby_id}' which doesn't exist")
+                log.warning(f"Player '{player_id}' attempted to update assigned lobby '{lobby_id}' but the lobby doesn't exist")
+                player_lobby_lock.value = None
+                raise NotFoundException(f"Lobby {lobby_id} not found")
 
             host_player_id = _get_lobby_host_player_id(lobby)
 

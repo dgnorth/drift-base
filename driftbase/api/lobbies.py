@@ -40,6 +40,7 @@ class LobbyMemberResponseSchema(Schema):
     team_name = fields.String(metadata=dict(description="What team this lobby member is assigned to."))
     ready = fields.Bool(metadata=dict(description="Whether or not this player is ready to start the match."))
     host = fields.Bool(metadata=dict(description="Whether or not this is the lobby host."))
+    join_date = fields.String(metadata=dict(description="The UTC timestamp of when the lobby member joined the lobby."))
 
     lobby_member_url = fields.URL(metadata=dict(description="Lobby member URL"))
 
@@ -54,11 +55,7 @@ class LobbyResponseSchema(Schema):
     placement_date = fields.String(allow_none=True, metadata=dict(description="The UTC timestamp of when the lobby match placement was started."))
     status = fields.String(metadata=dict(description="The current status of the lobby."))
     members = fields.List(fields.Nested(LobbyMemberResponseSchema), metadata=dict(description="The lobby members."))
-    custom_data = fields.Dict(
-        keys=fields.Raw(),
-        values=fields.Raw(),
-        metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server")
-    )
+    custom_data = fields.String(allow_none=True, metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server"))
 
     connection_string = fields.String(allow_none=True, metadata=dict(description="The IP and port of the lobby match if it has started."))
     connection_options = fields.String(allow_none=True, metadata=dict(description="Connection options for the requesting player"))
