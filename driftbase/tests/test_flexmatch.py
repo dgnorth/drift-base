@@ -491,7 +491,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         party = self._create_party(party_size=2)
         # _create_party doesn't log last member out, so we can just invite
         inviter_id = self.player_id
-        r = self.post(self.endpoints["party_invites"], data={'player_id': player_id}, expected_status_code=http_client.CREATED).json()
+        self.post(self.endpoints["party_invites"], data={'player_id': player_id}, expected_status_code=http_client.CREATED)
         self.auth(username=username)
         notification, _ = self.get_player_notification("party_notification", "invite")
         self.patch(notification['invite_url'], data={'inviter_id': inviter_id}, expected_status_code=http_client.OK)
@@ -500,6 +500,31 @@ class FlexMatchTest(_BaseFlexmatchTest):
             r = self.delete(ticket_url, expected_status_code=http_client.OK).json()
         self.assertDictEqual(r, {"status": "Deleted"})
 
+    def test_player_can_cancel_individual_ticket_after_joining_party_while_searching_where_party_has_another_ticket(self):
+        #  Start matchmaking solo
+        username, player_ticket_url, first_ticket = self._initiate_matchmaking()
+        player_id = self.player_id
+        #  Join party
+        party = self._create_party(party_size=2)
+        #  _create_party doesn't log last member out, so we can go ahead and invite
+        inviter_id = self.player_id
+        self.post(self.endpoints["party_invites"], data={'player_id': player_id}, expected_status_code=http_client.CREATED)
+        self.auth(username=username)
+        notification, _ = self.get_player_notification("party_notification", "invite")
+        self.patch(notification['invite_url'], data={'inviter_id': inviter_id}, expected_status_code=http_client.OK)
+        # Party starts matchmaking
+        self.auth(party[0]["name"])
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            party_post_response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"}, expected_status_code=http_client.CREATED).json()
+            party_ticket_url = party_post_response["ticket_url"]
+            party_ticket = self.get(party_ticket_url, expected_status_code=http_client.OK)
+        #  Player attempts to cancel old ticket
+        self.auth(username=username)
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            r = self.delete(player_ticket_url, expected_status_code=http_client.OK).json()
+        self.assertDictEqual(r, {"status": "Deleted"})
+        # Assert that the party ticket has not been modified
+        self.assertDictEqual(party_ticket.json(), self.get(party_ticket_url, expected_status_code=http_client.OK).json())
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
