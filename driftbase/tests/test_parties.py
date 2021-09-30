@@ -297,10 +297,9 @@ class PartiesTest(BaseCloudkitTest):
         guest_ids = []
         guest_names = []
 
-        for guest_name in [self.make_user_name(f"Guest_{i}") for i in range(4)]:
-            self.make_named_player(username=guest_name)
+        for i in range(4):
+            guest_names.append(self.make_player())
             guest_ids.append(self.player_id)
-            guest_names.append(guest_name)
         host_user_name = self.make_user_name("Host")
         self.make_named_player(host_user_name)
         host_id = self.player_id
