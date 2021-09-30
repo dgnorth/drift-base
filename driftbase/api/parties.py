@@ -17,7 +17,7 @@ from driftbase.parties import accept_party_invite, get_player_party, get_party_m
 log = logging.getLogger(__name__)
 
 bp_parties = Blueprint("parties", __name__, url_prefix='/parties')
-bp_party_invites = Blueprint("party_invites", __name__, url_prefix='/party_invites')
+bp_party_invites = Blueprint("party_invites", __name__, url_prefix='/party-invites')
 endpoints = Endpoints()
 
 

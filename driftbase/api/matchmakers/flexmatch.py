@@ -194,7 +194,7 @@ class FlexMatchEventAPI(MethodView):
         flexmatch.process_flexmatch_event(request.json)
         return {}, http_client.OK
 
-@bp.route("/queue_events", endpoint="queue_events")
+@bp.route("/queue-events", endpoint="queue_events")
 class FlexMatchQueueEventAPI(MethodView):
 
     @requires_roles("flexmatch_event")
