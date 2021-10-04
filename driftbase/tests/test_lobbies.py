@@ -87,14 +87,14 @@ class TestLobbiesAPI(BaseCloudkitTest):
 
             response = self.get(lobbies_url, expected_status_code=http_client.NOT_FOUND)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Unauthorized
             get_player_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
 
             response = self.get(lobbies_url, expected_status_code=http_client.UNAUTHORIZED)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
     # post
     def test_post_api(self):
@@ -126,7 +126,7 @@ class TestLobbiesAPI(BaseCloudkitTest):
 
             response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
 # /lobbies/<lobby_id>
 class TestLobbyAPI(BaseCloudkitTest):
@@ -153,14 +153,14 @@ class TestLobbyAPI(BaseCloudkitTest):
 
             response = self.get(lobby_url, expected_status_code=http_client.NOT_FOUND)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Unauthorized
             get_player_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
 
             response = self.get(lobby_url, expected_status_code=http_client.UNAUTHORIZED)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
     # Patch
     def test_patch_api(self):
@@ -178,21 +178,21 @@ class TestLobbyAPI(BaseCloudkitTest):
 
             response = self.patch(lobby_url, expected_status_code=http_client.NOT_FOUND)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Invalid data
             update_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
 
             response = self.patch(lobby_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Unauthorized
             update_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
 
             response = self.patch(lobby_url, expected_status_code=http_client.UNAUTHORIZED)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
     # Delete
     def test_delete_api(self):
@@ -217,7 +217,7 @@ class TestLobbyAPI(BaseCloudkitTest):
 
             response = self.delete(lobby_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
 # /lobbies/<lobby_id>/members
 class TestLobbyMembersAPI(BaseCloudkitTest):
@@ -244,14 +244,14 @@ class TestLobbyMembersAPI(BaseCloudkitTest):
 
             response = self.post(lobby_members_url, expected_status_code=http_client.NOT_FOUND)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Invalid data
             join_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
 
             response = self.post(lobby_members_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
 # /lobbies/<lobby_id>/members/<member_id>
 class TestLobbyMemberAPI(BaseCloudkitTest):
@@ -271,14 +271,14 @@ class TestLobbyMemberAPI(BaseCloudkitTest):
 
             response = self.put(lobby_member_url, expected_status_code=http_client.NOT_FOUND)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Invalid data
             update_lobby_member_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
 
             response = self.put(lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
     # Delete
     def test_delete_api(self):
@@ -298,14 +298,14 @@ class TestLobbyMemberAPI(BaseCloudkitTest):
 
             response = self.delete(my_lobby_member_url, expected_status_code=http_client.NOT_FOUND)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Invalid data
             leave_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
 
             response = self.delete(my_lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
         # Kick member
         with patch.object(lobbies, "kick_member") as kick_member_mock:
@@ -321,14 +321,14 @@ class TestLobbyMemberAPI(BaseCloudkitTest):
 
             response = self.delete(lobby_member_url, expected_status_code=http_client.NOT_FOUND)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
             # Invalid data
             kick_member_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
 
             response = self.delete(lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertDictEqual(response.json(), {"error": MOCK_ERROR})
+            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
 """
 Lobby implementation
@@ -404,7 +404,7 @@ class LobbiesTest(BaseCloudkitTest):
 
         response = self.get(lobbies_url, expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("error", response.json())
+        self.assertIn("message", response.json())
 
     def test_get_player_lobby_not_in_specific_lobby(self):
         self.make_player()
@@ -421,7 +421,7 @@ class LobbiesTest(BaseCloudkitTest):
         # Get bogus lobby
         response = self.get(lobbies_url + "nope", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("error", response.json())
+        self.assertIn("message", response.json())
 
     def test_get_player_lobby_started_spectator(self):
         # TODO: Figure out how to mock the lobby status to starting and a bogus connection string
@@ -483,7 +483,7 @@ class LobbiesTest(BaseCloudkitTest):
             # Create lobby
             response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("error", response.json())
+            self.assertIn("message", response.json())
 
     def test_create_lobby_while_matchmaking(self):
         self.make_player()
@@ -498,7 +498,7 @@ class LobbiesTest(BaseCloudkitTest):
             # Create lobby
             response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("error", response.json())
+            self.assertIn("message", response.json())
 
     def test_create_lobby_while_in_a_lobby(self):
         self.make_player()
@@ -663,7 +663,7 @@ class LobbiesTest(BaseCloudkitTest):
         # Update bogus lobby
         response = self.patch(lobbies_url + "123456", data={"team_capacity": 8}, expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("error", response.json())
+        self.assertIn("message", response.json())
 
     def test_update_lobby_not_the_host(self):
         self.make_player()
@@ -687,7 +687,7 @@ class LobbiesTest(BaseCloudkitTest):
         # Update attempt
         response = self.patch(lobby["lobby_url"], data={"team_capacity": 8}, expected_status_code=http_client.BAD_REQUEST)
 
-        self.assertIn("error", response.json())
+        self.assertIn("message", response.json())
 
     def test_update_lobby_match_started(self):
         self.make_player()
@@ -706,7 +706,7 @@ class LobbiesTest(BaseCloudkitTest):
             # Update attempt
             response = self.patch(lobby["lobby_url"], data={"team_capacity": 8}, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("error", response.json())
+            self.assertIn("message", response.json())
 
     def test_update_lobby_team_over_capacity(self):
         """

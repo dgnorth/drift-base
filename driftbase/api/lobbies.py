@@ -296,5 +296,5 @@ def _populate_lobby_urls(lobby: dict):
     if placement_id and lobby_status == "starting":
         lobby["lobby_match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=placement_id, _external=True)
 
-def _abort(error: str, status: int):
-    abort(make_response(jsonify(error=error), status))
+def _abort(message: str, status: int):
+    abort(make_response(jsonify(message=message), status))
