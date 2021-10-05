@@ -25,7 +25,8 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
 
         if not placement_id:
             log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
-            raise NotFoundException("No match placement found")
+            message = f"Match placement {expected_match_placement_id} not found" if expected_match_placement_id else "No match placement found"
+            raise NotFoundException(message)
 
         if expected_match_placement_id and expected_match_placement_id != placement_id:
             log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
