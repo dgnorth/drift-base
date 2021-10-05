@@ -1,5 +1,5 @@
 """
-    Custom game lobbies for private/direct matches
+Custom game lobbies for private/direct matches
 """
 
 from flask_smorest import Blueprint

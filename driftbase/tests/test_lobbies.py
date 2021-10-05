@@ -6,9 +6,6 @@ import datetime
 from driftbase.utils.test_utils import BaseCloudkitTest
 from unittest.mock import patch
 from driftbase import flexmatch, lobbies, parties
-from drift.utils import get_config
-import uuid
-import contextlib
 
 MOCK_LOBBY = {
     "create_date": "2021-09-24T16:15:08.758448",
@@ -97,7 +94,7 @@ class TestLobbiesAPI(BaseCloudkitTest):
 
             self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
 
-    # post
+    # Post
     def test_post_api(self):
         self.make_player()
         lobbies_url = self.endpoints["lobbies"]
