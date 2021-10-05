@@ -237,31 +237,6 @@ class LobbyMemberAPI(MethodView):
         except lobbies.UnauthorizedException as e:
             _abort(e.msg, http_client.UNAUTHORIZED)
 
-
-@bp.route("/<string:lobby_id>/admin", endpoint="lobby")
-class LobbyAdminAPI(MethodView):
-    """
-    Admin stuff for the tournament.
-    !!!SHOULD NOT BE MERGED INTO DEVELOP BRANCH!!!
-    """
-
-    no_jwt_check = ["DELETE"]
-
-    @bp.response(http_client.OK)
-    def delete(self, lobby_id: str):
-        """
-        Forcefully delete a lobby.
-        """
-        nammi = request.args.get("nammi", None)
-        nafn = request.args.get("nafn", None)
-
-        if nafn != "hilmar" or nammi != "villikottur":
-            log.error(f"SOMEONE ATTEMPTED TO FORCEFULLY DELETE LOBBY {lobby_id}. Query params: {request.args}")
-            abort(http_client.NOT_FOUND)
-
-        result = lobbies.admin_delete_lobby_force(lobby_id)
-        return {"result": result}
-
 @endpoints.register
 def endpoint_info(*args):
     ret = {
