@@ -1,5 +1,5 @@
 """
-    Custom game lobbies for private/direct matches
+Match placements
 """
 
 from flask_smorest import Blueprint
@@ -73,6 +73,8 @@ class MatchPlacementsAPI(MethodView):
             return match_placement
         except lobbies.InvalidRequestException as e:
             _abort(e.msg, http_client.BAD_REQUEST)
+        except lobbies.UnauthorizedException as e:
+            _abort(e.msg, http_client.UNAUTHORIZED)
         except flexmatch.GameliftClientException as e:
             log.error(f"Failed to start match placement for player '{player_id}': Gamelift response:\n'{e.debugs}'")
             _abort(e.msg, http_client.INTERNAL_SERVER_ERROR)
