@@ -386,7 +386,7 @@ class LobbiesTest(_BaseLobbyTest):
         self.create_lobby()
 
         # Get player lobby
-        response = self.get(self.lobby_url, expected_status_code=http_client.OK)
+        response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.OK)
         get_lobby = response.json()
 
         self.assertDictEqual(self.lobby, get_lobby)
