@@ -171,6 +171,8 @@ class LobbyAPI(MethodView):
             pass
         except lobbies.InvalidRequestException as e:
             _abort(e.msg, http_client.BAD_REQUEST)
+        except lobbies.UnauthorizedException as e:
+            _abort(e.msg, http_client.UNAUTHORIZED)
 
 @bp.route("/<string:lobby_id>/members", endpoint="members")
 class LobbyMembersAPI(MethodView):
@@ -214,6 +216,8 @@ class LobbyMemberAPI(MethodView):
             _abort(e.msg, http_client.NOT_FOUND)
         except lobbies.InvalidRequestException as e:
             _abort(e.msg, http_client.BAD_REQUEST)
+        except lobbies.UnauthorizedException as e:
+            _abort(e.msg, http_client.UNAUTHORIZED)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str, member_player_id: int):
@@ -230,6 +234,8 @@ class LobbyMemberAPI(MethodView):
             _abort(e.msg, http_client.NOT_FOUND)
         except lobbies.InvalidRequestException as e:
             _abort(e.msg, http_client.BAD_REQUEST)
+        except lobbies.UnauthorizedException as e:
+            _abort(e.msg, http_client.UNAUTHORIZED)
 
 
 @bp.route("/<string:lobby_id>/admin", endpoint="lobby")

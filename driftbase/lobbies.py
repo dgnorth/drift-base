@@ -215,7 +215,7 @@ def delete_lobby(player_id: int, expected_lobby_id: str):
 
         if not lobby_id:
             log.info(f"Player '{player_id}' attempted to delete a lobby without being a member of any lobby")
-            return
+            raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
         if expected_lobby_id != lobby_id:
             log.warning(f"Player '{player_id}' attempted to delete lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
@@ -231,7 +231,7 @@ def leave_lobby(player_id: int, expected_lobby_id: str):
 
         if not lobby_id:
             log.info(f"Player '{player_id}' attempted to leave a lobby without being a member of any lobby")
-            return
+            raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
         if expected_lobby_id != lobby_id:
             log.warning(f"Player '{player_id}' attempted to leave lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
@@ -298,14 +298,17 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
                     raise InvalidRequestException(f"Team name '{team_name}' is invalid")
 
                 if current_team and team_name != current_team:
+                    log.info(f"Player '{player_id}' in lobby '{lobby_id}' left team '{current_team}'")
                     member_updated = True
                     ready = False
-                    log.info(f"Player '{player_id}' in lobby '{lobby_id}' left team '{current_team}'")
 
                 if team_name and team_name != current_team and _can_join_team(lobby, team_name):
+                    log.info(f"Player '{player_id}' in lobby '{lobby_id}' joined team '{team_name}'")
                     member_updated = True
                     ready = False
-                    log.info(f"Player '{player_id}' in lobby '{lobby_id}' joined team '{team_name}'")
+
+                if not team_name:
+                    ready = False
 
                 member["team_name"] = team_name
 
@@ -313,7 +316,7 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
                     member_updated = True
                     log.info(f"Player '{player_id}' in lobby '{lobby_id}' updated ready status to '{ready}'")
 
-                member["ready"] = ready
+                member["ready"] = bool(ready)
                 break
 
             if member_updated:
