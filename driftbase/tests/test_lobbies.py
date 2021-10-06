@@ -740,6 +740,58 @@ class LobbiesTest(_BaseLobbyTest):
 
         self.assertIsNone(lobby["members"][0]["team_name"])
 
+    def test_update_lobby_message_queue(self):
+        self.auth("Player 1")
+        self.create_lobby()
+
+        self.auth("Player 2")
+        self.join_lobby(self.lobby_members_url)
+
+        self.auth("Player 1")
+
+        # Empty update
+        self.patch(self.lobby_url, expected_status_code=http_client.NO_CONTENT)
+
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
+        self.assertIsNone(notification)
+
+        # Assert message queue for player 2
+        self.auth("Player 2")
+        notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
+        self.assertIsNone(notification)
+
+        self.auth("Player 1")
+
+        # Update everything
+        update_data = {
+            "team_capacity": 12,
+            "team_names": ["10", "20"],
+            "lobby_name": "Some lobby name",
+            "map_name": "Some map name",
+            "custom_data": "Some custom data",
+        }
+        self.patch(self.lobby_url, data=update_data, expected_status_code=http_client.NO_CONTENT)
+
+        self.load_player_lobby()
+
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
+        notification_data = notification["data"]
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(notification_data["lobby_name"], self.lobby["lobby_name"])
+        self.assertEqual(notification_data["map_name"], self.lobby["map_name"])
+        self.assertEqual(notification_data["custom_data"], self.lobby["custom_data"])
+        self.assertEqual(notification_data["team_names"], self.lobby["team_names"])
+        self.assertEqual(notification_data["team_capacity"], self.lobby["team_capacity"])
+
+        # Assert message queue for player 2
+        self.auth("Player 2")
+        self.load_player_lobby()
+        notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
+        self.assertDictEqual(notification_data, notification["data"])
+
     # Delete lobby
 
     def test_delete_lobby(self):
@@ -757,29 +809,41 @@ class LobbiesTest(_BaseLobbyTest):
 
         # Verify host no longer in lobby
 
-        # Verify not in lobby
+        # Assert not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
 
         self.assertIn("message", response.json())
 
-        # Verify lobby doesn't exist
+        # Assert lobby doesn't exist
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
         self.assertIn("message", response.json())
 
-        # Verify member no longer in lobby
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyDeleted")
+        self.assertIsNone(notification)  # Shouldn't have any notification since the player knows whether or not it succeeded
+        # TODO: Brainstorm and figure out if this is the best approach
+
+        # Assert member no longer in lobby
 
         self.auth("Player 2")
 
-        # Verify not in lobby
+        # Assert not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
 
         self.assertIn("message", response.json())
 
-        # Verify lobby doesn't exist
+        # Assert lobby doesn't exist
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
         self.assertIn("message", response.json())
+
+        # Assert message queue for player 2
+        notification, _ = self.get_player_notification("lobby", "LobbyDeleted")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
 
     def test_delete_lobby_no_lobby(self):
         self.make_player()
@@ -831,6 +895,8 @@ class LobbiesTest(_BaseLobbyTest):
         self.auth("Player 1")
         self.create_lobby()
 
+        left_player_id = self.player_id
+
         # Member joins lobby
         self.auth("Player 2")
         self.join_lobby(self.lobby_members_url)
@@ -843,19 +909,28 @@ class LobbiesTest(_BaseLobbyTest):
 
         self.leave_lobby()
 
-        # Verify host no longer in lobby
+        # Assert host no longer in lobby
 
-        # Verify not in lobby
+        # Assert not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
 
         self.assertIn("message", response.json())
 
-        # Verify lobby doesn't exist for host
+        # Assert lobby doesn't exist for host
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
         self.assertIn("message", response.json())
 
-        # Verify member is now lobby host
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberLeft")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(len(notification_data["members"]), 1)
+        self.assertEqual(notification_data["left_player_id"], left_player_id)
+
+        # Assert member is now lobby host
 
         self.auth("Player 2")
         self.load_player_lobby()
@@ -863,6 +938,11 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(len(self.lobby["members"]), 1)
         self.assertEqual(self.lobby["members"][0]["player_id"], self.player_id)
         self.assertTrue(self.lobby["members"][0]["host"])
+
+        # Assert message queue for player 2
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberLeft")
+
+        self.assertDictEqual(notification["data"], notification_data)
 
     def test_leave_lobby_no_lobby(self):
         self.make_player()
@@ -928,6 +1008,8 @@ class LobbiesTest(_BaseLobbyTest):
         self.auth("Player 2")
         self.join_lobby(self.lobby_members_url)
 
+        kicked_player_id = self.player_id
+
         lobby_member_url = self.lobby_member_url
 
         # Host kicks member
@@ -943,6 +1025,15 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(self.lobby["members"][0]["player_id"], self.player_id)
         self.assertTrue(self.lobby["members"][0]["host"])
 
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberKicked")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(len(notification_data["members"]), len(self.lobby["members"]))
+        self.assertEqual(notification_data["kicked_player_id"], kicked_player_id)
+
         # Verify member no longer in lobby
 
         self.auth("Player 2")
@@ -956,6 +1047,11 @@ class LobbiesTest(_BaseLobbyTest):
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
         self.assertIn("message", response.json())
+
+        # Assert message queue for player 2
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberKicked")
+
+        self.assertDictEqual(notification["data"], notification_data)
 
     def test_kick_lobby_member_different_lobbies(self):
         # Player 1 creates lobby
@@ -1022,6 +1118,23 @@ class LobbiesTest(_BaseLobbyTest):
 
         self.assertIsNotNone(lobby_member)
         self.assertFalse(lobby_member["host"])
+
+        # Assert message queue for player 2
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberJoined")
+        self.assertIsNone(notification)  # Shouldn't have any notification since the player knows whether or not it succeeded
+        # TODO: Brainstorm and figure out if this is the best approach
+
+        # Switch to player 1
+        self.auth("Player 1")
+        self.load_player_lobby()
+
+        # Assert message queue for player 2
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberJoined")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(len(notification_data["members"]), len(self.lobby["members"]))
 
     def test_join_lobby_in_lobby(self):
         self.auth("Player 1")
@@ -1195,6 +1308,54 @@ class LobbiesTest(_BaseLobbyTest):
         response = self.put(self.lobby_member_url, data={"team_name": invalid_team_name}, expected_status_code=http_client.BAD_REQUEST)
 
         self.assertIn("message", response.json())
+
+    def test_update_lobby_member_message_queue(self):
+        self.auth("Player 1")
+        self.create_lobby()
+
+        self.auth("Player 2")
+        self.join_lobby(self.lobby_members_url)
+
+        self.auth("Player 1")
+
+        # Empty update
+        self.put(self.lobby_member_url, expected_status_code=http_client.NO_CONTENT)
+
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
+        self.assertIsNone(notification)
+
+        # Assert message queue for player 2
+        self.auth("Player 2")
+        notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
+        self.assertIsNone(notification)
+
+        self.auth("Player 1")
+
+        # Update only team name
+        new_team_name = "1"
+        self.put(self.lobby_member_url, data={"team_name": new_team_name}, expected_status_code=http_client.NO_CONTENT)
+
+        self.load_player_lobby()
+
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberUpdated")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(len(notification_data["members"]), len(self.lobby["members"]))
+
+        # Assert message queue for player 2
+        self.auth("Player 2")
+        self.load_player_lobby()
+
+        notification, _ = self.get_player_notification("lobby", "LobbyMemberUpdated")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertIn("members", notification_data)
 
 class _MockLockedLobby(object):
     mocked_lobby = None

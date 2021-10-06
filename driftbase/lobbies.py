@@ -364,6 +364,9 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
 
                 current_length = len(lobby["members"])
 
+                # Populate receiving player ids for message before kicking the player
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+
                 # Remove player from members list
                 lobby["members"] = [member for member in lobby["members"] if member["player_id"] != member_id]
 
@@ -375,9 +378,8 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
                     member_lobby_lock.value = None
                     lobby_lock.lobby = lobby
 
-                    # Notify members
-                    receiving_player_ids = _get_lobby_member_player_ids(lobby)
-                    _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberKicked", {"lobby_id": lobby_id, "members": lobby["members"]})
+                    # Notify members and kicked player
+                    _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberKicked", {"lobby_id": lobby_id, "kicked_player_id": member_id, "members": lobby["members"]})
                 else:
                     log.warning(f"Host player '{player_id}' tried to kick member player '{member_id}' from lobby '{lobby_id}', but '{member_id}' wasn't a member of the lobby")
 
@@ -520,6 +522,9 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
         current_length = len(lobby["members"])
         host_player_id = _get_lobby_host_player_id(lobby)
 
+        # Populate receiving player ids before removing player
+        receiving_player_ids = _get_lobby_member_player_ids(lobby)
+
         # Remove player from members list
         lobby["members"] = [member for member in lobby["members"] if member["player_id"] != player_id]
 
@@ -546,8 +551,7 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
                 lobby_lock.lobby = lobby
 
                 # Notify remaining members
-                receiving_player_ids = _get_lobby_member_player_ids(lobby)
-                _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberLeft", {"lobby_id": lobby_id, "members": lobby["members"]})
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberLeft", {"lobby_id": lobby_id, "left_player_id": player_id, "members": lobby["members"]})
             else:
                 # No one left in the lobby, delete the lobby
 

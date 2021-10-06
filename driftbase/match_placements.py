@@ -284,10 +284,6 @@ def _validate_gamelift_placement_for_queue_event(placement_id: str, placement: d
     if not lobby_id:
         raise RuntimeError(f"Malformed match placement. Match placement '{placement_id}' doesn't have a lobby id")
 
-    # No longer an active placement
-    with _GenericLock(_get_player_match_placement_key(placement["player_id"])) as player_match_placement_lock:
-        player_match_placement_lock.value = None
-
     return True
 
 def _process_fulfilled_queue_event(event_details: dict):

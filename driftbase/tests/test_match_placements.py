@@ -1,11 +1,14 @@
 import http.client as http_client
 import typing
 import copy
+import contextlib
+import uuid
 
 from driftbase.utils.test_utils import BaseCloudkitTest
 from unittest.mock import patch
 from driftbase import match_placements, lobbies, flexmatch
 from driftbase.tests import test_lobbies
+from drift.utils import get_config
 
 MOCK_PLACEMENT = {
     "placement_id": "123456"
@@ -184,6 +187,72 @@ class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
         self.match_placement_id = match_placement["placement_id"]
         self.match_placement_url = match_placement["match_placement_url"]
 
+    @contextlib.contextmanager
+    def _managed_bearer_token_user(self):
+        # FIXME: this whole thing is pretty much a c/p from test_jwt; consolidate.
+        self._access_key = str(uuid.uuid4())[:12]
+        self._user_name = "testuser_{}".format(self._access_key[:4])
+        self._role_name = "flexmatch_event"
+        try:
+            self._setup_service_user_with_bearer_token()
+            self.headers["Authorization"] = f"Bearer {self._access_key}"
+            yield
+        finally:
+            self._remove_service_user_with_bearer_token()
+            del self.headers["Authorization"]
+
+    def _setup_service_user_with_bearer_token(self):
+        conf = get_config()
+        ts = conf.table_store
+        # setup access roles
+        ts.get_table("access-roles").add({
+            "role_name": self._role_name,
+            "deployable_name": conf.deployable["deployable_name"]
+        })
+        # Setup a user with an access key
+        ts.get_table("users").add({
+            "user_name": self._user_name,
+            "password": self._access_key,
+            "access_key": self._access_key,
+            "is_active": True,
+            "is_role_admin": False,
+            "is_service": True,
+            "organization_name": conf.organization["organization_name"]
+        })
+        # Associate the bunch.
+        ts.get_table("users-acl").add({
+            "organization_name": conf.organization["organization_name"],
+            "user_name": self._user_name,
+            "role_name": self._role_name,
+            "tenant_name": conf.tenant["tenant_name"]
+        })
+
+    def _remove_service_user_with_bearer_token(self):
+        conf = get_config()
+        ts = conf.table_store
+        ts.get_table("users-acl").remove({
+            "organization_name": conf.organization["organization_name"],
+            "user_name": self._user_name,
+            "role_name": self._role_name,
+            "tenant_name": conf.tenant["tenant_name"]
+        })
+        ts.get_table("users").remove({
+            "user_name": self._user_name,
+            "access_key": self._access_key,
+            "is_active": True,
+            "is_role_admin": False,
+            "is_service": True,
+            "organization_name": conf.organization["organization_name"]
+        })
+        ts.get_table("access-roles").remove({
+            "role_name": self._role_name,
+            "deployable_name": conf.deployable["deployable_name"],
+            "description": "a throwaway test role"
+        })
+        delattr(self, '_access_key')
+        delattr(self, '_user_name')
+        delattr(self, '_role_name')
+
 class MatchPlacementsTest(_BaseMatchPlacementTest):
     # Get match placement
 
@@ -225,13 +294,42 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
     # Create match placement
 
     def test_create_match_placement(self):
-        self.make_player()
+        # Have player 1 create the lobby
+        random_player_name_1 = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name_1}")
+
         self.create_lobby()
+
+        # Have player 2 join the lobby
+        random_player_name_2 = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name_2}")
+        self.join_lobby(self.lobby_members_url)
+
+        # Switch to player 1
+        self.auth(f"Player {random_player_name_1}")
+
+        # Create placement
         self.create_match_placement()
 
         response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.OK)
 
         self.assertDictEqual(response.json(), self.match_placement)
+
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("lobby", "LobbyMatchStarting")
+        self.assertIsNone(notification) # Shouldn't have any notification since the player knows whether or not it succeeded
+        # TODO: Brainstorm and figure out if this is the best approach
+
+        # Switch to player 2
+        self.auth(f"Player {random_player_name_2}")
+
+        # Assert message queue for player 2
+        notification, _ = self.get_player_notification("lobby", "LobbyMatchStarting")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(notification_data["status"], "starting")
 
     def test_create_match_placement_not_in_lobby(self):
         self.make_player()
@@ -302,6 +400,201 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
             self.delete(self.match_placement_url, expected_status_code=http_client.BAD_REQUEST)
 
+    # GameLift queue events
+
+    def test_match_placement_queue_event_fulfilled(self):
+        random_player_name = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name}")
+        self.create_lobby()
+        self.create_match_placement()
+
+        # Publish the queue event
+        with self._managed_bearer_token_user():
+            event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+            event["detail"]["placementId"] = self.match_placement_id
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+
+        # Re-auth
+        self.auth(f"Player {random_player_name}")
+
+        # Assert lobby, maybe move this somehow to lobby tests?
+        self.load_player_lobby()
+        self.assertIn("connection_string", self.lobby)
+        self.assertIsNotNone(self.lobby["start_date"])
+        self.assertEqual(self.lobby["status"], "started")
+
+        # Assert match placement
+        self.load_player_match_placement()
+        self.assertEqual(self.match_placement["status"], "completed")
+
+        # Game session ARN isn't in the response schema. Probably a good thing since the client doesn't need it
+        # self.assertIn("game_session_arn", self.match_placement)
+
+        # Assert message queue
+        notification, _ = self.get_player_notification("lobby", "LobbyMatchStarted")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(notification_data["status"], "started")
+        self.assertIn("connection_string", notification_data)
+        self.assertIn("connection_options", notification_data)
+
+    def test_match_placement_queue_event_cancelled(self):
+        random_player_name = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name}")
+        self.create_lobby()
+        self.create_match_placement()
+
+        # Publish the queue event
+        with self._managed_bearer_token_user():
+            event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+            event["detail"]["placementId"] = self.match_placement_id
+            event["detail"]["type"] = "PlacementCancelled"
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+
+        # Re-auth
+        self.auth(f"Player {random_player_name}")
+
+        # Assert lobby, maybe move this somehow to lobby tests?
+        self.load_player_lobby()
+        self.assertNotIn("connection_string", self.lobby)
+        self.assertIsNone(self.lobby["start_date"])
+        self.assertEqual(self.lobby["status"], "cancelled")
+
+        # Assert match placement
+        self.load_player_match_placement()
+        self.assertEqual(self.match_placement["status"], "cancelled")
+
+        # Assert message queue
+        notification, _ = self.get_player_notification("lobby", "LobbyMatchCancelled")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(notification_data["status"], "cancelled")
+
+    def test_match_placement_queue_event_timed_out(self):
+        random_player_name = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name}")
+        self.create_lobby()
+        self.create_match_placement()
+
+        # Publish the queue event
+        with self._managed_bearer_token_user():
+            event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+            event["detail"]["placementId"] = self.match_placement_id
+            event["detail"]["type"] = "PlacementTimedOut"
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+
+        # Re-auth
+        self.auth(f"Player {random_player_name}")
+
+        # Assert lobby, maybe move this somehow to lobby tests?
+        self.load_player_lobby()
+        self.assertNotIn("connection_string", self.lobby)
+        self.assertIsNone(self.lobby["start_date"])
+        self.assertEqual(self.lobby["status"], "timed_out")
+
+        # Assert match placement
+        self.load_player_match_placement()
+        self.assertEqual(self.match_placement["status"], "timed_out")
+
+        # Assert message queue
+        notification, _ = self.get_player_notification("lobby", "LobbyMatchTimedOut")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(notification_data["status"], "timed_out")
+
+    def test_match_placement_queue_event_failed(self):
+        random_player_name = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name}")
+        self.create_lobby()
+        self.create_match_placement()
+
+        # Publish the queue event
+        with self._managed_bearer_token_user():
+            event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+            event["detail"]["placementId"] = self.match_placement_id
+            event["detail"]["type"] = "PlacementFailed"
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+
+        # Re-auth
+        self.auth(f"Player {random_player_name}")
+
+        # Assert lobby, maybe move this somehow to lobby tests?
+        self.load_player_lobby()
+        self.assertNotIn("connection_string", self.lobby)
+        self.assertIsNone(self.lobby["start_date"])
+        self.assertEqual(self.lobby["status"], "failed")
+
+        # Assert match placement
+        self.load_player_match_placement()
+        self.assertEqual(self.match_placement["status"], "failed")
+
+        # Assert message queue
+        notification, _ = self.get_player_notification("lobby", "LobbyMatchFailed")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(notification_data["status"], "failed")
+
+    def test_match_placement_queue_event_match_placement_not_found(self):
+        random_player_name = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name}")
+        self.create_lobby()
+        self.create_match_placement()
+        self.load_player_lobby()
+
+        old_lobby = copy.deepcopy(self.lobby)
+        old_match_placement = copy.deepcopy(self.match_placement)
+
+        # Publish the queue event
+        with self._managed_bearer_token_user():
+            event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+
+        # Re-auth
+        self.auth(f"Player {random_player_name}")
+        self.load_player_match_placement()
+        self.load_player_lobby()
+
+        self.assertDictEqual(self.lobby, old_lobby)
+        self.assertDictEqual(self.match_placement, old_match_placement)
+
+    def test_match_placement_queue_event_unknown_type(self):
+        random_player_name = str(uuid.uuid4())
+        self.auth(f"Player {random_player_name}")
+        self.create_lobby()
+        self.create_match_placement()
+        self.load_player_lobby()
+
+        old_lobby = copy.deepcopy(self.lobby)
+        old_match_placement = copy.deepcopy(self.match_placement)
+
+        # Publish the queue event
+        with self._managed_bearer_token_user():
+            event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+            event["detail"]["type"] = "42"
+
+            # Expect a RuntimeError since we don't know how to handle an unknown event type
+            try:
+                self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
+                self.assertFalse(True)
+            except RuntimeError:
+                pass
+
+        # Re-auth
+        self.auth(f"Player {random_player_name}")
+        self.load_player_match_placement()
+        self.load_player_lobby()
+
+        self.assertDictEqual(self.lobby, old_lobby)
+        self.assertDictEqual(self.match_placement, old_match_placement)
+
 class _MockJsonLock(object):
     mocked_value = None
 
@@ -321,3 +614,38 @@ class _MockJsonLock(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+MOCK_GAMELIFT_QUEUE_EVENT = {
+   "version":"0",
+   "id":"93111702-4e98-8e1c-07d4-740ee173c4c0",
+   "detail-type":"GameLift Queue Placement Event",
+   "source":"aws.gamelift",
+   "account":"420691337",
+   "time":"2021-10-06T09:50:55Z",
+   "region":"eu-west-1",
+   "resources":[
+      "arn:aws:gamelift:eu-west-1:509899862212:gamesessionqueue/default"
+   ],
+   "detail":{
+      "placementId":"1941b6ae-dd29-4605-b0df-8c5ac8d37663",
+      "port":"1337",
+      "gameSessionArn":"arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663",
+      "ipAddress":"1.1.1.1",
+      "placedPlayerSessions":[
+         {
+            "playerId":"1",
+            "playerSessionId":"psess-3defcd9c-6953-577e-5e03-fffffe9a948a"
+         },
+         {
+            "playerId":"2",
+            "playerSessionId":"psess-3defcd9c-6953-577e-5e03-fffffe9afda7"
+         }
+      ],
+      "customEventData":"Target-DriftDevStable-GameSessionQueue",
+      "dnsName":"ec2-1-1-1-1.eu-west-1.compute.amazonaws.com",
+      "startTime":"2021-10-06T09:50:46.923Z",
+      "endTime":"2021-10-06T09:50:55.245Z",
+      "type":"PlacementFulfilled",
+      "gameSessionRegion":"eu-west-1"
+   }
+}
