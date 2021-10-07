@@ -386,12 +386,12 @@ class MatchAPI(MethodView):
                 log.info("Tried to set the unique key '{}' of a battle when one already exists".format(unique_key))
                 abort(http_client.CONFLICT, description="An existing match with the same unique_key was found")
 
-            publishing = None
+            message_data = None
             if match.status != new_status:
                 log.info("Changing status of match %s from '%s' to '%s'",
                          match_id, match.status, args["status"])
 
-                publishing = {"event": "match_status_changed", "match_id": match_id, "match_status": new_status}
+                message_data = {"event": "match_status_changed", "match_id": match_id, "match_status": new_status}
 
                 if new_status == "started":
                     match.start_date = utcnow()
@@ -404,8 +404,8 @@ class MatchAPI(MethodView):
                 setattr(match, arg, args[arg])
             g.db.commit()
 
-            if publishing:
-                current_app.extensions["messagebus"].publish_message("match", publishing)
+            if message_data:
+                current_app.extensions["messagebus"].publish_message("match", message_data)
 
             resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
             response_header = {
