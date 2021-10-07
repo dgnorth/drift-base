@@ -12,6 +12,7 @@ from drift.core.extensions.jwt import current_user
 from driftbase import lobbies
 import http.client as http_client
 import logging
+import copy
 
 bp = Blueprint("lobbies", "lobbies", url_prefix="/lobbies", description="Custom game lobbies for private/direct matches.")
 endpoints = Endpoints()
@@ -75,8 +76,7 @@ class LobbiesAPI(MethodView):
 
         try:
             lobby = lobbies.get_player_lobby(player_id)
-            _populate_lobby_urls(lobby)
-            return lobby
+            return _add_lobby_urls(lobby)
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
@@ -101,9 +101,7 @@ class LobbiesAPI(MethodView):
                 args.get("custom_data"),
             )
 
-            _populate_lobby_urls(lobby)
-
-            return lobby
+            return _add_lobby_urls(lobby)
         except lobbies.InvalidRequestException as e:
             abort(http_client.BAD_REQUEST, message=e.msg)
 
@@ -126,8 +124,7 @@ class LobbyAPI(MethodView):
 
         try:
             lobby = lobbies.get_player_lobby(player_id, lobby_id)
-            _populate_lobby_urls(lobby)
-            return lobby
+            return _add_lobby_urls(lobby)
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
@@ -185,9 +182,7 @@ class LobbyMembersAPI(MethodView):
 
             lobby = lobbies.join_lobby(player_id, lobby_id)
 
-            _populate_lobby_urls(lobby)
-
-            return lobby
+            return _add_lobby_urls(lobby)
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.InvalidRequestException as e:
@@ -263,18 +258,20 @@ def endpoint_info(*args):
 
 # Helpers
 
-def _populate_lobby_urls(lobby: dict):
+def _add_lobby_urls(lobby: dict):
     lobby_id = lobby["lobby_id"]
+    lobby_with_urls = copy.deepcopy(lobby)
 
-    lobby["lobby_url"] = url_for("lobbies.lobby", lobby_id=lobby_id, _external=True)
-    lobby["lobby_members_url"] = url_for("lobbies.members", lobby_id=lobby_id, _external=True)
-    lobby["lobby_member_url"] = url_for("lobbies.member", lobby_id=lobby_id, member_player_id=current_user["player_id"], _external=True)
+    lobby_with_urls["lobby_url"] = url_for("lobbies.lobby", lobby_id=lobby_id, _external=True)
+    lobby_with_urls["lobby_members_url"] = url_for("lobbies.members", lobby_id=lobby_id, _external=True)
+    lobby_with_urls["lobby_member_url"] = url_for("lobbies.member", lobby_id=lobby_id, member_player_id=current_user["player_id"], _external=True)
 
-    for member in lobby["members"]:
+    for member in lobby_with_urls["members"]:
         member["lobby_member_url"] = url_for("lobbies.member", lobby_id=lobby_id, member_player_id=member["player_id"], _external=True)
 
     lobby_status = lobby["status"]
     placement_id = lobby.get("placement_id", None)
     if placement_id and lobby_status == "starting":
-        lobby["lobby_match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=placement_id, _external=True)
+        lobby_with_urls["lobby_match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=placement_id, _external=True)
 
+    return lobby_with_urls
