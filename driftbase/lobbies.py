@@ -14,6 +14,8 @@ from driftbase.resources.lobbies import TIER_DEFAULTS
 
 log = logging.getLogger(__name__)
 
+# TODO: Prevent deadlocks via key sorting and locking
+
 def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
     lobby = None
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
