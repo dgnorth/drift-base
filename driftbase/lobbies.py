@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 # TODO: Prevent deadlocks via key sorting and locking
 
 MAX_LOBBY_ID_GENERATION_RETRIES = 100
+DEFAULT_LOBBY_NAME = "Lobby"
 
 def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
     lobby = None
@@ -89,7 +90,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
 
                 new_lobby = {
                     "lobby_id": lobby_id,
-                    "lobby_name": lobby_name or _get_tenant_config_value("default_lobby_name"),
+                    "lobby_name": lobby_name or DEFAULT_LOBBY_NAME,
                     "map_name": map_name,
                     "team_capacity": team_capacity,
                     "team_names": team_names,
