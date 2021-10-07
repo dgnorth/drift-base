@@ -629,7 +629,10 @@ def _get_lobby_host_player_id(lobby: dict) -> int:
 
     return 0
 
-def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: list[int] = []) -> list[int]:
+def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: typing.Optional[list[int]] = None) -> list[int]:
+    if exclude_player_ids is None:
+        exclude_player_ids = []
+
     return [member["player_id"] for member in lobby["members"] if member["player_id"] not in exclude_player_ids]
 
 def _get_tenant_config_value(config_key):
