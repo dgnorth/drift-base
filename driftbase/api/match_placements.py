@@ -6,7 +6,8 @@ from flask_smorest import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 from marshmallow import Schema, fields
 from flask.views import MethodView
-from flask import url_for, abort, make_response, jsonify
+from flask_smorest import abort
+from flask import url_for
 from drift.core.extensions.jwt import current_user
 from driftbase import match_placements, lobbies, flexmatch
 import http.client as http_client
@@ -53,9 +54,9 @@ class MatchPlacementsAPI(MethodView):
 
             return match_placement
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
     @bp.arguments(CreateMatchPlacementRequestSchema)
     @bp.response(http_client.CREATED, MatchPlacementResponseSchema)
@@ -72,12 +73,12 @@ class MatchPlacementsAPI(MethodView):
 
             return match_placement
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
         except flexmatch.GameliftClientException as e:
             log.error(f"Failed to start match placement for player '{player_id}': Gamelift response:\n'{e.debugs}'")
-            _abort(e.msg, http_client.INTERNAL_SERVER_ERROR)
+            abort(http_client.INTERNAL_SERVER_ERROR, message=e.msg)
 
 @bp.route("/<string:match_placement_id>", endpoint="match-placement")
 class MatchPlacementAPI(MethodView):
@@ -96,9 +97,9 @@ class MatchPlacementAPI(MethodView):
 
             return match_placement
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, match_placement_id: str):
@@ -112,12 +113,12 @@ class MatchPlacementAPI(MethodView):
         except lobbies.NotFoundException:
             pass
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
         except flexmatch.GameliftClientException as e:
             log.error(f"Failed to stop match placement for player '{player_id}': Gamelift response:\n'{e.debugs}'")
-            _abort(e.msg, http_client.INTERNAL_SERVER_ERROR)
+            abort(http_client.INTERNAL_SERVER_ERROR, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
 
 @endpoints.register
@@ -138,6 +139,3 @@ def endpoint_info(*args):
             log.error(e.msg)
 
     return ret
-
-def _abort(message: str, status: int):
-    abort(make_response(jsonify(message=message), status))

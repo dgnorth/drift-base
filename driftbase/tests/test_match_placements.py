@@ -16,146 +16,6 @@ MOCK_PLACEMENT = {
 
 MOCK_ERROR = "Some error"
 
-"""
-Match Placements API
-"""
-
-class TestMatchPlacements(BaseCloudkitTest):
-    def test_match_placements(self):
-        self.make_player()
-        self.assertIn("match_placements", self.endpoints)
-
-    def test_my_match_placement(self):
-        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT):
-            self.make_player()
-            self.assertIn("my_match_placement", self.endpoints)
-
-# /match-placements
-class TestMatchPlacementsAPI(BaseCloudkitTest):
-    # Get
-    def test_get_api(self):
-        self.make_player()
-        match_placements_url = self.endpoints["match_placements"]
-
-        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT) as get_player_match_placement_mock:
-            # Valid
-            response = self.get(match_placements_url, expected_status_code=http_client.OK)
-
-            self.assertIn("match_placement_url", response.json())
-
-            # Not found
-            get_player_match_placement_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.get(match_placements_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Unauthorized
-            get_player_match_placement_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
-
-            response = self.get(match_placements_url, expected_status_code=http_client.UNAUTHORIZED)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-    # Post
-    def test_post_api(self):
-        self.make_player()
-        match_placements_url = self.endpoints["match_placements"]
-
-        post_data = {
-            "lobby_id": "123456"
-        }
-
-        with patch.object(match_placements, "start_lobby_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
-            # Valid
-            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.CREATED)
-
-            self.assertIn("match_placement_url", response.json())
-
-            # Invalid data
-            start_lobby_match_placement_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # GameLift failure
-            start_lobby_match_placement_mock.side_effect = flexmatch.GameliftClientException(MOCK_ERROR, "")
-
-            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-# /match-placements/<match_placement_id>
-class TestMatchPlacementAPI(BaseCloudkitTest):
-    # Get
-    def test_get_api(self):
-        self.make_player()
-        match_placement_url = self.endpoints["match_placements"] + "123456"
-
-        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
-            # Valid
-            response = self.get(match_placement_url, expected_status_code=http_client.OK)
-
-            self.assertIn("match_placement_url", response.json())
-
-            # Not found
-            start_lobby_match_placement_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.get(match_placement_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Unauthorized
-            start_lobby_match_placement_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
-
-            response = self.get(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-    # Delete
-    def test_delete_api(self):
-        self.make_player()
-        match_placement_url = self.endpoints["match_placements"] + "123456"
-
-        with patch.object(match_placements, "stop_player_match_placement", return_value=MOCK_PLACEMENT) as stop_player_match_placement:
-            # Valid
-            response = self.delete(match_placement_url, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Not found
-            stop_player_match_placement.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.delete(match_placement_url, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Invalid data
-            stop_player_match_placement.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.delete(match_placement_url, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Unauthorized
-            stop_player_match_placement.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
-
-            response = self.delete(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # GameLift failure
-            stop_player_match_placement.side_effect = flexmatch.GameliftClientException(MOCK_ERROR, "")
-
-            response = self.delete(match_placement_url, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-"""
-Match placement implementation
-"""
-
 class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
     match_placement = None
     match_placement_id = None
@@ -253,6 +113,146 @@ class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
         delattr(self, '_user_name')
         delattr(self, '_role_name')
 
+"""
+Match Placements API
+"""
+
+class TestMatchPlacements(BaseCloudkitTest):
+    def test_match_placements(self):
+        self.make_player()
+        self.assertIn("match_placements", self.endpoints)
+
+    def test_my_match_placement(self):
+        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT):
+            self.make_player()
+            self.assertIn("my_match_placement", self.endpoints)
+
+# /match-placements
+class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
+    # Get
+    def test_get_api(self):
+        self.make_player()
+        match_placements_url = self.endpoints["match_placements"]
+
+        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT) as get_player_match_placement_mock:
+            # Valid
+            response = self.get(match_placements_url, expected_status_code=http_client.OK)
+
+            self.assertIn("match_placement_url", response.json())
+
+            # Not found
+            get_player_match_placement_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.get(match_placements_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Unauthorized
+            get_player_match_placement_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+
+            response = self.get(match_placements_url, expected_status_code=http_client.UNAUTHORIZED)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+    # Post
+    def test_post_api(self):
+        self.make_player()
+        match_placements_url = self.endpoints["match_placements"]
+
+        post_data = {
+            "lobby_id": "123456"
+        }
+
+        with patch.object(match_placements, "start_lobby_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
+            # Valid
+            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.CREATED)
+
+            self.assertIn("match_placement_url", response.json())
+
+            # Invalid data
+            start_lobby_match_placement_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # GameLift failure
+            start_lobby_match_placement_mock.side_effect = flexmatch.GameliftClientException(MOCK_ERROR, "")
+
+            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+# /match-placements/<match_placement_id>
+class TestMatchPlacementAPI(_BaseMatchPlacementTest):
+    # Get
+    def test_get_api(self):
+        self.make_player()
+        match_placement_url = self.endpoints["match_placements"] + "123456"
+
+        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
+            # Valid
+            response = self.get(match_placement_url, expected_status_code=http_client.OK)
+
+            self.assertIn("match_placement_url", response.json())
+
+            # Not found
+            start_lobby_match_placement_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.get(match_placement_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Unauthorized
+            start_lobby_match_placement_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+
+            response = self.get(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+    # Delete
+    def test_delete_api(self):
+        self.make_player()
+        match_placement_url = self.endpoints["match_placements"] + "123456"
+
+        with patch.object(match_placements, "stop_player_match_placement", return_value=MOCK_PLACEMENT) as stop_player_match_placement:
+            # Valid
+            response = self.delete(match_placement_url, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Not found
+            stop_player_match_placement.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.delete(match_placement_url, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Invalid data
+            stop_player_match_placement.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.delete(match_placement_url, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Unauthorized
+            stop_player_match_placement.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+
+            response = self.delete(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # GameLift failure
+            stop_player_match_placement.side_effect = flexmatch.GameliftClientException(MOCK_ERROR, "")
+
+            response = self.delete(match_placement_url, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+"""
+Match placement implementation
+"""
+
 class MatchPlacementsTest(_BaseMatchPlacementTest):
     # Get match placement
 
@@ -279,7 +279,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_get_match_placement_unauthorized(self):
         self.make_player()
@@ -289,7 +289,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         # Bogus match placement
         response = self.get(self.endpoints["match_placements"] + "123456", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     # Create match placement
 
@@ -338,7 +338,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
                 response = self.post(self.endpoints["match_placements"], data={"lobby_id": "123456"}, expected_status_code=http_client.UNAUTHORIZED)
 
-                self.assertIn("message", response.json())
+                self._assert_error(response)
 
     def test_create_match_placement_not_lobby_host(self):
         self.auth("Player 1")
@@ -351,7 +351,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
                 response = self.post(self.endpoints["match_placements"], data={"lobby_id": self.lobby_id}, expected_status_code=http_client.BAD_REQUEST)
 
-                self.assertIn("message", response.json())
+                self._assert_error(response)
 
     def test_create_match_placement_already_starting(self):
         self.make_player()
@@ -366,7 +366,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
                 with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
                     response = self.post(self.endpoints["match_placements"], data={"lobby_id": self.lobby_id}, expected_status_code=http_client.BAD_REQUEST)
 
-                    self.assertIn("message", response.json())
+                    self._assert_error(response)
 
     # Delete match placement
 
@@ -378,7 +378,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_delete_match_placement_unauthorized(self):
         self.make_player()
@@ -386,7 +386,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         # Bogus
         response = self.delete(self.endpoints["match_placements"] + "123456", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_delete_match_placement_not_pending(self):
         self.make_player()

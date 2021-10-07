@@ -6,7 +6,8 @@ from flask_smorest import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 from marshmallow import Schema, fields
 from flask.views import MethodView
-from flask import url_for, request, abort, make_response, jsonify
+from flask_smorest import abort
+from flask import url_for
 from drift.core.extensions.jwt import current_user
 from driftbase import lobbies
 import http.client as http_client
@@ -70,14 +71,16 @@ class LobbiesAPI(MethodView):
         """
         player_id = current_user["player_id"]
 
+
+
         try:
             lobby = lobbies.get_player_lobby(player_id)
             _populate_lobby_urls(lobby)
             return lobby
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
     @bp.arguments(CreateLobbyRequestSchema)
     @bp.response(http_client.CREATED, LobbyResponseSchema)
@@ -102,7 +105,7 @@ class LobbiesAPI(MethodView):
 
             return lobby
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
 
 @bp.route("/<string:lobby_id>", endpoint="lobby")
 class LobbyAPI(MethodView):
@@ -126,9 +129,9 @@ class LobbyAPI(MethodView):
             _populate_lobby_urls(lobby)
             return lobby
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
     @bp.arguments(UpdateLobbyRequestSchema)
     @bp.response(http_client.NO_CONTENT)
@@ -148,11 +151,11 @@ class LobbyAPI(MethodView):
                 args.get("custom_data"),
             )
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str):
@@ -165,9 +168,9 @@ class LobbyAPI(MethodView):
         except lobbies.NotFoundException:
             pass
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
 @bp.route("/<string:lobby_id>/members", endpoint="members")
 class LobbyMembersAPI(MethodView):
@@ -186,9 +189,9 @@ class LobbyMembersAPI(MethodView):
 
             return lobby
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
 
 @bp.route("/<string:lobby_id>/members/<int:member_player_id>", endpoint="member")
 class LobbyMemberAPI(MethodView):
@@ -211,11 +214,11 @@ class LobbyMemberAPI(MethodView):
                 args.get("ready")
             )
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str, member_player_id: int):
@@ -229,11 +232,11 @@ class LobbyMemberAPI(MethodView):
             else:
                 lobbies.kick_member(player_id, member_player_id, lobby_id)
         except lobbies.NotFoundException as e:
-            _abort(e.msg, http_client.NOT_FOUND)
+            abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.InvalidRequestException as e:
-            _abort(e.msg, http_client.BAD_REQUEST)
+            abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
-            _abort(e.msg, http_client.UNAUTHORIZED)
+            abort(http_client.UNAUTHORIZED, message=e.msg)
 
 @endpoints.register
 def endpoint_info(*args):
@@ -275,5 +278,3 @@ def _populate_lobby_urls(lobby: dict):
     if placement_id and lobby_status == "starting":
         lobby["lobby_match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=placement_id, _external=True)
 
-def _abort(message: str, status: int):
-    abort(make_response(jsonify(message=message), status))

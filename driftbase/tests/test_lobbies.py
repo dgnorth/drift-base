@@ -33,305 +33,6 @@ MOCK_LOBBY = {
 
 MOCK_ERROR = "Some error"
 
-"""
-Lobby API
-"""
-
-class TestLobbies(BaseCloudkitTest):
-    def test_lobbies(self):
-        self.make_player()
-        self.assertIn("lobbies", self.endpoints)
-
-    def test_my_lobby(self):
-        with patch.object(lobbies, "get_player_lobby", return_value=MOCK_LOBBY):
-            self.make_player()
-            self.assertIn("my_lobby", self.endpoints)
-            self.assertIn("my_lobby_members", self.endpoints)
-            self.assertIn("my_lobby_member", self.endpoints)
-
-
-# /lobbies
-class TestLobbiesAPI(BaseCloudkitTest):
-    # Get
-    def test_get_api(self):
-        self.make_player()
-        lobbies_url = self.endpoints["lobbies"]
-
-        with patch.object(lobbies, "get_player_lobby", return_value=MOCK_LOBBY) as get_player_lobby_mock:
-            # Valid - not starting
-            response = self.get(lobbies_url, expected_status_code=http_client.OK)
-            response_json = response.json()
-
-            self.assertIn("lobby_url", response_json)
-            self.assertIn("lobby_members_url", response_json)
-            self.assertIn("lobby_member_url", response_json)
-
-            self.assertIn("members", response_json)
-            for member in response_json["members"]:
-                self.assertIn("lobby_member_url", member)
-
-            # Valid - starting
-            starting_lobby = copy.deepcopy(MOCK_LOBBY)
-            starting_lobby["status"] = "starting"
-            starting_lobby["placement_id"] = "something"
-            get_player_lobby_mock.return_value = starting_lobby
-
-            response = self.get(lobbies_url, expected_status_code=http_client.OK)
-
-            self.assertIn("lobby_match_placement_url", response.json())
-
-            # Not found
-            get_player_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.get(lobbies_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Unauthorized
-            get_player_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
-
-            response = self.get(lobbies_url, expected_status_code=http_client.UNAUTHORIZED)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-    # Post
-    def test_post_api(self):
-        self.make_player()
-        lobbies_url = self.endpoints["lobbies"]
-        post_data = {
-            "team_capacity": 4,
-            "team_names": ["1", "2"],
-        }
-
-        # Invalid schema
-        self.post(lobbies_url, data={}, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
-
-        with patch.object(lobbies, "create_lobby", return_value=MOCK_LOBBY) as create_lobby_mock:
-            # Valid
-            response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.CREATED)
-            response_json = response.json()
-
-            self.assertIn("lobby_url", response_json)
-            self.assertIn("lobby_members_url", response_json)
-            self.assertIn("lobby_member_url", response_json)
-
-            self.assertIn("members", response_json)
-            for member in response_json["members"]:
-                self.assertIn("lobby_member_url", member)
-
-            # Invalid data
-            create_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-# /lobbies/<lobby_id>
-class TestLobbyAPI(BaseCloudkitTest):
-    # Get
-    def test_get_api(self):
-        self.make_player()
-        lobby_url = self.endpoints["lobbies"] + "123456"
-
-        with patch.object(lobbies, "get_player_lobby", return_value=MOCK_LOBBY) as get_player_lobby_mock:
-            # Valid
-            response = self.get(lobby_url, expected_status_code=http_client.OK)
-            response_json = response.json()
-
-            self.assertIn("lobby_url", response_json)
-            self.assertIn("lobby_members_url", response_json)
-            self.assertIn("lobby_member_url", response_json)
-
-            self.assertIn("members", response_json)
-            for member in response_json["members"]:
-                self.assertIn("lobby_member_url", member)
-
-            # Not found
-            get_player_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.get(lobby_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Unauthorized
-            get_player_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
-
-            response = self.get(lobby_url, expected_status_code=http_client.UNAUTHORIZED)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-    # Patch
-    def test_patch_api(self):
-        self.make_player()
-        lobby_url = self.endpoints["lobbies"] + "123456"
-
-        with patch.object(lobbies, "update_lobby") as update_lobby_mock:
-            # Valid
-            response = self.patch(lobby_url, data={}, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Not found
-            update_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.patch(lobby_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Invalid data
-            update_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.patch(lobby_url, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Unauthorized
-            update_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
-
-            response = self.patch(lobby_url, expected_status_code=http_client.UNAUTHORIZED)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-    # Delete
-    def test_delete_api(self):
-        self.make_player()
-        lobby_url = self.endpoints["lobbies"] + "123456"
-
-        with patch.object(lobbies, "delete_lobby") as update_lobby_mock:
-            # Valid
-            response = self.delete(lobby_url, data={}, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Not found
-            update_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.delete(lobby_url, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Invalid data
-            update_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.delete(lobby_url, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-# /lobbies/<lobby_id>/members
-class TestLobbyMembersAPI(BaseCloudkitTest):
-    # Post
-    def test_post_api(self):
-        self.make_player()
-        lobby_members_url = self.endpoints["lobbies"] + "123456/members"
-
-        with patch.object(lobbies, "join_lobby", return_value=MOCK_LOBBY) as join_lobby_mock:
-            # Valid
-            response = self.post(lobby_members_url, expected_status_code=http_client.CREATED)
-            response_json = response.json()
-
-            self.assertIn("lobby_url", response_json)
-            self.assertIn("lobby_members_url", response_json)
-            self.assertIn("lobby_member_url", response_json)
-
-            self.assertIn("members", response_json)
-            for member in response_json["members"]:
-                self.assertIn("lobby_member_url", member)
-
-            # Not found
-            join_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.post(lobby_members_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Invalid data
-            join_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.post(lobby_members_url, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-# /lobbies/<lobby_id>/members/<member_id>
-class TestLobbyMemberAPI(BaseCloudkitTest):
-    # Put
-    def test_put_api(self):
-        self.make_player()
-        lobby_member_url = self.endpoints["lobbies"] + "123456/members/1337"
-
-        with patch.object(lobbies, "update_lobby_member", return_value=MOCK_LOBBY) as update_lobby_member_mock:
-            # Valid
-            response = self.put(lobby_member_url, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Not found
-            update_lobby_member_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.put(lobby_member_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Invalid data
-            update_lobby_member_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.put(lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-    # Delete
-    def test_delete_api(self):
-        self.make_player()
-
-        # Leave lobby
-        with patch.object(lobbies, "leave_lobby", return_value=MOCK_LOBBY) as leave_lobby_mock:
-            my_lobby_member_url = self.endpoints["lobbies"] + f"123456/members/{self.player_id}"
-
-            # Valid
-            response = self.delete(my_lobby_member_url, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Not found
-            leave_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.delete(my_lobby_member_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Invalid data
-            leave_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.delete(my_lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-        # Kick member
-        with patch.object(lobbies, "kick_member") as kick_member_mock:
-            lobby_member_url = self.endpoints["lobbies"] + f"123456/members/1337"
-
-            # Valid
-            response = self.delete(lobby_member_url, expected_status_code=http_client.NO_CONTENT)
-
-            self.assertEqual(response.text, "")
-
-            # Not found
-            kick_member_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
-
-            response = self.delete(lobby_member_url, expected_status_code=http_client.NOT_FOUND)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-            # Invalid data
-            kick_member_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
-
-            response = self.delete(lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
-
-            self.assertDictEqual(response.json(), {"message": MOCK_ERROR})
-
-"""
-Lobby implementation
-"""
-
 class _BaseLobbyTest(BaseCloudkitTest):
     lobby = None
     lobby_id = None
@@ -378,6 +79,315 @@ class _BaseLobbyTest(BaseCloudkitTest):
         self.lobby_members_url = lobby["lobby_members_url"]
         self.lobby_member_url = lobby["lobby_member_url"]
 
+    def _assert_error(self, response, expected_description=None):
+        response_json = response.json()
+
+        self.assertIn("error", response_json)
+        self.assertIsInstance(response_json["error"], dict)
+        self.assertIn("description" ,response_json["error"])
+
+        if expected_description:
+            self.assertEqual(response_json["error"]["description"], expected_description)
+
+"""
+Lobby API
+"""
+
+class TestLobbies(BaseCloudkitTest):
+    def test_lobbies(self):
+        self.make_player()
+        self.assertIn("lobbies", self.endpoints)
+
+    def test_my_lobby(self):
+        with patch.object(lobbies, "get_player_lobby", return_value=MOCK_LOBBY):
+            self.make_player()
+            self.assertIn("my_lobby", self.endpoints)
+            self.assertIn("my_lobby_members", self.endpoints)
+            self.assertIn("my_lobby_member", self.endpoints)
+
+
+# /lobbies
+class TestLobbiesAPI(_BaseLobbyTest):
+    # Get
+    def test_get_api(self):
+        self.make_player()
+        lobbies_url = self.endpoints["lobbies"]
+
+        with patch.object(lobbies, "get_player_lobby", return_value=MOCK_LOBBY) as get_player_lobby_mock:
+            # Valid - not starting
+            response = self.get(lobbies_url, expected_status_code=http_client.OK)
+            response_json = response.json()
+
+            self.assertIn("lobby_url", response_json)
+            self.assertIn("lobby_members_url", response_json)
+            self.assertIn("lobby_member_url", response_json)
+
+            self.assertIn("members", response_json)
+            for member in response_json["members"]:
+                self.assertIn("lobby_member_url", member)
+
+            # Valid - starting
+            starting_lobby = copy.deepcopy(MOCK_LOBBY)
+            starting_lobby["status"] = "starting"
+            starting_lobby["placement_id"] = "something"
+            get_player_lobby_mock.return_value = starting_lobby
+
+            response = self.get(lobbies_url, expected_status_code=http_client.OK)
+
+            self.assertIn("lobby_match_placement_url", response.json())
+
+            # Not found
+            get_player_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.get(lobbies_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Unauthorized
+            get_player_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+
+            response = self.get(lobbies_url, expected_status_code=http_client.UNAUTHORIZED)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+    # Post
+    def test_post_api(self):
+        self.make_player()
+        lobbies_url = self.endpoints["lobbies"]
+        post_data = {
+            "team_capacity": 4,
+            "team_names": ["1", "2"],
+        }
+
+        # Invalid schema
+        self.post(lobbies_url, data={}, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
+
+        with patch.object(lobbies, "create_lobby", return_value=MOCK_LOBBY) as create_lobby_mock:
+            # Valid
+            response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.CREATED)
+            response_json = response.json()
+
+            self.assertIn("lobby_url", response_json)
+            self.assertIn("lobby_members_url", response_json)
+            self.assertIn("lobby_member_url", response_json)
+
+            self.assertIn("members", response_json)
+            for member in response_json["members"]:
+                self.assertIn("lobby_member_url", member)
+
+            # Invalid data
+            create_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+# /lobbies/<lobby_id>
+class TestLobbyAPI(_BaseLobbyTest):
+    # Get
+    def test_get_api(self):
+        self.make_player()
+        lobby_url = self.endpoints["lobbies"] + "123456"
+
+        with patch.object(lobbies, "get_player_lobby", return_value=MOCK_LOBBY) as get_player_lobby_mock:
+            # Valid
+            response = self.get(lobby_url, expected_status_code=http_client.OK)
+            response_json = response.json()
+
+            self.assertIn("lobby_url", response_json)
+            self.assertIn("lobby_members_url", response_json)
+            self.assertIn("lobby_member_url", response_json)
+
+            self.assertIn("members", response_json)
+            for member in response_json["members"]:
+                self.assertIn("lobby_member_url", member)
+
+            # Not found
+            get_player_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.get(lobby_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Unauthorized
+            get_player_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+
+            response = self.get(lobby_url, expected_status_code=http_client.UNAUTHORIZED)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+    # Patch
+    def test_patch_api(self):
+        self.make_player()
+        lobby_url = self.endpoints["lobbies"] + "123456"
+
+        with patch.object(lobbies, "update_lobby") as update_lobby_mock:
+            # Valid
+            response = self.patch(lobby_url, data={}, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Not found
+            update_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.patch(lobby_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Invalid data
+            update_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.patch(lobby_url, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Unauthorized
+            update_lobby_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+
+            response = self.patch(lobby_url, expected_status_code=http_client.UNAUTHORIZED)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+    # Delete
+    def test_delete_api(self):
+        self.make_player()
+        lobby_url = self.endpoints["lobbies"] + "123456"
+
+        with patch.object(lobbies, "delete_lobby") as update_lobby_mock:
+            # Valid
+            response = self.delete(lobby_url, data={}, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Not found
+            update_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.delete(lobby_url, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Invalid data
+            update_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.delete(lobby_url, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+# /lobbies/<lobby_id>/members
+class TestLobbyMembersAPI(_BaseLobbyTest):
+    # Post
+    def test_post_api(self):
+        self.make_player()
+        lobby_members_url = self.endpoints["lobbies"] + "123456/members"
+
+        with patch.object(lobbies, "join_lobby", return_value=MOCK_LOBBY) as join_lobby_mock:
+            # Valid
+            response = self.post(lobby_members_url, expected_status_code=http_client.CREATED)
+            response_json = response.json()
+
+            self.assertIn("lobby_url", response_json)
+            self.assertIn("lobby_members_url", response_json)
+            self.assertIn("lobby_member_url", response_json)
+
+            self.assertIn("members", response_json)
+            for member in response_json["members"]:
+                self.assertIn("lobby_member_url", member)
+
+            # Not found
+            join_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.post(lobby_members_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Invalid data
+            join_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.post(lobby_members_url, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+# /lobbies/<lobby_id>/members/<member_id>
+class TestLobbyMemberAPI(_BaseLobbyTest):
+    # Put
+    def test_put_api(self):
+        self.make_player()
+        lobby_member_url = self.endpoints["lobbies"] + "123456/members/1337"
+
+        with patch.object(lobbies, "update_lobby_member", return_value=MOCK_LOBBY) as update_lobby_member_mock:
+            # Valid
+            response = self.put(lobby_member_url, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Not found
+            update_lobby_member_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.put(lobby_member_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Invalid data
+            update_lobby_member_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.put(lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+    # Delete
+    def test_delete_api(self):
+        self.make_player()
+
+        # Leave lobby
+        with patch.object(lobbies, "leave_lobby", return_value=MOCK_LOBBY) as leave_lobby_mock:
+            my_lobby_member_url = self.endpoints["lobbies"] + f"123456/members/{self.player_id}"
+
+            # Valid
+            response = self.delete(my_lobby_member_url, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Not found
+            leave_lobby_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.delete(my_lobby_member_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Invalid data
+            leave_lobby_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.delete(my_lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+        # Kick member
+        with patch.object(lobbies, "kick_member") as kick_member_mock:
+            lobby_member_url = self.endpoints["lobbies"] + f"123456/members/1337"
+
+            # Valid
+            response = self.delete(lobby_member_url, expected_status_code=http_client.NO_CONTENT)
+
+            self.assertEqual(response.text, "")
+
+            # Not found
+            kick_member_mock.side_effect = lobbies.NotFoundException(MOCK_ERROR)
+
+            response = self.delete(lobby_member_url, expected_status_code=http_client.NOT_FOUND)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # Invalid data
+            kick_member_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.delete(lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+"""
+Lobby implementation
+"""
+
 class LobbiesTest(_BaseLobbyTest):
     # Get lobby
 
@@ -404,7 +414,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         response = self.get(lobbies_url, expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_get_player_lobby_not_in_specific_lobby(self):
         self.make_player()
@@ -414,7 +424,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Get bogus lobby
         response = self.get(lobbies_url + "nope", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_get_player_lobby_started_spectator(self):
         self.make_player()
@@ -505,7 +515,7 @@ class LobbiesTest(_BaseLobbyTest):
             # Create lobby
             response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("message", response.json())
+            self._assert_error(response)
 
     def test_create_lobby_while_matchmaking(self):
         self.make_player()
@@ -520,7 +530,7 @@ class LobbiesTest(_BaseLobbyTest):
             # Create lobby
             response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("message", response.json())
+            self._assert_error(response)
 
     def test_create_lobby_while_in_a_lobby(self):
         self.make_player()
@@ -674,7 +684,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Update bogus lobby
         response = self.patch(lobbies_url + "123456", data={"team_capacity": 8}, expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_update_lobby_not_the_host(self):
         self.make_player()
@@ -689,7 +699,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Update attempt
         response = self.patch(self.lobby_url, data={"team_capacity": 8}, expected_status_code=http_client.BAD_REQUEST)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_update_lobby_match_started(self):
         self.make_player()
@@ -699,7 +709,7 @@ class LobbiesTest(_BaseLobbyTest):
             # Update attempt
             response = self.patch(self.lobby_url, data={"team_capacity": 8}, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("message", response.json())
+            self._assert_error(response)
 
     def test_update_lobby_team_over_capacity(self):
         """
@@ -812,12 +822,12 @@ class LobbiesTest(_BaseLobbyTest):
         # Assert not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Assert lobby doesn't exist
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Assert message queue for player 1
         notification, _ = self.get_player_notification("lobby", "LobbyDeleted")
@@ -831,12 +841,12 @@ class LobbiesTest(_BaseLobbyTest):
         # Assert not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Assert lobby doesn't exist
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Assert message queue for player 2
         notification, _ = self.get_player_notification("lobby", "LobbyDeleted")
@@ -855,7 +865,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Some bogus lobby id
         response = self.delete(lobbies_url + "123456", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_delete_lobby_not_host(self):
         self.make_player()
@@ -914,12 +924,12 @@ class LobbiesTest(_BaseLobbyTest):
         # Assert not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Assert lobby doesn't exist for host
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Assert message queue for player 1
         notification, _ = self.get_player_notification("lobby", "LobbyMemberLeft")
@@ -954,7 +964,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Some bogus lobby id
         response = self.delete(lobbies_url + f"123456/members/{self.player_id}", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_leave_lobby_not_in_lobby(self):
         self.make_player()
@@ -964,7 +974,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Leave some other lobby
         response = self.delete(lobbies_url + f"123456/members/{self.player_id}", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Verify still in lobby
         response = self.get(lobbies_url, expected_status_code=http_client.OK)
@@ -983,7 +993,7 @@ class LobbiesTest(_BaseLobbyTest):
 
             response = self.delete(self.lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("message", response.json())
+            self._assert_error(response)
 
     def test_leave_lobby_starting_after_leave_lock(self):
         self.make_player()
@@ -1041,12 +1051,12 @@ class LobbiesTest(_BaseLobbyTest):
         # Verify not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Verify lobby doesn't exist for member
         response = self.get(self.lobby_url, expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Assert message queue for player 2
         notification, _ = self.get_player_notification("lobby", "LobbyMemberKicked")
@@ -1073,7 +1083,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Kick member who is now in another lobby
         response = self.delete(lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_kick_lobby_member_not_host(self):
         # Host creates lobby
@@ -1091,7 +1101,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Member attempts to kick host
         response = self.delete(host_lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         # Verify lobby is still intact
         self.load_player_lobby()
@@ -1177,7 +1187,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         response = self.post(self.endpoints["lobbies"] + "123456/members", expected_status_code=http_client.NOT_FOUND)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     # Update lobby member
 
@@ -1246,7 +1256,7 @@ class LobbiesTest(_BaseLobbyTest):
         # Empty update
         response = self.put(self.endpoints["lobbies"] + f"123456/members/{self.player_id}", expected_status_code=http_client.UNAUTHORIZED)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_update_lobby_member_host(self):
         self.auth("Player 1")
@@ -1283,7 +1293,7 @@ class LobbiesTest(_BaseLobbyTest):
         new_team_name = "1"
         response = self.put(host_lobby_member_url, data={"team_name": new_team_name}, expected_status_code=http_client.BAD_REQUEST)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
         self.load_player_lobby()
         host = self.get_lobby_member(host_player_id)
@@ -1298,7 +1308,7 @@ class LobbiesTest(_BaseLobbyTest):
             # Empty update
             response = self.put(self.lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
-            self.assertIn("message", response.json())
+            self._assert_error(response)
 
     def test_update_lobby_member_invalid_team(self):
         self.make_player()
@@ -1307,7 +1317,7 @@ class LobbiesTest(_BaseLobbyTest):
         invalid_team_name = "bingo"
         response = self.put(self.lobby_member_url, data={"team_name": invalid_team_name}, expected_status_code=http_client.BAD_REQUEST)
 
-        self.assertIn("message", response.json())
+        self._assert_error(response)
 
     def test_update_lobby_member_message_queue(self):
         self.auth("Player 1")
