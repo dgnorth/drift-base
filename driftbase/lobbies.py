@@ -16,6 +16,8 @@ log = logging.getLogger(__name__)
 
 # TODO: Prevent deadlocks via key sorting and locking
 
+MAX_LOBBY_ID_GENERATION_RETRIES = 100
+
 def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
     lobby = None
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
@@ -75,7 +77,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
 
         player_name: str = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
 
-        while True:
+        for _ in range(MAX_LOBBY_ID_GENERATION_RETRIES):
             lobby_id = _generate_lobby_id()
 
             with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
@@ -111,6 +113,8 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
                 player_lobby_lock.value = lobby_id
                 lobby_lock.lobby = new_lobby
                 return new_lobby
+
+        raise RuntimeError(f"Failed to generate unique lobby id for player '{player_id}'. Retried '{MAX_LOBBY_ID_GENERATION_RETRIES}' times")
 
 def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[str]):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
