@@ -329,6 +329,8 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
                 _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberUpdated", {"lobby_id": lobby_id, "members": lobby["members"]})
 
 def kick_member(player_id: int, member_id: int, lobby_id: str):
+    # TODO: Fix deadlock when players attempt to kick each other at the same time
+
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         player_lobby_id = player_lobby_lock.value
 
