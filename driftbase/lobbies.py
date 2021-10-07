@@ -376,20 +376,17 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
 
                 kicked = len(lobby["members"]) != current_length
 
+                member_lobby_lock.value = None
+
                 if kicked:
                     log.info(f"Host player '{player_id}' kicked member player '{member_id}' from lobby '{lobby_id}'")
 
-                    member_lobby_lock.value = None
                     lobby_lock.lobby = lobby
 
                     # Notify members and kicked player
                     _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberKicked", {"lobby_id": lobby_id, "kicked_player_id": member_id, "members": lobby["members"]})
                 else:
                     log.warning(f"Host player '{player_id}' tried to kick member player '{member_id}' from lobby '{lobby_id}', but '{member_id}' wasn't a member of the lobby")
-
-                    if member_lobby_id == lobby_id:
-                        log.warning(f"Player '{member_id}' is supposed to be in lobby '{lobby_id}' but isn't a member of the lobby")
-                        member_lobby_lock.value = None
 
 # Helpers
 
