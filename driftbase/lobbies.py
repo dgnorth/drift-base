@@ -5,6 +5,7 @@ import random
 import string
 import datetime
 import copy
+from collections import defaultdict
 from flask import g
 from driftbase.models.db import CorePlayer
 from driftbase.messages import post_message
@@ -154,13 +155,10 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
                     lobby["team_capacity"] = team_capacity
 
                     # Go over members and enforce new team capacity
-                    team_counts = {}
+                    team_counts = defaultdict(int)
                     for member in lobby["members"]:
                         team_name = member["team_name"]
                         if team_name is not None:
-                            if team_name not in team_counts:
-                                team_counts[team_name] = 0
-
                             current_team_count = team_counts[team_name]
 
                             if current_team_count < team_capacity:
