@@ -12,10 +12,6 @@ from driftbase import flexmatch, parties
 
 from driftbase.resources.lobbies import TIER_DEFAULTS
 
-# FIXME: Figure out how to do multi-region matchmaking; afaik, the configuration isn't region based, but both queues and
-#  events are. The queues themselves can have destination fleets in multiple regions.
-AWS_REGION = "eu-west-1"
-
 log = logging.getLogger(__name__)
 
 def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
