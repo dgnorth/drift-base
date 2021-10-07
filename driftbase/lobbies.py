@@ -567,6 +567,7 @@ def _internal_delete_lobby(player_id: int, lobby_id: str):
     """
     Caller is responsible for handling the player lobby id lock value
     """
+    # TODO: Fix deadlock. All other places lock players first, then lobby. Here the members are locked after the lobby
     with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
         lobby = lobby_lock.lobby
 
