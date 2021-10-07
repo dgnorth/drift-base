@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 
 # TODO: Prevent deadlocks via key sorting and locking
 
+# TODO: Check out Redis WATCH for optimistic locking and check-and-set behaviour
+
 MAX_LOBBY_ID_GENERATION_RETRIES = 100
 DEFAULT_LOBBY_NAME = "Lobby"
 LOBBY_MATCH_STARTING_LEAVE_LOCK_DURATION_SECONDS = 60
