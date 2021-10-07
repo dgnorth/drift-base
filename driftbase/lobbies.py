@@ -651,6 +651,7 @@ def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, ev
     for receiver_id in receiving_player_ids:
         post_message("players", int(receiver_id), "lobby", payload, expiry, sender_system=True)
 
+# TODO: Figure out if _GenericLock is redundant and just use with g.redis.conn.lock(key) directly
 class _GenericLock(object):
     """
     Context manager for synchronizing creation and modification of a redis value.
