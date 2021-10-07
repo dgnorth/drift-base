@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 
 MAX_LOBBY_ID_GENERATION_RETRIES = 100
 DEFAULT_LOBBY_NAME = "Lobby"
+LOBBY_MATCH_STARTING_LEAVE_LOCK_DURATION_SECONDS = 60
 
 def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
     lobby = None
@@ -513,13 +514,12 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
             now = datetime.datetime.utcnow()
 
             duration = (now - placement_date).total_seconds()
-            leave_lock_duration = _get_tenant_config_value("lobby_match_starting_leave_lock_duration_seconds")
 
-            if duration > leave_lock_duration:
-                log.warning(f"Player '{player_id}' is leaving lobby '{lobby_id}' which has been starting the lobby match for '{duration}' seconds. Configured leave lock duration is '{leave_lock_duration}'. Allowing the player to leave. Lobby may be borked")
+            if duration > LOBBY_MATCH_STARTING_LEAVE_LOCK_DURATION_SECONDS:
+                log.warning(f"Player '{player_id}' is leaving lobby '{lobby_id}' which has been starting the lobby match for '{duration}' seconds. Allowing the player to leave. Lobby may be borked")
             else:
                 log.warning(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' while the lobby match is starting")
-                raise InvalidRequestException(f"Cannot leave the lobby while the lobby match is starting. You can leave after {leave_lock_duration - duration} seconds")
+                raise InvalidRequestException(f"Cannot leave the lobby while the lobby match is starting. You can leave after {LOBBY_MATCH_STARTING_LEAVE_LOCK_DURATION_SECONDS - duration} seconds")
 
         current_length = len(lobby["members"])
         host_player_id = _get_lobby_host_player_id(lobby)

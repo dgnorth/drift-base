@@ -11,7 +11,6 @@ TIER_DEFAULTS = {
     "valid_regions": ["eu-west-1"],
     "lobby_id_length": 6,
     "lobby_game_session_queue": "default",
-    "lobby_match_starting_leave_lock_duration_seconds": 60, # Prevent players from leaving the lobby while the match is starting for some seconds
 }
 
 def drift_init_extension(app, **kwargs):
