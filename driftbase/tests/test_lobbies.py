@@ -564,6 +564,20 @@ class LobbiesTest(_BaseLobbyTest):
 
         self.assertDictEqual(player_lobby, second_lobby)
 
+    def test_create_lobby_custom_data_too_large(self):
+        self.make_player()
+        lobbies_url = self.endpoints["lobbies"]
+
+        post_data = {
+            "team_capacity": 4,
+            "team_names": ["1", "2"],
+            "custom_data": "a" * 10000,
+        }
+
+        response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
+
+        self._assert_error(response)
+
     # Update lobby
 
     def test_update_lobby(self):
@@ -710,6 +724,16 @@ class LobbiesTest(_BaseLobbyTest):
             response = self.patch(self.lobby_url, data={"team_capacity": 8}, expected_status_code=http_client.BAD_REQUEST)
 
             self._assert_error(response)
+
+    def test_update_lobby_custom_data_too_large(self):
+        self.make_player()
+        self.create_lobby()
+
+        # Update attempt
+        response = self.patch(self.lobby_url, data={"custom_data": "a" * 10000}, expected_status_code=http_client.BAD_REQUEST)
+
+        self._assert_error(response)
+
 
     def test_update_lobby_team_over_capacity(self):
         """

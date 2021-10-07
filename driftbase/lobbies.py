@@ -23,6 +23,7 @@ MAX_LOBBY_ID_GENERATION_RETRIES = 100
 LOBBY_ID_LENGTH = 6
 DEFAULT_LOBBY_NAME = "Lobby"
 LOBBY_MATCH_STARTING_LEAVE_LOCK_DURATION_SECONDS = 60
+MAX_LOBBY_CUSTOM_DATA_BYTES = 4096
 
 def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = None):
     lobby = None
@@ -70,6 +71,10 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
     if matchmaking_ticket and matchmaking_ticket["Status"] not in ("MATCH_COMPLETE", "FAILED", "TIMED_OUT", "", None):
         log.warning(f"Failed to create lobby for player '{player_id}' due to player having an active matchmaking ticket")
         raise InvalidRequestException(f"Cannot create a lobby while matchmaking")
+
+    if custom_data and _get_number_of_bytes(custom_data) > MAX_LOBBY_CUSTOM_DATA_BYTES:
+        log.warning(f"Failed to create lobby for player '{player_id}' due to custom data exceeding '{MAX_LOBBY_CUSTOM_DATA_BYTES}' bytes")
+        raise InvalidRequestException(f"Custom data too large. Maximum amount of bytes is {MAX_LOBBY_CUSTOM_DATA_BYTES}")
 
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         # Leave/delete existing lobby if any
@@ -122,6 +127,11 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
         raise RuntimeError(f"Failed to generate unique lobby id for player '{player_id}'. Retried '{MAX_LOBBY_ID_GENERATION_RETRIES}' times")
 
 def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[str]):
+    if custom_data and _get_number_of_bytes(custom_data) > MAX_LOBBY_CUSTOM_DATA_BYTES:
+        log.warning(f"Failed to update lobby for player '{player_id}' due to custom data exceeding '{MAX_LOBBY_CUSTOM_DATA_BYTES}' bytes")
+        raise InvalidRequestException(f"Custom data too large. Maximum amount of bytes is {MAX_LOBBY_CUSTOM_DATA_BYTES}")
+
+
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
         lobby_id = player_lobby_lock.value
 
@@ -662,6 +672,9 @@ def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, ev
 
     for receiver_id in receiving_player_ids:
         post_message("players", int(receiver_id), "lobby", payload, expiry, sender_system=True)
+
+def _get_number_of_bytes(s: str) -> int:
+    return len(s.encode('utf-8'))
 
 # TODO: Figure out if _GenericLock is redundant and just use with g.redis.conn.lock(key) directly
 class _GenericLock(object):
