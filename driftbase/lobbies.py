@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 # TODO: Check out Redis WATCH for optimistic locking and check-and-set behaviour
 
 MAX_LOBBY_ID_GENERATION_RETRIES = 100
+LOBBY_ID_LENGTH = 6
 DEFAULT_LOBBY_NAME = "Lobby"
 LOBBY_MATCH_STARTING_LEAVE_LOCK_DURATION_SECONDS = 60
 
@@ -615,8 +616,7 @@ def _get_lobby_member(lobby: dict, player_id: int) -> typing.Optional[dict]:
     return next((member for member in lobby["members"] if member["player_id"] == player_id), None)
 
 def _generate_lobby_id() -> str:
-    lobby_id_length = _get_tenant_config_value("lobby_id_length")
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=lobby_id_length))
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=LOBBY_ID_LENGTH))
 
 def _get_lobby_key(lobby_id: str) -> str:
     return g.redis.make_key(f"lobby:{lobby_id}:")

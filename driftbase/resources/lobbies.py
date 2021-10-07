@@ -7,9 +7,6 @@ import logging
 log = logging.getLogger(__name__)
 
 TIER_DEFAULTS = {
-    "aws_gamelift_role": "",
-    "valid_regions": ["eu-west-1"],
-    "lobby_id_length": 6,
     "lobby_game_session_queue": "default",
 }
 
