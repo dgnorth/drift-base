@@ -43,6 +43,8 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
                 # Sanity check that the player is a member of the lobby
                 if not _get_lobby_member(lobby, player_id):
                     log.error(f"Player '{player_id}' is supposed to be in lobby '{lobby_id}' but isn't a member of the lobby")
+                    player_lobby_lock.value = None
+                    lobby = None
                 else:
                     lobby = _get_personalized_lobby(lobby, player_id)
 
