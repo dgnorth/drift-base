@@ -617,6 +617,8 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         self.assertIsInstance(notification, dict)
 
     def test_matchmaking_backfill_ticket_cancel_updates_player_ticket(self):
+        # This is a test for a hack/heuristic; i.e. we want to mark tickets as MATCH_COMPLETE when a backfill ticket
+        # for a match the player is in gets cancelled. This should not have to rely on heuristics like that.
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         # Set ticket to 'COMPLETED'
         ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "playerSessionId": "psess-123123", "team": "winners"}
@@ -633,7 +635,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         for _ in range(2):
             with self._managed_bearer_token_user():
                 real_ticket_id = ticket["TicketId"]
-                backfill_ticket_id = chr(ord(real_ticket_id[0]) + 1)
+                backfill_ticket_id = "BackFill--" + real_ticket_id
                 # The backfill tickets are issued by the battleserver with a ticketId drift doesn't track
                 details["tickets"][0]["ticketId"] = backfill_ticket_id
                 details["type"] = "MatchmakingCancelled"
