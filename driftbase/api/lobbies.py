@@ -20,20 +20,6 @@ def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     endpoints.init_app(app)
 
-class CreateLobbyRequestSchema(Schema):
-    team_capacity = fields.Integer(required=True, metadata=dict(description="How many members can be in one team."))
-    team_names = fields.List(fields.String(), required=True, metadata=dict(description="The unique names of the teams."))
-    lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
-    map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
-    custom_data = fields.String(required=False, metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server"))
-
-class UpdateLobbyRequestSchema(Schema):
-    team_capacity = fields.Integer(required=False, metadata=dict(description="How many members can be in one team."))
-    team_names = fields.List(fields.String(), required=False, metadata=dict(description="The unique names of the teams."))
-    lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
-    map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
-    custom_data = fields.String(required=False, metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server"))
-
 class LobbyMemberResponseSchema(Schema):
     player_id = fields.Integer(metadata=dict(description="The player id of the lobby member."))
     player_name = fields.String(metadata=dict(description="The player name of the lobby member."))
@@ -66,17 +52,20 @@ class LobbyResponseSchema(Schema):
 
     lobby_match_placement_url = fields.Url(metadata=dict(description="URL for the lobby match placement if there is an active match placement for the lobby"))
 
-class UpdateLobbyMemberRequestSchema(Schema):
-    team_name = fields.String(allow_none=True, dump_default=None, metadata=dict(description="What team this lobby member is assigned to."))
-    ready = fields.Bool(allow_none=True, dump_default=False, metadata=dict(description="Whether or not this player is ready to start the match."))
 
 @bp.route("/", endpoint="lobbies")
 class LobbiesAPI(MethodView):
+    class CreateLobbyRequestSchema(Schema):
+        team_capacity = fields.Integer(required=True, metadata=dict(description="How many members can be in one team."))
+        team_names = fields.List(fields.String(), required=True, metadata=dict(description="The unique names of the teams."))
+        lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
+        map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
+        custom_data = fields.String(required=False, metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server"))
 
-    @bp.response(http_client.OK)
+    @bp.response(http_client.OK, LobbyResponseSchema)
     def get(self):
         """
-        Retrieve the lobby the requesting player is a member of, or empty dict if no such thing is found.
+        Retrieve the lobby the requesting player is a member of.
         Returns a lobby.
         """
         player_id = current_user["player_id"]
@@ -117,12 +106,18 @@ class LobbiesAPI(MethodView):
 
 @bp.route("/<string:lobby_id>", endpoint="lobby")
 class LobbyAPI(MethodView):
+    class UpdateLobbyRequestSchema(Schema):
+        team_capacity = fields.Integer(required=False, metadata=dict(description="How many members can be in one team."))
+        team_names = fields.List(fields.String(), required=False, metadata=dict(description="The unique names of the teams."))
+        lobby_name = fields.String(required=False, metadata=dict(description="Optional initial name of the lobby."))
+        map_name = fields.String(required=False, metadata=dict(description="Optional initial map name for the lobby."))
+        custom_data = fields.String(required=False, metadata=dict(description="Optional custom data for the lobby. Will be forwarded to the match server"))
 
-    @bp.response(http_client.OK)
+    @bp.response(http_client.OK, LobbyResponseSchema)
     def get(self, lobby_id: str):
         """
-        Retrieve the lobby the requesting player is a member of, or empty dict if no such thing is found.
-        Returns a lobby or nothing if no lobby was found.
+        Retrieve a specific lobby if the requesting player is a member of the lobby.
+        Returns a lobby.
         """
         player_id = current_user["player_id"]
 
@@ -177,7 +172,7 @@ class LobbyAPI(MethodView):
 @bp.route("/<string:lobby_id>/members", endpoint="members")
 class LobbyMembersAPI(MethodView):
 
-    @bp.response(http_client.CREATED)
+    @bp.response(http_client.CREATED, LobbyResponseSchema)
     def post(self, lobby_id: str):
         """
         Join a specific lobby for the requesting player.
@@ -197,6 +192,9 @@ class LobbyMembersAPI(MethodView):
 
 @bp.route("/<string:lobby_id>/members/<int:member_player_id>", endpoint="member")
 class LobbyMemberAPI(MethodView):
+    class UpdateLobbyMemberRequestSchema(Schema):
+        team_name = fields.String(allow_none=True, dump_default=None, metadata=dict(description="What team this lobby member is assigned to."))
+        ready = fields.Bool(allow_none=True, dump_default=False, metadata=dict(description="Whether or not this player is ready to start the match."))
 
     @bp.arguments(UpdateLobbyMemberRequestSchema)
     @bp.response(http_client.NO_CONTENT)
