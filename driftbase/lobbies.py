@@ -138,7 +138,7 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
 
             if host_player_id != player_id:
                 log.warning(f"Player '{player_id}' attempted to update a lobby without being the lobby host")
-                raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can update the lobby")
+                raise UnauthorizedException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can update the lobby")
 
             # Prevent updating the lobby if the match has been initiated
             if _lobby_match_initiated(lobby):
@@ -280,7 +280,7 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
 
                 if player_id != host_player_id:
                     log.warning(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' without being a the lobby host")
-                    raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can update other members")
+                    raise UnauthorizedException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can update other members")
 
                 log.info(f"Host player '{player_id}' is updating member '{member_id}' in lobby '{lobby_id}'")
 
@@ -366,7 +366,7 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
 
                 if player_id != host_player_id:
                     log.warning(f"Player '{player_id}' attempted to kick member '{member_id}' from lobby '{lobby_id}' without being the lobby host")
-                    raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can kick other members")
+                    raise UnauthorizedException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can kick other members")
 
                 current_length = len(lobby["members"])
 
@@ -579,7 +579,7 @@ def _internal_delete_lobby(player_id: int, lobby_id: str):
 
         if host_player_id != player_id:
             log.warning(f"Player '{player_id}' attempted to delete lobby '{lobby_id}' without being the host")
-            raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can delete the lobby")
+            raise UnauthorizedException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can delete the lobby")
 
         log.info(f"Lobby host player '{player_id}' deleted lobby '{lobby_id}'")
 

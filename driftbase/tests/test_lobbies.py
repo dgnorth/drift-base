@@ -686,7 +686,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         self._assert_error(response)
 
-    def test_update_lobby_not_the_host(self):
+    def test_update_lobby_not_host(self):
         self.make_player()
         self.create_lobby()
 
@@ -697,7 +697,7 @@ class LobbiesTest(_BaseLobbyTest):
         self.post(self.lobby_members_url, expected_status_code=http_client.CREATED)
 
         # Update attempt
-        response = self.patch(self.lobby_url, data={"team_capacity": 8}, expected_status_code=http_client.BAD_REQUEST)
+        response = self.patch(self.lobby_url, data={"team_capacity": 8}, expected_status_code=http_client.UNAUTHORIZED)
 
         self._assert_error(response)
 
@@ -878,7 +878,7 @@ class LobbiesTest(_BaseLobbyTest):
         self.join_lobby(self.lobby_members_url)
 
         # Delete lobby while not host
-        self.delete(self.lobby_url, expected_status_code=http_client.BAD_REQUEST)
+        self.delete(self.lobby_url, expected_status_code=http_client.UNAUTHORIZED)
 
         # Verify still in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.OK)
@@ -1099,7 +1099,7 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(len(self.lobby["members"]), 2)
 
         # Member attempts to kick host
-        response = self.delete(host_lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
+        response = self.delete(host_lobby_member_url, expected_status_code=http_client.UNAUTHORIZED)
 
         self._assert_error(response)
 
@@ -1291,7 +1291,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         # Update other member
         new_team_name = "1"
-        response = self.put(host_lobby_member_url, data={"team_name": new_team_name}, expected_status_code=http_client.BAD_REQUEST)
+        response = self.put(host_lobby_member_url, data={"team_name": new_team_name}, expected_status_code=http_client.UNAUTHORIZED)
 
         self._assert_error(response)
 

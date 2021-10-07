@@ -65,7 +65,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
             host_player_id = _get_lobby_host_player_id(lobby)
             if player_id != host_player_id:
                 log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' without being the lobby host")
-                raise InvalidRequestException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can start the lobby match")
+                raise UnauthorizedException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can start the lobby match")
 
             # Prevent issuing another placement request
             if lobby["status"] == "starting":

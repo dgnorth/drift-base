@@ -349,7 +349,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                response = self.post(self.endpoints["match_placements"], data={"lobby_id": self.lobby_id}, expected_status_code=http_client.BAD_REQUEST)
+                response = self.post(self.endpoints["match_placements"], data={"lobby_id": self.lobby_id}, expected_status_code=http_client.UNAUTHORIZED)
 
                 self._assert_error(response)
 
