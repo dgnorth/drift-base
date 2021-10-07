@@ -748,17 +748,16 @@ class _LockedLobby(object):
 
         raise TypeError(f"Type {type(obj)} not serializable")
 
-class InvalidRequestException(Exception):
+class LobbyException(Exception):
     def __init__(self, user_message):
         super().__init__(user_message)
         self.msg = user_message
 
-class NotFoundException(Exception):
-    def __init__(self, user_message):
-        super().__init__(user_message)
-        self.msg = user_message
+class InvalidRequestException(LobbyException):
+    pass
 
-class UnauthorizedException(Exception):
-    def __init__(self, user_message):
-        super().__init__(user_message)
-        self.msg = user_message
+class NotFoundException(LobbyException):
+    pass
+
+class UnauthorizedException(LobbyException):
+    pass
