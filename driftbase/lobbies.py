@@ -170,7 +170,7 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
                                 member["team_name"] = None
 
             if team_names:
-                old_team_names= lobby["team_names"]
+                old_team_names = lobby["team_names"]
 
                 if old_team_names != team_names:
                     lobby_updated = True
