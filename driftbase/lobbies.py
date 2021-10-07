@@ -81,35 +81,36 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
             with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
                 if lobby_lock.lobby is not None:
                     log.info(f"Generated an existing lobby id. That's very unlucky (or lucky). Retrying...")
-                else:
-                    log.info(f"Creating lobby '{lobby_id}' for player '{player_id}'")
+                    continue
 
-                    new_lobby = {
-                        "lobby_id": lobby_id,
-                        "lobby_name": lobby_name or _get_tenant_config_value("default_lobby_name"),
-                        "map_name": map_name,
-                        "team_capacity": team_capacity,
-                        "team_names": team_names,
-                        "create_date": datetime.datetime.utcnow().isoformat(),
-                        "start_date": None,
-                        "placement_date": None,
-                        "status": "idle",
-                        "custom_data": custom_data,
-                        "members": [
-                            {
-                                "player_id": player_id,
-                                "player_name": player_name,
-                                "team_name": None,
-                                "ready": False,
-                                "host": True,
-                                "join_date": datetime.datetime.utcnow().isoformat(),
-                            }
-                        ],
-                    }
+                log.info(f"Creating lobby '{lobby_id}' for player '{player_id}'")
 
-                    player_lobby_lock.value = lobby_id
-                    lobby_lock.lobby = new_lobby
-                    return new_lobby
+                new_lobby = {
+                    "lobby_id": lobby_id,
+                    "lobby_name": lobby_name or _get_tenant_config_value("default_lobby_name"),
+                    "map_name": map_name,
+                    "team_capacity": team_capacity,
+                    "team_names": team_names,
+                    "create_date": datetime.datetime.utcnow().isoformat(),
+                    "start_date": None,
+                    "placement_date": None,
+                    "status": "idle",
+                    "custom_data": custom_data,
+                    "members": [
+                        {
+                            "player_id": player_id,
+                            "player_name": player_name,
+                            "team_name": None,
+                            "ready": False,
+                            "host": True,
+                            "join_date": datetime.datetime.utcnow().isoformat(),
+                        }
+                    ],
+                }
+
+                player_lobby_lock.value = lobby_id
+                lobby_lock.lobby = new_lobby
+                return new_lobby
 
 def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.Optional[int], team_names: list[str], lobby_name: typing.Optional[str], map_name: typing.Optional[str], custom_data: typing.Optional[str]):
     with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
