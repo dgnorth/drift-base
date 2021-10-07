@@ -36,6 +36,7 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
             if not lobby:
                 log.warning(f"Player '{player_id}' is assigned to lobby '{lobby_id}' but the lobby doesn't exist")
                 player_lobby_lock.value = None
+                # Not raising NotFoundException so that the _GenericLock writes to Redis
             else:
                 log.info(f"Returning lobby '{lobby_id}' for player '{player_id}'")
 
