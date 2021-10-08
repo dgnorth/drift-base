@@ -465,8 +465,8 @@ class LobbiesTest(_BaseLobbyTest):
     # Create lobby
 
     def test_create_lobby(self):
+        # Important to name exactly "Player #1", something unintuitive with the testing tools regarding player name
         self.make_player("Player #1")
-        lobbies_url = self.endpoints["lobbies"]
 
         post_data = {
             "team_capacity": 4,
@@ -476,10 +476,8 @@ class LobbiesTest(_BaseLobbyTest):
             "custom_data": "whatevs",
         }
 
-        self.create_lobby(post_data)
-
         # Create lobby
-        self.post(lobbies_url, data=post_data, expected_status_code=http_client.CREATED)
+        self.create_lobby(post_data)
 
         self.assertIn("lobby_url", self.lobby)
         self.assertIn("lobby_members_url", self.lobby)
@@ -552,17 +550,15 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertDictEqual(first_lobby, player_lobby)
 
         # Create second lobby
-        response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.CREATED)
-        second_lobby = response.json()
+        response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
-        # Lobbies should be different. Note: assertDictNotEqual doesn't exist, use == operator
-        self.assertFalse(first_lobby == second_lobby)
+        self._assert_error(response)
 
         # Get player lobby
         response = self.get(lobbies_url, expected_status_code=http_client.OK)
         player_lobby = response.json()
 
-        self.assertDictEqual(player_lobby, second_lobby)
+        self.assertDictEqual(player_lobby, first_lobby)
 
     def test_create_lobby_custom_data_too_large(self):
         self.make_player()
@@ -775,13 +771,13 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertIsNone(lobby["members"][0]["team_name"])
 
     def test_update_lobby_message_queue(self):
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
-        self.auth("Player 2")
+        player_2_username = self.make_player()
         self.join_lobby(self.lobby_members_url)
 
-        self.auth("Player 1")
+        self.auth(player_1_username)
 
         # Empty update
         self.patch(self.lobby_url, expected_status_code=http_client.NO_CONTENT)
@@ -791,11 +787,11 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertIsNone(notification)
 
         # Assert message queue for player 2
-        self.auth("Player 2")
+        self.auth(player_2_username)
         notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
         self.assertIsNone(notification)
 
-        self.auth("Player 1")
+        self.auth(player_1_username)
 
         # Update everything
         update_data = {
@@ -821,7 +817,7 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(notification_data["team_capacity"], self.lobby["team_capacity"])
 
         # Assert message queue for player 2
-        self.auth("Player 2")
+        self.auth(player_2_username)
         self.load_player_lobby()
         notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
         self.assertDictEqual(notification_data, notification["data"])
@@ -830,15 +826,15 @@ class LobbiesTest(_BaseLobbyTest):
 
     def test_delete_lobby(self):
         # Host creates lobby
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
         # Member joins lobby
-        self.auth("Player 2")
+        player_2_username = self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         # Host deletes lobby
-        self.auth("Player 1")
+        self.auth(player_1_username)
         self.delete_lobby()
 
         # Verify host no longer in lobby
@@ -860,7 +856,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         # Assert member no longer in lobby
 
-        self.auth("Player 2")
+        self.auth(player_2_username)
 
         # Assert not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
@@ -926,17 +922,17 @@ class LobbiesTest(_BaseLobbyTest):
 
     def test_leave_lobby(self):
         # Host creates lobby
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
         left_player_id = self.player_id
 
         # Member joins lobby
-        self.auth("Player 2")
+        player_2_username = self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         # Host leaves lobby
-        self.auth("Player 1")
+        self.auth(player_1_username)
         self.load_player_lobby()
 
         self.assertEqual(len(self.lobby["members"]), 2)
@@ -966,7 +962,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         # Assert member is now lobby host
 
-        self.auth("Player 2")
+        self.auth(player_2_username)
         self.load_player_lobby()
 
         self.assertEqual(len(self.lobby["members"]), 1)
@@ -1035,11 +1031,11 @@ class LobbiesTest(_BaseLobbyTest):
 
     def test_kick_lobby_member(self):
         # Host creates lobby
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
         # Member joins lobby
-        self.auth("Player 2")
+        player_2_username = self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         kicked_player_id = self.player_id
@@ -1047,7 +1043,7 @@ class LobbiesTest(_BaseLobbyTest):
         lobby_member_url = self.lobby_member_url
 
         # Host kicks member
-        self.auth("Player 1")
+        self.auth(player_1_username)
         self.load_player_lobby()
 
         self.assertEqual(len(self.lobby["members"]), 2)
@@ -1070,7 +1066,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         # Verify member no longer in lobby
 
-        self.auth("Player 2")
+        self.auth(player_2_username)
 
         # Verify not in lobby
         response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.NOT_FOUND)
@@ -1089,19 +1085,20 @@ class LobbiesTest(_BaseLobbyTest):
 
     def test_kick_lobby_member_different_lobbies(self):
         # Player 1 creates lobby
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
         # Player 2 joins lobby
-        self.auth("Player 2")
+        self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         lobby_member_url = self.lobby_member_url
 
-        # Player 2 creates lobby, leaving the lobby
+        # Player 2 leaves lobby and creates lobby
+        self.leave_lobby()
         self.create_lobby()
 
-        self.auth("Player 1")
+        self.auth(player_1_username)
         self.load_player_lobby()
 
         # Kick member who is now in another lobby
@@ -1111,13 +1108,13 @@ class LobbiesTest(_BaseLobbyTest):
 
     def test_kick_lobby_member_not_host(self):
         # Host creates lobby
-        self.auth("Player 1")
+        self.make_player()
         self.create_lobby()
 
         host_lobby_member_url = self.lobby_member_url
 
         # Member joins lobby
-        self.auth("Player 2")
+        self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         self.assertEqual(len(self.lobby["members"]), 2)
@@ -1135,10 +1132,10 @@ class LobbiesTest(_BaseLobbyTest):
     # Join lobby
 
     def test_join_lobby(self):
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
-        self.auth("Player 2")
+        self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         # Verify get lobby returns joined lobby
@@ -1159,7 +1156,7 @@ class LobbiesTest(_BaseLobbyTest):
         # TODO: Brainstorm and figure out if this is the best approach
 
         # Switch to player 1
-        self.auth("Player 1")
+        self.auth(player_1_username)
         self.load_player_lobby()
 
         # Assert message queue for player 2
@@ -1171,10 +1168,10 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(len(notification_data["members"]), len(self.lobby["members"]))
 
     def test_join_lobby_in_lobby(self):
-        self.auth("Player 1")
+        self.make_player()
         self.create_lobby()
 
-        self.auth("Player 2")
+        self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         # Join lobby again
@@ -1188,23 +1185,26 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertFalse(lobby_member["host"])
 
     def test_join_lobby_in_another_lobby(self):
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
-        old_lobby_id = self.lobby_id
+        current_lobby = self.lobby
 
-        self.auth("Player 2")
+        self.make_player()
         self.create_lobby()
 
-        self.auth("Player 1")
-        self.join_lobby(self.lobby_members_url)
+        self.auth(player_1_username)
 
-        self.assertNotEqual(self.lobby_id, old_lobby_id)
-        self.assertEqual(len(self.lobby["members"]), 2)
+        response = self.post(self.lobby_members_url, expected_status_code=http_client.BAD_REQUEST)
 
-        lobby_member = self.get_lobby_member()
-        self.assertIsNotNone(lobby_member)
-        self.assertFalse(lobby_member["host"])
+        self._assert_error(response)
+
+        response = self.get(self.endpoints["lobbies"], expected_status_code=http_client.OK)
+        player_lobby = response.json()
+
+        self.maxDiff = None
+
+        self.assertDictEqual(current_lobby, player_lobby)
 
     def test_join_lobby_not_exists(self):
         self.make_player()
@@ -1283,16 +1283,16 @@ class LobbiesTest(_BaseLobbyTest):
         self._assert_error(response)
 
     def test_update_lobby_member_host(self):
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
-        self.auth("Player 2")
+        self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         member_lobby_member_url = self.lobby_member_url
         member_player_id = self.player_id
 
-        self.auth("Player 1")
+        self.auth(player_1_username)
 
         # Update other member
         new_team_name = "1"
@@ -1304,13 +1304,13 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(lobby_member["team_name"], new_team_name)
 
     def test_update_lobby_member_not_host(self):
-        self.auth("Player 1")
+        self.make_player()
         self.create_lobby()
 
         host_lobby_member_url = self.lobby_member_url
         host_player_id = self.player_id
 
-        self.auth("Player 2")
+        self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         # Update other member
@@ -1344,13 +1344,13 @@ class LobbiesTest(_BaseLobbyTest):
         self._assert_error(response)
 
     def test_update_lobby_member_message_queue(self):
-        self.auth("Player 1")
+        player_1_username = self.make_player()
         self.create_lobby()
 
-        self.auth("Player 2")
+        player_2_username = self.make_player()
         self.join_lobby(self.lobby_members_url)
 
-        self.auth("Player 1")
+        self.auth(player_1_username)
 
         # Empty update
         self.put(self.lobby_member_url, expected_status_code=http_client.NO_CONTENT)
@@ -1360,11 +1360,11 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertIsNone(notification)
 
         # Assert message queue for player 2
-        self.auth("Player 2")
+        self.auth(player_2_username)
         notification, _ = self.get_player_notification("lobby", "LobbyUpdated")
         self.assertIsNone(notification)
 
-        self.auth("Player 1")
+        self.auth(player_1_username)
 
         # Update only team name
         new_team_name = "1"
@@ -1381,7 +1381,7 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(len(notification_data["members"]), len(self.lobby["members"]))
 
         # Assert message queue for player 2
-        self.auth("Player 2")
+        self.auth(player_2_username)
         self.load_player_lobby()
 
         notification, _ = self.get_player_notification("lobby", "LobbyMemberUpdated")

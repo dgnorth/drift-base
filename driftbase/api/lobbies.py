@@ -81,6 +81,8 @@ class LobbiesAPI(MethodView):
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
             abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
     @bp.arguments(CreateLobbyRequestSchema)
     @bp.response(http_client.CREATED, LobbyResponseSchema)
@@ -104,6 +106,8 @@ class LobbiesAPI(MethodView):
             return _add_lobby_urls(lobby)
         except lobbies.InvalidRequestException as e:
             abort(http_client.BAD_REQUEST, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
 @bp.route("/<string:lobby_id>", endpoint="lobby")
 class LobbyAPI(MethodView):
@@ -129,6 +133,8 @@ class LobbyAPI(MethodView):
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:
             abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
     @bp.arguments(UpdateLobbyRequestSchema)
     @bp.response(http_client.NO_CONTENT)
@@ -153,6 +159,8 @@ class LobbyAPI(MethodView):
             abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
             abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str):
@@ -168,6 +176,8 @@ class LobbyAPI(MethodView):
             abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
             abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
 @bp.route("/<string:lobby_id>/members", endpoint="members")
 class LobbyMembersAPI(MethodView):
@@ -187,6 +197,8 @@ class LobbyMembersAPI(MethodView):
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.InvalidRequestException as e:
             abort(http_client.BAD_REQUEST, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
 @bp.route("/<string:lobby_id>/members/<int:member_player_id>", endpoint="member")
 class LobbyMemberAPI(MethodView):
@@ -214,6 +226,8 @@ class LobbyMemberAPI(MethodView):
             abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
             abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, lobby_id: str, member_player_id: int):
@@ -232,6 +246,8 @@ class LobbyMemberAPI(MethodView):
             abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.UnauthorizedException as e:
             abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ConflictException as e:
+            abort(http_client.CONFLICT, message=e.msg)
 
 @endpoints.register
 def endpoint_info(*args):
