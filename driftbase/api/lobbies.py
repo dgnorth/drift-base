@@ -252,8 +252,21 @@ class LobbyMemberAPI(MethodView):
 @endpoints.register
 def endpoint_info(*args):
     ret = {
-        "lobbies": url_for("lobbies.lobbies", _external=True)
+        "lobbies": url_for("lobbies.lobbies", _external=True),
     }
+
+    # Lobby members template
+    url = url_for("lobbies.members", lobby_id="lobby_id", _external=True)
+    url = url.replace("lobby_id", "{lobby_id}")
+
+    ret["template_lobby_members"] = url
+
+    # Lobby member template
+    url = url_for("lobbies.member", lobby_id="lobby_id", member_player_id=1337, _external=True)
+    url = url.replace("lobby_id", "{lobby_id}")
+    url = url.replace("1337", "{lobby_member_id}")
+
+    ret["template_lobby_member"] = url
 
     return ret
 

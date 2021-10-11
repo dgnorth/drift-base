@@ -98,6 +98,11 @@ class TestLobbies(BaseCloudkitTest):
         self.make_player()
         self.assertIn("lobbies", self.endpoints)
 
+    def test_lobby_templates(self):
+        self.make_player()
+        self.assertIn("template_lobby_members", self.endpoints)
+        self.assertIn("template_lobby_member", self.endpoints)
+
 
 # /lobbies
 class TestLobbiesAPI(_BaseLobbyTest):
