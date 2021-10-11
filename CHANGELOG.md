@@ -13,6 +13,12 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.5.5
+
+### Bug fixes
+
+- Fixed that if all counter updates were no-ops (count and value 0), the update would fail.
+
 ## 0.5.4
 
 ### Optimizations
