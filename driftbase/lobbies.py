@@ -17,10 +17,6 @@ from driftbase.resources.lobbies import TIER_DEFAULTS
 
 log = logging.getLogger(__name__)
 
-# TODO: Prevent deadlocks via key sorting and locking
-
-# TODO: Check out Redis WATCH for optimistic locking and check-and-set behaviour
-
 MAX_LOBBY_ID_GENERATION_RETRIES = 100
 LOBBY_ID_LENGTH = 6
 DEFAULT_LOBBY_NAME = "Lobby"
@@ -43,7 +39,7 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
 
     with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
-            log.warning(f"Player '{player_id}' attempted to get lobby '{expected_lobby_id}', but left the lobby while acquiring the lobby lock")
+            log.warning(f"Player '{player_id}' attempted to get lobby '{lobby_id}', but left the lobby while acquiring the lobby lock")
             raise ConflictException(f"You left the lobby while attempting to fetch it")
 
         lobby = lobby_lock.lobby
@@ -705,45 +701,6 @@ def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, ev
 
 def _get_number_of_bytes(s: str) -> int:
     return len(s.encode('utf-8'))
-
-# TODO: Figure out if _GenericLock is redundant and just use with g.redis.conn.lock(key) directly
-class _GenericLock(object):
-    """
-    Context manager for synchronizing creation and modification of a redis value.
-    """
-    MAX_LOCK_WAIT_TIME_SECONDS = 30
-    TTL_SECONDS = 60 * 60 * 24
-
-    def __init__(self, key):
-        self._key = key
-        self._redis = g.redis
-        self._modified = False
-        self._value = None
-        self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, new_value):
-        self._value = new_value
-        self._modified = True
-
-    def __enter__(self):
-        self._lock.acquire(blocking=True)
-        self._value = self._redis.conn.get(self._key)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
-            with self._redis.conn.pipeline() as pipe:
-                if self._modified is True and exc_type is None:
-                    pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
-                    if self._value:
-                        pipe.set(self._key, str(self._value), ex=self.TTL_SECONDS)
-                pipe.execute()
-            self._lock.release()
 
 class _LockedLobby(object):
     """

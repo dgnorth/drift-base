@@ -31,8 +31,9 @@ class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
 
         with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                response = self.post(self.endpoints["match_placements"], data=match_placement_data, expected_status_code=http_client.CREATED)
-                self._extract_match_placement(response.json())
+                with patch.object(flexmatch, "stop_game_session_placement", return_value=MOCK_PLACEMENT):
+                    response = self.post(self.endpoints["match_placements"], data=match_placement_data, expected_status_code=http_client.CREATED)
+                    self._extract_match_placement(response.json())
 
     def delete_match_placement(self):
         with patch.object(flexmatch, "stop_game_session_placement", return_value={}):
@@ -336,7 +337,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                response = self.post(self.endpoints["match_placements"], data={"lobby_id": "123456"}, expected_status_code=http_client.UNAUTHORIZED)
+                response = self.post(self.endpoints["match_placements"], data={"lobby_id": "123456"}, expected_status_code=http_client.BAD_REQUEST)
 
                 self._assert_error(response)
 

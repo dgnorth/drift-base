@@ -6,7 +6,9 @@ import uuid
 from flask import g
 from driftbase.models.db import Match
 from driftbase import flexmatch, lobbies
-from driftbase.lobbies import InvalidRequestException, NotFoundException, UnauthorizedException, _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, _get_lobby_host_player_id, _get_player_lobby_key, _GenericLock, _LockedLobby
+from driftbase.lobbies import InvalidRequestException, NotFoundException, UnauthorizedException, ConflictException, _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, _get_lobby_host_player_id, _get_player_lobby_key, _LockedLobby
+from driftbase.utils.redis_utils import timeout_pipe
+from redis.exceptions import WatchError
 
 from driftbase.resources.match_placements import TIER_DEFAULTS
 
@@ -19,125 +21,169 @@ Only lobby matches with GameLift provider supported at the time of writing!!!
 log = logging.getLogger(__name__)
 
 def get_player_match_placement(player_id: int, expected_match_placement_id: typing.Optional[str] = None) -> dict:
-    placement = None
-    with _GenericLock(_get_player_match_placement_key(player_id)) as player_match_placement_lock:
-        placement_id = player_match_placement_lock.value
+    player_match_placement_key = _get_player_match_placement_key(player_id)
 
-        if not placement_id:
-            log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
-            message = f"Match placement {expected_match_placement_id} not found" if expected_match_placement_id else "No match placement found"
-            raise NotFoundException(message)
+    placement_id = g.redis.conn.get(player_match_placement_key)
 
-        if expected_match_placement_id and expected_match_placement_id != placement_id:
-            log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
-            raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
+    if not placement_id:
+        log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
+        message = f"Match placement {expected_match_placement_id} not found" if expected_match_placement_id else "No match placement found"
+        raise NotFoundException(message)
 
-        with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
-            placement = match_placement_lock.value
+    if expected_match_placement_id and expected_match_placement_id != placement_id:
+        log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
+        raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
 
-            if not placement:
-                log.warning(f"Player '{player_id}' is assigned to match placement '{placement_id}' but the match placement doesn't exist")
-                player_match_placement_lock.value = None
-            else:
-                log.info(f"Returning match placement '{placement_id}' for player '{player_id}'")
+    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+        if placement_id != g.redis.conn.get(player_match_placement_key):
+            log.warning(f"Player '{player_id}' attempted to get match placement '{placement_id}', but was no longer assigned to the match placement after getting the lock")
+            raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
 
-    if not placement:
-        raise NotFoundException("No match placement found")
+        placement = match_placement_lock.value
 
-    return placement
+        if not placement:
+            log.warning(f"Player '{player_id}' is assigned to match placement '{placement_id}' but the match placement doesn't exist")
+            g.redis.conn.delete(player_match_placement_key)
+            raise NotFoundException("No match placement found")
+
+        log.info(f"Returning match placement '{placement_id}' for player '{player_id}'")
+
+        return placement
 
 def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
-    with _GenericLock(_get_player_lobby_key(player_id)) as player_lobby_lock:
+    player_lobby_key = _get_player_lobby_key(player_id)
 
-        # Verify data integrity
-        player_lobby_id = player_lobby_lock.value
-        if player_lobby_id != lobby_id:
-            log.warning(f"Player '{player_id}' is attempting to start match for lobby '{lobby_id}', but is supposed to be in lobby '{player_lobby_id}'")
-            raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
+    # Check lobby id
+    player_lobby_id = g.redis.conn.get(player_lobby_key)
 
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
+    if not player_lobby_id:
+        log.warning(f"Player '{player_id}' is attempting to start match for lobby '{lobby_id}', but is supposed to be in lobby '{player_lobby_id}'")
+        raise InvalidRequestException(f"You aren't in any lobby. Only lobby match placements are supported")
 
-            if not lobby:
-                raise RuntimeError(f"Player '{player_id}' is attempting to start match for nonexistent lobby '{lobby_id}'. Player is supposed to be in said lobby")
+    if player_lobby_id != lobby_id:
+        log.warning(f"Player '{player_id}' is attempting to start match for lobby '{lobby_id}', but is supposed to be in lobby '{player_lobby_id}'")
+        raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
 
-            # Verify host
-            host_player_id = _get_lobby_host_player_id(lobby)
-            if player_id != host_player_id:
-                log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' without being the lobby host")
-                raise UnauthorizedException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can start the lobby match")
+    # Check existing placement
+    player_match_placement_key = _get_player_match_placement_key(player_id)
 
-            # Prevent issuing another placement request
-            if lobby["status"] == "starting":
-                log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' while the match is starting")
-                raise InvalidRequestException(f"An active match placement is already in progress for the lobby")
-            
-            # Select match provider
-            match_provider = _get_tenant_config_value("default_match_provider")
-            if match_provider != "gamelift":
-                raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
+    existing_placement_id = g.redis.conn.get(player_match_placement_key)
 
-            # Request a game server
-            lobby_name = lobby["lobby_name"]
-            placement_id = str(uuid.uuid4())
-            max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
-            game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
-            custom_data = lobby["custom_data"]
+    if existing_placement_id:
+        with _JsonLock(_get_match_placement_key(existing_placement_id)) as match_placement_lock:
+            if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+                log.warning(f"Existing match placement check failed for player '{player_id}'. Player was assigned to match placement'{existing_placement_id}', but was no longer assigned to the match placement after getting the lock")
+                raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
 
-            lobby["placement_id"] = placement_id
+            placement = match_placement_lock.value
 
-            player_latencies = []
-            for member in lobby["members"]:
-                for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
-                    player_latencies.append({
-                        "PlayerId": str(member["player_id"]),
-                        "RegionIdentifier": region,
-                        "LatencyInMilliseconds": latency
-                    })
+            if placement["status"] != "pending":
+                log.warning(f"Player '{player_id}' attempted to start a match placement while assigned to pending match placement '{existing_placement_id}'")
+                raise InvalidRequestException("You have a pending match placement in progress")
 
-            log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}'. GameLift placement id: '{placement_id}'")
-            response = flexmatch.start_game_session_placement(
-                PlacementId=placement_id,
-                GameSessionQueueName=lobbies._get_tenant_config_value("lobby_game_session_queue"),
-                MaximumPlayerSessionCount=max_player_session_count,
-                GameSessionName=game_session_name,
-                GameProperties=[
+    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+        if lobby_id != g.redis.conn.get(player_lobby_key):
+            log.warning(f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but left the lobby while acquiring the lobby lock")
+            raise ConflictException(f"You left the lobby while attempting to start the lobby match placement")
+
+        if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+            log.warning(f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while acquiring the lobby lock")
+            raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
+
+        lobby = lobby_lock.lobby
+
+        if not lobby:
+            raise RuntimeError(f"Player '{player_id}' is attempting to start match for nonexistent lobby '{lobby_id}'. Player is supposed to be in said lobby")
+
+        # Verify host
+        host_player_id = _get_lobby_host_player_id(lobby)
+        if player_id != host_player_id:
+            log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' without being the lobby host")
+            raise UnauthorizedException(f"You aren't the host of lobby {lobby_id}. Only the lobby host can start the lobby match")
+
+        # Prevent issuing another placement request
+        if lobby["status"] == "starting":
+            log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' while the match is starting")
+            raise InvalidRequestException(f"An active match placement is already in progress for the lobby")
+
+        # Select match provider
+        match_provider = _get_tenant_config_value("default_match_provider")
+        if match_provider != "gamelift":
+            raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
+
+        # Request a game server
+        lobby_name = lobby["lobby_name"]
+        placement_id = str(uuid.uuid4())
+        max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
+        game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
+        custom_data = lobby["custom_data"]
+
+        lobby["placement_id"] = placement_id
+
+        player_latencies = []
+        for member in lobby["members"]:
+            for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
+                player_latencies.append({
+                    "PlayerId": str(member["player_id"]),
+                    "RegionIdentifier": region,
+                    "LatencyInMilliseconds": latency
+                })
+
+        log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}'. GameLift placement id: '{placement_id}'")
+        response = flexmatch.start_game_session_placement(
+            PlacementId=placement_id,
+            GameSessionQueueName=lobbies._get_tenant_config_value("lobby_game_session_queue"),
+            MaximumPlayerSessionCount=max_player_session_count,
+            GameSessionName=game_session_name,
+            GameProperties=[
+                {
+                    "Key": "lobby",
+                    "Value": "true",
+                },
+            ],
+            PlayerLatencies=player_latencies,
+            DesiredPlayerSessions=[
+                {
+                    "PlayerId": str(member["player_id"]),
+                    "PlayerData": json.dumps({
+                        "player_name": member["player_name"],
+                        "team_name": member["team_name"],
+                        "host": member["host"],
+                    }),
+                }
+                for member in lobby["members"] if member["team_name"]
+            ],
+            GameSessionData=json.dumps({
+                "lobby_id": lobby_id,
+                "lobby_name": lobby_name,
+                "lobby_map": lobby["map_name"],
+                "lobby_members": [
                     {
-                        "Key": "lobby",
-                        "Value": "true",
-                    },
-                ],
-                PlayerLatencies=player_latencies,
-                DesiredPlayerSessions=[
-                    {
-                        "PlayerId": str(member["player_id"]),
-                        "PlayerData": json.dumps({
-                            "player_name": member["player_name"],
-                            "team_name": member["team_name"],
-                            "host": member["host"],
-                        }),
+                        "player_id": str(member["player_id"]),
+                        "player_name": member["player_name"],
+                        "team_name": member["team_name"],
+                        "host": member["host"],
                     }
-                    for member in lobby["members"] if member["team_name"]
+                    for member in lobby["members"]
                 ],
-                GameSessionData=json.dumps({
-                    "lobby_id": lobby_id,
-                    "lobby_name": lobby_name,
-                    "lobby_map": lobby["map_name"],
-                    "lobby_members": [
-                        {
-                            "player_id": str(member["player_id"]),
-                            "player_name": member["player_name"],
-                            "team_name": member["team_name"],
-                            "host": member["host"],
-                        }
-                        for member in lobby["members"]
-                    ],
-                    "lobby_custom_data": custom_data,
-                }),
-            )
+                "lobby_custom_data": custom_data,
+            }),
+        )
 
-            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
+        log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
 
+        # Check if another placement started for the player while waiting for a response
+        if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+            log.warning(
+                f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
+
+            response = flexmatch.stop_game_session_placement(placement_id)
+            log.debug(f"match_placements::start_lobby_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+
+            raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
+
+        # Lock used as a convenient way to serialize the JSON value - Locking isn't required since this is a new placement id
+        with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             match_placement = {
                 "placement_id": placement_id,
                 "player_id": player_id,
@@ -147,59 +193,62 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                 "create_date": datetime.datetime.utcnow().isoformat(),
             }
 
-            with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
-                match_placement_lock.value = match_placement
+            match_placement_lock.value = match_placement
+            g.redis.conn.set(player_match_placement_key, placement_id)
 
-            with _GenericLock(_get_player_match_placement_key(player_id)) as player_match_placement_lock:
-                player_match_placement_lock.value = placement_id
+        lobby["status"] = "starting"
+        lobby["placement_date"] = datetime.datetime.utcnow().isoformat()
 
-            lobby["status"] = "starting"
-            lobby["placement_date"] = datetime.datetime.utcnow().isoformat()
+        lobby_lock.lobby = lobby
 
-            lobby_lock.lobby = lobby
+        log.info(f"GameLift game session placement issued for lobby '{lobby_id}' by host player '{player_id}'")
 
-            log.info(f"GameLift game session placement issued for lobby '{lobby_id}' by host player '{player_id}'")
+        # Notify members
+        receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
+        _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
 
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
-
-            return match_placement
+        return match_placement
 
 def stop_player_match_placement(player_id: int, expected_match_placement_id: str):
-    with _GenericLock(_get_player_match_placement_key(player_id)) as player_match_placement_lock:
-        placement_id = player_match_placement_lock.value
+    player_match_placement_key = _get_player_match_placement_key(player_id)
 
-        if expected_match_placement_id != placement_id:
-            log.warning(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
-            raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
+    placement_id = g.redis.conn.get(player_match_placement_key)
 
-        with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
-            placement = match_placement_lock.value
+    if expected_match_placement_id != placement_id:
+        log.warning(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
+        raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
 
-            if placement:
-                lobby_id = placement.get("lobby_id", None)
-                if not lobby_id:
-                    raise RuntimeError(f"Match placement '{placement_id}' doesn't contain a 'lobby_id' field. Only lobby match placements are supported at this time")
+    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+        if placement_id != g.redis.conn.get(player_match_placement_key):
+            log.warning(f"Player '{player_id}' attempted to stop match placement '{placement_id}', but was assigned to a different match placement while acquiring the match placement lock")
+            raise ConflictException("You were assigned to a different match placement while attempting to stop the match placement")
 
-                match_provider = placement["match_provider"]
-                if match_provider != "gamelift":
-                    raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
+        placement = match_placement_lock.value
 
-                placement_status = placement["status"]
-                if placement_status != "pending":
-                    log.warning(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the placement is in status '{placement_status}'")
-                    raise InvalidRequestException(f"Cannot stop a match placement in status {placement_status}")
+        if placement:
+            lobby_id = placement.get("lobby_id", None)
+            if not lobby_id:
+                raise RuntimeError(f"Match placement '{placement_id}' doesn't contain a 'lobby_id' field. Only lobby match placements are supported at this time")
 
-                response = flexmatch.stop_game_session_placement(placement_id)
+            match_provider = placement["match_provider"]
+            if match_provider != "gamelift":
+                raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
 
-                log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+            placement_status = placement["status"]
+            if placement_status != "pending":
+                log.warning(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the placement is in status '{placement_status}'")
+                raise InvalidRequestException(f"Cannot stop a match placement in status {placement_status}")
 
-                log.info(f"Player '{player_id}' stopped match placement '{placement_id}'")
+            response = flexmatch.stop_game_session_placement(placement_id)
+            log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
 
-                match_placement_lock.value = None
+            log.info(f"Player '{player_id}' stopped match placement '{placement_id}'")
 
-        player_match_placement_lock.value = None
+            match_placement_lock.value = None
+        else:
+            log.warning(f"Player '{player_id}' attempted to stop match placement '{placement_id}', but the match placement doesn't exist")
+
+        g.redis.conn.delete(player_match_placement_key)
 
 def process_gamelift_queue_event(queue_name: str, message: dict):
     log.debug(f"match-placements::process_gamelift_queue_event() received event in queue '{queue_name}': '{message}'")
@@ -469,8 +518,7 @@ def _process_match_ended(match_id: int):
         log.info(f"Match ended for lobby '{lobby_id}'. Deleting lobby.")
 
         for member in lobby["members"]:
-            with _GenericLock(_get_player_lobby_key(member["player_id"])) as member_lobby_id_lock:
-                member_lobby_id_lock.value = None
+            g.redis.conn.delete(_get_player_lobby_key(member["player_id"]))
 
         # Delete the lobby
         lobby_lock.lobby = None
