@@ -358,10 +358,10 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.make_player()
         self.create_lobby()
 
-        with patch.object(match_placements, "_LockedLobby", test_lobbies._MockLockedLobby) as mocked_lobby_lock:
+        with patch.object(match_placements, "JsonLock", test_lobbies._MockJsonLock) as mocked_lobby_lock:
             mocked_lobby = copy.deepcopy(self.lobby)
             mocked_lobby["status"] = "starting"
-            mocked_lobby_lock.mocked_lobby = mocked_lobby
+            mocked_lobby_lock.mocked_value = mocked_lobby
 
             with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
                 with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
@@ -394,7 +394,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.create_lobby()
         self.create_match_placement()
 
-        with patch.object(match_placements, "_JsonLock", _MockJsonLock) as mocked_json_lock:
+        with patch.object(match_placements, "JsonLock", test_lobbies._MockJsonLock) as mocked_json_lock:
             mocked_match_placement = copy.deepcopy(self.match_placement)
             mocked_match_placement["status"] = "starting"
             mocked_json_lock.mocked_value = mocked_match_placement
@@ -595,26 +595,6 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         self.assertDictEqual(self.lobby, old_lobby)
         self.assertDictEqual(self.match_placement, old_match_placement)
-
-class _MockJsonLock(object):
-    mocked_value = None
-
-    def __init__(self, key):
-        self._key = key
-
-    @property
-    def value(self):
-        return self.mocked_value
-
-    @value.setter
-    def value(self, new_value):
-        self.mocked_value = new_value
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
 
 MOCK_GAMELIFT_QUEUE_EVENT = {
    "version":"0",

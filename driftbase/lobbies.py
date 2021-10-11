@@ -9,7 +9,7 @@ from collections import defaultdict
 from flask import g
 from driftbase.models.db import CorePlayer
 from driftbase.messages import post_message
-from driftbase.utils.redis_utils import timeout_pipe
+from driftbase.utils.redis_utils import timeout_pipe, JsonLock
 from driftbase import flexmatch, parties
 from redis.exceptions import WatchError
 
@@ -37,12 +37,12 @@ def get_player_lobby(player_id: int, expected_lobby_id: typing.Optional[str] = N
         log.warning(f"Player '{player_id}' attempted to fetch lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
         raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
             log.warning(f"Player '{player_id}' attempted to get lobby '{lobby_id}', but left the lobby while acquiring the lobby lock")
             raise ConflictException(f"You left the lobby while attempting to fetch it")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if not lobby:
             log.warning(f"Player '{player_id}' is assigned to lobby '{lobby_id}' but the lobby doesn't exist")
@@ -96,8 +96,8 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
             for _ in range(MAX_LOBBY_ID_GENERATION_RETRIES):
                 lobby_id = _generate_lobby_id()
 
-                with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-                    if lobby_lock.lobby is not None:
+                with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+                    if lobby_lock.value is not None:
                         log.info(f"Generated an existing lobby id. That's very unlucky (or lucky). Retrying...")
                         continue
 
@@ -128,7 +128,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
 
                     pipe.multi()
                     pipe.set(player_lobby_key, lobby_id)
-                    lobby_lock.lobby = new_lobby
+                    lobby_lock.value = new_lobby
 
                     pipe.execute()
 
@@ -153,12 +153,12 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
         log.warning(f"Player '{player_id}' attempted to update lobby '{expected_lobby_id}', but isn't a member of that lobby. Player is in lobby '{lobby_id}'")
         raise UnauthorizedException(f"You don't have permission to access lobby {expected_lobby_id}")
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
             log.warning(f"Player '{player_id}' attempted to update lobby '{expected_lobby_id}', but left the lobby while acquiring the lobby lock")
             raise ConflictException(f"You left the lobby while attempting to update it")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if not lobby:
             log.warning(f"Player '{player_id}' attempted to update assigned lobby '{lobby_id}' but the lobby doesn't exist")
@@ -239,7 +239,7 @@ def update_lobby(player_id: int, expected_lobby_id: str, team_capacity: typing.O
                 lobby["custom_data"] = custom_data
 
         if lobby_updated:
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby)
@@ -296,12 +296,12 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
         log.warning(f"Player '{player_id}' attempted to update member '{member_id}' in lobby '{lobby_id}' without being in the lobby")
         raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
             log.warning(f"Player '{player_id}' failed to update lobby '{lobby_id}' due to leaving the lobby while waiting for lobby lock")
             raise ConflictException(f"You left the lobby while updating the lobby")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if player_id != member_id:
             host_player_id = _get_lobby_host_player_id(lobby)
@@ -352,7 +352,7 @@ def update_lobby_member(player_id: int, member_id: int, lobby_id: str, team_name
             break
 
         if member_updated:
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby)
@@ -367,7 +367,7 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
         log.warning(f"Player '{player_id}' attempted to kick member '{member_id}' in lobby '{lobby_id}' without being in the lobby")
         raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
             log.warning(f"Player '{player_id}' failed to kick member '{member_id}' in lobby '{lobby_id}' due to leaving the lobby while waiting for lobby lock")
             raise ConflictException(f"You left the lobby while kicking the player")
@@ -380,7 +380,7 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
             log.warning(f"Player '{player_id}' attempted to kick player '{member_id}' from lobby '{lobby_id}', but they aren't in the same lobby")
             raise InvalidRequestException(f"You and player {member_id} aren't in the same lobby")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if not lobby:
             g.redis.conn.delete(player_lobby_key)
@@ -408,7 +408,7 @@ def kick_member(player_id: int, member_id: int, lobby_id: str):
         if kicked:
             log.info(f"Host player '{player_id}' kicked member player '{member_id}' from lobby '{lobby_id}'")
 
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             # Notify members and kicked player
             _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberKicked", {"lobby_id": lobby_id, "kicked_player_id": member_id, "members": lobby["members"]})
@@ -423,13 +423,13 @@ def _internal_join_lobby(player_id: int, lobby_id: str) -> dict:
 
     player_lobby_key = _get_player_lobby_key(player_id)
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         current_lobby_id = g.redis.conn.get(player_lobby_key)
         if current_lobby_id and lobby_id != current_lobby_id:
             log.warning(f"Player '{player_id}' failed to join lobby '{lobby_id}' due to joining lobby '{current_lobby_id}' while waiting for lobby lock")
             raise ConflictException(f"You joined lobby {current_lobby_id} while attempting to join lobby {lobby_id}")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if not lobby:
             log.warning(f"Player '{player_id}' attempted to join lobby '{lobby_id}' which doesn't exist")
@@ -445,7 +445,7 @@ def _internal_join_lobby(player_id: int, lobby_id: str) -> dict:
                 "join_date": datetime.datetime.utcnow().isoformat(),
             })
 
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             g.redis.conn.set(player_lobby_key, lobby_id)
 
@@ -536,12 +536,12 @@ def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> typing.
 def _internal_leave_lobby(player_id: int, lobby_id: str):
     player_lobby_key = _get_player_lobby_key(player_id)
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
             log.warning(f"Player '{player_id}' failed to leave lobby '{lobby_id}' due to leaving the lobby while waiting for lobby lock")
             raise ConflictException(f"You left the lobby while attempting leave it")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if not lobby:
             log.warning(f"Player '{player_id}' attempted to leave lobby '{lobby_id}' which doesn't exist")
@@ -588,7 +588,7 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
 
                     lobby["members"] = sorted_members
 
-                lobby_lock.lobby = lobby
+                lobby_lock.value = lobby
 
                 # Notify remaining members
                 _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberLeft", {"lobby_id": lobby_id, "left_player_id": player_id, "members": lobby["members"]})
@@ -597,19 +597,19 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
 
                 log.info(f"No one left in lobby '{lobby_id}'. Lobby deleted.")
 
-                lobby_lock.lobby = None
+                lobby_lock.value = None
         else:
             log.warning(f"Lobby member player '{player_id}' attempted to leave lobby '{lobby_id}' without being a member")
 
         g.redis.conn.delete(player_lobby_key)
 
 def _internal_delete_lobby(player_id: int, lobby_id: str):
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(_get_player_lobby_key(player_id)):
             log.warning(f"Player '{player_id}' failed to delete lobby '{lobby_id}' due to leaving the lobby while waiting for lobby lock")
             raise ConflictException(f"You left the lobby while attempting to delete it")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if not lobby:
             log.warning(f"Player '{player_id}' attempted to delete lobby '{lobby_id}' which doesn't exist")
@@ -628,7 +628,7 @@ def _internal_delete_lobby(player_id: int, lobby_id: str):
                 g.redis.conn.delete(_get_player_lobby_key(member["player_id"]))
 
         # Delete the lobby
-        lobby_lock.lobby = None
+        lobby_lock.value = None
 
         # Notify members
         receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
@@ -701,54 +701,6 @@ def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, ev
 
 def _get_number_of_bytes(s: str) -> int:
     return len(s.encode('utf-8'))
-
-class _LockedLobby(object):
-    """
-    Context manager for synchronizing creation and modification of lobbies.
-    """
-    MAX_LOCK_WAIT_TIME_SECONDS = 30
-    TTL_SECONDS = 60 * 60 * 24
-
-    def __init__(self, key):
-        self._key = key
-        self._redis = g.redis
-        self._modified = False
-        self._lobby = None
-        self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
-
-    @property
-    def lobby(self):
-        return self._lobby
-
-    @lobby.setter
-    def lobby(self, new_lobby):
-        self._lobby = new_lobby
-        self._modified = True
-
-    def __enter__(self):
-        self._lock.acquire(blocking=True)
-        lobby = self._redis.conn.get(self._key)
-        if lobby is not None:
-            lobby = json.loads(lobby)
-            self._lobby = lobby
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
-            with self._redis.conn.pipeline() as pipe:
-                if self._modified is True and exc_type is None:
-                    pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
-                    if self._lobby:
-                        pipe.set(self._key, json.dumps(self._lobby, default=self._json_serial), ex=self.TTL_SECONDS)
-                pipe.execute()
-            self._lock.release()
-
-    @staticmethod
-    def _json_serial(obj):
-        if isinstance(obj, (datetime.datetime, datetime.date)):
-            return obj.isoformat()
-
-        raise TypeError(f"Type {type(obj)} not serializable")
 
 class LobbyException(Exception):
     def __init__(self, user_message):

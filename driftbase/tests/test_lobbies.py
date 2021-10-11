@@ -430,11 +430,11 @@ class LobbiesTest(_BaseLobbyTest):
         self.make_player()
         self.create_lobby()
 
-        with patch.object(lobbies, "_LockedLobby", _MockLockedLobby) as mocked_lobby_lock:
+        with patch.object(lobbies, "JsonLock", _MockJsonLock) as mocked_lobby_lock:
             mocked_lobby = copy.deepcopy(self.lobby)
             mocked_lobby["status"] = "started"
             mocked_lobby["connection_string"] = "1.1.1.1:1337"
-            mocked_lobby_lock.mocked_lobby = mocked_lobby
+            mocked_lobby_lock.mocked_value = mocked_lobby
 
             self.load_player_lobby()
 
@@ -449,11 +449,11 @@ class LobbiesTest(_BaseLobbyTest):
         self.put(self.lobby_member_url, data={"team_name": "1"}, expected_status_code=http_client.NO_CONTENT)
         self.load_player_lobby()
 
-        with patch.object(lobbies, "_LockedLobby", _MockLockedLobby) as mocked_lobby_lock:
+        with patch.object(lobbies, "JsonLock", _MockJsonLock) as mocked_lobby_lock:
             mocked_lobby = copy.deepcopy(self.lobby)
             mocked_lobby["status"] = "started"
             mocked_lobby["connection_string"] = "1.1.1.1:1337"
-            mocked_lobby_lock.mocked_lobby = mocked_lobby
+            mocked_lobby_lock.mocked_value = mocked_lobby
 
             mocked_player_session_id = "PlayerSession=123456"
             with patch.object(lobbies, "_ensure_player_session", return_value=mocked_player_session_id):
@@ -1005,11 +1005,11 @@ class LobbiesTest(_BaseLobbyTest):
         self.make_player()
         self.create_lobby()
 
-        with patch.object(lobbies, "_LockedLobby", _MockLockedLobby) as mocked_lobby_lock:
+        with patch.object(lobbies, "JsonLock", _MockJsonLock) as mocked_lobby_lock:
             mocked_lobby = copy.deepcopy(self.lobby)
             mocked_lobby["status"] = "starting"
             mocked_lobby["placement_date"] = datetime.datetime.utcnow().isoformat()
-            mocked_lobby_lock.mocked_lobby = mocked_lobby
+            mocked_lobby_lock.mocked_value = mocked_lobby
 
             response = self.delete(self.lobby_member_url, expected_status_code=http_client.BAD_REQUEST)
 
@@ -1019,11 +1019,11 @@ class LobbiesTest(_BaseLobbyTest):
         self.make_player()
         self.create_lobby()
 
-        with patch.object(lobbies, "_LockedLobby", _MockLockedLobby) as mocked_lobby_lock:
+        with patch.object(lobbies, "JsonLock", _MockJsonLock) as mocked_lobby_lock:
             mocked_lobby = copy.deepcopy(self.lobby)
             mocked_lobby["status"] = "starting"
             mocked_lobby["placement_date"] = datetime.datetime.min.isoformat()
-            mocked_lobby_lock.mocked_lobby = mocked_lobby
+            mocked_lobby_lock.mocked_value = mocked_lobby
 
             self.delete(self.lobby_member_url, expected_status_code=http_client.NO_CONTENT)
 
@@ -1391,19 +1391,19 @@ class LobbiesTest(_BaseLobbyTest):
         self.assertEqual(notification_data["lobby_id"], self.lobby_id)
         self.assertIn("members", notification_data)
 
-class _MockLockedLobby(object):
-    mocked_lobby = None
+class _MockJsonLock(object):
+    mocked_value = None
 
     def __init__(self, key):
         self._key = key
 
     @property
-    def lobby(self):
-        return self.mocked_lobby
+    def value(self):
+        return self.mocked_value
 
-    @lobby.setter
-    def lobby(self, new_lobby):
-        self.mocked_lobby = new_lobby
+    @value.setter
+    def value(self, new_value):
+        self.mocked_value = new_value
 
     def __enter__(self):
         return self

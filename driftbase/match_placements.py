@@ -6,9 +6,8 @@ import uuid
 from flask import g
 from driftbase.models.db import Match
 from driftbase import flexmatch, lobbies
-from driftbase.lobbies import InvalidRequestException, NotFoundException, UnauthorizedException, ConflictException, _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, _get_lobby_host_player_id, _get_player_lobby_key, _LockedLobby
-from driftbase.utils.redis_utils import timeout_pipe
-from redis.exceptions import WatchError
+from driftbase.lobbies import InvalidRequestException, NotFoundException, UnauthorizedException, ConflictException, _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, _get_lobby_host_player_id, _get_player_lobby_key
+from driftbase.utils.redis_utils import JsonLock
 
 from driftbase.resources.match_placements import TIER_DEFAULTS
 
@@ -34,7 +33,7 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
         log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
         raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
 
-    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+    with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         if placement_id != g.redis.conn.get(player_match_placement_key):
             log.warning(f"Player '{player_id}' attempted to get match placement '{placement_id}', but was no longer assigned to the match placement after getting the lock")
             raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
@@ -51,6 +50,7 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
         return placement
 
 def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
+    player_lobby_key = _get_player_lobby_key(player_id)
     player_lobby_key = _get_player_lobby_key(player_id)
 
     # Check lobby id
@@ -70,7 +70,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
     existing_placement_id = g.redis.conn.get(player_match_placement_key)
 
     if existing_placement_id:
-        with _JsonLock(_get_match_placement_key(existing_placement_id)) as match_placement_lock:
+        with JsonLock(_get_match_placement_key(existing_placement_id)) as match_placement_lock:
             if existing_placement_id != g.redis.conn.get(player_match_placement_key):
                 log.warning(f"Existing match placement check failed for player '{player_id}'. Player was assigned to match placement'{existing_placement_id}', but was no longer assigned to the match placement after getting the lock")
                 raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
@@ -81,7 +81,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
                 log.warning(f"Player '{player_id}' attempted to start a match placement while assigned to pending match placement '{existing_placement_id}'")
                 raise InvalidRequestException("You have a pending match placement in progress")
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
             log.warning(f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but left the lobby while acquiring the lobby lock")
             raise ConflictException(f"You left the lobby while attempting to start the lobby match placement")
@@ -90,7 +90,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
             log.warning(f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while acquiring the lobby lock")
             raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
 
-        lobby = lobby_lock.lobby
+        lobby = lobby_lock.value
 
         if not lobby:
             raise RuntimeError(f"Player '{player_id}' is attempting to start match for nonexistent lobby '{lobby_id}'. Player is supposed to be in said lobby")
@@ -183,7 +183,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
             raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
 
         # Lock used as a convenient way to serialize the JSON value - Locking isn't required since this is a new placement id
-        with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+        with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             match_placement = {
                 "placement_id": placement_id,
                 "player_id": player_id,
@@ -199,7 +199,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
         lobby["status"] = "starting"
         lobby["placement_date"] = datetime.datetime.utcnow().isoformat()
 
-        lobby_lock.lobby = lobby
+        lobby_lock.value = lobby
 
         log.info(f"GameLift game session placement issued for lobby '{lobby_id}' by host player '{player_id}'")
 
@@ -218,7 +218,7 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
         log.warning(f"Player '{player_id}' attempted to stop match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
         raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
 
-    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+    with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         if placement_id != g.redis.conn.get(player_match_placement_key):
             log.warning(f"Player '{player_id}' attempted to stop match placement '{placement_id}', but was assigned to a different match placement while acquiring the match placement lock")
             raise ConflictException("You were assigned to a different match placement while attempting to stop the match placement")
@@ -339,7 +339,7 @@ def _process_fulfilled_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
     duration = _get_placement_duration(event_details)
 
-    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+    with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
@@ -353,8 +353,8 @@ def _process_fulfilled_queue_event(event_details: dict):
 
         log.info(f"Placement '{placement_id}' completed. Duration: '{duration}s'")
 
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
+        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.value
 
             ip_address: str = event_details["ipAddress"]
             port = int(event_details["port"])
@@ -367,7 +367,7 @@ def _process_fulfilled_queue_event(event_details: dict):
 
             log.info(f"Lobby match for lobby '{lobby_id}' has started.")
 
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             # Notify members
 
@@ -404,7 +404,7 @@ def _process_cancelled_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
     duration = _get_placement_duration(event_details)
 
-    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+    with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
@@ -417,14 +417,14 @@ def _process_cancelled_queue_event(event_details: dict):
 
         log.info(f"Placement '{placement_id}' cancelled. Duration: '{duration}s'")
 
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
+        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.value
 
             lobby["status"] = "cancelled"
 
             log.info(f"Lobby match placement for lobby '{lobby_id}' cancelled.")
 
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby)
@@ -435,7 +435,7 @@ def _process_timed_out_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
     duration = _get_placement_duration(event_details)
 
-    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+    with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
@@ -448,14 +448,14 @@ def _process_timed_out_queue_event(event_details: dict):
 
         log.info(f"Placement '{placement_id}' timed out. Duration: '{duration}s'")
 
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
+        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.value
 
             lobby["status"] = "timed_out"
 
             log.info(f"Lobby match placement for lobby '{lobby_id}' timed_out.")
 
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby)
@@ -465,7 +465,7 @@ def _process_failed_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
     duration = _get_placement_duration(event_details)
 
-    with _JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+    with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
@@ -478,14 +478,14 @@ def _process_failed_queue_event(event_details: dict):
 
         log.info(f"Placement '{placement_id}' failed. Duration: '{duration}s'")
 
-        with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.lobby
+        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+            lobby = lobby_lock.value
 
             lobby["status"] = "failed"
 
             log.info(f"Lobby match placement for lobby '{lobby_id}' failed.")
 
-            lobby_lock.lobby = lobby
+            lobby_lock.value = lobby
 
             # Notify members
             receiving_player_ids = _get_lobby_member_player_ids(lobby)
@@ -508,8 +508,8 @@ def _process_match_ended(match_id: int):
         log.info(f"Match '{match.match_id}' isn't a lobby match.")
         return
 
-    with _LockedLobby(_get_lobby_key(lobby_id)) as lobby_lock:
-        lobby = lobby_lock.lobby
+    with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+        lobby = lobby_lock.value
 
         if not lobby:
             log.error(f"Lobby '{lobby_id}' not found for match '{match.match_id}'. Match details: '{details}'")
@@ -521,7 +521,7 @@ def _process_match_ended(match_id: int):
             g.redis.conn.delete(_get_player_lobby_key(member["player_id"]))
 
         # Delete the lobby
-        lobby_lock.lobby = None
+        lobby_lock.value = None
 
         log.info(f"Lobby '{lobby_id}' deleted.")
 
@@ -537,51 +537,3 @@ def _jsonify(d: dict) -> str:
         return str(obj)
 
     return json.dumps(d, default=_json_serial)
-
-class _JsonLock(object):
-    """
-    Context manager for synchronizing creation and modification of a json redis value.
-    """
-    MAX_LOCK_WAIT_TIME_SECONDS = 30
-    TTL_SECONDS = 60 * 60 * 24
-
-    def __init__(self, key):
-        self._key = key
-        self._redis = g.redis
-        self._modified = False
-        self._value = None
-        self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, new_value):
-        self._value = new_value
-        self._modified = True
-
-    def __enter__(self):
-        self._lock.acquire(blocking=True)
-        value = self._redis.conn.get(self._key)
-        if value is not None:
-            value = json.loads(value)
-            self._value = value
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
-            with self._redis.conn.pipeline() as pipe:
-                if self._modified is True and exc_type is None:
-                    pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
-                    if self._value:
-                        pipe.set(self._key, json.dumps(self._value, default=self._json_serial), ex=self.TTL_SECONDS)
-                pipe.execute()
-            self._lock.release()
-
-    @staticmethod
-    def _json_serial(obj):
-        if isinstance(obj, (datetime.datetime, datetime.date)):
-            return obj.isoformat()
-
-        raise TypeError(f"Type {type(obj)} not serializable")
