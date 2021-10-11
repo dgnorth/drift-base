@@ -124,7 +124,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
                     "LatencyInMilliseconds": latency
                 })
 
-        log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}'. GameLift placement id: '{placement_id}'")
+        log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}' in queue '{queue}'. GameLift placement id: '{placement_id}'")
         response = flexmatch.start_game_session_placement(
             PlacementId=placement_id,
             GameSessionQueueName=queue,
