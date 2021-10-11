@@ -298,18 +298,16 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
     def test_create_match_placement(self):
         # Have player 1 create the lobby
-        random_player_name_1 = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name_1}")
+        player_1_username = self.make_player()
 
         self.create_lobby()
 
         # Have player 2 join the lobby
-        random_player_name_2 = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name_2}")
+        player_2_username = self.make_player()
         self.join_lobby(self.lobby_members_url)
 
         # Switch to player 1
-        self.auth(f"Player {random_player_name_1}")
+        self.auth(player_1_username)
 
         # Create placement
         self.create_match_placement()
@@ -325,7 +323,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         # TODO: Brainstorm and figure out if this is the best approach
 
         # Switch to player 2
-        self.auth(f"Player {random_player_name_2}")
+        self.auth(player_2_username)
 
         # Assert message queue for player 2
         notification, _ = self.get_player_notification("lobby", "LobbyMatchStarting")
@@ -422,8 +420,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
     # GameLift queue events
 
     def test_match_placement_queue_event_fulfilled(self):
-        random_player_name = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name}")
+        player_username = self.make_player()
         self.create_lobby()
         self.create_match_placement()
 
@@ -434,7 +431,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
 
         # Re-auth
-        self.auth(f"Player {random_player_name}")
+        self.auth(player_username)
 
         # Assert lobby, maybe move this somehow to lobby tests?
         self.load_player_lobby()
@@ -460,8 +457,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertIn("connection_options", notification_data)
 
     def test_match_placement_queue_event_cancelled(self):
-        random_player_name = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name}")
+        player_username = self.make_player()
         self.create_lobby()
         self.create_match_placement()
 
@@ -473,7 +469,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
 
         # Re-auth
-        self.auth(f"Player {random_player_name}")
+        self.auth(player_username)
 
         # Assert lobby, maybe move this somehow to lobby tests?
         self.load_player_lobby()
@@ -494,8 +490,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertEqual(notification_data["status"], "cancelled")
 
     def test_match_placement_queue_event_timed_out(self):
-        random_player_name = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name}")
+        player_username = self.make_player()
         self.create_lobby()
         self.create_match_placement()
 
@@ -507,7 +502,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
 
         # Re-auth
-        self.auth(f"Player {random_player_name}")
+        self.auth(player_username)
 
         # Assert lobby, maybe move this somehow to lobby tests?
         self.load_player_lobby()
@@ -528,8 +523,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertEqual(notification_data["status"], "timed_out")
 
     def test_match_placement_queue_event_failed(self):
-        random_player_name = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name}")
+        player_username = self.make_player()
         self.create_lobby()
         self.create_match_placement()
 
@@ -541,7 +535,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
 
         # Re-auth
-        self.auth(f"Player {random_player_name}")
+        self.auth(player_username)
 
         # Assert lobby, maybe move this somehow to lobby tests?
         self.load_player_lobby()
@@ -562,8 +556,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertEqual(notification_data["status"], "failed")
 
     def test_match_placement_queue_event_match_placement_not_found(self):
-        random_player_name = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name}")
+        player_username = self.make_player()
         self.create_lobby()
         self.create_match_placement()
         self.load_player_lobby()
@@ -577,7 +570,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
 
         # Re-auth
-        self.auth(f"Player {random_player_name}")
+        self.auth(player_username)
         self.load_player_match_placement()
         self.load_player_lobby()
 
@@ -585,8 +578,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertDictEqual(self.match_placement, old_match_placement)
 
     def test_match_placement_queue_event_unknown_type(self):
-        random_player_name = str(uuid.uuid4())
-        self.auth(f"Player {random_player_name}")
+        player_username = self.make_player()
         self.create_lobby()
         self.create_match_placement()
         self.load_player_lobby()
@@ -607,7 +599,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
                 pass
 
         # Re-auth
-        self.auth(f"Player {random_player_name}")
+        self.auth(player_username)
         self.load_player_match_placement()
         self.load_player_lobby()
 
