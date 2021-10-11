@@ -5,11 +5,11 @@ import typing
 import uuid
 from flask import g
 from driftbase.models.db import Match
-from driftbase import flexmatch, lobbies
+from driftbase import flexmatch
 from driftbase.lobbies import InvalidRequestException, NotFoundException, UnauthorizedException, ConflictException, _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, _get_lobby_host_player_id, _get_player_lobby_key
 from driftbase.utils.redis_utils import JsonLock
 
-from driftbase.resources.match_placements import TIER_DEFAULTS
+MATCH_PROVIDER = "gamelift"
 
 """
 Only lobby matches with GameLift provider supported at the time of writing!!!
@@ -49,7 +49,7 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
 
         return placement
 
-def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
+def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> dict:
     player_lobby_key = _get_player_lobby_key(player_id)
     player_lobby_key = _get_player_lobby_key(player_id)
 
@@ -106,11 +106,6 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
             log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' while the match is starting")
             raise InvalidRequestException(f"An active match placement is already in progress for the lobby")
 
-        # Select match provider
-        match_provider = _get_tenant_config_value("default_match_provider")
-        if match_provider != "gamelift":
-            raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
-
         # Request a game server
         lobby_name = lobby["lobby_name"]
         placement_id = str(uuid.uuid4())
@@ -132,7 +127,7 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
         log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}'. GameLift placement id: '{placement_id}'")
         response = flexmatch.start_game_session_placement(
             PlacementId=placement_id,
-            GameSessionQueueName=lobbies._get_tenant_config_value("lobby_game_session_queue"),
+            GameSessionQueueName=queue,
             MaximumPlayerSessionCount=max_player_session_count,
             GameSessionName=game_session_name,
             GameProperties=[
@@ -187,7 +182,8 @@ def start_lobby_match_placement(player_id: int, lobby_id: str) -> dict:
             match_placement = {
                 "placement_id": placement_id,
                 "player_id": player_id,
-                "match_provider": match_provider,
+                "match_provider": MATCH_PROVIDER,
+                "queue": queue,
                 "lobby_id": lobby_id,
                 "status": "pending",
                 "create_date": datetime.datetime.utcnow().isoformat(),
@@ -231,7 +227,7 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
                 raise RuntimeError(f"Match placement '{placement_id}' doesn't contain a 'lobby_id' field. Only lobby match placements are supported at this time")
 
             match_provider = placement["match_provider"]
-            if match_provider != "gamelift":
+            if match_provider != MATCH_PROVIDER:
                 raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
 
             placement_status = placement["status"]
@@ -298,13 +294,6 @@ def _get_match_placement_key(placement_id: str) -> str:
 
 def _get_player_match_placement_key(player_id: int) -> str:
     return g.redis.make_key(f"player:{player_id}:match-placement:")
-
-def _get_tenant_config_value(config_key):
-    default_value = TIER_DEFAULTS.get(config_key, None)
-    tenant = g.conf.tenant
-    if tenant:
-        return g.conf.tenant.get("match-placements", {}).get(config_key, default_value)
-    return default_value
 
 def _get_tenant_name():
     return g.conf.tenant.get('tenant_name')

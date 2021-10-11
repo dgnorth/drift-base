@@ -6,10 +6,6 @@ import logging
 
 log = logging.getLogger(__name__)
 
-TIER_DEFAULTS = {
-    "lobby_game_session_queue": "default",
-}
-
 def drift_init_extension(app, **kwargs):
     pass
 

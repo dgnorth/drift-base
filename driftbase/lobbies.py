@@ -13,8 +13,6 @@ from driftbase.utils.redis_utils import timeout_pipe, JsonLock
 from driftbase import flexmatch, parties
 from redis.exceptions import WatchError
 
-from driftbase.resources.lobbies import TIER_DEFAULTS
-
 log = logging.getLogger(__name__)
 
 MAX_LOBBY_ID_GENERATION_RETRIES = 100
@@ -672,13 +670,6 @@ def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: typing.Optiona
         exclude_player_ids = []
 
     return [member["player_id"] for member in lobby["members"] if member["player_id"] not in exclude_player_ids]
-
-def _get_tenant_config_value(config_key):
-    default_value = TIER_DEFAULTS.get(config_key, None)
-    tenant = g.conf.tenant
-    if tenant:
-        return g.conf.tenant.get("lobbies", {}).get(config_key, default_value)
-    return default_value
 
 def _get_tenant_name():
     return g.conf.tenant.get('tenant_name')

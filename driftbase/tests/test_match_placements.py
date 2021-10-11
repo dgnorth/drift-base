@@ -26,6 +26,7 @@ class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
             lobby_id = self.lobby_id or "123456"
 
             match_placement_data = {
+                "queue": "some queue",
                 "lobby_id": lobby_id,
             }
 
@@ -161,7 +162,8 @@ class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
         match_placements_url = self.endpoints["match_placements"]
 
         post_data = {
-            "lobby_id": "123456"
+            "queue": "yup",
+            "lobby_id": "123456",
         }
 
         with patch.object(match_placements, "start_lobby_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
@@ -312,6 +314,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         # Create placement
         self.create_match_placement()
 
+        # Get placement
         response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.OK)
 
         self.assertDictEqual(response.json(), self.match_placement)
@@ -335,9 +338,14 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
     def test_create_match_placement_not_in_lobby(self):
         self.make_player()
 
+        post_data = {
+            "queue": "yup",
+            "lobby_id": "123456",
+        }
+
         with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                response = self.post(self.endpoints["match_placements"], data={"lobby_id": "123456"}, expected_status_code=http_client.BAD_REQUEST)
+                response = self.post(self.endpoints["match_placements"], data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
                 self._assert_error(response)
 
@@ -348,15 +356,25 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.auth("Player 2")
         self.join_lobby(self.lobby_members_url)
 
+        post_data = {
+            "queue": "yup",
+            "lobby_id": self.lobby_id,
+        }
+
         with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                response = self.post(self.endpoints["match_placements"], data={"lobby_id": self.lobby_id}, expected_status_code=http_client.UNAUTHORIZED)
+                response = self.post(self.endpoints["match_placements"], data=post_data, expected_status_code=http_client.UNAUTHORIZED)
 
                 self._assert_error(response)
 
     def test_create_match_placement_already_starting(self):
         self.make_player()
         self.create_lobby()
+
+        post_data = {
+            "queue": "yup",
+            "lobby_id": self.lobby_id,
+        }
 
         with patch.object(match_placements, "JsonLock", test_lobbies._MockJsonLock) as mocked_lobby_lock:
             mocked_lobby = copy.deepcopy(self.lobby)
@@ -365,7 +383,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
             with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
                 with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                    response = self.post(self.endpoints["match_placements"], data={"lobby_id": self.lobby_id}, expected_status_code=http_client.BAD_REQUEST)
+                    response = self.post(self.endpoints["match_placements"], data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
                     self._assert_error(response)
 

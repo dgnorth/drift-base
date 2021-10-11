@@ -23,13 +23,11 @@ def drift_init_extension(app, api, **kwargs):
     app.messagebus.register_consumer(match_placements.process_gamelift_queue_event, "gamelift_queue")
     endpoints.init_app(app)
 
-class CreateMatchPlacementRequestSchema(Schema):
-    lobby_id = fields.String(required=False, metadata=dict(description="Create a match placement for a lobby."))
-
 class MatchPlacementResponseSchema(Schema):
     placement_id = fields.String(metadata=dict(description="The id of the match placement."))
     player_id = fields.Integer(metadata=dict(description="The id of the player who issued the match placement."))
     match_provider = fields.String(metadata=dict(description="The service that is providing the match."))
+    queue = fields.String(metadata=dict(description="The queue the match placement was issued into."))
     status = fields.String(metadata=dict(description="The match placement status."))
     create_date = fields.String(metadata=dict(description="The UTC timestamp of when the match placement was created."))
 
@@ -39,6 +37,9 @@ class MatchPlacementResponseSchema(Schema):
 
 @bp.route("/", endpoint="match-placements")
 class MatchPlacementsAPI(MethodView):
+    class CreateMatchPlacementRequestSchema(Schema):
+        queue = fields.String(required=True, metadata=dict(description="Which queue to issue the match placement into."))
+        lobby_id = fields.String(required=False, metadata=dict(description="Create a match placement for a lobby."))
 
     @bp.response(http_client.OK, MatchPlacementResponseSchema)
     def get(self):
@@ -67,7 +68,7 @@ class MatchPlacementsAPI(MethodView):
         """
         player_id = current_user["player_id"]
         try:
-            match_placement = match_placements.start_lobby_match_placement(player_id, args.get("lobby_id"))
+            match_placement = match_placements.start_lobby_match_placement(player_id, args.get("queue"), args.get("lobby_id"))
 
             match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement["placement_id"], _external=True)
 
