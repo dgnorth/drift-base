@@ -255,21 +255,6 @@ def endpoint_info(*args):
         "lobbies": url_for("lobbies.lobbies", _external=True)
     }
 
-    if current_user and current_user.get("player_id"):
-        player_id = current_user["player_id"]
-
-        try:
-            player_lobby = lobbies.get_player_lobby(player_id)
-            lobby_id = player_lobby["lobby_id"]
-
-            ret["my_lobby"] = url_for("lobbies.lobby", lobby_id=lobby_id, _external=True)
-            ret["my_lobby_members"] = url_for("lobbies.members", lobby_id=lobby_id, _external=True)
-            ret["my_lobby_member"] = url_for("lobbies.member", lobby_id=lobby_id, member_player_id=player_id, _external=True)
-        except lobbies.NotFoundException:
-            pass
-        except lobbies.UnauthorizedException as e:
-            log.error(e.msg)
-
     return ret
 
 # Helpers
