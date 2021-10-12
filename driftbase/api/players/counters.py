@@ -158,6 +158,7 @@ class CountersApi(MethodView):
 
         # Sort out invalid entries, and merge all operations on the same counter
         result = {}
+        counter_names = []
         counter_updates = {}
         timestamp = datetime.datetime.utcnow()
         for update in args:
@@ -183,6 +184,8 @@ class CountersApi(MethodView):
             is_absolute = counter_type == COUNTER_TYPE_ABSOLUTE
             value = float(update["value"])
 
+            counter_names.append(name)
+
             # Skip no-op values
             if not is_absolute and value == 0.0:
                 continue
@@ -205,17 +208,18 @@ class CountersApi(MethodView):
                                              )
 
         counter_ids = []
-        counters = batch_get_or_create_counters([(k, v["counter_type"]) for k, v in counter_updates.items()])
-        for (counter_id, name) in counters:
-            counter_updates[name]["counter_id"] = counter_id
-            counter_ids.append(counter_id)
+        if len(counter_updates) > 0:
+            counters = batch_get_or_create_counters([(k, v["counter_type"]) for k, v in counter_updates.items()])
+            for (counter_id, name) in counters:
+                counter_updates[name]["counter_id"] = counter_id
+                counter_ids.append(counter_id)
 
-        # Player counters keep track of which counters have ever been set for a given player
-        batch_create_player_counters(player_id, counter_ids)
+            # Player counters keep track of which counters have ever been set for a given player
+            batch_create_player_counters(player_id, counter_ids)
 
-        batch_update_counter_entries(player_id, counter_updates)
+            batch_update_counter_entries(player_id, counter_updates)
 
-        for name in counter_updates.keys():
+        for name in counter_names:
             result[name] = "OK"
 
         log.info("patch(%s) done in %.2fs!", player_id, time.time() - start_time)

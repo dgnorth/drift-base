@@ -263,3 +263,24 @@ class CountersTests(DriftBaseTestCase):
         self.assertEqual(len(r.json()), 2)
         self.assertEqual(r.json()[name], val + second_val + third_val + fourth_val + fifth_val)
         self.assertEqual(r.json()[absolute_name], absolute_val)
+
+    def test_noop_counters(self):
+        # test counter updates with no changes
+        self.auth(username=uuid_string())
+        player_url = self.endpoints["my_player"]
+        r = self.get(player_url)
+        counter_url = r.json()["counter_url"]
+        r = self.get(counter_url)
+        timestamp = datetime.datetime(2016, 1, 1, 10, 2, 2)
+        name = "my_counter"
+        data = [{"name": name,
+                 "value": 0,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"},
+                {"name": name,
+                 "value": 0,
+                 "timestamp": timestamp.isoformat(),
+                 "counter_type": "count"}
+                ]
+        r = self.patch(counter_url, data=data)
+        self.assertEqual("OK", r.json()[name])
