@@ -6,6 +6,8 @@ import datetime
 import json
 
 OPERATION_TIMEOUT = 10
+DEFAULT_LOCK_TTL_SECONDS = 60 * 60 * 24 # 24 hours
+DEFAULT_LOCK_TIMEOUT_SECONDS = 30
 
 def timeout_pipe(timeout: int = OPERATION_TIMEOUT) -> typing.Generator[Pipeline, None, None]:
     endtime = time() + timeout
@@ -17,15 +19,14 @@ class JsonLock(object):
     """
     Context manager for synchronizing creation and modification of a json redis value.
     """
-    MAX_LOCK_WAIT_TIME_SECONDS = 30
-    TTL_SECONDS = 60 * 60 * 24
 
-    def __init__(self, key):
+    def __init__(self, key: str, ttl: int = DEFAULT_LOCK_TTL_SECONDS, lock_timeout: int = DEFAULT_LOCK_TIMEOUT_SECONDS):
         self._key = key
+        self._ttl = ttl
         self._redis = g.redis
         self._modified = False
         self._value = None
-        self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
+        self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=lock_timeout)
 
     @property
     def value(self):
@@ -50,7 +51,7 @@ class JsonLock(object):
                 if self._modified is True and exc_type is None:
                     pipe.delete(self._key)  # Always update the lobby wholesale, i.e. don't leave stale fields behind.
                     if self._value:
-                        pipe.set(self._key, json.dumps(self._value, default=self._json_serial), ex=self.TTL_SECONDS)
+                        pipe.set(self._key, json.dumps(self._value, default=self._json_serial), ex=self._ttl)
                 pipe.execute()
             self._lock.release()
 

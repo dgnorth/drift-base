@@ -51,7 +51,6 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
 
 def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> dict:
     player_lobby_key = _get_player_lobby_key(player_id)
-    player_lobby_key = _get_player_lobby_key(player_id)
 
     # Check lobby id
     player_lobby_id = g.redis.conn.get(player_lobby_key)
