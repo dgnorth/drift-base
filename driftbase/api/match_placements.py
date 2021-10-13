@@ -128,15 +128,4 @@ def endpoint_info(*args):
         "match_placements": url_for("match-placements.match-placements", _external=True)
     }
 
-    if current_user and current_user.get("player_id"):
-        player_id = current_user["player_id"]
-        try:
-            player_placement = match_placements.get_player_match_placement(player_id)
-            if player_placement:
-                ret["my_match_placement"] = url_for("match-placements.match-placement", match_placement_id=player_placement["placement_id"], _external=True)
-        except lobbies.NotFoundException:
-            pass
-        except lobbies.UnauthorizedException as e:
-            log.error(e.msg)
-
     return ret

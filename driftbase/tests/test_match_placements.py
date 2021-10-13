@@ -124,11 +124,6 @@ class TestMatchPlacements(BaseCloudkitTest):
         self.make_player()
         self.assertIn("match_placements", self.endpoints)
 
-    def test_my_match_placement(self):
-        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT):
-            self.make_player()
-            self.assertIn("my_match_placement", self.endpoints)
-
 # /match-placements
 class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
     # Get
