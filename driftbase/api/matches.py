@@ -3,7 +3,7 @@ import http.client as http_client
 import logging
 import marshmallow as ma
 from contextlib import ExitStack
-from flask import url_for, g, jsonify
+from flask import url_for, g, jsonify, current_app
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
@@ -386,9 +386,13 @@ class MatchAPI(MethodView):
                 log.info("Tried to set the unique key '{}' of a battle when one already exists".format(unique_key))
                 abort(http_client.CONFLICT, description="An existing match with the same unique_key was found")
 
+            message_data = None
             if match.status != new_status:
                 log.info("Changing status of match %s from '%s' to '%s'",
                          match_id, match.status, args["status"])
+
+                message_data = {"event": "match_status_changed", "match_id": match_id, "match_status": new_status}
+
                 if new_status == "started":
                     match.start_date = utcnow()
                 elif new_status == "completed":
@@ -400,13 +404,17 @@ class MatchAPI(MethodView):
                 setattr(match, arg, args[arg])
             g.db.commit()
 
+            if message_data:
+                current_app.extensions["messagebus"].publish_message("match", message_data)
+
             resource_uri = url_for("matches.entry", match_id=match_id, _external=True)
             response_header = {
                 "Location": resource_uri,
             }
-            ret = {"match_id": match_id,
-                   "url": resource_uri,
-                   }
+            ret = {
+                "match_id": match_id,
+                "url": resource_uri,
+            }
 
             log.info("Match %s has been updated.", match_id)
 

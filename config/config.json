@@ -30,6 +30,8 @@
         "driftbase.api.messages",
         "driftbase.api.matchmakers",
         "driftbase.api.matchmakers.flexmatch",
+        "driftbase.api.lobbies",
+        "driftbase.api.match_placements",
 
         "drift.core.apps.schemas",
         "drift.core.apps.provision",
@@ -49,6 +51,8 @@
         "driftbase.resources.gameserver",
         "driftbase.resources.parties",
         "driftbase.resources.flexmatch",
+        "driftbase.resources.lobbies",
+        "driftbase.resources.match_placements",
         "driftbase.auth"
     ],
     "resource_attributes": {
