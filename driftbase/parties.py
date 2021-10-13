@@ -207,10 +207,16 @@ def create_party_invite(party_id, sending_player_id, invited_player_id):
         while time() < end:
             try:
                 pipe.watch(invited_player_party_key)
-
                 inviting_player_party_id = pipe.get(inviting_player_party_key)
+
                 if inviting_player_party_id:
                     party_players_key = make_party_players_key(int(inviting_player_party_id))
+                    pipe.watch(party_players_key)
+                    members = get_party_members(inviting_player_party_id)
+                    if len(members) >= get_max_players_per_party():
+                        log.debug(f"Player {inviting_player_party_id} tried to invite to a party that was already full")
+                        abort(http_client.BAD_REQUEST, message="Party is already full")
+
                     pipe.multi()
                     pipe.sismember(party_players_key, invited_player_id)
                     pipe.get(invited_player_party_key)

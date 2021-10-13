@@ -292,6 +292,33 @@ class PartiesTest(BaseCloudkitTest):
         g2_notification, g2_message_number = self.get_party_notification('invite')
         self.patch(g2_notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.NOT_FOUND)
 
+    def test_invite_to_full_party_is_not_allowed(self):
+        # Create players for test
+        guest_ids = []
+        guest_names = []
+
+        for i in range(4):
+            guest_names.append(self.make_player())
+            guest_ids.append(self.player_id)
+        host_user_name = self.make_user_name("Host")
+        self.make_named_player(host_user_name)
+        host_id = self.player_id
+
+        # Invite all the guests but the last one
+        invites = [self.post(self.endpoints["party_invites"], data={'player_id': guest_id},
+                             expected_status_code=http_client.CREATED).json() for guest_id in guest_ids[:-1]]
+
+        # First 2 accept the invite and make a full party
+        for guest_name in guest_names[:-1]:
+            self.auth(username=guest_name)
+            notification, message_number = self.get_party_notification('invite')
+            self.patch(notification['invite_url'], data={'inviter_id': host_id},
+                       expected_status_code=http_client.OK).json()
+
+        # Try to invite the last guest while the party is full
+        self.post(self.endpoints["party_invites"], data={'player_id': guest_ids[-1]},
+                  expected_status_code=http_client.BAD_REQUEST).json()
+
     def test_party_is_capped_at_n_members(self):
         player_limit = 3
         with patch.object(parties, 'get_max_players_per_party', return_value=player_limit) as mock:
