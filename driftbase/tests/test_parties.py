@@ -98,6 +98,93 @@ class PartiesTest(BaseCloudkitTest):
                                                                          messages_after=g2_message_number)
         self.assertIsNone(g2_notification)
 
+    def test_accept_party_invite_already_in_party(self):
+        # Create players for test
+        host_user_1 = self.make_user_name("Host 1")
+        guest_user_1 = self.make_user_name("Guest 1")
+
+        host_user_2 = self.make_user_name("Host 2")
+        guest_user_2 = self.make_user_name("Guest 2")
+
+        g2_name = "Bob"
+        self.make_named_player(guest_user_2, g2_name)
+        g2_id = self.player_id
+
+        host_2_name = "Alice"
+        self.make_named_player(host_user_2, "Alice")
+        host_2_id = self.player_id
+
+        g1_name = "Amy"
+        self.make_named_player(guest_user_1, "Amy")
+        g1_id = self.player_id
+
+        host_1_name = "Joe"
+        self.make_named_player(host_user_1, "Joe")
+        host_1_id = self.player_id
+
+        # Create first party with host 1 and guest 1
+        invite = self.post(self.endpoints["party_invites"], data={'player_id': g1_id},
+                           expected_status_code=http_client.CREATED).json()
+
+        # Check g1 gets a notification about the invite
+        self.auth(username=guest_user_1)
+        g1_notification, _ = self.get_party_notification('invite')
+        self.assertEqual(g1_notification['invite_url'], invite['url'])
+
+        # Accept the invite, and check that both players are in the party
+        accept = self.patch(g1_notification['invite_url'], data={'inviter_id': host_1_id}).json()
+        party = self.get(accept['party_url']).json()
+        self.check_expected_players_in_party(party, [(host_1_id, host_1_name), (g1_id, g1_name)])
+
+        # Create second party with host 2 and guest 2
+        self.auth(username=host_user_2)
+        invite = self.post(self.endpoints["party_invites"], data={'player_id': g2_id},
+                           expected_status_code=http_client.CREATED).json()
+
+        # Check g2 gets a notification about the invite
+        self.auth(username=guest_user_2)
+        g2_notification, _ = self.get_party_notification('invite')
+        self.assertEqual(g2_notification['invite_url'], invite['url'])
+
+        # Accept the invite, and check that both players are in the party
+        accept = self.patch(g2_notification['invite_url'], data={'inviter_id': host_2_id}).json()
+        party = self.get(accept['party_url']).json()
+        self.check_expected_players_in_party(party, [(host_2_id, host_2_name), (g2_id, g2_name)])
+
+        # Invite g1 to the second party
+        self.auth(username=host_user_2)
+        invite = self.post(self.endpoints["party_invites"], data={'player_id': g1_id},
+                           expected_status_code=http_client.CREATED).json()
+
+        # Check g1 gets a notification about the invite
+        self.auth(username=guest_user_1)
+        g1_notification, _ = self.get_party_notification('invite')
+        self.assertEqual(g1_notification['invite_url'], invite['url'])
+
+        # Attempt to accept the invite without specifying to leave the current party
+        self.patch(g1_notification['invite_url'], data={'inviter_id': host_2_id}, expected_status_code=http_client.BAD_REQUEST)
+
+        # Verify g1 is still in the same party
+        party = self.get(self.endpoints["parties"], expected_status_code=http_client.OK).json()
+        self.check_expected_players_in_party(party, [(host_1_id, host_1_name), (g1_id, g1_name)])
+
+        # Accept the invitation and specify to leave current party
+        accept = self.patch(g1_notification['invite_url'], data={'inviter_id': host_2_id, "leave_existing_party": True}).json()
+        party = self.get(accept['party_url']).json()
+        self.check_expected_players_in_party(party, [(host_2_id, host_2_name), (g2_id, g2_name), (g1_id, g1_name)])
+
+        # Verify host 1 is no longer in a party, since you can't be in a party with only 1 member
+        self.auth(username=host_user_1)
+        self.get(self.endpoints["parties"], expected_status_code=http_client.NOT_FOUND)
+
+        # Verify g1 left
+        host_notification, _ = self.get_party_notification('player_left')
+        self.assertEqual(host_notification['player_id'], g1_id)
+
+        # Verify party disbanded
+        host_notification, _ = self.get_party_notification('disbanded')
+        self.assertIsNotNone(host_notification)
+
     def test_invite_non_existing_player(self):
         # Create players for test
         host_user = self.make_user_name("Host")
