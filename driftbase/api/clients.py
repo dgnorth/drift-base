@@ -226,10 +226,13 @@ class ClientsAPI(MethodView):
             "jwt": jwt,
         }
 
-        current_app.extensions['messagebus'].publish_message(
-            'client',
-            {'event': 'created', 'payload': payload, 'url': resource_url}
-        )
+        message_data = {
+            "event": "created",
+            "player_id": player_id,
+            "client_id": client_id,
+        }
+
+        current_app.extensions["messagebus"].publish_message("client", message_data)
 
         return ret
 
