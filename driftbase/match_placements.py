@@ -76,7 +76,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
 
             placement = match_placement_lock.value
 
-            if placement["status"] != "pending":
+            if placement["status"] == "pending":
                 log.warning(f"Player '{player_id}' attempted to start a match placement while assigned to pending match placement '{existing_placement_id}'")
                 raise InvalidRequestException("You have a pending match placement in progress")
 
