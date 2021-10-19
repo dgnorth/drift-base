@@ -37,6 +37,7 @@ class PartyGetRequestSchema(ma.Schema):
 
 class PartyInvitesSchema(ma.Schema):
     inviter_id = ma.fields.Integer()
+    leave_existing_party = ma.fields.Bool(required=False, load_default=False, metadata=dict(description="Whether or not to leave an existing party before joining the new one"))
 
 
 class PartyPlayerSchema(ma.Schema):
@@ -122,27 +123,8 @@ class PartyPlayerAPI(MethodView):
         if player_id != current_user['player_id']:
             abort(http_client.FORBIDDEN, message="You can only remove yourself from a party")
 
-        if leave_party(player_id, party_id) is None:
-            abort(http_client.BAD_REQUEST, message="You're not a member of this party")
+        leave_party(player_id, party_id)
 
-        members = get_party_members(party_id)
-        for member in members:
-            post_message("players", member, "party_notification",
-                         {
-                             "event": "player_left",
-                             "party_id": party_id,
-                             "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-                             "player_id": player_id,
-                             "player_url": url_for("players.entry", player_id=player_id, _external=True),
-                         })
-        if len(members) <= 1:
-            disband_party(party_id)
-            post_message("players", members[0], "party_notification",
-                         {
-                             "event": "disbanded",
-                             "party_id": party_id,
-                             "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-                         })
         return {}, http_client.NO_CONTENT
 
 
@@ -203,8 +185,11 @@ class PartyInviteAPI(MethodView):
     def patch(self, args, invite_id):
         player_id = current_user['player_id']
         inviter_id = args.get('inviter_id')
-        party_id, party_members = accept_party_invite(invite_id, inviter_id, player_id)
+        leave_existing_party = args.get('leave_existing_party')
+
+        party_id, party_members = accept_party_invite(invite_id, inviter_id, player_id, leave_existing_party)
         log.debug("Player {} accepted invite from player {} to party {}".format(player_id, inviter_id, party_id))
+
         member_url = url_for("parties.member", party_id=party_id, player_id=player_id, _external=True)
         for member in party_members:
             if member == player_id:

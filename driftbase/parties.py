@@ -1,10 +1,11 @@
 import logging
 from time import time
 
-from flask import g
+from flask import g, url_for
 from redis import WatchError
 import http.client as http_client
 from webargs.flaskparser import abort
+from driftbase.messages import post_message
 
 from driftbase.resources.parties import TIER_DEFAULTS
 
@@ -33,7 +34,7 @@ def get_max_players_per_party():
 
 
 
-def accept_party_invite(invite_id, sending_player, accepting_player):
+def accept_party_invite(invite_id, sending_player, accepting_player, leave_existing_party = False):
     max_players_per_party = get_max_players_per_party()
     sending_player_party_key = make_player_party_key(sending_player)
     accepting_player_party_key = make_player_party_key(accepting_player)
@@ -61,8 +62,12 @@ def accept_party_invite(invite_id, sending_player, accepting_player):
                 if int(invite['from']) != sending_player or int(invite['to']) != accepting_player:
                     abort(http_client.BAD_REQUEST, message="Invite doesn't match players")
 
+                # Check existing party
                 if accepting_player_party_id and sending_player_party_id != accepting_player_party_id:
-                    abort(http_client.BAD_REQUEST, message="You must leave your current party first")
+                    if not leave_existing_party:
+                        abort(http_client.BAD_REQUEST, message="You must leave your current party first")
+
+                    leave_party(accepting_player, int(accepting_player_party_id))
 
                 if sending_player_party_id and len(get_party_members(int(sending_player_party_id))) >= max_players_per_party:
                     log.debug("deleting invite {} since party is full".format(invite_key))
@@ -167,7 +172,34 @@ def leave_party(player_id, party_id):
                 pipe.delete(scoped_player_party_key)
                 pipe.delete(sending_player_invites_key)
                 result = pipe.execute()
+
+                if result is None:
+                    abort(http_client.BAD_REQUEST, message="You're not a member of this party")
+
+                # Notify party members
+                members = get_party_members(party_id)
+                for member in members:
+                    post_message("players", member, "party_notification",
+                                 {
+                                     "event": "player_left",
+                                     "party_id": party_id,
+                                     "party_url": url_for("parties.entry", party_id=party_id, _external=True),
+                                     "player_id": player_id,
+                                     "player_url": url_for("players.entry", player_id=player_id, _external=True),
+                                 })
+
+                # Disband party if only one member is left
+                if len(members) <= 1:
+                    disband_party(party_id)
+                    post_message("players", members[0], "party_notification",
+                                 {
+                                     "event": "disbanded",
+                                     "party_id": party_id,
+                                     "party_url": url_for("parties.entry", party_id=party_id, _external=True),
+                                 })
+
                 return result
+
             except WatchError:
                 pass
 
