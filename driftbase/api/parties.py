@@ -37,7 +37,7 @@ class PartyGetRequestSchema(ma.Schema):
 
 class PartyInvitesSchema(ma.Schema):
     inviter_id = ma.fields.Integer()
-    leave_existing_party = ma.fields.Bool(required=False, dump_default=False, metadata=dict(description="Whether or not to leave an existing party before joining the new one"))
+    leave_existing_party = ma.fields.Bool(required=False, load_default=False, metadata=dict(description="Whether or not to leave an existing party before joining the new one"))
 
 
 class PartyPlayerSchema(ma.Schema):
