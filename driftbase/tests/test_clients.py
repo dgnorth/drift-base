@@ -4,10 +4,10 @@ import datetime
 import http.client as http_client
 from mock import patch
 
-from drift.systesthelper import DriftBaseTestCase
+from driftbase.utils.test_utils import BaseCloudkitTest
 
 
-class ClientsTest(DriftBaseTestCase):
+class ClientsTest(BaseCloudkitTest):
     """
     Tests for the /clients endpoint
     """
@@ -141,3 +141,53 @@ class ClientsTest(DriftBaseTestCase):
 
         self.delete(client_url)
         self.get(client_url, expected_status_code=http_client.NOT_FOUND)
+
+    def test_clients_delete_leave_party(self):
+        # Setup party
+        g1_name = self.make_player()
+        g1_id = self.player_id
+
+        host_name = self.make_player()
+        host_id = self.player_id
+
+        # Invite g1 to a new party
+        self.post(self.endpoints["party_invites"], data={'player_id': g1_id}, expected_status_code=http_client.CREATED)
+
+        # Accept the g1 invite
+        self.auth(g1_name)
+        g1_notification, g1_message_number = notification, _ = self.get_player_notification("party_notification", "invite")
+        self.patch(g1_notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK)
+
+        # Assert host in party
+        self.auth(host_name)
+
+        self.get(self.endpoints["parties"], expected_status_code=http_client.OK)
+
+        # Setup host client
+        clients_uri = self.endpoints["clients"]
+        platform_info = {"memory": "stuff", "video_card": "stuffz"}
+        platform_version = "1.20.22"
+        data = {
+            "client_type": "client_type",
+            "build": "build",
+            "platform_type": "platform_type",
+            "app_guid": "app_guid",
+            "version": "version",
+            "platform_version": platform_version,
+            "platform_info": json.dumps(platform_info),
+        }
+        r = self.post(clients_uri, data=data, expected_status_code=http_client.CREATED)
+        client_url = r.json()["url"]
+
+        # update our authorization to a client session
+        jti = r.json()["jti"]
+        self.headers["Authorization"] = "JTI %s" % jti
+
+        r = self.get("/")
+        self.assertEqual(client_url, r.json()["endpoints"]["my_client"])
+
+        # Delete host client
+        self.delete(client_url)
+
+        # Assert host no longer in party
+        self.get(self.endpoints["parties"], expected_status_code=http_client.NOT_FOUND)

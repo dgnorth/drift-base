@@ -32,7 +32,7 @@ def on_message(queue_name, message):
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     endpoints.init_app(app)
-    app.messagebus.register_consumer(on_message, 'clients')
+    app.messagebus.register_consumer(on_message, "client")
 
 
 def get_player(player_id):

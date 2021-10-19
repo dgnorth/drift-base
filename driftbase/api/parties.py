@@ -20,11 +20,26 @@ bp_parties = Blueprint("parties", __name__, url_prefix='/parties')
 bp_party_invites = Blueprint("party_invites", __name__, url_prefix='/party-invites')
 endpoints = Endpoints()
 
+def process_client_message(queue_name, message):
+    log.debug(f"parties::process_client_message() received event in queue '{queue_name}': '{message}'")
+
+    if message["event"] == "deleted":
+        """
+        Remove the player from a party if any when the player's client gracefully disconnects
+        """
+        player_id = message["player_id"]
+
+        party_id = get_player_party(player_id)
+
+        if party_id:
+            log.info(f"Removing player '{player_id}' from party '{party_id}' since the player's client de-registered")
+            leave_party(player_id, party_id)
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp_parties)
     api.register_blueprint(bp_party_invites)
     endpoints.init_app(app)
+    app.messagebus.register_consumer(process_client_message, "client")
 
 
 class PartyGetSchema(ma.Schema):
