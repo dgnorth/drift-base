@@ -108,7 +108,8 @@ def cancel_player_ticket(player_id, ticket_id):
             return _cancel_locked_ticket(ticket_lock, player_id)
     if get_player_party(player_id):
         with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
-            return _cancel_locked_ticket(ticket_lock, player_id)
+            if ticket_lock.ticket:
+                return _cancel_locked_ticket(ticket_lock, player_id)
     return None
 
 
