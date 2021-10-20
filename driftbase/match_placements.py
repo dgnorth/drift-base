@@ -76,7 +76,10 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
 
             placement = match_placement_lock.value
 
-            if placement["status"] == "pending":
+            if not placement:
+                log.warning(f"Player '{player_id}' is assigned to match placement '{existing_placement_id}' but the match placement doesn't exist")
+                g.redis.conn.delete(player_match_placement_key)
+            elif placement["status"] == "pending":
                 log.warning(f"Player '{player_id}' attempted to start a match placement while assigned to pending match placement '{existing_placement_id}'")
                 raise InvalidRequestException("You have a pending match placement in progress")
 
@@ -176,7 +179,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
 
             raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
 
-        # Lock used as a convenient way to serialize the JSON value - Locking isn't required since this is a new placement id
+        # Lock used as a convenient way to serialize the JSON value - Locking isn't required here since this is a new placement id
         with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             match_placement = {
                 "placement_id": placement_id,
