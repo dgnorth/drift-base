@@ -489,7 +489,7 @@ def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> typing.
     if not placement_id:
         raise RuntimeError(f"Failed to ensure player session for player '{player_id}' in lobby '{lobby_id}'. Lobby has no placement id")
 
-    with match_placements._JsonLock(match_placements._get_match_placement_key(placement_id)) as match_placement_lock:
+    with JsonLock(match_placements._get_match_placement_key(placement_id)) as match_placement_lock:
         placement = match_placement_lock.value
 
         if not placement:
