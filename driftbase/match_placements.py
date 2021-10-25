@@ -79,6 +79,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
             if not placement:
                 log.warning(f"Player '{player_id}' is assigned to match placement '{existing_placement_id}' but the match placement doesn't exist")
                 g.redis.conn.delete(player_match_placement_key)
+                existing_placement_id = None
             elif placement["status"] == "pending":
                 log.warning(f"Player '{player_id}' attempted to start a match placement while assigned to pending match placement '{existing_placement_id}'")
                 raise InvalidRequestException("You have a pending match placement in progress")
