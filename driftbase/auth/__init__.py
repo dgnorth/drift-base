@@ -12,6 +12,7 @@ AUTH_MODULES = {
     'psn': 'driftbase.auth.psn',
     'steam': 'driftbase.auth.steam',
     'epic': 'driftbase.auth.epic',
+    'eos': 'driftbase.auth.eos',
 }
 
 LOCAL_AUTH = [
