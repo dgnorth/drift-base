@@ -114,13 +114,15 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
             self.patch(notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK)
         return info
 
-    def _initiate_matchmaking(self, user_name=None):
+    def _initiate_matchmaking(self, user_name=None, extras=None):
         if user_name is None:  # else we assume a user has authenticated
             user_name = self.make_player()
 
+        data = {"matchmaker": "unittest"}
+        if extras:
+            data["extras"] = extras
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            post_response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"},
-                                      expected_status_code=http_client.CREATED).json()
+            post_response = self.post(self.endpoints["flexmatch_tickets"], data=data, expected_status_code=http_client.CREATED).json()
             ticket_url = post_response["ticket_url"]
             ticket = self.get(ticket_url, expected_status_code=http_client.OK)
         return user_name, ticket_url, ticket.json()
@@ -525,6 +527,22 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertDictEqual(r, {"status": "Deleted"})
         # Assert that the party ticket has not been modified
         self.assertDictEqual(party_ticket.json(), self.get(party_ticket_url, expected_status_code=http_client.OK).json())
+
+    def test_extra_matchmaking_data_is_included_in_ticket(self):
+        user_name = self.make_player()
+        extra_data = {
+            self.player_id: {
+                "PlayerRank": 3,
+                "SkillRating": 400
+            }
+        }
+        _, ticket_url, ticket = self._initiate_matchmaking(user_name, extra_data)
+        self.assertIn("Players", ticket)
+        self.assertEqual(1, len(ticket["Players"]))
+        self.assertIn("PlayerAttributes", ticket["Players"][0])
+        player_attributes = ticket["Players"][0]["PlayerAttributes"]
+        self.assertDictEqual(player_attributes, extra_data[self.player_id])
+
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):

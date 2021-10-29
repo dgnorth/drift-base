@@ -46,7 +46,7 @@ def get_player_latency_averages(player_id):
 
 #  Matchmaking
 
-def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
+def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmaking_data):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         # Generate a list of players relevant to the request; this is the list of online players in the party if the player belongs to one, otherwise the list is just the player
         member_ids = _get_player_party_members(player_id)
@@ -68,7 +68,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
                 Players=[
                     {
                         "PlayerId": str(member_id),
-                        "PlayerAttributes": _get_player_attributes(member_id),
+                        "PlayerAttributes": _get_player_attributes(member_id, extra_matchmaking_data),
                         "LatencyInMs": get_player_latency_averages(member_id)
                     }
                     for member_id in member_ids
@@ -256,9 +256,9 @@ def _get_player_party_members(player_id):
         return get_party_members(party_id)
     return [player_id]
 
-def _get_player_attributes(player_id):
+def _get_player_attributes(player_id, extra_player_data):
     # FIXME: Placeholder for extra matchmaking attribute gathering per player
-    return {"skill": {"N": 50}}
+    return extra_player_data.get(player_id, {})
 
 def _get_tenant_config_value(config_key):
     default_value = TIER_DEFAULTS.get(config_key, None)

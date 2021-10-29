@@ -80,6 +80,9 @@ class FlexMatchTicketsAPI(MethodView):
     class FlexMatchTicketsAPIPostArgs(Schema):
         matchmaker = fields.String(required=True, metadata=dict(
             description="Which matchmaker (configuration name) to issue the ticket for. "))
+        extras = fields.Mapping(required=False, keys=fields.Integer(), values=fields.Mapping(), metadata=dict(
+            description="Extra matchmaking data to pass along to flexmatch, key'd on player_id"
+        ))
 
     class FlexMatchTicketsAPIGetResponse(Schema):
         ticket_url = fields.String()
@@ -112,7 +115,7 @@ class FlexMatchTicketsAPI(MethodView):
         """
         try:
             player_id = current_user.get("player_id")
-            ticket = flexmatch.upsert_flexmatch_ticket(player_id, args.get("matchmaker"))
+            ticket = flexmatch.upsert_flexmatch_ticket(player_id, args.get("matchmaker"), args.get("extras", {}))
             return {
                 "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
                 "ticket_id": ticket["TicketId"],
