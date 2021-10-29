@@ -33,14 +33,14 @@ def authenticate(auth_info):
     assert auth_info['provider'] == 'eos'
 
     try:
-        parameters = load_provider_details(auth_info['provider_details'])
+        parameters = _load_provider_details(auth_info['provider_details'])
     except InvalidRequestException as e:
         abort(http_client.BAD_REQUEST, message=e.msg)
     except KeyError as e:
         abort(http_client.BAD_REQUEST, message="Missing provider_details")
     else:
         try:
-            identity_id = validate_eos_token(**parameters)
+            identity_id = _validate_eos_token(**parameters)
         except ServiceUnavailableException as e:
             abort(http_client.SERVICE_UNAVAILABLE, message=e.msg)
         except InvalidRequestException as e:
@@ -54,7 +54,7 @@ def authenticate(auth_info):
             return base_authenticate(username, "", automatic_account_creation)
 
 
-def load_provider_details(provider_details):
+def _load_provider_details(provider_details):
     try:
         details = EOSProviderAuthDetailsSchema().load(provider_details)
     except ma.exceptions.ValidationError as e:
@@ -63,7 +63,7 @@ def load_provider_details(provider_details):
         return details
 
 
-def validate_eos_token(token):
+def _validate_eos_token(token):
     """Validates an Epic Online Services OpenID token.
 
     Returns the Epic Account ID for this player.
@@ -83,11 +83,11 @@ def validate_eos_token(token):
     if not eos_config:
         raise ServiceUnavailableException("Epic Online Services authentication not configured for current tenant")
 
-    return run_eos_token_validation(token, eos_config.get('client_ids'))
+    return _run_eos_token_validation(token, eos_config.get('client_ids'))
 
 
-def run_eos_token_validation(token, client_ids):
-    public_key = _get_public_key(token)
+def _run_eos_token_validation(token, client_ids):
+    public_key = _get_key_from_token(token)
     payload = _decode_and_verify_jwt(token, public_key, client_ids)
 
     return payload["sub"]
@@ -130,7 +130,7 @@ def _decode_and_verify_jwt(token, key, audience):
         return payload
 
 
-def _get_public_key(token):
+def _get_key_from_token(token):
     try:
         jwk_client = jwt.PyJWKClient(EPIC_PUBLIC_KEYS_URL)
         jwk = jwk_client.get_signing_key_from_jwt(token)
