@@ -531,7 +531,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
     def test_extra_matchmaking_data_is_included_in_ticket(self):
         user_name = self.make_player()
         extra_data = {
-            self.player_id: {
+            str(self.player_id): {
                 "PlayerRank": 3,
                 "SkillRating": 400
             }
