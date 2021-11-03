@@ -541,7 +541,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertEqual(1, len(ticket["Players"]))
         self.assertIn("PlayerAttributes", ticket["Players"][0])
         player_attributes = ticket["Players"][0]["PlayerAttributes"]
-        self.assertDictEqual(player_attributes, extra_data[self.player_id])
+        self.assertDictEqual(player_attributes, extra_data[str(self.player_id)])
 
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
