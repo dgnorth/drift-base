@@ -38,29 +38,27 @@ def authenticate(auth_info):
         abort(http_client.BAD_REQUEST, message=e.msg)
     except KeyError as e:
         abort(http_client.BAD_REQUEST, message="Missing provider_details")
-    else:
-        try:
-            identity_id = _validate_eos_token(**parameters)
-        except ServiceUnavailableException as e:
-            abort(http_client.SERVICE_UNAVAILABLE, message=e.msg)
-        except InvalidRequestException as e:
-            abort(http_client.BAD_REQUEST, message=e.msg)
-        except AuthenticationException as e:
-            abort_unauthorized(e.msg)
-        else:
-            automatic_account_creation = auth_info.get('automatic_account_creation', True)
-            # FIXME: The static salt should perhaps be configured per tenant
-            username = "eos:" + pbkdf2_hex(identity_id, 'static_salt', iterations=1)
-            return base_authenticate(username, "", automatic_account_creation)
+
+    try:
+        identity_id = _validate_eos_token(**parameters)
+    except ServiceUnavailableException as e:
+        abort(http_client.SERVICE_UNAVAILABLE, message=e.msg)
+    except InvalidRequestException as e:
+        abort(http_client.BAD_REQUEST, message=e.msg)
+    except AuthenticationException as e:
+        abort_unauthorized(e.msg)
+
+    automatic_account_creation = auth_info.get('automatic_account_creation', True)
+    # FIXME: The static salt should perhaps be configured per tenant
+    username = "eos:" + pbkdf2_hex(identity_id, 'static_salt', iterations=1)
+    return base_authenticate(username, "", automatic_account_creation)
 
 
 def _load_provider_details(provider_details):
     try:
-        details = EOSProviderAuthDetailsSchema().load(provider_details)
+        return EOSProviderAuthDetailsSchema().load(provider_details)
     except ma.exceptions.ValidationError as e:
         raise InvalidRequestException(f"{e}") from None
-    else:
-        return details
 
 
 def _validate_eos_token(token):
@@ -117,17 +115,17 @@ def _decode_and_verify_jwt(token, key, audience):
         raise UnauthorizedException(f"Invalid token: {str(e)}")
     except jwt.InvalidTokenError as e:
         raise UnauthorizedException(f"Invalid token: {str(e)}")
-    else:
-        # EOS docs says to verify only the prefix, not the entire issuer string,
-        # so we have to verify it manually.
-        # See https://dev.epicgames.com/docs/services/en-US/EpicAccountServices/AuthInterface/index.html#validatingidtokensonbackendwithoutsdk
-        issuer = payload.get("iss")
-        if not issuer:
-            raise UnauthorizedException("Invalid JWT, no issuer found")
-        if not issuer.startswith(TRUSTED_ISSUER_URL_BASE):
-            raise UnauthorizedException("Invalid JWT, issuer not trusted")
 
-        return payload
+    # EOS docs says to verify only the prefix, not the entire issuer string,
+    # so we have to verify it manually.
+    # See https://dev.epicgames.com/docs/services/en-US/EpicAccountServices/AuthInterface/index.html#validatingidtokensonbackendwithoutsdk
+    issuer = payload.get("iss")
+    if not issuer:
+        raise UnauthorizedException("Invalid JWT, no issuer found")
+    if not issuer.startswith(TRUSTED_ISSUER_URL_BASE):
+        raise UnauthorizedException("Invalid JWT, issuer not trusted")
+
+    return payload
 
 
 def _get_key_from_token(token):
@@ -138,7 +136,7 @@ def _get_key_from_token(token):
         raise ServiceUnavailableException("Failed to fetch public keys for token validation") from e
     except (JSONDecodeError, PyJWKClientError) as e:
         raise ServiceUnavailableException("Failed to read public keys for token validation") from None
-    else:
-        if jwk is None:
-            raise UnauthorizedException("Failed to find a matching public key for token validation")
-        return jwk.key
+
+    if jwk is None:
+        raise UnauthorizedException("Failed to find a matching public key for token validation")
+    return jwk.key
