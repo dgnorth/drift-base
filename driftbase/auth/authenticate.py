@@ -1,10 +1,7 @@
-import logging
-
 import http.client as http_client
-
+import logging
 from flask import g, current_app
 from flask_smorest import abort
-from click import secho
 
 from driftbase.models.db import User, CorePlayer, UserIdentity, UserRole
 from driftbase.utils import UserCache
@@ -15,12 +12,10 @@ log = logging.getLogger(__name__)
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
-    secho("FUDGE {}".format(description), fg="red")
     abort(http_client.UNAUTHORIZED, description=description)
 
 
 def authenticate_with_provider(auth_info):
-
     provider_details = auth_info.get('provider_details')
     automatic_account_creation = auth_info.get("automatic_account_creation", True)
 
@@ -71,8 +66,8 @@ def authenticate(username, password, automatic_account_creation=True):
     identity_id = 0
 
     my_identity = g.db.query(UserIdentity) \
-                      .filter(UserIdentity.name == username) \
-                      .first()
+        .filter(UserIdentity.name == username) \
+        .first()
 
     try:
         service_user = g.conf.tier.get('service_user')
@@ -102,8 +97,8 @@ def authenticate(username, password, automatic_account_creation=True):
         my_identity.set_password(password)
         if is_old:
             my_user = g.db.query(User) \
-                          .filter(User.user_name == username) \
-                          .first()
+                .filter(User.user_name == username) \
+                .first()
             if my_user:
                 my_identity.user_id = my_user.user_id
                 log.info("Found an old-style user. Hacking it into identity")
@@ -161,8 +156,8 @@ def authenticate(username, password, automatic_account_creation=True):
         my_user_name = my_user.user_name
 
         my_player = g.db.query(CorePlayer) \
-                        .filter(CorePlayer.user_id == user_id) \
-                        .first()
+            .filter(CorePlayer.user_id == user_id) \
+            .first()
 
         if my_player is None:
             my_player = CorePlayer(user_id=user_id, player_name=u"")
@@ -193,3 +188,24 @@ def authenticate(username, password, automatic_account_creation=True):
     cache = UserCache()
     cache.set_all(user_id, ret)
     return ret
+
+
+class AuthenticationException(Exception):
+    def __init__(self, user_message):
+        super().__init__(user_message)
+        self.msg = user_message
+
+
+class ServiceUnavailableException(AuthenticationException):
+    """Suitable when dependent services or configuration cannot be reached"""
+    pass
+
+
+class InvalidRequestException(AuthenticationException):
+    """Something about the request is malformed or incorrect"""
+    pass
+
+
+class UnauthorizedException(AuthenticationException):
+    """Request was syntactically correct but did not resolve in a valid authentication"""
+    pass
