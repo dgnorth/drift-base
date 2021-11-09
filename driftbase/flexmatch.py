@@ -257,8 +257,13 @@ def _get_player_party_members(player_id):
     return [player_id]
 
 def _get_player_attributes(player_id, extra_player_data):
-    # FIXME: Placeholder for extra matchmaking attribute gathering per player
-    return extra_player_data.get(player_id, {})
+    ret = extra_player_data.get(player_id, {})
+    if "Skill" not in ret:
+        # Always include the skill for consistency across game modes and rulesets.  Shouldn't be needed though...
+        return {
+            "Skill": {"N": 100.0}
+        }
+    return ret
 
 def _get_tenant_config_value(config_key):
     default_value = TIER_DEFAULTS.get(config_key, None)

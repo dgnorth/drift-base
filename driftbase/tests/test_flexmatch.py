@@ -532,8 +532,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
         user_name = self.make_player()
         extra_data = {
             str(self.player_id): {
-                "PlayerRank": {"N": 3.0},
-                "SkillRating": {"N": 400.0}
+                "Rank": {"N": 3.0},
+                "Skill": {"N": 400.0}
             }
         }
         _, ticket_url, ticket = self._initiate_matchmaking(user_name, extra_data)
