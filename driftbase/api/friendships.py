@@ -19,6 +19,9 @@ from driftbase.utils import wordlist
 
 from driftbase.resources.friends import TIER_DEFAULTS
 
+MAX_INVITE_TOKEN_GENERATION_RETRIES = 100
+MAX_INVITE_EXPIRATION_SECONDS = 60 * 60 * 24 * 30 # Maximum invite expiration time is 30 days
+
 log = logging.getLogger(__name__)
 
 bp = Blueprint("friendships", __name__, url_prefix="/friendships", description="Player to player relationships")
@@ -198,9 +201,27 @@ class FriendInvitesAPI(MethodView):
             token = str(uuid.uuid4())
         elif token_format == "wordlist":
             number_of_words = args.get("worldlist_number_of_words") or _get_tenant_config_value("invite_token_worldlist_number_of_words")
-            token = wordlist.get_word_combination(number_of_words)
+            for _ in range(MAX_INVITE_TOKEN_GENERATION_RETRIES):
+                token = wordlist.get_word_combination(number_of_words)
+
+                existing_invite = g.db.query(FriendInvite).filter(FriendInvite.token == token).first()
+                if existing_invite is None:
+                    break
+                elif existing_invite.deleted or existing_invite.expiry_date <= datetime.datetime.utcnow():
+                    log.info(f"Generated duplicate wordlist invite token '{token}'. Existing token is no longer valid. Deleting existing token...")
+
+                    # Delete expired or marked as deleted existing invite since it's no longer valid
+                    g.db.delete(existing_invite)
+                    break
+                else:
+                    log.info(f"Generated duplicate wordlist invite token '{token}'. Existing token is valid. Re-generating...")
+            else:
+                abort(http_client.INTERNAL_SERVER_ERROR, description="Could not generate invite token")
+        else:
+            abort(http_client.BAD_REQUEST, description="Invalid token format")
 
         expires_seconds = args.get("expiration_time_seconds") or _get_tenant_config_value("invite_expiration_seconds")
+        expires_seconds = min(expires_seconds, MAX_INVITE_EXPIRATION_SECONDS)
         expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_seconds)
 
         try:
