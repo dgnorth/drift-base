@@ -207,14 +207,9 @@ class FriendInvitesAPI(MethodView):
                 existing_invite = g.db.query(FriendInvite).filter(FriendInvite.token == token).first()
                 if existing_invite is None:
                     break
-                elif existing_invite.deleted or existing_invite.expiry_date <= datetime.datetime.utcnow():
-                    log.info(f"Generated duplicate wordlist invite token '{token}'. Existing token is no longer valid. Deleting existing token...")
 
-                    # Delete expired or marked as deleted existing invite since it's no longer valid
-                    g.db.delete(existing_invite)
-                    break
-                else:
-                    log.info(f"Generated duplicate wordlist invite token '{token}'. Existing token is valid. Re-generating...")
+                valid_message = "no longer valid" if existing_invite.deleted or existing_invite.expiry_date <= datetime.datetime.utcnow() else "valid"
+                log.info(f"Generated duplicate wordlist invite token '{token}'. Existing token is {valid_message}. Re-generating...")
             else:
                 abort(http_client.INTERNAL_SERVER_ERROR, description="Could not generate invite token")
         else:
