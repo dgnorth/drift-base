@@ -53,6 +53,7 @@
         "driftbase.resources.flexmatch",
         "driftbase.resources.lobbies",
         "driftbase.resources.match_placements",
+        "driftbase.resources.friends",
         "driftbase.auth"
     ],
     "resource_attributes": {

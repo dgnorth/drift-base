@@ -33,13 +33,21 @@ class FriendRequestsTest(_BaseFriendsTest):
     """
     Tests for the /friend_invites endpoint
     """
-    def test_create_global_token(self):
+    def test_create_global_token_uuid(self):
         # Create player for test
         self.auth(username="Number one user")
-        result = self.post(self.endpoints["friend_invites"], expected_status_code=http_client.CREATED).json()
+        result = self.post(self.endpoints["friend_invites"], data={"token_format": "uuid"}, expected_status_code=http_client.CREATED).json()
         self.assertIsInstance(result, dict)
         pattern = re.compile('^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$', re.IGNORECASE)
         self.assertTrue(pattern.match(result["token"]), "Token '{}' doesn't match the expected uuid format".format(result["token"]))
+
+    def test_create_global_token_wordlist(self):
+        # Create player for test
+        self.auth(username="Number one user")
+        result = self.post(self.endpoints["friend_invites"], data={"token_format": "wordlist", "worldlist_number_of_words": 3}, expected_status_code=http_client.CREATED).json()
+        self.assertIsInstance(result, dict)
+        pattern = re.compile('^\w+-\w+-\w+$', re.IGNORECASE)
+        self.assertTrue(pattern.match(result["token"]), "Token '{}' doesn't match the expected wordlist format".format(result["token"]))
 
     def test_delete_token(self):
         self.auth(username="Number one user")
@@ -64,7 +72,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         receiving_player_id = self.player_id
         self.auth(username="Number two user")
         # create a invite from user two to user one
-        result = self.post(self.endpoints["friend_invites"], params = {"player_id": receiving_player_id}, expected_status_code=http_client.CREATED).json()
+        result = self.post(self.endpoints["friend_invites"], data={"player_id": receiving_player_id}, expected_status_code=http_client.CREATED).json()
         invite_url = result['url']
         self.auth(username="Number three user")
         # delete the token as user three
@@ -75,29 +83,42 @@ class FriendRequestsTest(_BaseFriendsTest):
         receiving_player_id = self.player_id
         self.auth(username="Number two user")
         # create a invite from two to one
-        result = self.post(self.endpoints["friend_invites"], params={"player_id": receiving_player_id}, expected_status_code=http_client.CREATED).json()
+        result = self.post(self.endpoints["friend_invites"], data={"player_id": receiving_player_id}, expected_status_code=http_client.CREATED).json()
         invite_url = result['url']
         self.auth(username="Number one user")
         # delete the token as user one
         self.delete(invite_url, expected_status_code=http_client.NO_CONTENT)
 
-    def test_create_friend_request(self):
+    def test_create_friend_request_uuid(self):
         # Create players for test
         self.auth(username="Number one user")
         receiving_player_id = self.player_id
         self.auth(username="Number two user")
         # Test basic success case
         result = self.post(self.endpoints["friend_invites"],
-                           params={"player_id": receiving_player_id},
+                           data={"player_id": receiving_player_id, "token_format": "uuid"},
                            expected_status_code=http_client.CREATED).json()
         self.assertIsInstance(result, dict)
         pattern = re.compile('^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$', re.IGNORECASE)
         self.assertTrue(pattern.match(result["token"]), "Token '{}' doesn't match the expected uuid format".format(result["token"]))
 
+    def test_create_friend_request_wordlist(self):
+        # Create players for test
+        self.auth(username="Number one user")
+        receiving_player_id = self.player_id
+        self.auth(username="Number two user")
+        # Test basic success case
+        result = self.post(self.endpoints["friend_invites"],
+                           data={"player_id": receiving_player_id, "token_format": "wordlist", "worldlist_number_of_words": 3},
+                           expected_status_code=http_client.CREATED).json()
+        self.assertIsInstance(result, dict)
+        pattern = re.compile('^\w+-\w+-\w+$', re.IGNORECASE)
+        self.assertTrue(pattern.match(result["token"]), "Token '{}' doesn't match the expected uuid format".format(result["token"]))
+
     def test_cannot_send_request_to_self(self):
         self.auth(username="Number one user")
         self.post(self.endpoints["friend_invites"],
-                  params={"player_id": self.player_id},
+                  data={"player_id": self.player_id},
                   expected_status_code=http_client.CONFLICT)
 
     def test_cannot_send_friend_request_to_friend(self):
@@ -109,7 +130,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.post(self.endpoints["my_friends"], data={"token": token1}, expected_status_code=http_client.CREATED)
         # Try to send a friend_request to our new friend
         self.post(self.endpoints["friend_invites"],
-                  params={"player_id": player1_id},
+                  data={"player_id": player1_id},
                   expected_status_code=http_client.CONFLICT)
 
     def test_cannot_have_multiple_pending_invites_to_same_player(self):
@@ -118,18 +139,18 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.auth(username="Number two user")
         # Create invite from 2 to 1
         self.post(self.endpoints["friend_invites"],
-                  params={"player_id": player1_id},
+                  data={"player_id": player1_id},
                   expected_status_code=http_client.CREATED)
         # Try to create another one to him
         self.post(self.endpoints["friend_invites"],
-                  params={"player_id": player1_id},
+                  data={"player_id": player1_id},
                   expected_status_code=http_client.CONFLICT)
 
     def test_cannot_send_request_to_non_existent_player(self):
         from sqlalchemy import exc
         self.auth(username="Number one user")
         self.post(self.endpoints["friend_invites"],
-                                               params={"player_id": 1234567890},
+                                               data={"player_id": 1234567890},
                                                expected_status_code=http_client.BAD_REQUEST)
 
     def test_cannot_have_reciprocal_invites(self):
@@ -139,12 +160,12 @@ class FriendRequestsTest(_BaseFriendsTest):
         player2_id = self.player_id
         # Create invite from 2 to 1
         self.post(self.endpoints["friend_invites"],
-                  params={"player_id": player1_id},
+                  data={"player_id": player1_id},
                   expected_status_code=http_client.CREATED)
         self.auth(username="Number one user")
         # Should fail at creating invite from 1 to 2
         self.post(self.endpoints["friend_invites"],
-                  params={"player_id": player2_id},
+                  data={"player_id": player2_id},
                   expected_status_code=http_client.CONFLICT)
 
     def test_get_issued_tokens(self):
@@ -153,7 +174,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.auth(username="Number two user")
         player2_id = self.player_id
         # Create invite from 2 to 1
-        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        self.post(self.endpoints["friend_invites"], data={"player_id": player1_id}, expected_status_code=http_client.CREATED)
         result = self.get(self.endpoints["friend_invites"], expected_status_code=http_client.OK).json()
         self.assertIsInstance(result, list)
         self.assertTrue(len(result) == 1)
@@ -168,7 +189,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         self.auth(username="Number two user")
         player2_id = self.player_id
         # Create invite from 2 to 1
-        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        self.post(self.endpoints["friend_invites"], data={"player_id": player1_id}, expected_status_code=http_client.CREATED)
         # auth as player 1 and fetch its friend requests
         self.auth(username="Number one user")
         result = self.get(self.endpoints["friend_requests"], expected_status_code=http_client.OK).json()
@@ -188,7 +209,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         player2_id = self.player_id
         player2_name = self.player_name
         # Create invite from 2 to 1
-        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        self.post(self.endpoints["friend_invites"], data={"player_id": player1_id}, expected_status_code=http_client.CREATED)
         response = self.get(self.endpoints["friend_invites"], expected_status_code=http_client.OK).json()
         self.assertIsInstance(response, list)
         self.assertTrue(len(response) == 1)
@@ -211,7 +232,7 @@ class FriendRequestsTest(_BaseFriendsTest):
         player2_id = self.player_id
         player2_name = self.player_name
         # Create invite from 2 to 1
-        self.post(self.endpoints["friend_invites"], params={"player_id": player1_id}, expected_status_code=http_client.CREATED)
+        self.post(self.endpoints["friend_invites"], data={"player_id": player1_id}, expected_status_code=http_client.CREATED)
         # Relog as 1
         self.auth(username="Number one user", player_name=player1_name)
         response = self.get(self.endpoints["friend_requests"], expected_status_code=http_client.OK).json()

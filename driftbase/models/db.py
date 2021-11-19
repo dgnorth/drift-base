@@ -559,6 +559,7 @@ class FriendInvite(ModelBase):
     deleted = Column(Boolean, nullable=True, default=False)
     issued_to_player_id = Column(Integer, ForeignKey("ck_players.player_id"), nullable=True, index=True)
 
+    UniqueConstraint(token, name="uq_ck_friend_invites_token")
 
 event.listen(
     CorePlayer.__table__,
