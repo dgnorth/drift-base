@@ -21,6 +21,7 @@ from driftbase.resources.friends import TIER_DEFAULTS
 
 MAX_INVITE_TOKEN_GENERATION_RETRIES = 100
 MAX_INVITE_EXPIRATION_SECONDS = 60 * 60 * 24 * 30 # Maximum invite expiration time is 30 days
+MIN_WORDLIST_NUMBER_OF_WORDS = 2
 
 log = logging.getLogger(__name__)
 
@@ -201,6 +202,7 @@ class FriendInvitesAPI(MethodView):
             token = str(uuid.uuid4())
         elif token_format == "wordlist":
             number_of_words = args.get("worldlist_number_of_words") or _get_tenant_config_value("invite_token_worldlist_number_of_words")
+            number_of_words = max(number_of_words, MIN_WORDLIST_NUMBER_OF_WORDS)
             for _ in range(MAX_INVITE_TOKEN_GENERATION_RETRIES):
                 token = wordlist.get_word_combination(number_of_words)
 
