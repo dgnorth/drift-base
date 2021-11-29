@@ -13,6 +13,21 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.6.0
+
+### New Features
+
+- Custom Lobbies
+  * Support custom pre-match grouping of players via Lobbies and associated Gamelift match placements
+
+- EOS support (Beta)
+  * Preliminary support for authentication via Epic Online Store
+
+- Improved Friend Tokens
+  * Tokens can now be generated out of wordlist in addition to uuid generation
+
+
+
 ## 0.5.4
 
 ### Optimizations
