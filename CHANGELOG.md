@@ -1,15 +1,27 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
-  - [0.5.0](#050)
+  - [0.6.0](#060)
     - [New Features](#new-features)
+    - [Feature Improvements](#feature-improvements)
+  - [0.5.4](#054)
     - [Bug Fixes](#bug-fixes)
+    - [Optimizations](#optimizations)
+  - [0.5.3](#053)
+    - [Bug Fixes](#bug-fixes-1)
+  - [0.5.2](#052)
+    - [Optimizations](#optimizations-1)
+  - [0.5.1](#051)
+    - [Bug Fixes](#bug-fixes-2)
+  - [0.5.0](#050)
+    - [New Features](#new-features-1)
+    - [Bug Fixes](#bug-fixes-3)
     - [Deprecations](#deprecations)
   - [0.4.1](#041)
-    - [Bug Fixes](#bug-fixes-1)
+    - [Bug Fixes](#bug-fixes-4)
   - [0.4.0](#040)
-    - [New Features](#new-features-1)
-    - [Bug Fixes](#bug-fixes-2)
+    - [New Features](#new-features-2)
+    - [Bug Fixes](#bug-fixes-5)
     - [Deprecations](#deprecations-1)
 
 ---
@@ -19,14 +31,19 @@
 
 - Custom Lobbies
   * Support custom pre-match grouping of players via Lobbies and associated Gamelift match placements
-
 - EOS support (Beta)
   * Preliminary support for authentication via Epic Online Store
-
-- Improved Friend Tokens
-  * Tokens can now be generated out of wordlist in addition to uuid generation
-
-
+  
+### Feature Improvements
+- Friends:
+  * Friend tokens can now be generated out of wordlist in addition to uuid generation
+- Flexmatch:
+  * POST endpoint now accepts arbitrary extra data to be passed verbatim to Flexmatch's ticket 
+  * Drift now expects backfill ticket IDs to match a regular expression defined in the tenant config 'backfill_ticket_pattern'
+- Parties:
+  * Players will now be removed from their party if they gracefully disconnect
+  * Players can now join a party whilst being in another party, provided they flag their intention to leave the old party
+  
 
 ## 0.5.4
 
@@ -51,7 +68,7 @@
 
 ### Optimizations
 
-- Optimize reporting and fetching of player counters which was unacceptably slow for any non-trival amount of counters
+- Optimize reporting and fetching of player counters which was unacceptably slow for any non-trivial amount of counters
 
 ## 0.5.1
 
