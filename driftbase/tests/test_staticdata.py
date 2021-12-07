@@ -1,12 +1,14 @@
 """
     Tests for the static data endpoints
 """
-import unittest
-import responses
 import json
-import os
+import responses
+import unittest
+
+from drift.systesthelper import setup_tenant, remove_tenant
 from drift.utils import get_config
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
+from driftbase.systesthelper import DriftBaseTestCase
+
 
 def setUpModule():
     setup_tenant()
@@ -52,7 +54,8 @@ class CfgTest(DriftBaseTestCase):
         urls = resp.get("static_data_urls")
         self.assertIsNotNone(urls, "The 'static_data_urls' key is missing")
         self.assertTrue(len(urls) > 0, "There should be at least one entry in 'static_data_urls'.")
-        self.assertEqual(urls[0]["data_root_url"], u"{}{}/data/{}/".format(DATA_URL, "borko-games/the-ossomizer", "abcd"))
+        self.assertEqual(urls[0]["data_root_url"],
+                         u"{}{}/data/{}/".format(DATA_URL, "borko-games/the-ossomizer", "abcd"))
         self.assertEqual(urls[0]["origin"], "Tenant config")
         self.assertEqual(urls[0]["commit_id"], ref1["commit_id"], "I should have gotten the default ref.")
 

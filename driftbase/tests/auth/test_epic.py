@@ -3,6 +3,7 @@ import unittest
 from driftbase.auth.epic import run_ticket_validation
 from driftbase.utils.test_utils import BaseCloudkitTest
 
+
 class EpicCase(BaseCloudkitTest):
 
     def test_epic(self):
@@ -10,9 +11,9 @@ class EpicCase(BaseCloudkitTest):
         auth_info = {
             'provider': 'epic',
             'provider_details':
-            {
-                'account_id': account_id,
-            }
+                {
+                    'account_id': account_id,
+                }
         }
 
         # Straight call
@@ -26,5 +27,6 @@ class EpicCase(BaseCloudkitTest):
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level='INFO')
     unittest.main()

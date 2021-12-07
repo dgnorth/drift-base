@@ -1,7 +1,6 @@
-import json
 import datetime
-
 import http.client as http_client
+import json
 from mock import patch
 
 from driftbase.utils.test_utils import BaseCloudkitTest
@@ -11,6 +10,7 @@ class ClientsTest(BaseCloudkitTest):
     """
     Tests for the /clients endpoint
     """
+
     def test_clients(self):
         self.auth()
         clients_url = self.endpoints["clients"]
@@ -155,7 +155,8 @@ class ClientsTest(BaseCloudkitTest):
 
         # Accept the g1 invite
         self.auth(g1_name)
-        g1_notification, g1_message_number = notification, _ = self.get_player_notification("party_notification", "invite")
+        g1_notification, g1_message_number = notification, _ = self.get_player_notification("party_notification",
+                                                                                            "invite")
         self.patch(g1_notification['invite_url'], data={'inviter_id': host_id}, expected_status_code=http_client.OK)
 
         # Assert host in party
