@@ -543,6 +543,33 @@ class FlexMatchTest(_BaseFlexmatchTest):
         player_attributes = ticket["Players"][0]["PlayerAttributes"]
         self.assertDictEqual(player_attributes, extra_data[str(self.player_id)])
 
+    def test_personal_ticket_is_cancelled_when_player_joins_party(self):
+        #  Start matchmaking solo
+        user_name = self.make_player()
+        player_id = self.player_id
+        _, ticket_url, ticket = self._initiate_matchmaking(user_name)
+        #  Join party
+        _ = self._create_party(party_size=2)
+        #  _create_party doesn't log last member out, so we can go ahead and invite
+        inviter_id = self.player_id
+        self.post(self.endpoints["party_invites"], data={'player_id': player_id},
+                  expected_status_code=http_client.CREATED)
+        # Login as first player and double check that the ticket is still in place
+        self.auth(username=user_name)
+        response = self.get(ticket_url, expected_status_code=http_client.OK).json()
+        self.assertEqual(response["Status"], "QUEUED")
+        # Accept party invite
+        notification, _ = self.get_player_notification("party_notification", "invite")
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            self.patch(notification['invite_url'], data={'inviter_id': inviter_id}, expected_status_code=http_client.OK)
+        # Ticket should now be cancelled
+        response = self.get(ticket_url, expected_status_code=http_client.NOT_FOUND).json()
+        self.assertDictEqual(response, {})
+        # Client should've been notified of the cancellation
+        notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
+        self.assertIsInstance(notification, dict)
+        self.assertTrue(notification["event"] == "MatchmakingStopped")
+
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):

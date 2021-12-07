@@ -4,7 +4,7 @@ import marshmallow as ma
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from drift.utils import Url
-from flask import url_for, g
+from flask import url_for, g, current_app
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 import http.client as http_client
@@ -204,6 +204,8 @@ class PartyInviteAPI(MethodView):
 
         party_id, party_members = accept_party_invite(invite_id, inviter_id, player_id, leave_existing_party)
         log.debug("Player {} accepted invite from player {} to party {}".format(player_id, inviter_id, party_id))
+
+        current_app.messagebus.publish_message("parties", {"event": "player_joined", "player_id": player_id, "party_id": party_id})
 
         member_url = url_for("parties.member", party_id=party_id, player_id=player_id, _external=True)
         for member in party_members:
