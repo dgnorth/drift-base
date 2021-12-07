@@ -1,8 +1,9 @@
-from mock import patch, MagicMock
 import http.client as http_client
+from mock import patch, MagicMock
 
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase
+from drift.systesthelper import setup_tenant, remove_tenant
 from drift.utils import get_config
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 def setUpModule():

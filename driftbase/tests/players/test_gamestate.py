@@ -1,10 +1,10 @@
-import unittest
 import datetime
-import json
-
 import http.client as http_client
+import json
+import unittest
 
-from drift.systesthelper import setup_tenant, remove_tenant, uuid_string, DriftBaseTestCase
+from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 def setUpModule():

@@ -1,7 +1,8 @@
 import datetime
 import http.client as http_client
-from mock import patch
 import unittest
+from mock import patch
+
 from drift.systesthelper import uuid_string, big_number
 from driftbase.utils.test_utils import BaseCloudkitTest
 
@@ -10,6 +11,7 @@ class PlayersTest(BaseCloudkitTest):
     """
     Tests for the /players endpoints
     """
+
     def test_players_online(self):
         # create a new user and client
         self.make_player()
@@ -20,7 +22,8 @@ class PlayersTest(BaseCloudkitTest):
 
         # mock out the utcnow call so that we can put the players 'offline'
         with patch("driftbase.models.db.utcnow") as mock_date:
-            mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5, seconds=1)  # Insert fudge because of clock drift on vm's
+            mock_date.return_value = datetime.datetime.utcnow() + datetime.timedelta(minutes=5,
+                                                                                     seconds=1)  # Insert fudge because of clock drift on vm's
             r = self.get(self.endpoints["my_player"])
             self.assertFalse(r.json()["is_online"])
 
@@ -99,7 +102,8 @@ class PlayersTest(BaseCloudkitTest):
         self.auth()
         player_name = "Spicy Meatball"
         self.patch(self.endpoints["my_player"], data={"name": player_name})
-        for search_string in (player_name, "*icy*"): # Test that both exact, case-sensitive and valid fuzzy searches return a result
+        for search_string in (
+        player_name, "*icy*"):  # Test that both exact, case-sensitive and valid fuzzy searches return a result
             players = self.get(self.endpoints["players"] + "?player_name=%s" % search_string).json()
             self.assertIsInstance(players, list)
             self.assertTrue(len(players) == 1)

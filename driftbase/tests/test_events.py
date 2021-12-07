@@ -1,10 +1,9 @@
 import datetime
-
-import mock
 import http.client as http_client
+import mock
 
-from drift.systesthelper import DriftBaseTestCase
 from drift.core.extensions.jwt import current_user
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 class EventsTest(DriftBaseTestCase):

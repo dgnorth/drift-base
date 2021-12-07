@@ -16,36 +16,59 @@ def abort_unauthorized(description):
 
 
 def authenticate_with_provider(auth_info):
+    """
+    Supported schemas:
+    provider: "uuid", provider_details: { key, secret } -> key
+    provider: "device_id", provider_details: { uuid:username, password } -> uuid:username
+    provider: "user+pass", provider_details: { username, password } -> username
+    provider: "viveport", provider_details: { username, password } -> viveport:username
+    provider: "hypereal", provider_details: { username, password } -> hypereal:username
+    provider: "7663", provider_details: { username, password } -> 7663:username
+    """
+    provider = auth_info.get('provider')
     provider_details = auth_info.get('provider_details')
     automatic_account_creation = auth_info.get("automatic_account_creation", True)
+    identity = None
 
-    if auth_info['provider'] in ['device_id', 'user+pass', 'uuid', 'unit_test']:
-        # Authenticate using access key, secret key pair
-        # (or username, password pair)
-        identity = authenticate(auth_info['username'],
-                                auth_info['password'],
+    if provider == 'uuid':
+        identity = authenticate('uuid:' + provider_details['key'],
+                                provider_details['secret'],
                                 automatic_account_creation)
 
-    elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
+    elif provider == 'device_id':
+        key = provider_details['key']
+        if not key.startswith('uuid:'):
+            key = 'uuid:' + key
+        identity = authenticate(key,
+                                provider_details['secret'],
+                                automatic_account_creation)
+
+    elif provider in ['user+pass']:
+        identity = authenticate(provider_details['username'],
+                                provider_details['password'],
+                                automatic_account_creation)
+
+    elif provider == "viveport" and provider_details.get('provisional', False):
         if len(provider_details['username']) < 1:
             abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
         username = "viveport:" + provider_details['username']
         password = provider_details['password']
         identity = authenticate(username, password, True or automatic_account_creation)
-    elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
+
+    elif provider == "hypereal" and provider_details.get('provisional', False):
         if len(provider_details['username']) < 1:
             abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
         username = "hypereal:" + provider_details['username']
         password = provider_details['password']
         identity = authenticate(username, password, True or automatic_account_creation)
 
-    elif auth_info['provider'] == "7663":
+    elif provider == "7663":
         username = "7663:" + provider_details['username']
         password = provider_details['password']
         identity = authenticate(username, password, True or automatic_account_creation)
+
     else:
-        abort_unauthorized("Bad Request. Unknown provider '%s'." %
-                           auth_info['provider'])
+        abort_unauthorized(f"Bad Request. Unknown provider '{provider}'.")
 
     return identity
 
@@ -86,8 +109,7 @@ def authenticate(username, password, automatic_account_creation=True):
         # matches before creating the user
         if username == service_user["username"]:
             if password != service_user["password"]:
-                log.error("Attempting to log in as service "
-                          "user without correct password!")
+                log.error("Attempting to log in as service user without correct password!")
                 abort(http_client.METHOD_NOT_ALLOWED,
                       message="Incorrect password for service user")
             else:

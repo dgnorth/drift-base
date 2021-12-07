@@ -1,15 +1,16 @@
 import contextlib
 import http
 import unittest
-
-from driftbase.utils.test_utils import BaseCloudkitTest
-from drift.core.extensions.jwt import jwt_not_required, check_jwt_authorization, requires_roles
 from flask.views import MethodView
+
+from drift.core.extensions.jwt import jwt_not_required, check_jwt_authorization, requires_roles
 from drift.utils import get_config
+from driftbase.utils.test_utils import BaseCloudkitTest
 
 ACCESS_KEY = "ThisIsMySecret"
 ROLE_NAME = "test_role"
 USER_NAME = "test_service_user"
+
 
 class TestJWTAccessControl(BaseCloudkitTest):
     @classmethod
@@ -82,7 +83,6 @@ class TestJWTAccessControl(BaseCloudkitTest):
             # This should fail as the post method requires role 'service' which we dont have
             self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
             self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
-
 
     @contextlib.contextmanager
     def _managed_bearer_token_user(self):
@@ -178,17 +178,19 @@ class TestAPI(MethodView):
 def get_trivial():
     return {}, http.HTTPStatus.OK
 
+
 def put_trivial():
     return {}, http.HTTPStatus.OK
+
 
 @requires_roles("service")
 def post_rolecheck():
     return {}, http.HTTPStatus.OK
 
+
 @jwt_not_required
 def get_no_check():
     return {}, http.HTTPStatus.OK
-
 
 
 if __name__ == "__main__":

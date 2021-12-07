@@ -1,9 +1,9 @@
-import unittest
-import mock
 from json import loads, dumps
 
+import mock
 import requests
-from werkzeug.exceptions import Unauthorized, ServiceUnavailable
+import unittest
+from werkzeug.exceptions import Unauthorized
 
 from driftbase.auth.oculus import run_ticket_validation
 
@@ -11,7 +11,6 @@ patcher = None
 
 
 def setUpModule():
-
     original_post = requests.post
 
     def requests_post_mock(url, *args, **kw):
@@ -49,7 +48,6 @@ def tearDownModule():
 
 
 class OculusCase(unittest.TestCase):
-
     nonce = "140000003DED3A"
 
     def test_broken_url(self):
@@ -73,7 +71,9 @@ class OculusCase(unittest.TestCase):
             oculus_id = run_ticket_validation(user_id=123, access_token='badargs-token', nonce=self.nonce)
         self.assertIn("User 123 not authenticated on Oculus platform.", context.exception.description)
 
+
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level='INFO')
     unittest.main()

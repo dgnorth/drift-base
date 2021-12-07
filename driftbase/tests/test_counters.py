@@ -1,7 +1,8 @@
 import datetime
-
 import http.client as http_client
-from drift.systesthelper import setup_tenant, remove_tenant, DriftBaseTestCase, uuid_string
+
+from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 def setUpModule():
@@ -16,6 +17,7 @@ class CountersTest(DriftBaseTestCase):
     """
     Tests for the /counters endpoint
     """
+
     def test_counters_put(self):
         # verify that the temporary put versions of the patch endpoints work
         self.auth(username=uuid_string())

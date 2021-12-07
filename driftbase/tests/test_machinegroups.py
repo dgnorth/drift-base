@@ -1,11 +1,13 @@
 import http.client as http_client
-from drift.systesthelper import DriftBaseTestCase
+
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 class MachineGroupsTest(DriftBaseTestCase):
     """
     Tests for the /machines service endpoints
     """
+
     def test_machinegroup_create(self):
         self.auth_service()
         data = {
