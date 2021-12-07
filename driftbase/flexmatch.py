@@ -62,7 +62,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
 
         gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
-            log.info(f"Issuing a new matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
+            log.info(f"Issuing a new {matchmaking_configuration} matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
             response = gamelift_client.start_matchmaking(
                 ConfigurationName=matchmaking_configuration,
                 Players=[
@@ -147,6 +147,15 @@ def update_player_acceptance(ticket_id, player_id, match_id, acceptance):
 def get_valid_regions():
     return _get_tenant_config_value("valid_regions")
 
+def handle_party_event(queue_name, event_data):
+    log.debug("handle_party_event", event_data)
+    if queue_name == "parties" and event_data["event"] == "player_joined":
+        player_id = event_data["player_id"]
+        party_id = event_data["party_id"]
+        with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
+            if ticket_lock.ticket:
+                log.info(f"handle_party_event:player_joined: Cancelling ticket {ticket_lock.ticket['TicketId']} for player {player_id} since he has now joined party {party_id}")
+                _cancel_locked_ticket(ticket_lock, player_id)
 
 def process_flexmatch_event(flexmatch_event):
     event = _get_event_details(flexmatch_event)
@@ -456,7 +465,7 @@ def _process_matchmaking_cancelled_event(event):
                         log.info(f"Found active player {player_id} in backfill ticket. Setting his actual tickets {player_ticket['TicketId']} to state 'MATCH_COMPLETE'")
                         player_ticket["Status"] = "MATCH_COMPLETE"
                 else:
-                    log.info(f"'CANCELLED' event has player {player_id} on ticket {ticket_id} when his active ticket" +
+                    log.info(f"'CANCELLED' event has player {player_id} on ticket {ticket_id} when his active ticket " +
                              f"{player_ticket['TicketId']} is in state {player_ticket['Status']}." +
                              f"Ignoring this player/ticket combo update.")
                 continue

@@ -42,6 +42,7 @@ log = logging.getLogger(__name__)
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
+    app.messagebus.register_consumer(flexmatch.handle_party_event, "parties")
     endpoints.init_app(app)
 
 
