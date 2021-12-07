@@ -88,7 +88,7 @@ def _cancel_locked_ticket(ticket_lock, player_id):
     ticket = ticket_lock.ticket
     if ticket["Status"] in ("COMPLETED", "PLACING", "REQUIRES_ACCEPTANCE"):
         log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
-        return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
+        return ticket["Status"]  # Don't allow cancelling if we've already put you in a match, or we're in the process of doing so
     log.info(f"Cancelling ticket {ticket['TicketId']} for player {player_id}, currently in state {ticket['Status']}")
     gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
     try:
@@ -106,7 +106,7 @@ def cancel_player_ticket(player_id, ticket_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         if ticket_lock.ticket and ticket_id == ticket_lock.ticket["TicketId"]:
             return _cancel_locked_ticket(ticket_lock, player_id)
-    if get_player_party(player_id):
+    if get_player_party(player_id): # TODO: Remove this block once client has been updated to not try to cancel the non-party ticket.
         with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
             if ticket_lock.ticket:
                 return _cancel_locked_ticket(ticket_lock, player_id)
