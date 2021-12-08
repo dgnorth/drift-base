@@ -662,10 +662,6 @@ class _LockedTicket(object):
         if self._ticket_id is not None:
             ticket = json.loads(self._redis.conn.get(self._make_ticket_key()))
             self._entry_ticket_str = str(ticket)
-            if ticket["Status"] == "COMPLETED":
-                ttl = self._redis.conn.ttl(self._key)
-                if self.TICKET_TTL_SECONDS - ttl >= self.MAX_REJOIN_TIME:
-                    ticket["Status"] = "MATCH_COMPLETE"
             self._ticket = ticket
         return self
 
@@ -680,7 +676,10 @@ class _LockedTicket(object):
                     else:
                         self._ticket_id = self._ticket["TicketId"]
                         ticket_key = self._make_ticket_key()
-                        pipe.set(self._key, ticket_key, ex=self.TICKET_TTL_SECONDS)
+                        ttl = self.TICKET_TTL_SECONDS
+                        if self._ticket["Status"] in ("COMPLETED", "MATCH_COMPLETE"):
+                            ttl = self.MAX_REJOIN_TIME
+                        pipe.set(self._key, ticket_key, ex=ttl)
                         pipe.set(ticket_key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS)
                 pipe.execute()
             self._lock.release()
