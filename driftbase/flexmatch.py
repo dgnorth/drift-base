@@ -105,38 +105,48 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
         except ClientError as e:
             raise GameliftClientException("Failed to start matchmaking", str(e))
 
-        ticket_lock.ticket = response["MatchmakingTicket"]
-        log.info(f"New ticket {ticket_lock.ticket['TicketId']} issued by player {player_id}")
-        _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket_lock.ticket["TicketId"], _external=True)})
-        return ticket_lock.ticket
+        ticket = response["MatchmakingTicket"]
+        ticket_lock.ticket = ticket
+        log.info(f"New ticket {ticket['TicketId']} issued by player {player_id}")
+        _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True)})
+        return ticket
 
-def _cancel_locked_ticket(ticket_lock, player_id):
-    ticket = ticket_lock.ticket
-    if ticket["Status"] in ("COMPLETED", "PLACING", "REQUIRES_ACCEPTANCE"):
+def cancel_active_ticket(player_id, ticket_id):
+    # In case of retry-worthy errors, raise exception
+    # In case of unrecoverable errors, clear the ticket
+    with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
+        if ticket_lock.ticket and ticket_id == ticket_lock.ticket["TicketId"]:
+            try:
+                return _cancel_locked_ticket(ticket_lock.ticket, player_id)
+            except GameliftClientException:
+                ticket_lock.ticket = None  # Delete the ticket locally if there is an unrecoverable error
+                _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
+                raise
+    return None
+
+def _cancel_locked_ticket(ticket, player_id):
+    if ticket["Status"] in NON_CANCELABLE_STATE:
         log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
         return ticket["Status"]  # Don't allow cancelling if we've already put you in a match, or we're in the process of doing so
+    if ticket["Status"] == "CANCELLING":
+        log.info(f"Ticket {ticket['TicketId']} is already being cancelled. Doing nothing.")
+        return ticket["Status"]
     log.info(f"Cancelling ticket {ticket['TicketId']} for player {player_id}, currently in state {ticket['Status']}")
     gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
     try:
-        response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
+        _ = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
+        log.info(f"Setting ticket {ticket['TicketId']} status to 'CANCELLING' for player {player_id}")
+        ticket["Status"] = "CANCELLING"
+        _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
+        return ticket["Status"]
     except ClientError as e:
         log.warning(f"ClientError from gamelift. Response: {e.response}")
-        if e.response["Error"]["Code"] != "InvalidRequestException":
-            raise GameliftClientException("Failed to cancel matchmaking ticket", str(e))
-    log.info(f"Clearing player {player_id}'s ticket from cache: {ticket_lock.ticket}")
-    ticket_lock.ticket = None
-    _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
-    return ticket
-
-def cancel_player_ticket(player_id, ticket_id):
-    with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
-        if ticket_lock.ticket and ticket_id == ticket_lock.ticket["TicketId"]:
-            return _cancel_locked_ticket(ticket_lock, player_id)
-    if get_player_party(player_id): # TODO: Remove this block once client has been updated to not try to cancel the non-party ticket.
-        with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
-            if ticket_lock.ticket:
-                return _cancel_locked_ticket(ticket_lock, player_id)
-    return None
+        error_code = e.response["Error"]["Code"]
+        if error_code in ("InvalidRequestException", "InternalServiceException"):
+            log.warning(f"Failed to cancel matchmaking ticket {ticket['TicketId']} for player {player_id}. Not updating ticket state.")
+            return "Temporary failure"
+        # else it's a permanent failure, i.e. error_code in ("NotFoundException", "UnsupportedRegionException"):
+        raise GameliftClientException(f"Failed to cancel matchmaking ticket: {e.response['Error']['Message'] }", str(e))
 
 
 def get_player_ticket(player_id):
@@ -181,7 +191,7 @@ def handle_party_event(queue_name, event_data):
         with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
             if ticket_lock.ticket:
                 log.info(f"handle_party_event:player_joined: Cancelling ticket {ticket_lock.ticket['TicketId']} for player {player_id} since he has now joined party {party_id}")
-                _cancel_locked_ticket(ticket_lock, player_id)
+                _cancel_locked_ticket(ticket_lock.ticket, player_id)
 
 def process_flexmatch_event(flexmatch_event):
     event = _get_event_details(flexmatch_event)
