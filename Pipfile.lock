@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "534726324d247eedd23e93401930bb412b07bd7bced269033765863db5d59708"
+            "sha256": "7c3f993ff5b6fb9c9c73a8d57fa1ab5b7993181cec510292973849737c54cc34"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -684,11 +684,11 @@
         },
         "python-drift": {
             "hashes": [
-                "sha256:2a097a3822061fd270b9618940d1eaf37044baf4d449bfefd85d8356e153c22c",
-                "sha256:731885dd4d3602df0b418b54e52dd69d91b48547debf970688d3859517f91c4f"
+                "sha256:a6012ba9c9a9dc7cc391a9bf08528992fa0d6cd79508b5d42fb89098574b7a8d",
+                "sha256:cd90752cd62568ed3ae87459c9e09380c72b2d2fc8cd01ad94829ef4282b94ae"
             ],
             "index": "pypi",
-            "version": "==0.9.0b1"
+            "version": "==0.9.0"
         },
         "python-driftconfig": {
             "hashes": [
@@ -801,7 +801,7 @@
                 "sha256:4987c65554f7a2dbf30c18fd48778ef124af6fab771a377103da0585e2336ece",
                 "sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==1.26.7"
         },
         "webargs": {
@@ -1145,7 +1145,7 @@
                 "sha256:4987c65554f7a2dbf30c18fd48778ef124af6fab771a377103da0585e2336ece",
                 "sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==1.26.7"
         }
     }
