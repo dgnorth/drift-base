@@ -167,7 +167,7 @@ class FlexMatchTicketAPI(MethodView):
         player_id = current_user.get("player_id")
         if player_id:
             try:
-                deleted_ticket = flexmatch.cancel_player_ticket(player_id, ticket_id)
+                deleted_ticket = flexmatch.cancel_active_ticket(player_id, ticket_id)
                 if deleted_ticket is None:
                     return {"status": "NoTicketFound"}
                 if isinstance(deleted_ticket, str):

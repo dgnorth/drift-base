@@ -82,13 +82,13 @@ class TestFlexMatchTicketAPI(BaseCloudkitTest):
     def test_delete_api(self):
         self.make_player()
         non_existant_ticket_url = self.endpoints["flexmatch_tickets"] + "1235-abcdef-whateves"
-        with patch.object(flexmatch, 'cancel_player_ticket', return_value=None):
+        with patch.object(flexmatch, 'cancel_active_ticket', return_value=None):
             response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["status"], "NoTicketFound")
-        with patch.object(flexmatch, 'cancel_player_ticket', return_value="TicketState"):
+        with patch.object(flexmatch, 'cancel_active_ticket', return_value="TicketState"):
             response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["status"], "TicketState")
-        with patch.object(flexmatch, 'cancel_player_ticket', return_value={"Key": "Value"}):
+        with patch.object(flexmatch, 'cancel_active_ticket', return_value={"Key": "Value"}):
             response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["status"], "Deleted")
 
@@ -334,9 +334,9 @@ class FlexMatchTest(_BaseFlexmatchTest):
             response = self.get(ticket_url, expected_status_code=http_client.OK)
             self.assertIn("TicketId", response.json())
             self.delete(ticket_url, expected_status_code=http_client.OK)
-            # Check that the ticket is indeed gone
-            response = self.get(ticket_url, expected_status_code=http_client.NOT_FOUND)
-            self.assertDictEqual(response.json(), {})
+            # Ticket should now be in 'CANCELLING' state
+            response = self.get(ticket_url, expected_status_code=http_client.OK).json()
+            self.assertEqual("CANCELLING", response["Status"])
 
     def test_ticket_in_matched_state_does_not_get_deleted(self):
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
@@ -352,13 +352,13 @@ class FlexMatchTest(_BaseFlexmatchTest):
             response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["status"], "REQUIRES_ACCEPTANCE")
 
-    def test_delete_ticket_clears_cached_ticket_on_invalid_request(self):
-
-        def _stop_matchmaking_with_error_response(self, **kwargs):
+    def test_delete_ticket_clears_cached_ticket_on_permanent_error(self):
+        """ If a ticket isn't cancellable because it's completed, we should clear it ? """
+        def _stop_matchmaking_with_permanent_error_response(self, **kwargs):
             response = {
                 'Error': {
-                    'Message': 'Matchmaking ticket is in COMPLETED status and cannot be canceled.',
-                    'Code': 'InvalidRequestException'
+                    'Message': 'Matchmaking ticket was not found.',
+                    'Code': 'NotFoundException'
                 },
                 'ResponseMetadata': {
                     'RequestId': 'f96151ae-8b36-46f4-a287-b4c903286a59',
@@ -372,16 +372,16 @@ class FlexMatchTest(_BaseFlexmatchTest):
                     },
                     'RetryAttempts': 0
                 },
-                'Message': 'Matchmaking ticket is in COMPLETED status and cannot be canceled.'
+                'Message': 'Matchmaking ticket was not found.'
             }
             from botocore.exceptions import ClientError
             raise ClientError(response, "stop_matchmaking")
 
-        with patch.object(MockGameLiftClient, 'stop_matchmaking', _stop_matchmaking_with_error_response):
+        with patch.object(MockGameLiftClient, 'stop_matchmaking', _stop_matchmaking_with_permanent_error_response):
             with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
                 _, ticket_url, _ = self._initiate_matchmaking()
                 # Attempt to delete
-                self.delete(ticket_url, expected_status_code=http_client.OK)
+                self.delete(ticket_url, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
                 # Ticket should be cleared
                 self.get(ticket_url, expected_status_code=http_client.NOT_FOUND).json()
                 # And there should be a message waiting
@@ -397,7 +397,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
             # member then cancels
             self.auth(member["name"])
             response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(response["status"], "Deleted")
+            self.assertEqual("CANCELLING", response["status"])
 
     def test_party_members_get_notified_if_ticket_is_cancelled(self):
         member, host = self._create_party()
