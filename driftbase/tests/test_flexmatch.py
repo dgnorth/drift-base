@@ -328,30 +328,36 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertTrue(notification["event"] == "MatchmakingStarted")
 
     def test_delete_ticket(self):
+        # start the matchmaking and then stop it.
+        user_name, ticket_url, ticket = self._initiate_matchmaking()
+        # Check that we have a stored ticket
+        response = self.get(ticket_url, expected_status_code=http_client.OK)
+        self.assertIn("TicketId", response.json())
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            # start the matchmaking and then stop it.
-            user_name, ticket_url, ticket = self._initiate_matchmaking()
-            # Check that we have a stored ticket
-            response = self.get(ticket_url, expected_status_code=http_client.OK)
-            self.assertIn("TicketId", response.json())
             self.delete(ticket_url, expected_status_code=http_client.OK)
-            # Ticket should now be in 'CANCELLING' state
-            response = self.get(ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual("CANCELLING", response["Status"])
+        # Ticket should now be in 'CANCELLING' state
+        response = self.get(ticket_url, expected_status_code=http_client.OK).json()
+        self.assertEqual("CANCELLING", response["Status"])
 
     def test_ticket_in_matched_state_does_not_get_deleted(self):
+        player_name, ticket_url, ticket = self._initiate_matchmaking()
+        ticket_id = ticket["TicketId"]
+        player_info = {"playerId": str(self.player_id), "team": "winners"}
+        event_details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated",
+                                                acceptanceRequired=True, acceptanceTimeout=123)
+        data = self._get_event_data(event_details)
+        with self._managed_bearer_token_user():
+            self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
+        self.auth(player_name)
+        response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
+        self.assertEqual(response["status"], "REQUIRES_ACCEPTANCE")
+
+    def test_cannot_start_matchmaking_with_cancelling_ticket(self):
+        player_name, ticket_url, ticket = self._initiate_matchmaking()
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            player_name, ticket_url, ticket = self._initiate_matchmaking()
-            ticket_id = ticket["TicketId"]
-            player_info = {"playerId": str(self.player_id), "team": "winners"}
-            event_details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated",
-                                                    acceptanceRequired=True, acceptanceTimeout=123)
-            data = self._get_event_data(event_details)
-            with self._managed_bearer_token_user():
-                self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
-            self.auth(player_name)
-            response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(response["status"], "REQUIRES_ACCEPTANCE")
+            self.delete(ticket_url, expected_status_code=http_client.OK)
+            self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"},
+                      expected_status_code=http_client.CONFLICT)
 
     def test_delete_ticket_clears_cached_ticket_on_permanent_error(self):
         """ If a ticket isn't cancellable because it's completed, we should clear it ? """
@@ -456,7 +462,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         response = self.get(ticket_url, expected_status_code=http_client.OK).json()
         self.assertEqual(response["Status"], "COMPLETED")
         time.sleep(1)
-        response = self.get(ticket_url, expected_status_code=http_client.NOT_FOUND)
+        self.get(ticket_url, expected_status_code=http_client.NOT_FOUND)
 
     def test_extra_matchmaking_data_is_included_in_ticket(self):
         user_name = self.make_player()
