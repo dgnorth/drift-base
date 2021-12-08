@@ -106,8 +106,10 @@ class UsersAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {"users": url_for("users.list", _external=True), }
-    ret["my_user"] = None
+    ret = {
+        "users": url_for("users.list", _external=True),
+        "my_user": None
+    }
     if current_user:
         ret["my_user"] = url_for("users.entry", user_id=current_user["user_id"], _external=True)
     return ret

@@ -347,8 +347,10 @@ class ClientAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"clients": url_for("clients.list", _external=True)}
-    ret["my_client"] = None
+    ret = {
+        "clients": url_for("clients.list", _external=True),
+        "my_client": None
+    }
     if current_user and current_user.get("client_id"):
         ret["my_client"] = url_for("clients.entry", client_id=current_user.get("client_id"),
                                    _external=True)

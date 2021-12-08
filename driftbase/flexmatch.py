@@ -259,7 +259,7 @@ def _get_player_ticket_key(player_id):
 
 def _get_player_party_members(player_id):
     """ Return the full list of players who share a party with 'player_id', including 'player_id'. If 'player_id' isn't
-    in a party, the returned list will contain only 'player_id'"""
+    a party member, the returned list will contain only 'player_id'"""
     party_id = get_player_party(player_id)
     if party_id:
         return get_party_members(party_id)
@@ -269,9 +269,7 @@ def _get_player_attributes(player_id, extra_player_data):
     ret = extra_player_data.get(player_id, {})
     if "Skill" not in ret:
         # Always include the skill for consistency across game modes and rulesets.  Shouldn't be needed though...
-        return {
-            "Skill": {"N": 100.0}
-        }
+        ret["Skill"] = {"N": 100.0}
     return ret
 
 def _get_tenant_config_value(config_key):
@@ -322,7 +320,7 @@ def _process_searching_event(event):
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
-            if player_ticket is None:  # Might be an event for a already deleted ticket.
+            if player_ticket is None:  # Might be an event for an already deleted ticket.
                 log.warning(f"Ignoring 'SEARCHING' event on ticket {ticket_id} containing player {player_id} as this player has no ticket in our store.")
                 continue
             if ticket_id != player_ticket["TicketId"]:
@@ -332,7 +330,7 @@ def _process_searching_event(event):
                 log.info(f"Skipping update on ticket for player {player_id} as it resolves to previously updated ticket key {ticket_key}")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
-                # If we've recorded a session, then the player is in a match already and this is either a backfill ticket or a very much out of order ticket
+                # If we've recorded a session, then the player is in a match already and this is either a backfill ticket or a very much out-of-order ticket
                 log.info(f"Existing session for player {player_id} found. Not updating {player_ticket['TicketId']}")
                 continue
             if player_ticket["Status"] == "SEARCHING":
@@ -417,12 +415,12 @@ def _process_matchmaking_succeeded_event(event):
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
-            if player_ticket is None:  # This has to be a back fill ticket, i.e. not issued by us.
+            if player_ticket is None:  # This has to be a backfill ticket, i.e. not issued by us.
                 log.info(f"MatchmakingSucceeded event received for a player who has no ticket. Probably backfill.")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
                 # If we've recorded a session, then the player has been placed in a match already, or there are multiple players in the ticket.
-                # either way, we dont want/need to update it.
+                # either way, we don't want/need to update it.
                 log.info(f"Player {player_id} has a session on his ticket already. Not updating {player_ticket['TicketId']}")
                 continue
             # sanity check
