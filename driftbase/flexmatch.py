@@ -15,6 +15,33 @@ from driftbase.resources.flexmatch import TIER_DEFAULTS
 NUM_VALUES_FOR_LATENCY_AVERAGE = 3
 REDIS_TTL = 1800
 
+# Ticket states:
+# QUEUED                <- Ticket has been submitted (flexmatch ticket status)
+# SEARCHING             <- Ticket is being processed by flexmatch (flexmatch ticket status, delivered via notification)
+# REQUIRES_ACCEPTANCE   <- Waiting for players to accept (not used, may get used by this code to cancel a match if a player hasn't sent a heartbeat in a while) (flexmatch ticket status)
+# PLACING               <- Match found and accepted, waiting for server to announce itself as ready (flexmatch ticket status)
+# COMPLETED             <- Server ready, players should join it (flexmatch ticket status)
+# CANCELLING            <- Request to cancel ticket has been sent to flexmatch (drift transition status)
+# CANCELLED             <- Ticket has been cancelled and is now invalid (flexmatch ticket status)
+# MATCH_COMPLETE        <- Ticket should be considered completed and unusable (drift status)
+# TIMED_OUT             <- No match found within the allowed time (flexmatch ticket status)
+# FAILED                <- Matchmaking failed, ticket is now invalid (flexmatch ticket status)
+
+
+NON_CANCELABLE_STATE = {  # tickets in any of these states may not be cancelled
+    "COMPLETED",
+    "PLACING",
+    "REQUIRES_ACCEPTANCE"
+}
+
+LIVE_STATE = { # Tickets in these states are considered valid
+    "QUEUED",
+    "SEARCHING",
+    "REQUIRES_ACCEPTANCE",
+    "PLACING",
+    "COMPLETED",
+}
+
 # FIXME: Figure out how to do multi-region matchmaking; afaik, the configuration isn't region based, but both queues and
 #  events are. The queues themselves can have destination fleets in multiple regions.
 AWS_REGION = "eu-west-1"
@@ -48,18 +75,17 @@ def get_player_latency_averages(player_id):
 
 def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmaking_data):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
-        # Generate a list of players relevant to the request; this is the list of online players in the party if the player belongs to one, otherwise the list is just the player
-        member_ids = _get_player_party_members(player_id)
-
         if ticket_lock.ticket:  # Existing ticket found
             ticket_status = ticket_lock.ticket["Status"]
-            if ticket_status in ("QUEUED", "SEARCHING", "REQUIRES_ACCEPTANCE", "PLACING", "COMPLETED"):
-                # TODO: Check if I need to add player_id to the ticket. This is the use case where someone accepts a party
-                #  invite after matchmaking started.
-                log.info(f"Returning existing ticket {ticket_lock.ticket['TicketId']} to player {player_id}")
+            if ticket_status in LIVE_STATE:
+                log.info(f"Returning existing ticket {ticket_lock.ticket['TicketId']} in state {ticket_status} to player {player_id}")
                 return ticket_lock.ticket  # Ticket is still valid
+            elif ticket_status == "CANCELLING":
+                raise TicketConflict("Earlier ticket is still being cancelled.", ticket_lock.ticket)
             # otherwise, we issue a new ticket
 
+        # Generate a list of players relevant to the request; this is the list of online players in the party if the player belongs to one, otherwise the list is just the player
+        member_ids = _get_player_party_members(player_id)
         gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
             log.info(f"Issuing a new {matchmaking_configuration} matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
@@ -667,3 +693,8 @@ class GameliftClientException(Exception):
         self.msg = user_message
         self.debugs = debug_info
 
+class TicketConflict(Exception):
+    def __init__(self, user_message, debug_info):
+        super().__init__(user_message, debug_info)
+        self.msg = user_message
+        self.debugs = debug_info
