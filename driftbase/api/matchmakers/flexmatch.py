@@ -114,8 +114,8 @@ class FlexMatchTicketsAPI(MethodView):
         Insert a matchmaking ticket for the requesting player or his party.
         Returns a ticket.
         """
+        player_id = current_user.get("player_id")
         try:
-            player_id = current_user.get("player_id")
             ticket = flexmatch.upsert_flexmatch_ticket(player_id, args.get("matchmaker"), args.get("extras", {}))
             return {
                 "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
@@ -123,10 +123,15 @@ class FlexMatchTicketsAPI(MethodView):
                 "ticket_status": ticket["Status"]
             }
         except flexmatch.GameliftClientException as e:
-            player_id = current_user.get("player_id", "UNKNOWN")
+            player_id = player_id or "UNKNOWN"
             log.error(
                 f"Inserting/updating matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
             return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
+        except flexmatch.TicketConflict as e:
+            player_id = player_id or "UNKNOWN"
+            log.error(
+                f"Player {player_id} attempted to start matchmaking while older ticket is still being cancelled.\n{e.debugs}")
+            return {"error": e.msg}, http_client.CONFLICT
 
 
 @bp.route("/tickets/<string:ticket_id>", endpoint="ticket")

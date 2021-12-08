@@ -593,17 +593,17 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "COMPLETED")
+        self.assertEqual("COMPLETED", r['Status'])
         self.assertTrue("GameSessionConnectionInfo" in r)
         session_info = r["GameSessionConnectionInfo"]
-        self.assertEqual(session_info["ipAddress"], connection_ip)
-        self.assertEqual(session_info["port"], connection_port)
+        self.assertEqual(connection_ip, session_info["ipAddress"])
+        self.assertEqual(connection_port, session_info["port"])
         # Verify notification sent
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingSuccess")
         self.assertTrue(notification["event"] == "MatchmakingSuccess")
         connection_data = notification["data"]
-        self.assertEqual(connection_data["connection_string"], f"{connection_ip}:{connection_port}")
-        self.assertEqual(connection_data["options"], f"PlayerSessionId={player_session_id}?PlayerId={self.player_id}")
+        self.assertEqual(f"{connection_ip}:{connection_port}", connection_data["connection_string"])
+        self.assertEqual(f"PlayerSessionId={player_session_id}?PlayerId={self.player_id}", connection_data["options"])
 
     def test_matchmaking_cancelled(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
