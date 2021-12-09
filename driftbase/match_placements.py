@@ -111,9 +111,9 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
 
         # Request a game server
         lobby_name = lobby["lobby_name"]
-        placement_id = str(uuid.uuid4())
-        max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
         game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
+        placement_id = f"{game_session_name}-{uuid.uuid4()}"
+        max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
         custom_data = lobby["custom_data"]
 
         lobby["placement_id"] = placement_id
@@ -325,6 +325,8 @@ def _validate_gamelift_placement_for_queue_event(placement_id: str, placement: d
     if not lobby_id:
         raise RuntimeError(f"Malformed match placement. Match placement '{placement_id}' doesn't have a lobby id")
 
+    log.info(f"Processing GameLift placement '{placement_id}' for lobby '{lobby_id}'")
+
     return True
 
 def _process_fulfilled_queue_event(event_details: dict):
@@ -347,6 +349,9 @@ def _process_fulfilled_queue_event(event_details: dict):
 
         with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.value
+
+            if not lobby:
+                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing fulfilled queue event for placement '{placement_id}'")
 
             ip_address: str = event_details["ipAddress"]
             port = int(event_details["port"])
@@ -412,6 +417,9 @@ def _process_cancelled_queue_event(event_details: dict):
         with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.value
 
+            if not lobby:
+                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing cancelled queue event for placement '{placement_id}'")
+
             lobby["status"] = "cancelled"
 
             log.info(f"Lobby match placement for lobby '{lobby_id}' cancelled.")
@@ -443,6 +451,9 @@ def _process_timed_out_queue_event(event_details: dict):
         with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.value
 
+            if not lobby:
+                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing timed out queue event for placement '{placement_id}'")
+
             lobby["status"] = "timed_out"
 
             log.info(f"Lobby match placement for lobby '{lobby_id}' timed_out.")
@@ -472,6 +483,9 @@ def _process_failed_queue_event(event_details: dict):
 
         with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
             lobby = lobby_lock.value
+
+            if not lobby:
+                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing failed queue event for placement '{placement_id}'")
 
             lobby["status"] = "failed"
 

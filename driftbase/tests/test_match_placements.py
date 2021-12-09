@@ -586,12 +586,8 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
             event["detail"]["type"] = "42"
 
-            # Expect a RuntimeError since we don't know how to handle an unknown event type
-            try:
-                self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
-                self.assertFalse(True)
-            except RuntimeError:
-                pass
+            # AWS EventBridge always expects a 200 response. It will retry the event if it gets a 500.
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
 
         # Re-auth
         self.auth(player_username)

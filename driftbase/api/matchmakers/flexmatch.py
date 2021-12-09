@@ -208,9 +208,13 @@ class FlexMatchQueueEventAPI(MethodView):
 
     @requires_roles("flexmatch_event")
     def put(self):
-        # TODO: implement handling
+        # TODO: Have publish message consumer do the try/except in Drift lib
         log.info(f"Queue event: {request.json}")
-        current_app.extensions["messagebus"].publish_message("gamelift_queue", request.json)
+        try:
+            current_app.extensions["messagebus"].publish_message("gamelift_queue", request.json)
+        except Exception as e:
+            log.error(f"Error processing queue event: {e}")
+
         return {}, http_client.OK
 
 @endpoints.register
