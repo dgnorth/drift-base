@@ -506,6 +506,18 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["event"] == "MatchmakingStopped")
 
+    def test_client_unregistered_cancels_player_ticket(self):
+        # Issue a ticket (implicitly creates a user and registers a client)
+        user_name_, ticket_url, ticket = self._initiate_matchmaking()
+        client_url = self.endpoints["my_client"]
+        # Delete the client
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            r = self.delete(client_url, expected_status_code=http_client.OK).json()
+        # Ticket should be CANCELLING now
+        ticket = self.get(ticket_url).json()
+        self.assertTrue(ticket["Status"] == "CANCELLING")
+        # Client should've been notified of the cancellation
+        notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
