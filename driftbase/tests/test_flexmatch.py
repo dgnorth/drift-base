@@ -609,7 +609,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingCancelled")
         self.assertIsInstance(notification, dict)
 
-    def test_matchmaking_backfill_ticket_cancel_updates_player_ticket(self):
+    def test_backfill_ticket_cancellation_updates_player_ticket(self):
         # This is a test for a hack/heuristic; i.e. we want to mark tickets as MATCH_COMPLETE when a backfill ticket
         # for a match the player is in gets cancelled. This should not have to rely on heuristics like that.
         user_name, ticket_url, ticket = self._initiate_matchmaking()
@@ -749,6 +749,28 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.assertIsInstance(notification, dict)
             self.assertEqual(notification["event"], "PotentialMatchCreated")
             self.assertSetEqual(ticket_players, set(notification["data"]["teams"]["winners"]))
+
+    def test_searching_notification_is_sent_to_all_party_members(self):
+        # Create a team
+        member1, member2, host = self._create_party(party_size=3)
+        # Start matchmaking as a team, check if all members are in ticket
+        _, _, ticket = self._initiate_matchmaking(host["name"])
+        ticket_players = {int(p["PlayerId"]) for p in ticket["Players"]}
+        player_info = []
+        for player in (member1, member2, host):
+            self.assertIn(player["id"], ticket_players)
+            player_info.append({"playerId": str(player["id"]), "team": "winners"})
+        # PUT a MatchmakingSearching event
+        events_url = self.endpoints["flexmatch_events"]
+        details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSearching", acceptanceRequired=False, acceptanceTimeout=123)
+        with self._managed_bearer_token_user():
+            self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
+        # Check if all team members get the MatchmakingSearching notification
+        for player in (member1, member2, host):
+            self.auth(username=player["name"])
+            notification, _ = self.get_player_notification("matchmaking", "MatchmakingSearching")
+            self.assertIsInstance(notification, dict)
+            self.assertTrue(notification["event"] == "MatchmakingSearching")
 
 
 class MockGameLiftClient(object):

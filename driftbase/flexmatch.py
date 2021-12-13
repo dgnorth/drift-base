@@ -356,7 +356,6 @@ def _is_backfill_ticket(ticket_id):
     return res is not None
 
 def _process_searching_event(event):
-    updated_tickets = set()
     for ticket_id, player in _ticket_players(event):
         player_id = int(player["playerId"])
         if _is_backfill_ticket(ticket_id):
@@ -371,21 +370,16 @@ def _process_searching_event(event):
             if ticket_id != player_ticket["TicketId"]:
                 log.warning(f"'SEARCHING' event has player {player_id} on ticket {ticket_id}, which doesn't match his current ticket {player_ticket['TicketId']}. Ignoring this player/ticket combo update")
                 continue
-            if ticket_key in updated_tickets:
-                log.info(f"Skipping update on ticket for player {player_id} as it resolves to previously updated ticket key {ticket_key}")
-                continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
                 # If we've recorded a session, then the player is in a match already and this is either a backfill ticket or a very much out-of-order ticket
                 log.info(f"Existing session for player {player_id} found. Not updating {player_ticket['TicketId']}")
                 continue
-            if player_ticket["Status"] == "SEARCHING":
-                continue  # Save on redis calls
-            if player_ticket["Status"] not in ("QUEUED", "REQUIRES_ACCEPTANCE"):
+            if player_ticket["Status"] not in ("QUEUED", "SEARCHING", "REQUIRES_ACCEPTANCE"):
                 log.info(f"MatchmakingSearching event for ticket {player_ticket['TicketId']} in state {player_ticket['Status']} doesn't make sense.  Probably out of order delivery; ignoring.")
                 continue
-            log.info(f"Updating ticket {player_ticket['TicketId']} from {player_ticket['Status']} to SEARCHING")
-            player_ticket["Status"] = "SEARCHING"
-            updated_tickets.add(ticket_key)
+            if player_ticket["Status"] != "SEARCHING":
+                log.info(f"Updating ticket {player_ticket['TicketId']} from {player_ticket['Status']} to SEARCHING")
+                player_ticket["Status"] = "SEARCHING"
             _post_matchmaking_event_to_members([player_id], "MatchmakingSearching")
 
 def _process_potential_match_event(event):
