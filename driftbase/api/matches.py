@@ -656,7 +656,7 @@ class MatchPlayerAPI(MethodView):
     A specific player in a specific match
     """
 
-    class MatchPlayerPutRequestSchema(ma.Schema):
+    class MatchPlayerPatchRequestSchema(ma.Schema):
         status = ma.fields.String()
         team_id = ma.fields.Integer()
         statistics = ma.fields.Dict()
@@ -681,7 +681,7 @@ class MatchPlayerAPI(MethodView):
         return jsonify(ret)
 
     @requires_roles("service")
-    @bp.arguments(MatchPlayerPutRequestSchema)
+    @bp.arguments(MatchPlayerPatchRequestSchema)
     def patch(self, args, match_id, player_id):
         """
         Update a specific player in a battle
