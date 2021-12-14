@@ -695,8 +695,8 @@ class MatchPlayerAPI(MethodView):
             log.info(f"player {player_id} not found in match {match_id}. Aborting.")
             abort(http_client.NOT_FOUND)
 
-        for arg in args:
-            setattr(match_player, arg, args[arg])
+        for attr, value in args.items():
+            setattr(match_player, attr, value)
         g.db.commit()
 
         log.info("Player %s updated in match %s", player_id, match_id)
