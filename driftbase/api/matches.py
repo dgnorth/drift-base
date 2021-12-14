@@ -682,7 +682,7 @@ class MatchPlayerAPI(MethodView):
 
     @requires_roles("service")
     @bp.arguments(MatchPlayerPutRequestSchema)
-    def put(self, args, match_id, player_id):
+    def patch(self, args, match_id, player_id):
         """
         Update a specific player in a battle
         """

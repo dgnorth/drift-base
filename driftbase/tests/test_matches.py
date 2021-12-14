@@ -260,7 +260,7 @@ class MatchesTest(BaseMatchTest):
         # Update match player details
         new_details = {"foo": "bar"}
 
-        response = self.put(matchplayer_url, data={"details": new_details}, expected_status_code=http_client.OK)
+        response = self.patch(matchplayer_url, data={"details": new_details}, expected_status_code=http_client.OK)
         matchplayer_update_response = response.json()
 
         # Verify details exists for the match player
