@@ -656,6 +656,12 @@ class MatchPlayerAPI(MethodView):
     A specific player in a specific match
     """
 
+    class MatchPlayerPutRequestSchema(ma.Schema):
+        status = ma.fields.String()
+        team_id = ma.fields.Integer()
+        statistics = ma.fields.Dict()
+        details = ma.fields.Dict()
+
     def get(self, match_id, player_id):
         """
         Get a specific player from a battle
@@ -672,6 +678,37 @@ class MatchPlayerAPI(MethodView):
             ret["team_url"] = url_for("matches.team", match_id=match_id,
                                       team_id=player.team_id, _external=True)
         ret["player_url"] = url_player(player_id)
+        return jsonify(ret)
+
+    @requires_roles("service")
+    @bp.arguments(MatchPlayerPutRequestSchema)
+    def put(self, args, match_id, player_id):
+        """
+        Update a specific player in a battle
+        """
+        match_player = g.db.query(MatchPlayer) \
+            .filter(MatchPlayer.match_id == match_id,
+                    MatchPlayer.player_id == player_id) \
+            .first()
+
+        if not match_player:
+            log.info(f"player {player_id} not found in match {match_id}. Aborting.")
+            abort(http_client.NOT_FOUND)
+
+        for arg in args:
+            setattr(match_player, arg, args[arg])
+        g.db.commit()
+
+        log.info("Player %s updated in match %s", player_id, match_id)
+        log_match_event(match_id, player_id, "gameserver.match.player_updated", details=args)
+
+        ret = match_player.as_dict()
+        ret["player_url"] = url_player(player_id)
+        ret["team_url"] = None
+
+        if match_player.team_id:
+            ret["team_url"] = url_for("matches.team", match_id=match_id, team_id=match_player.team_id, _external=True)
+
         return jsonify(ret)
 
     @requires_roles("service")

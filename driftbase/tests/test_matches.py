@@ -235,6 +235,43 @@ class MatchesTest(BaseMatchTest):
         # now you can quit again
         self.delete(matchplayer_url)
 
+    def test_update_player_in_match(self):
+        # Create player and match
+        self.auth()
+        player_id = self.player_id
+        self.auth_service()
+        match = self._create_match()
+        teams_url = match["teams_url"]
+        matchplayers_url = match["matchplayers_url"]
+
+        # Create match team
+        response = self.post(teams_url, data={}, expected_status_code=http_client.CREATED)
+        team_id = response.json()["team_id"]
+        data = {"player_id": player_id, "team_id": team_id }
+
+        # Create match player
+        response = self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED)
+        matchplayer_created_response = response.json()
+        matchplayer_url = matchplayer_created_response["url"]
+
+        # Verify details doesn't exist for the match player
+        self.assertTrue("details" not in matchplayer_created_response)
+
+        # Update match player details
+        new_details = {"foo": "bar"}
+
+        response = self.put(matchplayer_url, data={"details": new_details}, expected_status_code=http_client.OK)
+        matchplayer_update_response = response.json()
+
+        # Verify details exists for the match player
+        self.assertDictEqual(matchplayer_update_response["details"], new_details)
+
+        # Verify getter returns the same details
+        response = self.get(matchplayer_url, expected_status_code=http_client.OK)
+        matchplayer_update_response = response.json()
+
+        self.assertDictEqual(matchplayer_update_response, response.json())
+
     def test_match_start_date_is_set_when_first_player_joins(self):
         self.auth("player_1")
         player1_id = self.player_id
