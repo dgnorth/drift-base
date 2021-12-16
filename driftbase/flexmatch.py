@@ -42,6 +42,13 @@ LIVE_STATE = {  # Tickets in these states are considered valid
     "COMPLETED",
 }
 
+EXPIRED_STATE = {
+    "CANCELLED",
+    "MATCH_COMPLETE",
+    "FAILED",
+    "TIMED_OUT",
+}
+
 # FIXME: Figure out how to do multi-region matchmaking; afaik, the configuration isn't region based, but both queues and
 #  events are. The queues themselves can have destination fleets in multiple regions.
 AWS_REGION = "eu-west-1"

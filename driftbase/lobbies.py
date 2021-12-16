@@ -65,7 +65,7 @@ def create_lobby(player_id: int, team_capacity: int, team_names: list[str], lobb
 
     # Check matchmaking
     matchmaking_ticket = flexmatch.get_player_ticket(player_id)
-    if matchmaking_ticket and matchmaking_ticket["Status"] not in ("MATCH_COMPLETE", "FAILED", "TIMED_OUT", "", None):
+    if matchmaking_ticket and matchmaking_ticket["Status"] not in flexmatch.EXPIRED_STATE:
         log.warning(f"Failed to create lobby for player '{player_id}' due to player having an active matchmaking ticket")
         raise InvalidRequestException(f"Cannot create a lobby while matchmaking")
 
