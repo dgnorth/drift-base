@@ -560,9 +560,6 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
         current_length = len(lobby["members"])
         host_player_id = _get_lobby_host_player_id(lobby)
 
-        # Populate receiving player ids before removing player
-        receiving_player_ids = _get_lobby_member_player_ids(lobby)
-
         # Remove player from members list
         lobby["members"] = [member for member in lobby["members"] if member["player_id"] != player_id]
 
@@ -589,6 +586,7 @@ def _internal_leave_lobby(player_id: int, lobby_id: str):
                 lobby_lock.value = lobby
 
                 # Notify remaining members
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
                 _post_lobby_event_to_members(receiving_player_ids, "LobbyMemberLeft", {"lobby_id": lobby_id, "left_player_id": player_id, "members": lobby["members"]})
             else:
                 # No one left in the lobby, delete the lobby

@@ -951,12 +951,7 @@ class LobbiesTest(_BaseLobbyTest):
 
         # Assert message queue for player 1
         notification, _ = self.get_player_notification("lobby", "LobbyMemberLeft")
-        notification_data = notification["data"]
-
-        self.assertIsInstance(notification_data, dict)
-        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
-        self.assertEqual(len(notification_data["members"]), 1)
-        self.assertEqual(notification_data["left_player_id"], left_player_id)
+        self.assertIsNone(notification)  # Shouldn't have any notification since the player knows whether it succeeded
 
         # Assert member is now lobby host
 
@@ -969,8 +964,12 @@ class LobbiesTest(_BaseLobbyTest):
 
         # Assert message queue for player 2
         notification, _ = self.get_player_notification("lobby", "LobbyMemberLeft")
+        notification_data = notification["data"]
 
-        self.assertDictEqual(notification["data"], notification_data)
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["lobby_id"], self.lobby_id)
+        self.assertEqual(len(notification_data["members"]), 1)
+        self.assertEqual(notification_data["left_player_id"], left_player_id)
 
     def test_leave_lobby_no_lobby(self):
         self.make_player()
