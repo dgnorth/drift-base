@@ -128,7 +128,7 @@ def cancel_active_ticket(player_id, ticket_id):
             except GameliftClientException:
                 ticket_lock.ticket = None  # Delete the ticket locally if there is an unrecoverable error
                 log.warning(f"Clearing ticket {ticket_id} from cache because of unrecoverable error during cancellation attempt.")
-                _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
+                _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingCancelled")
                 raise
     return None
 
