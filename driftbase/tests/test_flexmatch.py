@@ -392,8 +392,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
                 # Ticket should be cleared
                 self.get(ticket_url, expected_status_code=http_client.NOT_FOUND).json()
                 # And there should be a message waiting
-                notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
-                self.assertTrue(notification["event"] == "MatchmakingStopped")
+                notification, _ = self.get_player_notification("matchmaking", "MatchmakingCancelled")
+                self.assertTrue(notification["event"] == "MatchmakingCancelled")
 
     def test_party_member_can_delete_ticket(self):
         member, host = self._create_party()
