@@ -112,7 +112,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
         # Request a game server
         lobby_name = lobby["lobby_name"]
         game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
-        placement_id = f"{game_session_name}-{uuid.uuid4()}"
+        placement_id = f"Lobby-{lobby_id}-{uuid.uuid4()}"[:48] # Placement id must be <= 48 characters
         max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
         custom_data = lobby["custom_data"]
 
