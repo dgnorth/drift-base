@@ -48,15 +48,15 @@ class ClientLogsAPI(MethodView):
         ]
 
         """
-        verify_log_request(request)
-        args = request.json
-        if not isinstance(args, list):
-            args = [args]
+        logs = request.json
+        verify_log_request(logs)
+        if not isinstance(logs, list):
+            args = [logs]
         player_id = current_user["player_id"] if current_user else None
 
-        for event in args:
-            event["player_id"] = player_id
-            clientlogger.info("clientlog", extra={"extra": event})
+        for log_event in logs:
+            log_event["player_id"] = player_id
+            clientlogger.info("clientlog", extra={"extra": log_event})
 
         if request.headers.get("Accept") == "application/json":
             return jsonify(status="OK"), http_client.CREATED
