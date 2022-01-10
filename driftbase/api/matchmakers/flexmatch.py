@@ -46,6 +46,18 @@ def drift_init_extension(app, api, **kwargs):
     app.messagebus.register_consumer(flexmatch.handle_client_event, "client")
     endpoints.init_app(app)
 
+@bp.route("/regions/", endpoint="regions")
+class FlexMatchPlayerAPI(MethodView):
+
+    class FlexMatchRegionsSchema(Schema):
+        regions = fields.List(fields.String(), metadata=dict(description="The list of regions."))
+
+    @bp.response(http_client.OK, FlexMatchRegionsSchema)
+    def get(self):
+        """
+        Returns the valid regions the client should ping.
+        """
+        return {"regions": flexmatch.get_valid_regions()}
 
 
 @bp.route("/<int:player_id>", endpoint="matchmaker")
@@ -226,7 +238,8 @@ def endpoint_info(*args):
     ret = {
         "flexmatch_events": url_for("flexmatch.events", _external=True),
         "flexmatch_queue": url_for("flexmatch.queue-events", _external=True),
-        "flexmatch_tickets": url_for("flexmatch.tickets", _external=True)
+        "flexmatch_tickets": url_for("flexmatch.tickets", _external=True),
+        "flexmatch_regions": url_for("flexmatch.regions", _external=True),
     }
     if current_user and current_user.get("player_id"):
         ret["my_flexmatch"] = url_for("flexmatch.matchmaker", player_id=current_user["player_id"], _external=True)
