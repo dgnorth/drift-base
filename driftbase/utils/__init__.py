@@ -65,14 +65,13 @@ class UserCache(object):
         return self.cache.delete(self._key(user_id))
 
 
-def verify_log_request(request, required_keys=None):
-    args = request.json
-    if not isinstance(args, list):
+def verify_log_request(events, required_keys=None):
+    if not isinstance(events, list):
         abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
-    if not args:
+    if not events:
         log.warning("Invalid log request. No loglines.")
         abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
-    for event in args:
+    for event in events:
         if not isinstance(event, dict):
             log.warning("Invalid log request. Entry not dict: %s", event)
             abort(http_client.METHOD_NOT_ALLOWED, message="This endpoint only accepts a list of dicts")
