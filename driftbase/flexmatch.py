@@ -114,7 +114,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
 
         ticket = response["MatchmakingTicket"]
         ticket_lock.ticket = ticket
-        log.info(f"New ticket {ticket['TicketId']} issued by player {player_id}")
+        log.info(f"New ticket {ticket['TicketId']} issued by player {player_id}: {ticket}")
         _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True)})
         return ticket
 
