@@ -1,5 +1,7 @@
 import datetime
+import gzip
 import http.client as http_client
+import json
 import mock
 
 from drift.core.extensions.jwt import current_user
@@ -49,6 +51,18 @@ class EventsTest(DriftBaseTestCase):
         r = self.post(
             endpoint,
             data=[{"hello": "world", "event_name": "dummy", "timestamp": ts}],
+            expected_status_code=http_client.CREATED,
+        )
+
+    def test_compressed_events(self):
+        self.auth()
+        self.assertIn("eventlogs", self.endpoints)
+        endpoint = self.endpoints["eventlogs"]
+        ts = datetime.datetime.utcnow().isoformat() + "Z"
+        r = self.post(
+            endpoint,
+            data=gzip.compress(json.dumps([{"hello": "world", "event_name": "dummy", "timestamp": ts}]).encode('utf-8')),
+            headers={'Content-Encoding': 'gzip'},
             expected_status_code=http_client.CREATED,
         )
 
