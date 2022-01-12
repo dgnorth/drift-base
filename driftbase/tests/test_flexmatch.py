@@ -519,6 +519,33 @@ class FlexMatchTest(_BaseFlexmatchTest):
         # Client should've been notified of the cancellation
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
 
+    def test_delete_on_cancelled_ticket_does_not_change_its_status(self):
+        # create ticket
+        user_name, ticket_url, ticket = self._initiate_matchmaking()
+        # put it in CANCELLING state
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            r = self.delete(ticket_url, expected_status_code=http_client.OK).json()
+            self.assertEqual("CANCELLING", r["status"])
+            # double check the ticket
+            ticket = self.get(ticket_url, expected_status_code=http_client.OK).json()
+        self.assertEqual("CANCELLING", ticket["Status"])
+        # Fully cancel it
+        events_url = self.endpoints["flexmatch_events"]
+        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)}, "MatchmakingCancelled")
+        data = self._get_event_data(details)
+        with self._managed_bearer_token_user():
+            self.put(events_url, data=data, expected_status_code=http_client.OK)
+        # Try to delete again, check that it stays in 'CANCELLED' state
+        self.auth(user_name)
+        with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
+            ticket = self.get(ticket_url, expected_status_code=http_client.OK).json()
+            # ticket should be CANCELLED now
+            self.assertEqual("CANCELLED", ticket["Status"])
+            r = self.delete(ticket_url, expected_status_code=http_client.OK).json()
+            self.assertEqual("CANCELLED", r["status"])
+
+
+
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()

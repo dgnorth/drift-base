@@ -136,6 +136,9 @@ def _cancel_locked_ticket(ticket, player_id):
     if ticket["Status"] in NON_CANCELABLE_STATE:
         log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
         return ticket["Status"]  # Don't allow cancelling if we've already put you in a match, or we're in the process of doing so
+    if ticket["Status"] == "CANCELLED":
+        log.info(f"Ticket {ticket['TicketId']} already fully cancelled, so player {player_id} need not worry. Returning without updating.")
+        return ticket["Status"]
     if ticket["Status"] == "CANCELLING":
         log.info(f"Ticket {ticket['TicketId']} is already being cancelled. Doing nothing.")
         return ticket["Status"]
