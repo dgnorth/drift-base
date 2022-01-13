@@ -82,7 +82,7 @@ def _run_ethereum_message_validation(signer, message, signature):
     timestamp = datetime.datetime.fromisoformat(message['timestamp'][:-1])
     if utcnow() - timestamp > datetime.timedelta(seconds=60):
         raise UnauthorizedException("Timestamp out of bounds")
-    if utcnow() < timestamp + datetime.timedelta(seconds=5):
+    if utcnow() + datetime.timedelta(seconds=5) < timestamp:
         raise UnauthorizedException("Timestamp is in the future")
 
     if recovered != signer.lower():
