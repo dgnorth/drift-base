@@ -57,6 +57,7 @@ class TestEthereumRunAuthentication(unittest.TestCase):
         self.address = '0x854Cc1Ce8e826e514f1dD8127f9D0AF689f181A9'
         self.message = '{\r\n\t"message": "Authorize for Drift login",\r\n\t"timestamp": "2022-01-12T08:12:59.787Z"\r\n}'
         self.signature = '0x5b0bf23f6cccf4315f561a04aef11b60dadced91bc17ac168db14b467851d4010349a8d3fbaec28c4671eb27ba7a8160900b51c2ded5137b3a9804881f3ee32c1c'
+        self.bad_signature = '0xdeadbeef6cccf4315f561a04aef11b60dadced91bc17ac168db14b467851d4010349a8d3fbaec28c4671eb27ba7a8160900b51c2ded5137b3a9804881f3ee32c1c'
         self.timestamp = datetime.datetime.fromisoformat('2022-01-12T08:12:59.787')
 
     def test_authenticates_when_signature_matches(self):
@@ -75,12 +76,19 @@ class TestEthereumRunAuthentication(unittest.TestCase):
     def test_fails_when_signature_is_malformed(self):
         with mock.patch('driftbase.auth.ethereum.utcnow') as now:
             now.return_value = self.timestamp + datetime.timedelta(seconds=5)
+            # long signature
             with self.assertRaises(InvalidRequestException):
                 signature = self.signature + '6'
                 ethereum._run_ethereum_message_validation(self.address, self.message, signature)
+            # wrong signature
             with self.assertRaises(InvalidRequestException):
-                signature = self.signature[:-1]
+                signature = self.bad_signature
                 ethereum._run_ethereum_message_validation(self.address, self.message, signature)
+            # short signature
+            with self.assertRaises(InvalidRequestException):
+                signature = self.signature[:-5]
+                ethereum._run_ethereum_message_validation(self.address, self.message, signature)
+            # non-hex digits appended
             with self.assertRaises(InvalidRequestException):
                 signature = self.signature + 'non-hex-digits'
                 ethereum._run_ethereum_message_validation(self.address, self.message, signature)
