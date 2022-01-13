@@ -79,6 +79,9 @@ class TestEthereumRunAuthentication(unittest.TestCase):
                 signature = self.signature + '6'
                 ethereum._run_ethereum_message_validation(self.address, self.message, signature)
             with self.assertRaises(InvalidRequestException):
+                signature = self.signature[:-1]
+                ethereum._run_ethereum_message_validation(self.address, self.message, signature)
+            with self.assertRaises(InvalidRequestException):
                 signature = self.signature + 'non-hex-digits'
                 ethereum._run_ethereum_message_validation(self.address, self.message, signature)
 

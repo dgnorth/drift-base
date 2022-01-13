@@ -1,3 +1,4 @@
+import eth_keys.exceptions
 import json
 
 import datetime
@@ -71,9 +72,11 @@ def _run_ethereum_message_validation(signer, message, signature):
     try:
         recovered = Account.recover_message(encode_defunct(text=message), signature=signature).lower()
     except eth_utils.exceptions.ValidationError:
-        raise InvalidRequestException("Invalid signature") from None
+        raise InvalidRequestException("Signature validation failed") from None
     except ValueError:
         raise InvalidRequestException("Signature contains invalid characters") from None
+    except eth_keys.exceptions.BadSignature:
+        raise InvalidRequestException("Bad signature") from None
 
     message = json.loads(message)
     timestamp = datetime.datetime.fromisoformat(message['timestamp'][:-1])
