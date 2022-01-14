@@ -45,11 +45,19 @@ class TestEthereumValidate(unittest.TestCase):
 
     def test_passes_configuration_to_implementation(self):
         with mock.patch('driftbase.auth.ethereum.get_provider_config') as config:
-            config.return_value = dict(client_ids=['xyz'])
+            config.return_value = dict()
             with mock.patch('driftbase.auth.ethereum._run_ethereum_message_validation') as validation:
                 validation.return_value = 0
                 ethereum._validate_ethereum_message('bob', 'abc', 'xyz')
-                validation.assert_called_once_with('bob', 'abc', 'xyz')
+                validation.assert_called_once_with('bob', 'abc', 'xyz',
+                                                   timestamp_leeway=ethereum.DEFAULT_TIMESTAMP_LEEWAY)
+        with mock.patch('driftbase.auth.ethereum.get_provider_config') as config:
+            config.return_value = dict(timestamp_leeway=42)
+            with mock.patch('driftbase.auth.ethereum._run_ethereum_message_validation') as validation:
+                validation.return_value = 0
+                ethereum._validate_ethereum_message('bob', 'abc', 'xyz')
+                validation.assert_called_once_with('bob', 'abc', 'xyz',
+                                                   timestamp_leeway=42)
 
 
 class TestEthereumRunAuthentication(unittest.TestCase):
@@ -102,9 +110,16 @@ class TestEthereumRunAuthentication(unittest.TestCase):
 
     def test_fails_when_timestamp_is_out_of_bounds(self):
         with mock.patch('driftbase.auth.ethereum.utcnow') as now:
-            now.return_value = self.timestamp + datetime.timedelta(seconds=150)
+            now.return_value = self.timestamp + datetime.timedelta(seconds=ethereum.DEFAULT_TIMESTAMP_LEEWAY + 50)
             with self.assertRaises(UnauthorizedException):
                 ethereum._run_ethereum_message_validation(self.address, self.message, self.signature)
+
+    def test_can_extend_timestamp_leeway_in_config(self):
+        leeway = ethereum.DEFAULT_TIMESTAMP_LEEWAY + 500
+        with mock.patch('driftbase.auth.ethereum.utcnow') as now:
+            now.return_value = self.timestamp + datetime.timedelta(seconds=leeway - 50)
+            ethereum._run_ethereum_message_validation(self.address, self.message, self.signature,
+                                                      timestamp_leeway=leeway)
 
     def test_fails_when_timestamp_is_in_the_future(self):
         with mock.patch('driftbase.auth.ethereum.utcnow') as now:

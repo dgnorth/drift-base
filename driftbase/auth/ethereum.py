@@ -1,9 +1,8 @@
-import eth_keys.exceptions
-import json
-
 import datetime
+import eth_keys.exceptions
 import eth_utils.exceptions
 import http.client as http_client
+import json
 import logging
 import marshmallow as ma
 from eth_account import Account
@@ -16,6 +15,8 @@ from .authenticate import authenticate as base_authenticate, AuthenticationExcep
     abort_unauthorized, InvalidRequestException, UnauthorizedException
 
 log = logging.getLogger(__name__)
+
+DEFAULT_TIMESTAMP_LEEWAY = 60
 
 
 def utcnow():
@@ -62,13 +63,15 @@ def _load_provider_details(provider_details):
 
 def _validate_ethereum_message(signer, message, signature):
     ethereum_config = get_provider_config('ethereum')
-    if not ethereum_config:
+    if ethereum_config is None:
         raise ServiceUnavailableException("Ethereum authentication not configured for current tenant")
 
-    return _run_ethereum_message_validation(signer, message, signature)
+    timestamp_leeway = ethereum_config.get('timestamp_leeway', DEFAULT_TIMESTAMP_LEEWAY)
+
+    return _run_ethereum_message_validation(signer, message, signature, timestamp_leeway=timestamp_leeway)
 
 
-def _run_ethereum_message_validation(signer, message, signature):
+def _run_ethereum_message_validation(signer, message, signature, timestamp_leeway=DEFAULT_TIMESTAMP_LEEWAY):
     try:
         recovered = Account.recover_message(encode_defunct(text=message), signature=signature).lower()
     except eth_utils.exceptions.ValidationError:
@@ -80,7 +83,7 @@ def _run_ethereum_message_validation(signer, message, signature):
 
     message = json.loads(message)
     timestamp = datetime.datetime.fromisoformat(message['timestamp'][:-1])
-    if utcnow() - timestamp > datetime.timedelta(seconds=60):
+    if utcnow() - timestamp > datetime.timedelta(seconds=timestamp_leeway):
         raise UnauthorizedException("Timestamp out of bounds")
     if utcnow() + datetime.timedelta(seconds=5) < timestamp:
         raise UnauthorizedException("Timestamp is in the future")
