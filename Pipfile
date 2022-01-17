@@ -17,6 +17,7 @@ python-driftconfig = "*"
 psycogreen = "*"
 aws-assume-role-lib = "*"
 ddtrace = "*"
+eth-account = "*"
 
 [dev-packages]
 pytest = "*"
