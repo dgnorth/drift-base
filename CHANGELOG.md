@@ -1,7 +1,7 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
-  - [0.6.4](#064)
+  - [0.7.0](#070)
   - [0.6.3](#063)
   - [0.6.2](#062)
   - [0.6.1](#061)
@@ -30,7 +30,7 @@
 
 ---
 
-## 0.6.4
+## 0.7.0
 
 ### New features
 - New auth provider 'etherium' added

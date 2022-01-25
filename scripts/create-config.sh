@@ -26,7 +26,7 @@ driftconfig register >/dev/null
 expect >/dev/null <<EOF
 spawn driftconfig assign-tier $DEPLOYABLE --tiers $TIER
 expect {
-"* drift.core.resources.postgres.server:" { send -- "postgres\r" ; exp_continue }
+"* drift.core.resources.postgres.server:" { send -- "localhost\r" ; exp_continue }
 "* drift.core.resources.redis.host:" { send -- "redis\r" ; exp_continue }
 "* drift.core.resources.awsdeploy.region:" { send -- "eu-west-1\r" ; exp_continue }
 "* drift.core.resources.awsdeploy.ssh_key:" { send -- "my-ssh-key\r" ; exp_continue }
