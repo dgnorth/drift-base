@@ -1,6 +1,10 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
+  - [0.6.4](#064)
+  - [0.6.3](#063)
+  - [0.6.2](#062)
+  - [0.6.1](#061)
   - [0.6.0](#060)
     - [New Features](#new-features)
     - [Feature Improvements](#feature-improvements)
@@ -25,6 +29,42 @@
     - [Deprecations](#deprecations-1)
 
 ---
+
+## 0.6.4
+
+### New features
+- New auth provider 'etherium' added
+
+### Bug Fixes / Feature Improvements
+- Support gzipped payloads in events endpoint
+- Added 'flexmatch_regions' endpoint in drift-flexmatch to expose supported regions
+
+
+## 0.6.3
+
+- Dependency updates, python-drift updated to 0.9.0
+
+### New Features
+- Datadog Runtime Metrics can now be enabled via an environment variable
+
+### Bug Fixes / Feature Improvements
+- The matches endpoint now has a PATCH handler to update a match players stats from battleservers
+- drift-flexmatch will now cancel any matchmaking tickets owned by players when their client entry is removed
+
+
+## 0.6.2
+
+### Bug Fixes / Feature Improvements
+- Added 'template_player_gamestate' to the players endpoint
+
+## 0.6.1
+
+### Bug Fixes / Feature Improvements
+
+- drift-flexmatch now cancels a players personal matchmaking ticket if he joins a party while searching
+- drift-flexmatch added a new state CANCELLING on tickets, which is active from the time a cancellation request is issued and until cancellation is confirmed by AWS. 
+- drift-flexmatch will now expire COMPLETED and MATCH_COMPLETE tickets from the cache after MAX_REJOIN_TIME has passed
+
 ## 0.6.0
 
 ### New Features
@@ -116,3 +156,4 @@
 
 - Dropped support for Python < 3.9.
 - Dropped all use of `drift.schemachecker` in favor of `Flask-Marshmallow`.
+
