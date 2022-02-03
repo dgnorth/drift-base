@@ -231,22 +231,35 @@ class MatchesAPI(MethodView):
             for row in matches_result.items:
                 match_record = row.as_dict()
                 match_record["url"] = url_for("matches.entry", match_id=row.match_id, _external=True)
+                match_record["matchplayers_url"] = url_for("matches.players", match_id=row.match_id, _external=True)
+                match_record["teams_url"] = url_for("matches.teams", match_id=row.match_id, _external=True)
 
                 if include_match_players:
-                    match_players_query = g.db.query(MatchPlayer) \
-                        .join(Match, MatchPlayer.match_id == Match.match_id) \
+                    # Fetch the match players
+                    players_result = g.db.query(MatchPlayer) \
                         .filter(MatchPlayer.match_id == row.match_id) \
-                        .order_by(MatchPlayer.player_id)
-
-                    players_result = match_players_query.all()
+                        .order_by(MatchPlayer.player_id) \
+                        .all()
 
                     match_players = []
                     for player in players_result:
                         player_record = player.as_dict()
-                        player_record["url"] = url_for("players.entry", player_id=player.player_id, _external=True)
+                        player_record["player_url"] = url_for("players.entry", player_id=player.player_id, _external=True)
+                        player_record["matchplayer_url"] = url_for("matches.player", match_id=row.match_id, player_id=player.player_id, _external=True)
                         match_players.append(player_record)
 
                     match_record["players"] = match_players
+                    match_record["num_players"] = len(match_players)
+
+                    # Fetch the teams
+                    teams_result = g.db.query(MatchTeam).filter(MatchTeam.match_id == row.match_id).all()
+                    match_teams = []
+                    for team in teams_result:
+                        team_record = team.as_dict()
+                        team_record["url"] = url_for("matches.team", match_id=row.match_id, team_id=team.team_id, _external=True)
+                        match_teams.append(team_record)
+
+                    match_record["teams"] = match_teams
 
                 matches.append(match_record)
 
