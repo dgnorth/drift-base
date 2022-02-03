@@ -50,6 +50,12 @@ class MatchesTest(BaseMatchTest):
         self.assertEqual(resp.json()["server_id"], server_id)
         self.assertIsNone(resp.json()["start_date"])
 
+    def test_create_match_num_teams(self):
+        self.auth_service()
+        machine = self._create_machine()
+        server = self._create_server(machine["machine_id"])
+        server_id = server["server_id"]
+
         # create a match with some predefined teams
         num_teams = 3
         data = {"server_id": server_id,
@@ -61,6 +67,45 @@ class MatchesTest(BaseMatchTest):
         resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
         resp = self.get(resp.json()["url"])
         self.assertEqual(len(resp.json()["teams"]), num_teams)
+
+    def test_create_match_team_names(self):
+        self.auth_service()
+        machine = self._create_machine()
+        server = self._create_server(machine["machine_id"])
+        server_id = server["server_id"]
+
+        # create a match with some predefined teams
+        team_names = ["team1", "team2", "team3"]
+        data = {"server_id": server_id,
+                "status": "active",
+                "map_name": "map_name",
+                "game_mode": "game_mode",
+                "team_names": team_names
+                }
+        resp = self.post("/matches", data=data, expected_status_code=http_client.CREATED)
+        resp = self.get(resp.json()["url"])
+        self.assertEqual(len(resp.json()["teams"]), len(team_names))
+
+        for team in resp.json()["teams"]:
+            self.assertIn(team["name"], team_names)
+
+    def test_create_match_num_teams_and_team_names(self):
+        self.auth_service()
+        machine = self._create_machine()
+        server = self._create_server(machine["machine_id"])
+        server_id = server["server_id"]
+
+        # create a match with some predefined teams
+        team_names = ["team1", "team2", "team3"]
+        data = {"server_id": server_id,
+                "status": "active",
+                "map_name": "map_name",
+                "game_mode": "game_mode",
+                "team_names": team_names,
+                "num_teams": len(team_names)
+                }
+
+        self.post("/matches", data=data, expected_status_code=http_client.BAD_REQUEST)
 
     def test_create_team(self):
         self.auth_service()

@@ -170,7 +170,8 @@ class MatchesPostRequestSchema(ma.Schema):
     unique_key = ma.fields.String()
     match_statistics = ma.fields.Dict()
     details = ma.fields.Dict()
-    num_teams = ma.fields.Integer()
+    num_teams = ma.fields.Integer(metadata=dict(description="Automatically create N teams with generic names. Mutually exclusive with team_names."))
+    team_names = ma.fields.List(ma.fields.String(), metadata=dict(description="Create teams with specific names. Mutually exclusive with num_teams."))
 
 
 class MatchPutRequestSchema(ma.Schema):
@@ -232,6 +233,12 @@ class MatchesAPI(MethodView):
         unique_key = args.get("unique_key")
         details = args.get("details")
 
+        num_teams = args.get("num_teams")
+        team_names = args.get("team_names")
+
+        if num_teams and team_names:
+            abort(http_client.BAD_REQUEST, description="num_teams and team_names are mutually exclusive")
+
         with ExitStack() as stack:
             if unique_key:
                 stack.enter_context(lock(g.redis))
@@ -259,10 +266,18 @@ class MatchesAPI(MethodView):
             g.db.commit()
             match_id = match.match_id
 
-            if args.get("num_teams"):
-                for i in range(args.get("num_teams")):
+            if num_teams:
+                for i in range(num_teams):
                     team = MatchTeam(match_id=match_id,
                                      name="Team %s" % (i + 1)
+                                     )
+                    g.db.add(team)
+                g.db.commit()
+
+            if team_names:
+                for team_name in team_names:
+                    team = MatchTeam(match_id=match_id,
+                                     name=team_name
                                      )
                     g.db.add(team)
                 g.db.commit()
