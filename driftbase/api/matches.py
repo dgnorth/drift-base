@@ -187,23 +187,78 @@ class MatchPutRequestSchema(ma.Schema):
     details = ma.fields.Dict()
 
 
-class MatchesAPIGetQuerySchema(ma.Schema):
-    server_id = ma.fields.Integer()
-    rows = ma.fields.Integer(load_default=DEFAULT_ROWS)
-
-
 @bp.route('', endpoint='list')
 class MatchesAPI(MethodView):
     """UE4 match
     """
 
-    @requires_roles("service")
+    class MatchesAPIGetQuerySchema(ma.Schema):
+        server_id = ma.fields.Integer()
+        player_id = ma.fields.Integer()
+        rows = ma.fields.Integer(load_default=DEFAULT_ROWS)
+        use_pagination = ma.fields.Boolean(load_default=False)
+        page = ma.fields.Integer(load_default=1)
+        per_page = ma.fields.Integer(load_default=20)
+        include_match_players = ma.fields.Boolean(load_default=False)
+
     @bp.arguments(MatchesAPIGetQuerySchema, location='query')
     def get(self, args):
         """This endpoint used by services and clients to fetch recent matches.
         Dump the DB rows out as json
         """
+
         num_rows = args["rows"] or DEFAULT_ROWS
+
+        # To prevent API breakage, use a separate implementation for pagination and make it opt-in.
+        if args["use_pagination"]:
+            player_id = args.get("player_id")
+
+            matches_query = g.db.query(Match)
+
+            if player_id:
+                matches_query = matches_query.join(MatchPlayer, Match.match_id == MatchPlayer.match_id).filter(MatchPlayer.player_id == player_id)
+
+            if args.get("server_id"):
+                matches_query = matches_query.filter(Match.server_id == args.get("server_id"))
+
+            matches_query = matches_query.order_by(-Match.match_id)
+
+            matches_result = matches_query.paginate(args["page"], args["per_page"], True, num_rows)
+
+            include_match_players = args["include_match_players"]
+
+            matches = []
+            for row in matches_result.items:
+                match_record = row.as_dict()
+                match_record["url"] = url_for("matches.entry", match_id=row.match_id, _external=True)
+
+                if include_match_players:
+                    match_players_query = g.db.query(MatchPlayer) \
+                        .join(Match, MatchPlayer.match_id == Match.match_id) \
+                        .filter(MatchPlayer.match_id == row.match_id) \
+                        .order_by(MatchPlayer.player_id)
+
+                    players_result = match_players_query.all()
+
+                    match_players = []
+                    for player in players_result:
+                        player_record = player.as_dict()
+                        player_record["url"] = url_for("players.entry", player_id=player.player_id, _external=True)
+                        match_players.append(player_record)
+
+                    match_record["players"] = match_players
+
+                matches.append(match_record)
+
+            ret = {
+                "items": matches,
+                "total": matches_result.total,
+                "page": matches_result.page,
+                "pages": matches_result.pages,
+                "per_page": matches_result.per_page,
+            }
+
+            return jsonify(ret)
 
         query = g.db.query(Match)
         if args.get("server_id"):
