@@ -10,7 +10,7 @@ from flask_smorest import Blueprint, abort
 from drift.core.extensions.jwt import current_user, requires_roles
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.matchqueue import process_match_queue
-from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
+from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer, CorePlayer
 from driftbase.utils import log_match_event
 from driftbase.utils import url_player
 
@@ -200,26 +200,54 @@ class MatchesAPI(MethodView):
         page = ma.fields.Integer(load_default=1)
         per_page = ma.fields.Integer(load_default=20)
         include_match_players = ma.fields.Boolean(load_default=False)
+        game_mode = ma.fields.String()
+        map_name = ma.fields.String()
+
+    class MatchesAPIGetBodySchema(ma.Schema):
+        statistics_filter = ma.fields.Mapping(keys=ma.fields.String(), values=ma.fields.String())
+        details_filter = ma.fields.Mapping(keys=ma.fields.String(), values=ma.fields.String())
 
     @bp.arguments(MatchesAPIGetQuerySchema, location='query')
-    def get(self, args):
+    @bp.arguments(MatchesAPIGetBodySchema)
+    def get(self, args, body):
         """This endpoint used by services and clients to fetch recent matches.
         Dump the DB rows out as json
         """
 
+        print(f"Fetching matches for player {current_user['player_id']} with args {args}")
+
         num_rows = args["rows"] or DEFAULT_ROWS
+        server_id = args.get("server_id")
 
         # To prevent API breakage, use a separate implementation for pagination and make it opt-in.
         if args["use_pagination"]:
             player_id = args.get("player_id")
+            game_mode = args.get("game_mode")
+            map_name = args.get("map_name")
+            statistics_filter = body.get("statistics_filter")
+            details_filter = body.get("details_filter")
 
             matches_query = g.db.query(Match)
 
             if player_id:
                 matches_query = matches_query.join(MatchPlayer, Match.match_id == MatchPlayer.match_id).filter(MatchPlayer.player_id == player_id)
 
-            if args.get("server_id"):
-                matches_query = matches_query.filter(Match.server_id == args.get("server_id"))
+            if server_id:
+                matches_query = matches_query.filter(Match.server_id == server_id)
+
+            if game_mode:
+                matches_query = matches_query.filter(Match.game_mode == game_mode)
+
+            if map_name:
+                matches_query = matches_query.filter(Match.map_name == map_name)
+
+            if statistics_filter:
+                for key, value in statistics_filter.items():
+                    matches_query = matches_query.filter(Match.match_statistics[key].astext == value)
+
+            if details_filter:
+                for key, value in details_filter.items():
+                    matches_query = matches_query.filter(Match.details[key].astext == value)
 
             matches_query = matches_query.order_by(-Match.match_id)
 
@@ -236,16 +264,18 @@ class MatchesAPI(MethodView):
 
                 if include_match_players:
                     # Fetch the match players
-                    players_result = g.db.query(MatchPlayer) \
+                    players_result = g.db.query(MatchPlayer, CorePlayer.player_name) \
+                        .join(CorePlayer, MatchPlayer.player_id == CorePlayer.player_id, isouter=True) \
                         .filter(MatchPlayer.match_id == row.match_id) \
                         .order_by(MatchPlayer.player_id) \
                         .all()
 
                     match_players = []
-                    for player in players_result:
-                        player_record = player.as_dict()
-                        player_record["player_url"] = url_for("players.entry", player_id=player.player_id, _external=True)
-                        player_record["matchplayer_url"] = url_for("matches.player", match_id=row.match_id, player_id=player.player_id, _external=True)
+                    for [match_player, core_player] in players_result:
+                        player_record = match_player.as_dict()
+                        player_record["player_name"] = core_player["player_name"] if core_player else ""
+                        player_record["player_url"] = url_for("players.entry", player_id=match_player.player_id, _external=True)
+                        player_record["matchplayer_url"] = url_for("matches.player", match_id=row.match_id, player_id=match_player.player_id, _external=True)
                         match_players.append(player_record)
 
                     match_record["players"] = match_players
@@ -274,8 +304,8 @@ class MatchesAPI(MethodView):
             return jsonify(ret)
 
         query = g.db.query(Match)
-        if args.get("server_id"):
-            query = query.filter(Match.server_id == args.get("server_id"))
+        if server_id:
+            query = query.filter(Match.server_id == server_id)
         query = query.order_by(-Match.match_id)
         query = query.limit(num_rows)
         rows = query.all()
