@@ -2,6 +2,7 @@ import datetime
 import http.client as http_client
 import logging
 import marshmallow as ma
+import json
 from contextlib import ExitStack
 from flask import url_for, g, jsonify, current_app
 from flask.views import MethodView
@@ -202,13 +203,10 @@ class MatchesAPI(MethodView):
         include_match_players = ma.fields.Boolean(load_default=False)
         game_mode = ma.fields.String()
         map_name = ma.fields.String()
-
-    class MatchesAPIGetBodySchema(ma.Schema):
-        statistics_filter = ma.fields.Mapping(keys=ma.fields.String(), values=ma.fields.String())
-        details_filter = ma.fields.Mapping(keys=ma.fields.String(), values=ma.fields.String())
+        statistics_filter = ma.fields.String()
+        details_filter = ma.fields.String()
 
     @bp.arguments(MatchesAPIGetQuerySchema, location='query')
-    @bp.arguments(MatchesAPIGetBodySchema)
     def get(self, args, body):
         """This endpoint used by services and clients to fetch recent matches.
         Dump the DB rows out as json
@@ -224,8 +222,20 @@ class MatchesAPI(MethodView):
             player_id = args.get("player_id")
             game_mode = args.get("game_mode")
             map_name = args.get("map_name")
-            statistics_filter = body.get("statistics_filter")
-            details_filter = body.get("details_filter")
+            statistics_filter = args.get("statistics_filter")
+            details_filter = args.get("details_filter")
+
+            if statistics_filter:
+                try:
+                    statistics_filter = json.loads(statistics_filter)
+                except json.JSONDecodeError:
+                    abort(http_client.BAD_REQUEST, description="Invalid statistics_filter")
+
+            if details_filter:
+                try:
+                    details_filter = json.loads(details_filter)
+                except json.JSONDecodeError:
+                    abort(http_client.BAD_REQUEST, description="Invalid details_filter")
 
             matches_query = g.db.query(Match)
 
