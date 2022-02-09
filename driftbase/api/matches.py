@@ -2,6 +2,7 @@ import datetime
 import http.client as http_client
 import logging
 import marshmallow as ma
+import json
 from contextlib import ExitStack
 from flask import url_for, g, jsonify, current_app
 from flask.views import MethodView
@@ -10,7 +11,7 @@ from flask_smorest import Blueprint, abort
 from drift.core.extensions.jwt import current_user, requires_roles
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.matchqueue import process_match_queue
-from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer
+from driftbase.models.db import Machine, Server, Match, MatchTeam, MatchPlayer, MatchQueuePlayer, CorePlayer
 from driftbase.utils import log_match_event
 from driftbase.utils import url_player
 
@@ -187,27 +188,198 @@ class MatchPutRequestSchema(ma.Schema):
     details = ma.fields.Dict()
 
 
-class MatchesAPIGetQuerySchema(ma.Schema):
-    server_id = ma.fields.Integer()
-    rows = ma.fields.Integer(load_default=DEFAULT_ROWS)
-
-
 @bp.route('', endpoint='list')
 class MatchesAPI(MethodView):
     """UE4 match
     """
 
-    @requires_roles("service")
+    class MatchesAPIGetQuerySchema(ma.Schema):
+        server_id = ma.fields.Integer()
+        player_id = ma.fields.Integer()
+        rows = ma.fields.Integer(load_default=DEFAULT_ROWS)
+        use_pagination = ma.fields.Boolean(load_default=False)
+        page = ma.fields.Integer(load_default=1)
+        per_page = ma.fields.Integer(load_default=20)
+        include_match_players = ma.fields.Boolean(load_default=False)
+        game_mode = ma.fields.String()
+        map_name = ma.fields.String()
+        statistics_filter = ma.fields.String()
+        details_filter = ma.fields.String()
+
     @bp.arguments(MatchesAPIGetQuerySchema, location='query')
     def get(self, args):
         """This endpoint used by services and clients to fetch recent matches.
         Dump the DB rows out as json
         """
+
+        print(f"Fetching matches for player {current_user['player_id']} with args {args}")
+
+        is_service = current_user.get('is_service', False) or "service" in current_user["roles"]
+
         num_rows = args["rows"] or DEFAULT_ROWS
+        server_id = args.get("server_id")
+
+        # To prevent API breakage, use a separate implementation for pagination and make it opt-in.
+        if args["use_pagination"]:
+            player_id = args.get("player_id")
+            game_mode = args.get("game_mode")
+            map_name = args.get("map_name")
+            statistics_filter = args.get("statistics_filter")
+            details_filter = args.get("details_filter")
+
+            if statistics_filter:
+                try:
+                    statistics_filter = json.loads(statistics_filter)
+                except json.JSONDecodeError:
+                    abort(http_client.BAD_REQUEST, description="Invalid statistics_filter")
+
+            if details_filter:
+                try:
+                    details_filter = json.loads(details_filter)
+                except json.JSONDecodeError:
+                    abort(http_client.BAD_REQUEST, description="Invalid details_filter")
+
+            if is_service:
+                matches_query = g.db.query(Match)
+            else:
+                matches_query = g.db.query(
+                    Match.match_id,
+                    Match.start_date,
+                    Match.end_date,
+                    Match.max_players,
+                    Match.game_mode,
+                    Match.map_name,
+                    Match.details,
+                    Match.match_statistics,
+                    Match.create_date,
+                )
+
+            if player_id:
+                matches_query = matches_query.join(MatchPlayer, Match.match_id == MatchPlayer.match_id).filter(MatchPlayer.player_id == player_id)
+
+            if server_id:
+                matches_query = matches_query.filter(Match.server_id == server_id)
+
+            if game_mode:
+                matches_query = matches_query.filter(Match.game_mode == game_mode)
+
+            if map_name:
+                matches_query = matches_query.filter(Match.map_name == map_name)
+
+            if statistics_filter:
+                for key, value in statistics_filter.items():
+                    matches_query = matches_query.filter(Match.match_statistics[key].astext == value)
+
+            if details_filter:
+                for key, value in details_filter.items():
+                    matches_query = matches_query.filter(Match.details[key].astext == value)
+
+            matches_query = matches_query.order_by(-Match.match_id)
+
+            matches_result = matches_query.paginate(page=args["page"], per_page=args["per_page"], error_out=True, max_per_page=num_rows)
+
+            include_match_players = args["include_match_players"]
+
+            matches = []
+            for match_row in matches_result.items:
+                # Service role gets a list of ORM object, but the client (which selects specific columns) gets an SQLAlchemy Row object
+                if is_service:
+                    match_record = match_row.as_dict()
+                else:
+                    match_record = match_row._asdict() # The Row object has an _asdict() method that *isn't* private/protected. It's part of the NamedTuple API
+
+                match_id = match_record["match_id"]
+
+                match_record["url"] = url_for("matches.entry", match_id=match_id, _external=True)
+                match_record["matchplayers_url"] = url_for("matches.players", match_id=match_id, _external=True)
+                match_record["teams_url"] = url_for("matches.teams", match_id=match_id, _external=True)
+
+                if include_match_players:
+                    # Fetch the match players
+                    if is_service:
+                        players_query = g.db.query(MatchPlayer, CorePlayer.player_name)
+                    else:
+                        players_query = g.db.query(
+                            MatchPlayer.id,
+                            MatchPlayer.match_id,
+                            MatchPlayer.player_id,
+                            MatchPlayer.team_id,
+                            MatchPlayer.join_date,
+                            MatchPlayer.leave_date,
+                            MatchPlayer.statistics,
+                            MatchPlayer.details,
+                            MatchPlayer.create_date,
+                            CorePlayer.player_name
+                        )
+
+                    players_query = players_query.join(CorePlayer, MatchPlayer.player_id == CorePlayer.player_id, isouter=True) \
+                        .filter(MatchPlayer.match_id == match_id) \
+                        .order_by(MatchPlayer.player_id)
+
+                    players_result = players_query.all()
+
+                    match_players = []
+                    for player_row in players_result:
+                        if is_service:
+                            [match_player, core_player] = player_row
+                            player_record = match_player.as_dict()
+                            player_record["player_name"] = core_player["player_name"] if core_player else ""
+                        else:
+                            player_record = player_row._asdict()
+                            player_record["player_name"] = player_record["player_name"] or ""
+
+                        player_id = player_record["player_id"]
+                        player_record["player_url"] = url_for("players.entry", player_id=player_id, _external=True)
+                        player_record["matchplayer_url"] = url_for("matches.player", match_id=match_id, player_id=player_id, _external=True)
+                        match_players.append(player_record)
+
+                    match_record["players"] = match_players
+                    match_record["num_players"] = len(match_players)
+
+                    # Fetch the teams
+                    if is_service:
+                        teams_query = g.db.query(MatchTeam)
+                    else:
+                        teams_query = g.db.query(
+                            MatchTeam.team_id,
+                            MatchTeam.match_id,
+                            MatchTeam.name,
+                            MatchTeam.statistics,
+                            MatchTeam.details,
+                            MatchTeam.create_date,
+                        )
+
+                    teams_query = teams_query.filter(MatchTeam.match_id == match_id)
+
+                    teams_result = teams_query.all()
+
+                    match_teams = []
+                    for team_row in teams_result:
+                        if is_service:
+                            team_record = team_row.as_dict()
+                        else:
+                            team_record = team_row._asdict()
+
+                        team_record["url"] = url_for("matches.team", match_id=match_id, team_id=team_record["team_id"], _external=True)
+                        match_teams.append(team_record)
+
+                    match_record["teams"] = match_teams
+
+                matches.append(match_record)
+
+            ret = {
+                "items": matches,
+                "total": matches_result.total,
+                "page": matches_result.page,
+                "pages": matches_result.pages,
+                "per_page": matches_result.per_page,
+            }
+
+            return jsonify(ret)
 
         query = g.db.query(Match)
-        if args.get("server_id"):
-            query = query.filter(Match.server_id == args.get("server_id"))
+        if server_id:
+            query = query.filter(Match.server_id == server_id)
         query = query.order_by(-Match.match_id)
         query = query.limit(num_rows)
         rows = query.all()

@@ -13,8 +13,6 @@ class MatchesTest(BaseMatchTest):
     def test_access(self):
 
         self.auth()
-        resp = self.get("/matches", expected_status_code=http_client.UNAUTHORIZED)
-        self.assertIn("You do not have access", resp.json()["error"]["description"])
 
         resp = self.get("/matches/1", expected_status_code=http_client.UNAUTHORIZED)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
@@ -35,6 +33,63 @@ class MatchesTest(BaseMatchTest):
         resp = self.get("/matches/999999", expected_status_code=http_client.NOT_FOUND)
         resp = self.put("/matches/999999", data={"status": "bla"},
                         expected_status_code=http_client.NOT_FOUND)
+
+    def test_get_matches_pagination(self):
+        self.auth_service()
+        resp = self.get("/matches", params={"use_pagination": True})
+        resp_json = resp.json()
+
+        self.assertTrue(isinstance(resp_json, dict))
+
+        self.assertIn("items", resp_json)
+        self.assertIn("total", resp_json)
+        self.assertIn("page", resp_json)
+        self.assertIn("pages", resp_json)
+        self.assertIn("per_page", resp_json)
+
+        # create a few matches
+        num_matches = 10
+        for _ in range(num_matches):
+            self._create_match()
+
+        # Get exact number of matches created
+        resp = self.get("/matches", params={"use_pagination": True, "per_page": num_matches})
+        resp_json = resp.json()
+
+        self.assertTrue(len(resp_json["items"]) >= num_matches)
+        self.assertTrue(resp_json["total"] >= num_matches)
+        self.assertEqual(resp_json["page"], 1)
+        self.assertEqual(resp_json["per_page"], num_matches)
+
+        match = resp_json["items"][0]
+        self.assertIn("url", match)
+        self.assertIn("matchplayers_url", match)
+        self.assertIn("teams_url", match)
+        self.assertNotIn("players", match)
+        self.assertNotIn("teams", match)
+
+        # Get fewer matches than created
+        fewer_matches = num_matches // 2
+        resp = self.get("/matches", params={"use_pagination": True, "per_page": fewer_matches})
+        resp_json = resp.json()
+
+        self.assertEqual(len(resp_json["items"]), fewer_matches)
+        self.assertTrue(resp_json["total"] >= num_matches)
+        self.assertEqual(resp_json["page"], 1)
+        self.assertEqual(resp_json["per_page"], fewer_matches)
+        self.assertTrue(resp_json["pages"] >= num_matches // fewer_matches)
+
+        # Get include players
+        resp = self.get("/matches", params={"use_pagination": True, "include_match_players": True})
+        resp_json = resp.json()
+
+        match = resp_json["items"][0]
+        self.assertIn("url", match)
+        self.assertIn("matchplayers_url", match)
+        self.assertIn("teams_url", match)
+        self.assertIn("players", match)
+        self.assertIn("teams", match)
+
 
     def test_create_match(self):
         self.auth_service()
