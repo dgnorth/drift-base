@@ -297,7 +297,7 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
     # Notify players
     player_ids.remove(player_id)
     if player_ids:
-        _post_match_placement_event_to_members(player_ids, "MatchPlacementIssued", {"placement_id": placement_id})
+        _post_match_placement_event_to_members(player_ids, "MatchPlacementIssued", match_placement)
 
     return match_placement
 
@@ -493,11 +493,6 @@ def _process_fulfilled_queue_event(event_details: dict):
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
             return
 
-        placement["status"] = "completed"
-        placement["game_session_arn"] = event_details["gameSessionArn"]
-
-        match_placement_lock.value = placement
-
         log.info(f"Placement '{placement_id}' completed. Duration: '{duration}s'")
 
         # General connection info
@@ -505,6 +500,12 @@ def _process_fulfilled_queue_event(event_details: dict):
         port = int(event_details["port"])
 
         connection_string = f"{ip_address}:{port}"
+
+        placement["status"] = "completed"
+        placement["game_session_arn"] = event_details["gameSessionArn"]
+        placement["connection_string"] = connection_string
+
+        match_placement_lock.value = placement
 
         # Gather connection info for each player
         connection_options_by_player_id = {}
@@ -570,8 +571,7 @@ def _process_fulfilled_queue_event(event_details: dict):
                 connection_options = connection_options_by_player_id[party_member_id]
 
                 event_data = {
-                    "placement_id": placement_id,
-                    "connection_string": connection_string,
+                    **placement,
                     "connection_options": connection_options,
                 }
                 _post_match_placement_event_to_members([party_member_id], "MatchPlacementFulfilled", event_data)
@@ -585,8 +585,7 @@ def _process_fulfilled_queue_event(event_details: dict):
             connection_options = connection_options_by_player_id[player_id]
 
             event_data = {
-                "placement_id": placement_id,
-                "connection_string": connection_string,
+                **placement,
                 "connection_options": connection_options,
             }
             _post_match_placement_event_to_members([player_id], "MatchPlacementFulfilled", event_data)
@@ -632,10 +631,10 @@ def _process_cancelled_queue_event(event_details: dict):
             log.info(f"Placement '{placement_id}' cancelled for party '{party_id}'")
 
             party_member_ids = placement["party_member_ids"]
-            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementCancelled", {"placement_id": placement_id})
+            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementCancelled", placement)
         else:
             log.info(f"Placement '{placement_id}' cancelled for player '{player_id}'")
-            _post_match_placement_event_to_members([player_id], "MatchPlacementCancelled", {"placement_id": placement_id})
+            _post_match_placement_event_to_members([player_id], "MatchPlacementCancelled", placement)
 
 
 def _process_timed_out_queue_event(event_details: dict):
@@ -679,10 +678,10 @@ def _process_timed_out_queue_event(event_details: dict):
             log.info(f"Placement '{placement_id}' timed out for party '{party_id}'")
 
             party_member_ids = placement["party_member_ids"]
-            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementTimedOut", {"placement_id": placement_id})
+            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementTimedOut", placement)
         else:
             log.info(f"Placement '{placement_id}' timed out for player '{player_id}'")
-            _post_match_placement_event_to_members([player_id], "MatchPlacementTimedOut", {"placement_id": placement_id})
+            _post_match_placement_event_to_members([player_id], "MatchPlacementTimedOut", placement)
 
 def _process_failed_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
@@ -725,10 +724,10 @@ def _process_failed_queue_event(event_details: dict):
             log.info(f"Placement '{placement_id}' failed for party '{party_id}'")
 
             party_member_ids = placement["party_member_ids"]
-            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementFailed", {"placement_id": placement_id})
+            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementFailed", placement)
         else:
             log.info(f"Placement '{placement_id}' failed for player '{player_id}'")
-            _post_match_placement_event_to_members([player_id], "MatchPlacementFailed", {"placement_id": placement_id})
+            _post_match_placement_event_to_members([player_id], "MatchPlacementFailed", placement)
 
 def _process_match_ended(match_id: int):
     match = g.db.query(Match).get(match_id)
