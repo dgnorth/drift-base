@@ -229,9 +229,9 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
         party_member_name = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
         players.append({
             "PlayerId": str(player_id_entry),
-            "PlayerData": {
+            "PlayerData": json.dumps({
                 "player_name": party_member_name,
-            },
+            }),
         })
 
     # Request a game server
