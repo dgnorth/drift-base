@@ -96,7 +96,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
             raise InvalidRequestException(f"An active match placement is already in progress for the lobby")
 
         # Lock players
-        player_ids = sorted([member["player_id"] for member in lobby["members"]])
+        player_ids = [member["player_id"] for member in lobby["members"]]
         player_locks = _get_player_locks(player_ids)
 
         # Request a game server
@@ -210,7 +210,7 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
     existing_placement_id = _check_existing_match_placement(player_id)
 
     party_id = get_player_party(player_id)
-    player_ids = sorted(get_party_members(party_id) if party_id else [player_id])
+    player_ids = get_party_members(party_id) if party_id else [player_id]
 
     player_locks = _get_player_locks(player_ids)
 
@@ -423,7 +423,7 @@ def _post_match_placement_event_to_members(receiving_player_ids: list[int], even
 
 def _get_player_locks(player_ids: typing.List[int]):
     player_locks = []
-    for player_id_entry in player_ids:
+    for player_id_entry in sorted(player_ids):
         # Lock
         placement_key = _get_player_match_placement_key(player_id_entry)
         lock = g.redis.conn.lock(placement_key + "LOCK", timeout=30)
