@@ -298,9 +298,6 @@ def _get_match_placement_key(placement_id: str) -> str:
 def _get_player_match_placement_key(player_id: int) -> str:
     return g.redis.make_key(f"player:{player_id}:match-placement:")
 
-def _get_tenant_name():
-    return g.conf.tenant.get('tenant_name')
-
 def _get_event_details(event: dict):
     if event.get("detail-type", None) != "GameLift Queue Placement Event":
         raise RuntimeError("Event is not a GameLift Queue Placement Event!")

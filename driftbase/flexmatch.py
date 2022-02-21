@@ -49,9 +49,7 @@ EXPIRED_STATE = {
     "TIMED_OUT",
 }
 
-# FIXME: Figure out how to do multi-region matchmaking; afaik, the configuration isn't region based, but both queues and
-#  events are. The queues themselves can have destination fleets in multiple regions.
-AWS_REGION = "eu-west-1"
+AWS_HOME_REGION = "eu-west-1"
 
 log = logging.getLogger(__name__)
 
@@ -93,7 +91,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
 
         # Generate a list of players relevant to the request; this is the list of online players in the party if the player belongs to one, otherwise the list is just the player
         member_ids = _get_player_party_members(player_id)
-        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+        gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
         try:
             log.info(f"Issuing a new {matchmaking_configuration} matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
             response = gamelift_client.start_matchmaking(
@@ -143,7 +141,7 @@ def _cancel_locked_ticket(ticket, player_id):
         log.info(f"Ticket {ticket['TicketId']} is already being cancelled. Doing nothing.")
         return ticket["Status"]
     log.info(f"Cancelling ticket {ticket['TicketId']} for player {player_id}, currently in state {ticket['Status']}")
-    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
         _ = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
         log.info(f"Setting ticket {ticket['TicketId']} status to 'CANCELLING' for player {player_id}")
@@ -184,7 +182,7 @@ def update_player_acceptance(ticket_id, player_id, match_id, acceptance):
 
         acceptance_type = 'ACCEPT' if acceptance else 'REJECT'
         log.info(f"Updating acceptance on ticket {player_ticket['TicketId']} for player {player_id} to {acceptance_type}")
-        gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+        gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
         try:
             gamelift_client.accept_match(TicketId=ticket_id, PlayerIds=[str(player_id)], AcceptanceType=acceptance_type)
         except ClientError as e:
@@ -241,7 +239,7 @@ def process_flexmatch_event(flexmatch_event):
     raise RuntimeError(f"Unknown event '{event_type}'")
 
 def start_game_session_placement(**kwargs):
-    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
         return gamelift_client.start_game_session_placement(**kwargs)
     except ParamValidationError as e:
@@ -250,7 +248,7 @@ def start_game_session_placement(**kwargs):
         raise GameliftClientException("Failed to start game session placement", str(e))
 
 def stop_game_session_placement(placement_id: str):
-    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
         return gamelift_client.stop_game_session_placement(PlacementId=placement_id)
     except ParamValidationError as e:
@@ -259,7 +257,7 @@ def stop_game_session_placement(placement_id: str):
         raise GameliftClientException("Failed to stop game session placement", str(e))
 
 def describe_game_sessions(**kwargs):
-    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
         return gamelift_client.describe_game_sessions(**kwargs)
     except ParamValidationError as e:
@@ -268,7 +266,7 @@ def describe_game_sessions(**kwargs):
         raise GameliftClientException("Failed to describe game sessions", str(e))
 
 def describe_player_sessions(**kwargs):
-    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
         return gamelift_client.describe_player_sessions(**kwargs)
     except ParamValidationError as e:
@@ -277,7 +275,7 @@ def describe_player_sessions(**kwargs):
         raise GameliftClientException("Failed to describe player sessions", str(e))
 
 def create_player_session(**kwargs):
-    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
         return gamelift_client.create_player_session(**kwargs)
     except ParamValidationError as e:
@@ -331,14 +329,14 @@ def _get_tenant_config_value(config_key):
     default_value = TIER_DEFAULTS.get(config_key, None)
     tenant = g.conf.tenant
     if tenant:
-        return g.conf.tenant.get("flexmatch", {}).get(config_key, default_value)
+        return tenant.get("flexmatch", {}).get(config_key, default_value)
     return default_value
 
 def _get_tenant_name():
     return g.conf.tenant.get('tenant_name')
 
 def _post_matchmaking_event_to_members(receiving_player_ids, event, event_data=None, expiry=30):
-    """ Insert a event into the 'matchmaking' queue of the 'players' exchange. """
+    """ Insert an event into the 'matchmaking' queue of the 'players' exchange. """
     log.info(f"Posting '{event}' to players {receiving_player_ids} with event_data {event_data}")
     if not receiving_player_ids:
         log.warning(f"Empty receiver in matchmaking event {event} message")
@@ -501,7 +499,7 @@ def _process_matchmaking_cancelled_event(event):
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
             if player_ticket is None:
-                continue  # Normal, player cancelled the ticket and we've already cleared it from the cache
+                continue  # Normal, player cancelled the ticket, and we've already cleared it from the cache
             if ticket_id != player_ticket["TicketId"]:
                 # This block is a hack (heuristics); we should mark MATCH_COMPLETE via an explicit event.
                 # MATCH_COMPLETE is not a flexmatch status, but I want to differentiate between statuses arising from the

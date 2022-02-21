@@ -669,9 +669,6 @@ def _get_lobby_member_player_ids(lobby: dict, exclude_player_ids: typing.Optiona
 
     return [member["player_id"] for member in lobby["members"] if member["player_id"] not in exclude_player_ids]
 
-def _get_tenant_name():
-    return g.conf.tenant.get('tenant_name')
-
 def _post_lobby_event_to_members(receiving_player_ids: list[int], event: str, event_data: typing.Optional[dict] = None, expiry: typing.Optional[int] = None):
     """ Insert an event into the 'lobby' queue of the 'players' exchange. """
     log.info(f"Posting '{event}' to players '{receiving_player_ids}' with event_data '{event_data}'")
