@@ -129,6 +129,10 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
                         "Key": "LobbyMatch",
                         "Value": "1",
                     },
+                    {
+                        "Key": "lobby", # FIXME: Remove this game property once TMA version 0.13 goes live
+                        "Value": "true",
+                    }
                 ],
                 PlayerLatencies=player_latencies,
                 DesiredPlayerSessions=[
