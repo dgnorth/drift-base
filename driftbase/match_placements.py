@@ -99,96 +99,97 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
         player_ids = [member["player_id"] for member in lobby["members"]]
         player_locks = _get_player_locks(player_ids)
 
-        # Request a game server
-        lobby_name = lobby["lobby_name"]
-        game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
-        placement_id = f"Lobby-{lobby_id}-{uuid.uuid4()}"[:48] # Placement id must be <= 48 characters
-        max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
-        custom_data = lobby["custom_data"]
+        try:
+            # Request a game server
+            lobby_name = lobby["lobby_name"]
+            game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
+            placement_id = f"Lobby-{lobby_id}-{uuid.uuid4()}"[:48] # Placement id must be <= 48 characters
+            max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
+            custom_data = lobby["custom_data"]
 
-        lobby["placement_id"] = placement_id
+            lobby["placement_id"] = placement_id
 
-        player_latencies = []
-        for member in lobby["members"]:
-            for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
-                player_latencies.append({
-                    "PlayerId": str(member["player_id"]),
-                    "RegionIdentifier": region,
-                    "LatencyInMilliseconds": latency
-                })
+            player_latencies = []
+            for member in lobby["members"]:
+                for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
+                    player_latencies.append({
+                        "PlayerId": str(member["player_id"]),
+                        "RegionIdentifier": region,
+                        "LatencyInMilliseconds": latency
+                    })
 
-        log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}' in queue '{queue}'. GameLift placement id: '{placement_id}'")
-        response = flexmatch.start_game_session_placement(
-            PlacementId=placement_id,
-            GameSessionQueueName=queue,
-            MaximumPlayerSessionCount=max_player_session_count,
-            GameSessionName=game_session_name,
-            GameProperties=[
-                {
-                    "Key": "LobbyMatch",
-                    "Value": "1",
-                },
-            ],
-            PlayerLatencies=player_latencies,
-            DesiredPlayerSessions=[
-                {
-                    "PlayerId": str(member["player_id"]),
-                    "PlayerData": json.dumps({
-                        "player_name": member["player_name"],
-                        "team_name": member["team_name"],
-                        "host": member["host"],
-                    }),
-                }
-                for member in lobby["members"] if member["team_name"]
-            ],
-            GameSessionData=json.dumps({
-                "lobby_id": lobby_id,
-                "lobby_name": lobby_name,
-                "lobby_map": lobby["map_name"],
-                "lobby_members": [
+            log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}' in queue '{queue}'. GameLift placement id: '{placement_id}'")
+            response = flexmatch.start_game_session_placement(
+                PlacementId=placement_id,
+                GameSessionQueueName=queue,
+                MaximumPlayerSessionCount=max_player_session_count,
+                GameSessionName=game_session_name,
+                GameProperties=[
                     {
-                        "player_id": str(member["player_id"]),
-                        "player_name": member["player_name"],
-                        "team_name": member["team_name"],
-                        "host": member["host"],
-                    }
-                    for member in lobby["members"]
+                        "Key": "LobbyMatch",
+                        "Value": "1",
+                    },
                 ],
-                "lobby_custom_data": custom_data,
-            }),
-        )
+                PlayerLatencies=player_latencies,
+                DesiredPlayerSessions=[
+                    {
+                        "PlayerId": str(member["player_id"]),
+                        "PlayerData": json.dumps({
+                            "player_name": member["player_name"],
+                            "team_name": member["team_name"],
+                            "host": member["host"],
+                        }),
+                    }
+                    for member in lobby["members"] if member["team_name"]
+                ],
+                GameSessionData=json.dumps({
+                    "lobby_id": lobby_id,
+                    "lobby_name": lobby_name,
+                    "lobby_map": lobby["map_name"],
+                    "lobby_members": [
+                        {
+                            "player_id": str(member["player_id"]),
+                            "player_name": member["player_name"],
+                            "team_name": member["team_name"],
+                            "host": member["host"],
+                        }
+                        for member in lobby["members"]
+                    ],
+                    "lobby_custom_data": custom_data,
+                }),
+            )
 
-        log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
+            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
 
-        # Check if another placement started for the player while waiting for a response
-        if existing_placement_id != g.redis.conn.get(player_match_placement_key):
-            log.warning(
-                f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
+            # Check if another placement started for the player while waiting for a response
+            if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+                log.warning(
+                    f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
 
-            response = flexmatch.stop_game_session_placement(placement_id)
-            log.debug(f"match_placements::start_lobby_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+                response = flexmatch.stop_game_session_placement(placement_id)
+                log.debug(f"match_placements::start_lobby_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
 
-            raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
+                raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
 
-        match_placement = {
-            "placement_id": placement_id,
-            "player_id": player_id,
-            "match_provider": MATCH_PROVIDER,
-            "queue": queue,
-            "lobby_id": lobby_id,
-            "status": "pending",
-            "create_date": datetime.datetime.utcnow().isoformat(),
-            "map_name": lobby["map_name"],
-            "custom_data": custom_data,
-            "max_players": max_player_session_count,
-            "player_ids": player_ids,
-        }
+            match_placement = {
+                "placement_id": placement_id,
+                "player_id": player_id,
+                "match_provider": MATCH_PROVIDER,
+                "queue": queue,
+                "lobby_id": lobby_id,
+                "status": "pending",
+                "create_date": datetime.datetime.utcnow().isoformat(),
+                "map_name": lobby["map_name"],
+                "custom_data": custom_data,
+                "max_players": max_player_session_count,
+                "player_ids": player_ids,
+            }
 
-        _save_match_placement(match_placement, player_ids)
-
-        # Release locks
-        for lock in player_locks:
-            lock.release()
+            _save_match_placement(match_placement, player_ids)
+        finally:
+            # Release locks
+            for lock in player_locks:
+                lock.release()
 
         lobby["status"] = "starting"
         lobby["placement_date"] = datetime.datetime.utcnow().isoformat()
@@ -212,85 +213,87 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
     party_id = get_player_party(player_id)
     player_ids = get_party_members(party_id) if party_id else [player_id]
 
+    # Lock the players
     player_locks = _get_player_locks(player_ids)
 
-    players = []
-    player_latencies = []
-    for player_id_entry in player_ids:
-        # Latency
-        for region, latency in flexmatch.get_player_latency_averages(player_latencies).items():
-            player_latencies.append({
-                "PlayerId": str(player_latencies),
-                "RegionIdentifier": region,
-                "LatencyInMilliseconds": latency
+    try:
+        players = []
+        player_latencies = []
+        for player_id_entry in player_ids:
+            # Latency
+            for region, latency in flexmatch.get_player_latency_averages(player_latencies).items():
+                player_latencies.append({
+                    "PlayerId": str(player_latencies),
+                    "RegionIdentifier": region,
+                    "LatencyInMilliseconds": latency
+                })
+
+            # Player
+            party_member_name = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
+            players.append({
+                "PlayerId": str(player_id_entry),
+                "PlayerData": json.dumps({
+                    "player_name": party_member_name,
+                }),
             })
 
-        # Player
-        party_member_name = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
-        players.append({
-            "PlayerId": str(player_id_entry),
-            "PlayerData": json.dumps({
-                "player_name": party_member_name,
+        # Request a game server
+        game_session_name = f"{identifier}-{uuid.uuid4()}"[:48]  # Placement id must be <= 48 characters
+        placement_id = game_session_name
+
+        log.info(f"Player '{player_id}' is starting match '{identifier}' in queue '{queue}'. Map name: '{map_name}'. GameLift placement id: '{placement_id}'")
+        response = flexmatch.start_game_session_placement(
+            PlacementId=placement_id,
+            GameSessionQueueName=queue,
+            MaximumPlayerSessionCount=max_players,
+            GameSessionName=game_session_name,
+            GameProperties=[
+                {
+                    "Key": "CustomMatch",
+                    "Value": "1",
+                },
+            ],
+            PlayerLatencies=player_latencies,
+            DesiredPlayerSessions=players,
+            GameSessionData=json.dumps({
+                "map_name": map_name,
+                "players": players,
+                "custom_data": custom_data,
             }),
-        })
+        )
 
-    # Request a game server
-    game_session_name = f"{identifier}-{uuid.uuid4()}"[:48]  # Placement id must be <= 48 characters
-    placement_id = game_session_name
+        log.debug(f"match_placements::start_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
 
-    log.info(f"Player '{player_id}' is starting match '{identifier}' in queue '{queue}'. Map name: '{map_name}'. GameLift placement id: '{placement_id}'")
-    response = flexmatch.start_game_session_placement(
-        PlacementId=placement_id,
-        GameSessionQueueName=queue,
-        MaximumPlayerSessionCount=max_players,
-        GameSessionName=game_session_name,
-        GameProperties=[
-            {
-                "Key": "CustomMatch",
-                "Value": "1",
-            },
-        ],
-        PlayerLatencies=player_latencies,
-        DesiredPlayerSessions=players,
-        GameSessionData=json.dumps({
+        # Check if another placement started for the player while waiting for a response
+        if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+            log.warning( f"Player '{player_id}' attempted to start match placement, but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
+
+            response = flexmatch.stop_game_session_placement(placement_id)
+            log.debug(f"match_placements::start_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+
+            raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
+
+        match_placement = {
+            "placement_id": placement_id,
+            "player_id": player_id,
+            "match_provider": MATCH_PROVIDER,
+            "queue": queue,
+            "status": "pending",
+            "create_date": datetime.datetime.utcnow().isoformat(),
             "map_name": map_name,
-            "players": players,
             "custom_data": custom_data,
-        }),
-    )
+            "max_players": max_players,
+            "player_ids": copy.copy(player_ids),
+        }
 
-    log.debug(f"match_placements::start_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
+        if party_id:
+            match_placement["party_id"] = party_id
 
-    # Check if another placement started for the player while waiting for a response
-    if existing_placement_id != g.redis.conn.get(player_match_placement_key):
-        log.warning( f"Player '{player_id}' attempted to start match placement, but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
-
-        response = flexmatch.stop_game_session_placement(placement_id)
-        log.debug(f"match_placements::start_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
-
-        raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
-
-    match_placement = {
-        "placement_id": placement_id,
-        "player_id": player_id,
-        "match_provider": MATCH_PROVIDER,
-        "queue": queue,
-        "status": "pending",
-        "create_date": datetime.datetime.utcnow().isoformat(),
-        "map_name": map_name,
-        "custom_data": custom_data,
-        "max_players": max_players,
-        "player_ids": copy.copy(player_ids),
-    }
-
-    if party_id:
-        match_placement["party_id"] = party_id
-
-    _save_match_placement(match_placement, player_ids)
-
-    # Release locks
-    for lock in player_locks:
-        lock.release()
+        _save_match_placement(match_placement, player_ids)
+    finally:
+        # Release locks
+        for lock in player_locks:
+            lock.release()
 
     log.info(f"GameLift game session placement '{placement_id}' issued by player '{player_id}'")
 
