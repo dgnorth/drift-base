@@ -30,8 +30,13 @@ class MatchPlacementResponseSchema(Schema):
     queue = fields.String(metadata=dict(description="The queue the match placement was issued into."))
     status = fields.String(metadata=dict(description="The match placement status."))
     create_date = fields.String(metadata=dict(description="The UTC timestamp of when the match placement was created."))
+    map_name = fields.String(metadata=dict(description="The map name for the match."))
+    custom_data = fields.String(allow_none=True, metadata=dict(description="The custom data for the match."))
+    max_players = fields.Integer(metadata=dict(description="Maximum number of players allowed in the match."))
+    player_ids = fields.List(fields.Integer(), metadata=dict(description="The list of player ids for the match."))
 
     lobby_id = fields.String(allow_none=True, metadata=dict(description="The lobby id if this is a lobby match"))
+    party_id = fields.String(allow_none=True, metadata=dict(description="The party id if this is a party match"))
 
     match_placement_url = fields.Url(metadata=dict(description="The URL for the match placement"))
 
@@ -39,7 +44,11 @@ class MatchPlacementResponseSchema(Schema):
 class MatchPlacementsAPI(MethodView):
     class CreateMatchPlacementRequestSchema(Schema):
         queue = fields.String(required=True, metadata=dict(description="Which queue to issue the match placement into."))
-        lobby_id = fields.String(required=False, metadata=dict(description="Create a match placement for a lobby."))
+        lobby_id = fields.String(required=False, metadata=dict(description="Create a match placement for a lobby. Will override most other parameters."))
+        identifier = fields.String(required=False, load_default="Match", metadata=dict(description="Arbitrary identifier for the match placement. Used in logging and debugging."))
+        map_name = fields.String(required=False, metadata=dict(description="What map the match should play on. Required if lobby_id is not specified."))
+        max_players = fields.Integer(required=False, load_default=8, metadata=dict(description="Maximum number of players to allow in the match."))
+        custom_data = fields.String(required=False, metadata=dict(description="Custom data to forward to the match server."))
 
     @bp.response(http_client.OK, MatchPlacementResponseSchema)
     def get(self):
@@ -67,8 +76,12 @@ class MatchPlacementsAPI(MethodView):
         Returns a match placement.
         """
         player_id = current_user["player_id"]
+        lobby_id = args.get("lobby_id")
         try:
-            match_placement = match_placements.start_lobby_match_placement(player_id, args.get("queue"), args.get("lobby_id"))
+            if lobby_id:
+                match_placement = match_placements.start_lobby_match_placement(player_id, args.get("queue"), args.get("lobby_id"))
+            else:
+                match_placement = match_placements.start_match_placement(player_id, args.get("queue"), args.get("map_name"), args.get("max_players"), args.get("identifier"), args.get("custom_data"))
 
             match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement["placement_id"], _external=True)
 

@@ -156,6 +156,8 @@ class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
         self.make_player()
         match_placements_url = self.endpoints["match_placements"]
 
+        # Lobby
+
         post_data = {
             "queue": "yup",
             "lobby_id": "123456",
@@ -176,6 +178,36 @@ class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
 
             # GameLift failure
             start_lobby_match_placement_mock.side_effect = flexmatch.GameliftClientException(MOCK_ERROR, "")
+
+            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+        # Custom
+
+        post_data = {
+            "queue": "yup",
+            "identifier": "123456",
+            "map_name": "map",
+            "max_players": 2,
+            "custom_data": "{\"foo\": \"bar\"}",
+        }
+
+        with patch.object(match_placements, "start_match_placement", return_value=MOCK_PLACEMENT) as start_match_placement_mock:
+            # Valid
+            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.CREATED)
+
+            self.assertIn("match_placement_url", response.json())
+
+            # Invalid data
+            start_match_placement_mock.side_effect = lobbies.InvalidRequestException(MOCK_ERROR)
+
+            response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
+
+            self._assert_error(response, expected_description=MOCK_ERROR)
+
+            # GameLift failure
+            start_match_placement_mock.side_effect = flexmatch.GameliftClientException(MOCK_ERROR, "")
 
             response = self.post(match_placements_url, data=post_data, expected_status_code=http_client.INTERNAL_SERVER_ERROR)
 
@@ -291,7 +323,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
     # Create match placement
 
-    def test_create_match_placement(self):
+    def test_create_lobby_match_placement(self):
         # Have player 1 create the lobby
         player_1_username = self.make_player()
 
@@ -327,6 +359,78 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertIsInstance(notification_data, dict)
         self.assertEqual(notification_data["lobby_id"], self.lobby_id)
         self.assertEqual(notification_data["status"], "starting")
+
+    def test_create_party_match_placement(self):
+        # Create players
+        player_1_username = self.make_player()
+        player_1_id = self.player_id
+
+        player_2_username = self.make_player()
+        player_2_id = self.player_id
+
+        self.auth(player_1_username)
+
+        # Send party invite
+        invite = self.post(self.endpoints["party_invites"], data={'player_id': player_2_id}, expected_status_code=http_client.CREATED).json()
+
+        # Get invite
+        self.auth(player_2_username)
+        notification, _ = self.get_player_notification("party_notification", "invite")
+
+        # Accept the invite
+        accept = self.patch(notification["invite_url"], data={"inviter_id": player_1_id}).json()
+
+        # Switch to player 1
+        self.auth(player_1_username)
+
+        # Create placement
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "123",
+            "map_name": "map",
+            "max_players": 2,
+        })
+
+        # Get placement
+        response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.OK)
+
+        self.assertDictEqual(response.json(), self.match_placement)
+
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("match_placements", "MatchPlacementIssued")
+        self.assertIsNone(notification) # Shouldn't have any notification since the player knows whether or not it succeeded
+        # TODO: Brainstorm and figure out if this is the best approach
+
+        # Switch to player 2
+        self.auth(player_2_username)
+
+        # Assert message queue for player 2
+        notification, _ = self.get_player_notification("match_placements", "MatchPlacementIssued")
+        notification_data = notification["data"]
+
+        self.assertIsInstance(notification_data, dict)
+        self.assertEqual(notification_data["placement_id"], self.match_placement_id)
+
+    def test_create_match_placement(self):
+        self.make_player()
+
+        # Create placement
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "123",
+            "map_name": "map",
+            "max_players": 2,
+        })
+
+        # Get placement
+        response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.OK)
+
+        self.assertDictEqual(response.json(), self.match_placement)
+
+        # Assert message queue for player 1
+        notification, _ = self.get_player_notification("match_placements", "MatchPlacementIssued")
+        self.assertIsNone(notification) # Shouldn't have any notification since the player knows whether or not it succeeded
+        # TODO: Brainstorm and figure out if this is the best approach
 
     def test_create_match_placement_not_in_lobby(self):
         self.make_player()
