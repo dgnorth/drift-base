@@ -1,15 +1,11 @@
-import contextlib
 import http
 import unittest
 from flask.views import MethodView
 
 from drift.core.extensions.jwt import jwt_not_required, check_jwt_authorization, requires_roles
-from drift.utils import get_config
 from driftbase.utils.test_utils import BaseCloudkitTest
 
-ACCESS_KEY = "ThisIsMySecret"
 ROLE_NAME = "test_role"
-USER_NAME = "test_service_user"
 
 
 class TestJWTAccessControl(BaseCloudkitTest):
@@ -68,84 +64,25 @@ class TestJWTAccessControl(BaseCloudkitTest):
         self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
     def test_service_user_bearer_token_auth(self):
-        with self._managed_bearer_token_user():
-            token = "non3xisting7okenbit"
-            self.headers = {"Authorization": "Bearer " + token}
-            # This should fail because the token is invalid
+        with self.as_bearer_token_user(ROLE_NAME):
+            # Check that we fail when we have the correct role, but wrong token
+            correct_headers = self.headers
+            self.headers = {"Authorization": "Bearer non3xisting7okenbit"}
+            # These should fail because the token is invalid
             self.put("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
             self.get("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-            self.headers = {"Authorization": "Bearer " + ACCESS_KEY}
+            self.headers = correct_headers
 
             # This should succeed as we have a valid token and the delete method requires no roles
             self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
 
-            # This should fail as the post method requires role 'service' which we dont have
+            # This should fail as the post method requires role 'service' which we don't have
             self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
             self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
 
-    @contextlib.contextmanager
-    def _managed_bearer_token_user(self):
-        try:
-            yield self._setup_service_user_with_bearer_token()
-        finally:
-            self._remove_service_user_with_bearer_token()
-
-    @staticmethod
-    def _setup_service_user_with_bearer_token():
-        # FIXME: Might be cleaner to use patching instead of populating the actual config. The upside with using config
-        #  is that it exposes the intended use case more clearly
-        conf = get_config()
-        ts = conf.table_store
-        user_name = "test_service_user"
-        # setup access roles
-        ts.get_table("access-roles").add({
-            "role_name": ROLE_NAME,
-            "deployable_name": conf.deployable["deployable_name"],
-            "description": "a throwaway test role"
-        })
-        # Setup a user with an access key
-        ts.get_table("users").add({
-            "user_name": user_name,
-            "password": "SomeVeryGoodPasswordNoOneWillGuess",
-            "access_key": ACCESS_KEY,
-            "is_active": True,
-            "is_role_admin": False,
-            "is_service": True,
-            "organization_name": conf.organization["organization_name"]
-        })
-        # Associate the bunch.
-        ts.get_table("users-acl").add({
-            "organization_name": conf.organization["organization_name"],
-            "user_name": user_name,
-            "role_name": ROLE_NAME,
-            "tenant_name": conf.tenant["tenant_name"]
-        })
-
-    @staticmethod
-    def _remove_service_user_with_bearer_token():
-        conf = get_config()
-        ts = conf.table_store
-        ts.get_table("users-acl").remove({
-            "organization_name": conf.organization["organization_name"],
-            "user_name": USER_NAME,
-            "role_name": ROLE_NAME,
-            "tenant_name": conf.tenant["tenant_name"]
-        })
-        ts.get_table("users").remove({
-            "user_name": USER_NAME,
-            "password": "SomeVeryGoodPasswordNoOneWillGuess",
-            "access_key": ACCESS_KEY,
-            "is_active": True,
-            "is_role_admin": False,
-            "is_service": True,
-            "organization_name": conf.organization["organization_name"]
-        })
-        ts.get_table("access-roles").remove({
-            "role_name": ROLE_NAME,
-            "deployable_name": conf.deployable["deployable_name"],
-            "description": "a throwaway test role"
-        })
+            # Test success for ROLE_NAME
+            self.patch("/testapi", expected_status_code=http.HTTPStatus.OK)
 
 
 class TrivialAPI(MethodView):
@@ -163,6 +100,11 @@ class TestAPI(MethodView):
 
     @staticmethod
     def put():
+        return {}, http.HTTPStatus.OK
+
+    @staticmethod
+    @requires_roles(ROLE_NAME)
+    def patch():
         return {}, http.HTTPStatus.OK
 
     @staticmethod
