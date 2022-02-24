@@ -4,11 +4,10 @@ import time
 from driftbase.utils.test_utils import BaseCloudkitTest
 from unittest.mock import patch
 from driftbase import flexmatch
-from drift.utils import get_config
 import uuid
-import contextlib
 
 REGION = "eu-west-1"
+EVENTS_ROLE = "flexmatch_event"
 
 class TestFlexmatchMatchmaker(BaseCloudkitTest):
     def test_flexmatch_is_in_matchmakers(self):
@@ -189,72 +188,6 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
         data["detail"].update(event_details)
         return data
 
-    @contextlib.contextmanager
-    def _managed_bearer_token_user(self):
-        # FIXME: this whole thing is pretty much a c/p from test_jwt; consolidate.
-        self._access_key = str(uuid.uuid4())[:12]
-        self._user_name = "testuser_{}".format(self._access_key[:4])
-        self._role_name = "flexmatch_event"
-        try:
-            self._setup_service_user_with_bearer_token()
-            self.headers["Authorization"] = f"Bearer {self._access_key}"
-            yield
-        finally:
-            self._remove_service_user_with_bearer_token()
-            del self.headers["Authorization"]
-
-    def _setup_service_user_with_bearer_token(self):
-        conf = get_config()
-        ts = conf.table_store
-        # setup access roles
-        ts.get_table("access-roles").add({
-            "role_name": self._role_name,
-            "deployable_name": conf.deployable["deployable_name"]
-        })
-        # Setup a user with an access key
-        ts.get_table("users").add({
-            "user_name": self._user_name,
-            "password": self._access_key,
-            "access_key": self._access_key,
-            "is_active": True,
-            "is_role_admin": False,
-            "is_service": True,
-            "organization_name": conf.organization["organization_name"]
-        })
-        # Associate the bunch.
-        ts.get_table("users-acl").add({
-            "organization_name": conf.organization["organization_name"],
-            "user_name": self._user_name,
-            "role_name": self._role_name,
-            "tenant_name": conf.tenant["tenant_name"]
-        })
-
-    def _remove_service_user_with_bearer_token(self):
-        conf = get_config()
-        ts = conf.table_store
-        ts.get_table("users-acl").remove({
-            "organization_name": conf.organization["organization_name"],
-            "user_name": self._user_name,
-            "role_name": self._role_name,
-            "tenant_name": conf.tenant["tenant_name"]
-        })
-        ts.get_table("users").remove({
-            "user_name": self._user_name,
-            "access_key": self._access_key,
-            "is_active": True,
-            "is_role_admin": False,
-            "is_service": True,
-            "organization_name": conf.organization["organization_name"]
-        })
-        ts.get_table("access-roles").remove({
-            "role_name": self._role_name,
-            "deployable_name": conf.deployable["deployable_name"],
-            "description": "a throwaway test role"
-        })
-        delattr(self, '_access_key')
-        delattr(self, '_user_name')
-        delattr(self, '_role_name')
-
 
 class FlexMatchTest(_BaseFlexmatchTest):
     # NOTE TO SELF:  The idea behind splitting the api tests from this class was to be able to test the flexmatch
@@ -346,7 +279,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         event_details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated",
                                                 acceptanceRequired=True, acceptanceTimeout=123)
         data = self._get_event_data(event_details)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
         self.auth(player_name)
         response = self.delete(ticket_url, expected_status_code=http_client.OK).json()
@@ -428,7 +361,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         member, host = self._create_party(2)
         _, _, ticket = self._initiate_matchmaking(host["name"])
         events_url = self.endpoints["flexmatch_events"]
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             player_info = [ {"playerId": player["id"], "playerSessionId": f"bleble-{player['id']}-flefle"}
                             for player in (member, host) ]
             details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSucceeded")
@@ -449,7 +382,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         player_id = self.player_id
         events_url = self.endpoints["flexmatch_events"]
         with patch.object(flexmatch._LockedTicket, 'MAX_REJOIN_TIME', 1):
-            with self._managed_bearer_token_user():
+            with self.as_bearer_token_user(EVENTS_ROLE):
                 player_info = [{"playerId": player_id, "playerSessionId": f"bleble-{player_id}-flefle"}]
                 details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSucceeded")
                 details["gameSessionInfo"].update({
@@ -533,7 +466,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         events_url = self.endpoints["flexmatch_events"]
         details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)}, "MatchmakingCancelled")
         data = self._get_event_data(details)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Try to delete again, check that it stays in 'CANCELLED' state
         self.auth(user_name)
@@ -550,7 +483,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id)}
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             details = self._get_event_details(ticket_id, player_info, "MatchmakingSearching")
             data = self._get_event_data(details)
             self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
@@ -568,7 +501,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
         details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=False, acceptanceTimeout=acceptance_timeout)
         data = self._get_event_data(details)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Verify state
         self.auth(username=user_name)
@@ -582,7 +515,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         self.assertSetEqual(set(notification["data"]["teams"]["winners"]), {self.player_id})
         self.assertEqual(notification["data"]["match_id"], details["matchId"])
         # Test with acceptanceRequired as True
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             data["detail"]["acceptanceRequired"] = True
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
@@ -607,7 +540,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             "port": connection_port
         })
         data = self._get_event_data(details)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
@@ -628,7 +561,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         events_url = self.endpoints["flexmatch_events"]
         details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)}, "MatchmakingCancelled")
         data = self._get_event_data(details)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
@@ -649,11 +582,11 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         })
         data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Ensure this works for multiple backfill tickets being cancelled
         for _ in range(2):
-            with self._managed_bearer_token_user():
+            with self.as_bearer_token_user(EVENTS_ROLE):
                 real_ticket_id = ticket["TicketId"]
                 backfill_ticket_id = "BackFill--" + real_ticket_id
                 # The backfill tickets are issued by the battleserver with a ticketId drift doesn't track
@@ -671,7 +604,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=True, acceptanceTimeout=10)
         data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Verify state
         self.auth(username=user_name)
@@ -689,7 +622,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         details["tickets"][0]["players"][0]["accepted"] = True
         details["gameSessionInfo"]["players"][0]["accepted"] = True
         data["detail"].update(details)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
@@ -703,7 +636,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=True, acceptanceTimeout=10)
         data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
             details["type"] = "AcceptMatchCompleted"
             details["acceptance"] = "Accepted"
@@ -712,13 +645,13 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
         self.assertEqual(r['MatchStatus'], "ACCEPTED")
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             data["detail"]["acceptance"] = "TimedOut"
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
         self.assertEqual(r['MatchStatus'], "TIMEDOUT")
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             data["detail"]["acceptance"] = "Rejected"
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
@@ -731,7 +664,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         details = self._get_event_details(ticket_id, player_info, "MatchmakingTimedOut")
         data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
@@ -745,7 +678,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
         details = self._get_event_details(ticket_id, player_info, "MatchmakingFailed", reason="UnitTestInducedFailure")
         events_url = self.endpoints["flexmatch_events"]
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
@@ -767,7 +700,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         # PUT a PotentialMatchCreated event
         events_url = self.endpoints["flexmatch_events"]
         details = self._get_event_details(ticket["TicketId"], player_info, "PotentialMatchCreated", acceptanceRequired=False, acceptanceTimeout=123)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
         # Check if all team members get the PLACING notification
         for player in (member1, member2, host):
@@ -790,7 +723,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         # PUT a MatchmakingSearching event
         events_url = self.endpoints["flexmatch_events"]
         details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSearching", acceptanceRequired=False, acceptanceTimeout=123)
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
         # Check if all team members get the MatchmakingSearching notification
         for player in (member1, member2, host):
