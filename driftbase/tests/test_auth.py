@@ -1,6 +1,8 @@
 import http.client as http_client
+import jwt
 from mock import patch, MagicMock
 
+from drift.core.extensions.jwt import JWT_ALGORITHM
 from drift.systesthelper import setup_tenant, remove_tenant
 from drift.utils import get_config
 from driftbase.systesthelper import DriftBaseTestCase
@@ -114,3 +116,79 @@ class AuthTests(DriftBaseTestCase):
             with patch('driftbase.auth.steam._call_check_app_ownership') as mock_own:
                 mock_own.return_value.status_code = 200
                 self.post('/auth', data=data, expected_status_code=http_client.UNAUTHORIZED)
+
+    def test_userpass_auth_fallback(self):
+        # Create or login
+        data1 = {
+            "username": "foo",
+            "password": "bar",
+            "automatic_account_creation": True
+        }
+        resp1 = self.post('/auth', data=data1, expected_status_code=http_client.OK).json()
+        data2 = {
+            "provider": "user+pass",
+            "username": "foo",
+            "password": "bar",
+            "automatic_account_creation": True
+        }
+        resp2 = self.post('/auth', data=data2, expected_status_code=http_client.OK).json()
+        data3 = {
+            "provider": "user+pass",
+            "provider_details": {
+                "username": "foo",
+                "password": "bar"
+            },
+            "automatic_account_creation": True
+        }
+        resp3 = self.post('/auth', data=data3, expected_status_code=http_client.OK).json()
+        options = {"verify_signature": False}
+        token1 = jwt.decode(resp1['token'], algorithms=[JWT_ALGORITHM], options=options)
+        token2 = jwt.decode(resp2['token'], algorithms=[JWT_ALGORITHM], options=options)
+        token3 = jwt.decode(resp3['token'], algorithms=[JWT_ALGORITHM], options=options)
+        self.assertEqual(token1['user_id'], token2['user_id'])
+        self.assertEqual(token1['player_id'], token2['player_id'])
+        self.assertEqual(token1['identity_id'], token2['identity_id'])
+        self.assertEqual(token1['user_id'], token3['user_id'])
+        self.assertEqual(token1['player_id'], token3['player_id'])
+        self.assertEqual(token1['identity_id'], token3['identity_id'])
+
+    def test_uuid_auth_fallback(self):
+        # Will be converted to user+pass
+        data1 = {
+            "username": "foo",
+            "password": "bar",
+            "automatic_account_creation": True
+        }
+        resp1 = self.post('/auth', data=data1, expected_status_code=http_client.OK).json()
+        # Will be treated as uuid
+        data2 = {
+            "provider": "uuid",
+            "provider_details": {
+                "key": "foo",
+                "secret": "bar"
+            },
+            "username": "foo",
+            "password": "bar",
+            "automatic_account_creation": True
+        }
+        resp2 = self.post('/auth', data=data2, expected_status_code=http_client.OK).json()
+        # Will be treated as uuid
+        data3 = {
+            "provider": "uuid",
+            "provider_details": {
+                "key": "foo",
+                "secret": "bar"
+            },
+            "automatic_account_creation": True
+        }
+        resp3 = self.post('/auth', data=data3, expected_status_code=http_client.OK).json()
+        options = {"verify_signature": False}
+        token1 = jwt.decode(resp1['token'], algorithms=[JWT_ALGORITHM], options=options)
+        token2 = jwt.decode(resp2['token'], algorithms=[JWT_ALGORITHM], options=options)
+        token3 = jwt.decode(resp3['token'], algorithms=[JWT_ALGORITHM], options=options)
+        self.assertEqual(token1['user_id'], token2['user_id'])
+        self.assertEqual(token1['player_id'], token2['player_id'])
+        self.assertEqual(token1['identity_id'], token2['identity_id'])
+        self.assertEqual(token1['user_id'], token3['user_id'])
+        self.assertEqual(token1['player_id'], token3['player_id'])
+        self.assertEqual(token1['identity_id'], token3['identity_id'])

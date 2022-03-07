@@ -18,7 +18,7 @@ def abort_unauthorized(description):
 def authenticate_with_provider(auth_info):
     """
     Supported schemas:
-    provider: "uuid", provider_details: { key, secret } -> key
+    provider: "uuid", provider_details: { key, secret } -> uuid:key
     provider: "device_id", provider_details: { uuid:username, password } -> uuid:username
     provider: "user+pass", provider_details: { username, password } -> username
     provider: "viveport", provider_details: { username, password } -> viveport:username
@@ -33,7 +33,8 @@ def authenticate_with_provider(auth_info):
     if provider == 'uuid':
         identity = authenticate('uuid:' + provider_details['key'],
                                 provider_details['secret'],
-                                automatic_account_creation)
+                                automatic_account_creation,
+                                allow_fallback_to_non_identity=True)
 
     elif provider == 'device_id':
         key = provider_details['key']
@@ -73,7 +74,7 @@ def authenticate_with_provider(auth_info):
     return identity
 
 
-def authenticate(username, password, automatic_account_creation=True):
+def authenticate(username, password, automatic_account_creation=True, allow_fallback_to_non_identity=False):
     """basic authentication"""
     identity_type = ""
     create_roles = []
@@ -91,6 +92,14 @@ def authenticate(username, password, automatic_account_creation=True):
     my_identity = g.db.query(UserIdentity) \
         .filter(UserIdentity.name == username) \
         .first()
+
+    # attempt to locate a legacy non-specific version of the identity, in case it hasn't yet been migrated
+    if my_identity is None and not is_old and allow_fallback_to_non_identity:
+        legacy_identity = g.db.query(UserIdentity) \
+            .filter(UserIdentity.name == lst[1]) \
+            .first()
+        if legacy_identity is not None:
+            my_identity = legacy_identity
 
     try:
         service_user = g.conf.tier.get('service_user')
