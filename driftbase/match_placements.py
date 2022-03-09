@@ -225,9 +225,9 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
         player_latencies = []
         for player_id_entry in player_ids:
             # Latency
-            for region, latency in flexmatch.get_player_latency_averages(player_latencies).items():
+            for region, latency in flexmatch.get_player_latency_averages(player_id_entry).items():
                 player_latencies.append({
-                    "PlayerId": str(player_latencies),
+                    "PlayerId": str(player_id_entry),
                     "RegionIdentifier": region,
                     "LatencyInMilliseconds": latency
                 })
