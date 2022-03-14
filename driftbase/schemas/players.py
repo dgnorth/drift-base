@@ -71,7 +71,7 @@ class PlayerSchema(SQLAlchemyAutoSchema):
         player_id='<player_id>',
     )
 
-    total_match_time = fields.Integer(
+    total_match_time_seconds = fields.Integer(
         description="Generated field. The total match time of the player in seconds",
     )
 
@@ -92,6 +92,12 @@ class PlayerSchema(SQLAlchemyAutoSchema):
     def populate_total_match_time(self, obj, many=False):
         match_time_query = g.db.query(func.sum(MatchPlayer.leave_date - MatchPlayer.join_date)).filter(MatchPlayer.player_id == obj.player_id)
 
-        obj.total_match_time = match_time_query.scalar() or 0
+        time_delta = match_time_query.scalar()
+
+        seconds = 0
+        if time_delta:
+            seconds = time_delta.total_seconds()
+
+        obj.total_match_time_seconds = seconds
 
         return obj
