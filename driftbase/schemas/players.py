@@ -90,14 +90,8 @@ class PlayerSchema(SQLAlchemyAutoSchema):
 
     @pre_dump
     def populate_total_match_time(self, obj, many=False):
-        match_time_query = g.db.query(func.sum(MatchPlayer.leave_date - MatchPlayer.join_date)).filter(MatchPlayer.player_id == obj.player_id)
+        match_time_query = g.db.query(func.sum(MatchPlayer.seconds)).filter(MatchPlayer.player_id == obj.player_id)
 
-        time_delta = match_time_query.scalar()
-
-        seconds = 0
-        if time_delta:
-            seconds = time_delta.total_seconds()
-
-        obj.total_match_time_seconds = seconds
+        obj.total_match_time_seconds = match_time_query.scalar() or 0
 
         return obj
