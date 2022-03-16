@@ -152,6 +152,7 @@ class MessagesQueueAPI(MethodView):
             queue=queue,
             payload=args["message"],
             expire_seconds=expire_seconds,
+            sender_system=driftbase.messages.is_service()
         )
 
         # Fill in legacy data the new API doesn't care about
