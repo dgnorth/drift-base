@@ -13,7 +13,6 @@ from driftbase.messages import post_message
 from driftbase.resources.flexmatch import TIER_DEFAULTS
 
 NUM_VALUES_FOR_LATENCY_AVERAGE = 3
-REDIS_TTL = 1800
 
 # Ticket states:
 # QUEUED                <- Ticket has been submitted (flexmatch ticket status)
@@ -649,6 +648,7 @@ class _LockedTicket(object):
     """
     MAX_LOCK_WAIT_TIME_SECONDS = 30
     TICKET_TTL_SECONDS = 10 * 60
+    PLACEMENT_TIMEOUT = 5 * 60
     MAX_REJOIN_TIME = None
 
     def __init__(self, key):
@@ -694,6 +694,8 @@ class _LockedTicket(object):
                         ttl = self.TICKET_TTL_SECONDS
                         if self._ticket["Status"] in ("COMPLETED", "MATCH_COMPLETE"):
                             ttl = self.MAX_REJOIN_TIME
+                        elif self._ticket["Status"] == "PLACING":
+                            ttl = self.PLACEMENT_TIMEOUT
                         pipe.set(self._key, ticket_key, ex=ttl)
                         pipe.set(ticket_key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS)
                 pipe.execute()
