@@ -82,4 +82,3 @@ class PlayerSchema(SQLAlchemyAutoSchema):
             + '/{queue}'
         )
         return obj
-
