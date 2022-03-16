@@ -1,9 +1,8 @@
 from marshmallow import pre_dump, fields
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from sqlalchemy.sql import func
-from driftbase.models.db import CorePlayer, MatchPlayer
+from driftbase.models.db import CorePlayer
 from drift.utils import Url
-from flask import url_for, g
+from flask import url_for
 
 
 class PlayerSchema(SQLAlchemyAutoSchema):
@@ -71,10 +70,6 @@ class PlayerSchema(SQLAlchemyAutoSchema):
         player_id='<player_id>',
     )
 
-    total_match_time_seconds = fields.Integer(
-        description="Generated field. The total match time of the player in seconds",
-    )
-
     @pre_dump
     def populate_urls(self, obj, many=False):
         obj.messagequeue_url = (
@@ -86,12 +81,4 @@ class PlayerSchema(SQLAlchemyAutoSchema):
             )
             + '/{queue}'
         )
-        return obj
-
-    @pre_dump
-    def populate_total_match_time(self, obj, many=False):
-        match_time_query = g.db.query(func.sum(MatchPlayer.seconds)).filter(MatchPlayer.player_id == obj.player_id)
-
-        obj.total_match_time_seconds = match_time_query.scalar() or 0
-
         return obj

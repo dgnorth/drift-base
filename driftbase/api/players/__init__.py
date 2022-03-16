@@ -7,6 +7,7 @@ from flask import g, url_for
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from marshmallow import validates, ValidationError
+from sqlalchemy.sql import func
 import http.client as http_client
 
 from driftbase.api.players import (
@@ -17,7 +18,7 @@ from driftbase.api.players import (
     summary,
     tickets,
 )
-from driftbase.models.db import CorePlayer
+from driftbase.models.db import CorePlayer, MatchPlayer
 from driftbase.players import get_playergroup_ids
 from driftbase.utils import url_player
 from driftbase.schemas.players import PlayerSchema
@@ -120,8 +121,12 @@ class PlayersListAPI(MethodView):
 
 @bp.route('/<int:player_id>', endpoint='entry')
 class PlayerAPI(MethodView):
-    @bp.response(http_client.OK, PlayerSchema(many=False))
-    def get(self, player_id):
+    class GetPlayerArgs(ma.Schema):
+        include_total_match_time = ma.fields.Boolean(allow_none=True, dump_default=False, metadata=dict(description="Whether to include total match time"))
+
+    @bp.arguments(GetPlayerArgs, location="query")
+    @bp.response(http_client.OK)
+    def get(self, args, player_id):
         """
         Single Player
 
@@ -131,7 +136,14 @@ class PlayerAPI(MethodView):
         if not player:
             abort(http_client.NOT_FOUND)
 
-        return player
+        ret = PlayerSchema(many=False).dump(player)
+
+        if args.get("include_total_match_time"):
+            match_time_query = g.db.query(func.sum(MatchPlayer.seconds)).filter(MatchPlayer.player_id == player_id)
+
+            ret["total_match_time_seconds"] = match_time_query.scalar() or 0
+
+        return ret
 
     @bp.arguments(PlayerPatchArgs)
     @bp.response(http_client.OK, PlayerSchema(many=False))
