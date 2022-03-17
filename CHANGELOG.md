@@ -33,7 +33,7 @@
 ## 0.8.0
 
 ### New features
-- Support generic match_placements without lobbies
+- Support generic match_placements without lobbies.
 
 ### Bug Fixes / Feature Improvements
 - Support fetching recent matches for a given player
