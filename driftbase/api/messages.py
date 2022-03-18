@@ -143,16 +143,7 @@ class MessagesQueueAPI(MethodView):
     @bp.arguments(MessagesQueuePostArgs)
     @bp.response(http_client.OK, MessagesQueuePostResponse)
     def post(self, args, exchange, exchange_id, queue):
-        # DEBUG stuff
-        username = "None"
-        if current_user:
-            username = current_user.get("username", "unknown")
-            if "service" in current_user['roles']:
-                username += "(service)"
-        # END DEBUG stuff
-        log.info(f"DEBUG:Message posted to {exchange}/{exchange_id}/{queue} from {username}")
         driftbase.messages.check_can_use_exchange(exchange, exchange_id, read=False)
-        log.info(f"DEBUG: Sender is allowed to post")
 
         expire_seconds = args.get("expire") or driftbase.messages.DEFAULT_EXPIRE_SECONDS
 
@@ -164,7 +155,7 @@ class MessagesQueueAPI(MethodView):
             expire_seconds=expire_seconds,
             sender_system=driftbase.messages.is_service()
         )
-        log.info(f"DEBUG: supposedly posted message {message}")
+
         # Fill in legacy data the new API doesn't care about
         message['exchange'] = exchange
         message['exchange_id'] = exchange_id
@@ -172,7 +163,7 @@ class MessagesQueueAPI(MethodView):
         message['queue'] = queue
         message['payload'] = args['message']
 
-        log.info(
+        log.debug(
             "Message %s ('%s') has been added to queue '%s' in exchange "
             "'%s-%s' by player %s. It will expire on '%s'",
             message["message_number"], message["message_id"],
