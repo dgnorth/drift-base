@@ -162,7 +162,7 @@ class MessagesQueueAPI(MethodView):
         message['queue'] = queue
         message['payload'] = args['message']
 
-        log.debug(
+        log.info(
             "Message %s ('%s') has been added to queue '%s' in exchange "
             "'%s-%s' by player %s. It will expire on '%s'",
             message["message_number"], message["message_id"],
