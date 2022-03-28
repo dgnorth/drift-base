@@ -93,16 +93,23 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
         gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
         try:
             log.info(f"Issuing a new {matchmaking_configuration} matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
-            response = gamelift_client.start_matchmaking(
-                ConfigurationName=matchmaking_configuration,
-                Players=[
+            players = []
+            for member_id in member_ids:
+                attributes = _get_player_attributes(member_id, extra_matchmaking_data)
+                latencies = get_player_latency_averages(member_id)
+                attributes["Latencies"] = {
+                    "SDM": latencies
+                }
+                players.append(
                     {
                         "PlayerId": str(member_id),
-                        "PlayerAttributes": _get_player_attributes(member_id, extra_matchmaking_data),
-                        "LatencyInMs": get_player_latency_averages(member_id)
+                        "PlayerAttributes": attributes,
+                        "LatencyInMs": latencies
                     }
-                    for member_id in member_ids
-                ],
+                )
+            response = gamelift_client.start_matchmaking(
+                ConfigurationName=matchmaking_configuration,
+                Players=players
             )
         except ParamValidationError as e:
             raise GameliftClientException("Invalid parameters to request", str(e))

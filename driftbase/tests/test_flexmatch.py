@@ -206,7 +206,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         latencies = [1.0, 2.0, 3.0, 4.0, 5.0, 10.7]
         expected_avg = [1, 1, 2, 3, 4, 6]  # We expect integers representing the average of the last 3 values
         for i, latency in enumerate(latencies):
-            patch_response = self.patch(flexmatch_url, data={"latencies":{REGION: latency}}, expected_status_code=http_client.OK).json()
+            patch_response = self.patch(flexmatch_url, data={"latencies": {REGION: latency}}, expected_status_code=http_client.OK).json()
             self.assertIn("latencies", patch_response)
             reponse_latencies = patch_response["latencies"]
             self.assertEqual(reponse_latencies[REGION], expected_avg[i])
@@ -410,7 +410,21 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertEqual(1, len(ticket["Players"]))
         self.assertIn("PlayerAttributes", ticket["Players"][0])
         player_attributes = ticket["Players"][0]["PlayerAttributes"]
-        self.assertDictEqual(player_attributes, extra_data[str(self.player_id)])
+        for k, v in extra_data[str(self.player_id)].items():
+            self.assertIn(k, player_attributes)
+            self.assertEqual(v, player_attributes[k])
+        # above is basically this:
+        #self.assertDictContainsSubset(extra_data[str(self.player_id)], player_attributes)
+
+    def test_latencies_are_included_in_player_attributes(self):
+        user_name = self.make_player()
+        _, ticket_url, ticket = self._initiate_matchmaking(user_name)
+        self.assertIn("Players", ticket)
+        self.assertEqual(1, len(ticket["Players"]))
+        self.assertIn("PlayerAttributes", ticket["Players"][0])
+        player_attributes = ticket["Players"][0]["PlayerAttributes"]
+        self.assertIn("Latencies", player_attributes)
+        self.assertIsInstance(player_attributes, dict)
 
     def test_personal_ticket_is_cancelled_when_player_joins_party(self):
         #  Start matchmaking solo
