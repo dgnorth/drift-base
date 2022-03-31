@@ -482,11 +482,12 @@ class FlexMatchTest(_BaseFlexmatchTest):
         matchplayer_resp = self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED).json()
         # Delete the player from the match
         self.delete(matchplayer_resp["url"])
-        # Verify the ticket is in 'MATCH_COMPLETE' state
+        # Verify the ticket is in 'MATCH_COMPLETE' state and that the connection info has been cleared.
         self.auth(user_name)
         ticket_resp = self.get(ticket_url).json()
-        self.assertEqual(ticket_resp["Status"], "MATCH_COMPLETE")
         self.assertEqual(ticket_resp["TicketId"], ticket["TicketId"])
+        self.assertEqual(ticket_resp["Status"], "MATCH_COMPLETE")
+        self.assertIsNone(ticket_resp["GameSessionConnectionInfo"])
 
 
     def test_delete_on_cancelled_ticket_does_not_change_its_status(self):

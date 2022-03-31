@@ -224,6 +224,7 @@ def handle_match_event(queue_name, event_data):
             if player_ticket:
                 log.info(f"Player {player_id} left match {event_data['match_id']}. Clearing local ticket {player_ticket['TicketId']}. Ticket dump: {player_ticket}.")
                 player_ticket["Status"] = "MATCH_COMPLETE"
+                player_ticket["GameSessionConnectionInfo"] = None
 
 
 def process_flexmatch_event(flexmatch_event):
