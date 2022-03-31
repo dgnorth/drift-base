@@ -164,7 +164,6 @@ def _cancel_locked_ticket(ticket, player_id):
         # else it's a permanent failure, i.e. error_code in ("NotFoundException", "UnsupportedRegionException"):
         raise GameliftClientException(f"Failed to cancel matchmaking ticket: {e.response['Error']['Message'] }", str(e))
 
-
 def get_player_ticket(player_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         log.info(f"get_player_ticket returning ticket for player {player_id}: {ticket_lock.ticket}")
@@ -216,6 +215,16 @@ def handle_client_event(queue_name, event_data):
         if player_ticket:
             log.info(f"Client {client_id} unregistered. Attempting to cancel ticket {player_ticket['TicketId']}. Ticket dump: {player_ticket}.")
             cancel_active_ticket(player_id, player_ticket["TicketId"])
+
+def handle_match_event(queue_name, event_data):
+    if queue_name == "match" and event_data["event"] == "match_player_left":
+        player_id = event_data["player_id"]
+        with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
+            player_ticket = ticket_lock.ticket
+            if player_ticket:
+                log.info(f"Player {player_id} left match {event_data['match_id']}. Clearing local ticket {player_ticket['TicketId']}. Ticket dump: {player_ticket}.")
+                player_ticket["Status"] = "MATCH_COMPLETE"
+
 
 def process_flexmatch_event(flexmatch_event):
     event = _get_event_details(flexmatch_event)

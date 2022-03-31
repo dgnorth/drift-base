@@ -940,7 +940,8 @@ class MatchPlayerAPI(MethodView):
         log_match_event(match_id, player_id,
                         "gameserver.match.player_left",
                         details={"team_id": team_id})
-
+        message_data = {"event": "match_player_left", "match_id": match_id, "player_id": player_id}
+        current_app.extensions["messagebus"].publish_message("match", message_data)
         return jsonify({"message": "Player has left the battle"})
 
 

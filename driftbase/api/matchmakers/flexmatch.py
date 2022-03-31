@@ -44,6 +44,7 @@ def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     app.messagebus.register_consumer(flexmatch.handle_party_event, "parties")
     app.messagebus.register_consumer(flexmatch.handle_client_event, "client")
+    app.messagebus.register_consumer(flexmatch.handle_match_event, "match")
     endpoints.init_app(app)
 
 @bp.route("/regions/", endpoint="regions")

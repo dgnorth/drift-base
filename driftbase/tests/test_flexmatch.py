@@ -466,6 +466,29 @@ class FlexMatchTest(_BaseFlexmatchTest):
         # Client should've been notified of the cancellation
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
 
+    def test_player_quitting_match_updates_his_ticket(self):
+        # Issue a ticket (implicitly creates a user and registers a client)
+        user_name, ticket_url, ticket = self._initiate_matchmaking()
+        player_id = self.player_id
+        # Register a match with the player in it.
+        self.auth_service()
+        match_url = self._create_match(num_teams=2)["url"]
+        match_resp = self.get(match_url).json()
+        matchplayers_url = match_resp["matchplayers_url"]
+        data = {
+            "player_id": player_id,
+            "team_id": 1
+        }
+        matchplayer_resp = self.post(matchplayers_url, data=data, expected_status_code=http_client.CREATED).json()
+        # Delete the player from the match
+        self.delete(matchplayer_resp["url"])
+        # Verify the ticket is in 'MATCH_COMPLETE' state
+        self.auth(user_name)
+        ticket_resp = self.get(ticket_url).json()
+        self.assertEqual(ticket_resp["Status"], "MATCH_COMPLETE")
+        self.assertEqual(ticket_resp["TicketId"], ticket["TicketId"])
+
+
     def test_delete_on_cancelled_ticket_does_not_change_its_status(self):
         # create ticket
         user_name, ticket_url, ticket = self._initiate_matchmaking()
