@@ -427,7 +427,7 @@ def _process_potential_match_event(event):
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
             if player_ticket is None:  # This has to be a back fill ticket, i.e. not issued by us.
-                log.error(f"PotentialMatchCreated event received for a player who has no ticket.")
+                log.error(f"PotentialMatchCreated event received for player {player_id} who has no ticket.")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
                 # If we've recorded a session, then the player has been placed in a match already
