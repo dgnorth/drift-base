@@ -368,7 +368,6 @@ def process_gamelift_queue_event(queue_name: str, message: dict):
 
 def process_match_message(queue_name: str, message: dict):
     log.debug(f"match-placements::process_match_message() received event in queue '{queue_name}': '{message}'")
-
     event = message["event"]
     if event == "match_status_changed":
         match_id = message.get("match_id", None)
@@ -383,8 +382,6 @@ def process_match_message(queue_name: str, message: dict):
 
         if match_status == "ended":
             return _process_match_ended(match_id)
-    else:
-        log.error(f"Unexpected event '{event}' published.")
 
 # Helpers
 
