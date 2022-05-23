@@ -14,5 +14,4 @@ networks:
   app:
     name: app
   backend:
-    external:
-      name: backend
+    name: backend
