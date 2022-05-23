@@ -185,6 +185,28 @@ class BaseAuthTests(DriftBaseTestCase):
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
 
+    def test_user_pass_with_missing_properties(self):
+        data = old_style_user_pass_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_user_pass_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = old_style_auth_with_user_pass_provider_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_auth_with_user_pass_provider_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = user_pass_auth_with_provider_data
+        del data['provider_details']['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = user_pass_auth_with_provider_data
+        del data['provider_details']['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
     def test_old_style_uuid(self):
         user1 = self._auth_and_get_user(old_style_uuid_data)
         user2 = self._auth_and_get_user(old_style_uuid_data)
@@ -202,6 +224,28 @@ class BaseAuthTests(DriftBaseTestCase):
         user2 = self._auth_and_get_user(uuid_auth_with_provider_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+
+    def test_uuid_with_missing_properties(self):
+        data = old_style_uuid_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_uuid_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = old_style_uuid_provider_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_uuid_provider_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = uuid_auth_with_provider_data
+        del data['provider_details']['key']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = uuid_auth_with_provider_data
+        del data['provider_details']['secret']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
 
     def test_user_pass_methods_resolve_to_same_user(self):
         user1 = self._auth_and_get_user(old_style_user_pass_data)

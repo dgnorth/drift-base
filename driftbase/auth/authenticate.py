@@ -1,3 +1,5 @@
+import http.client
+
 import http.client as http_client
 import logging
 from flask import g, current_app
@@ -29,6 +31,8 @@ def authenticate_with_provider(auth_info):
     provider_details = auth_info.get('provider_details')
     automatic_account_creation = auth_info.get("automatic_account_creation", True)
     identity = None
+    if provider_details is None:
+        abort(http.client.BAD_REQUEST, "Bad Request. Missing expected argument.")
 
     if provider == 'uuid':
         try:
@@ -36,7 +40,7 @@ def authenticate_with_provider(auth_info):
                                     provider_details['secret'],
                                     automatic_account_creation)
         except KeyError:
-            abort_unauthorized("Bad Request. Missing expected argument.")
+            abort(http.client.BAD_REQUEST, "Bad Request. Missing expected argument.")
 
     elif provider == 'device_id':
         try:
@@ -47,12 +51,15 @@ def authenticate_with_provider(auth_info):
                                     provider_details['secret'],
                                     automatic_account_creation)
         except KeyError:
-            abort_unauthorized("Bad Request. Missing expected argument.")
+            abort(http.client.BAD_REQUEST, "Bad Request. Missing expected argument.")
 
     elif provider in ['user+pass']:
-        identity = authenticate(provider_details['username'],
-                                provider_details['password'],
-                                automatic_account_creation)
+        try:
+            identity = authenticate(provider_details['username'],
+                                    provider_details['password'],
+                                    automatic_account_creation)
+        except KeyError:
+            abort(http.client.BAD_REQUEST, "Bad Request. Missing expected argument.")
 
     elif provider == "viveport" and provider_details.get('provisional', False):
         if len(provider_details['username']) < 1:
