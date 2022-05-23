@@ -31,17 +31,23 @@ def authenticate_with_provider(auth_info):
     identity = None
 
     if provider == 'uuid':
-        identity = authenticate('uuid:' + provider_details['key'],
-                                provider_details['secret'],
-                                automatic_account_creation)
+        try:
+            identity = authenticate('uuid:' + provider_details['key'],
+                                    provider_details['secret'],
+                                    automatic_account_creation)
+        except KeyError:
+            abort_unauthorized("Bad Request. Missing expected argument.")
 
     elif provider == 'device_id':
-        key = provider_details['key']
-        if not key.startswith('uuid:'):
-            key = 'uuid:' + key
-        identity = authenticate(key,
-                                provider_details['secret'],
-                                automatic_account_creation)
+        try:
+            key = provider_details['key']
+            if not key.startswith('uuid:'):
+                key = 'uuid:' + key
+            identity = authenticate(key,
+                                    provider_details['secret'],
+                                    automatic_account_creation)
+        except KeyError:
+            abort_unauthorized("Bad Request. Missing expected argument.")
 
     elif provider in ['user+pass']:
         identity = authenticate(provider_details['username'],
