@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "98652404a3bf28c19edb2a784bc1943d5ad9392ed4602523af1d8ea842833da6"
+            "sha256": "05f2e9d7a782abdf4f102ee008ef2af7ebe92802ac37d696be2f8e39ae47c3dc"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -70,19 +70,19 @@
         },
         "boto3": {
             "hashes": [
-                "sha256:5cbbd985171b1e278b722dca48f71455b4938378962734828daeb76f73be6fba",
-                "sha256:73a0d092aaea1649150f43fb3f41451d5a0883940549a64d72781a23ce6b2d44"
+                "sha256:3fb956d097105a0fb98c29a622ff233fa8de68519aabd7088d7ffd36dfc33214",
+                "sha256:b59a210fa6a87f0c755b40403ffc66b9b285680bbc5ad5245cf167e2def33620"
             ],
             "index": "pypi",
-            "version": "==1.23.5"
+            "version": "==1.23.7"
         },
         "botocore": {
             "hashes": [
-                "sha256:32541873924e3ff0ad95f02dc331e9f278721a3b864a4e2a8d514346b2598ce5",
-                "sha256:805db3ecf85ff89edfb6788f862b87426f990e3e6383ef3fca3076f7659a5454"
+                "sha256:0f4a467188644382856e96e85bff0b453442d5cf0c0f554154571a6e2468a005",
+                "sha256:9f8d5e8d65b24d97fcb7804b84831e5627fceb52707167d2f496477675c98ded"
             ],
             "index": "pypi",
-            "version": "==1.26.5"
+            "version": "==1.26.7"
         },
         "cachetools": {
             "hashes": [
@@ -859,11 +859,11 @@
         },
         "python-drift": {
             "hashes": [
-                "sha256:3d558430abdac8a55c95ccf5809c7533136d9325db2e38cdf90ed33835791920",
-                "sha256:fdf03702c7745a4567f4b3acbda490b10117668d5f133b1884a94f0d611beddf"
+                "sha256:2738785bba3086d48d996c47dfd9b51a8e60b5d25c953cbac0bfcb4aa6e759bd",
+                "sha256:4cc45b4b603174d9b03cb05464d8e53cb271cb4e06d29d8a1f78380a3b9dd38a"
             ],
             "index": "pypi",
-            "version": "==0.9.3"
+            "version": "==0.9.4"
         },
         "python-driftconfig": {
             "hashes": [
@@ -919,14 +919,6 @@
                 "sha256:778b53f0a6c83b1ee43d3b7886318ba86d975e686cb2c7906ccc35b334360be1"
             ],
             "version": "==1.5.12"
-        },
-        "setuptools": {
-            "hashes": [
-                "sha256:68e45d17c9281ba25dc0104eadd2647172b3472d9e01f911efa57965e8d51a36",
-                "sha256:a43bdedf853c670e5fed28e5623403bad2f73cf02f9a2774e91def6bda8265a7"
-            ],
-            "markers": "python_version >= '3.7'",
-            "version": "==62.3.2"
         },
         "six": {
             "hashes": [
@@ -1187,7 +1179,9 @@
             "version": "==2.1.12"
         },
         "coverage": {
-            "extras": [],
+            "extras": [
+                "toml"
+            ],
             "hashes": [
                 "sha256:00c8544510f3c98476bbd58201ac2b150ffbcce46a8c3e4fb89ebf01998f806a",
                 "sha256:016d7f5cf1c8c84f533a3c1f8f36126fbe00b2ec0ccca47cc5731c3723d327c6",
