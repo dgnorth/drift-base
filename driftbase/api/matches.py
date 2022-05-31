@@ -160,21 +160,6 @@ def lock(redis):
     return redis.lock("ensure_match_unique_key")
 
 
-class MatchesPostRequestSchema(ma.Schema):
-    server_id = ma.fields.Integer(required=True)
-
-    num_players = ma.fields.Integer()
-    max_players = ma.fields.Integer()
-    map_name = ma.fields.String()
-    game_mode = ma.fields.String()
-    status = ma.fields.String()
-    unique_key = ma.fields.String()
-    match_statistics = ma.fields.Dict()
-    details = ma.fields.Dict()
-    num_teams = ma.fields.Integer(metadata=dict(description="Automatically create N teams with generic names. Mutually exclusive with team_names."))
-    team_names = ma.fields.List(ma.fields.String(), metadata=dict(description="Create teams with specific names. Mutually exclusive with num_teams."))
-
-
 class MatchPutRequestSchema(ma.Schema):
     status = ma.fields.String(required=True)
 
@@ -391,6 +376,23 @@ class MatchesAPI(MethodView):
             ret.append(record)
         return jsonify(ret)
 
+
+    class MatchesPostRequestSchema(ma.Schema):
+        server_id = ma.fields.Integer(required=True)
+
+        num_players = ma.fields.Integer()
+        max_players = ma.fields.Integer()
+        map_name = ma.fields.String()
+        game_mode = ma.fields.String()
+        status = ma.fields.String()
+        unique_key = ma.fields.String()
+        match_statistics = ma.fields.Dict()
+        details = ma.fields.Dict()
+        num_teams = ma.fields.Integer(metadata=dict(
+            description="Automatically create N teams with generic names. Mutually exclusive with team_names."))
+        team_names = ma.fields.List(ma.fields.String(), metadata=dict(
+            description="Create teams with specific names. Mutually exclusive with num_teams."))
+
     @requires_roles("service")
     @bp.arguments(MatchesPostRequestSchema)
     def post(self, args):
@@ -410,6 +412,8 @@ class MatchesAPI(MethodView):
 
         if num_teams and team_names:
             abort(http_client.BAD_REQUEST, description="num_teams and team_names are mutually exclusive")
+
+        log.info(f"Creating match for server {server_id} using {unique_key if unique_key else 'nothing'} as unique_key")
 
         with ExitStack() as stack:
             if unique_key:
