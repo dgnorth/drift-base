@@ -200,12 +200,13 @@ def get_valid_regions():
 
 def handle_party_event(queue_name, event_data):
     log.debug("handle_party_event", event_data)
-    if queue_name == "parties" and event_data["event"] == "player_joined":
+    event_name = event_data["event"]
+    if queue_name == "parties" and event_name in ("player_joined", "player_left"):
         player_id = event_data["player_id"]
         party_id = event_data["party_id"]
         with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
             if ticket_lock.ticket:
-                log.info(f"handle_party_event:player_joined: Cancelling ticket {ticket_lock.ticket['TicketId']} for player {player_id} since he has now joined party {party_id}")
+                log.info(f"handle_party_event:{event_name}: Cancelling ticket {ticket_lock.ticket['TicketId']} for player {player_id} and party {party_id}")
                 _cancel_locked_ticket(ticket_lock.ticket, player_id)
 
 def handle_client_event(queue_name, event_data):
