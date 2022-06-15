@@ -27,7 +27,6 @@ RUN --mount=type=secret,id=pip-credentials \
     export $(grep -v '^#' /run/secrets/pip-credentials | xargs) \
     && pip install --user --ignore-installed --no-warn-script-location -r requirements.txt
 
-
 FROM python:${PYTHON_VERSION}-slim-${BASE_IMAGE} as app
 LABEL Maintainer="Directive Games <info@directivegames.com>"
 
