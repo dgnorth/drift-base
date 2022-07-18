@@ -45,7 +45,7 @@ class TestFlexMatchTicketsAPI(BaseCloudkitTest):
         tickets_url = self.endpoints["flexmatch_tickets"]
         with patch.object(flexmatch, 'get_player_ticket', return_value={}):
             response = self.get(tickets_url, expected_status_code=http_client.NOT_FOUND)
-            self.assertDictEqual(response.json(), {})
+            self.assertIn("error", response.json())
         with patch.object(flexmatch, 'get_player_ticket', return_value={"TicketId": "SomeId", "Status": "SomeStatus"}):
             response = self.get(tickets_url, expected_status_code=http_client.OK)
             self.assertIn("ticket_url", response.json())
@@ -66,7 +66,7 @@ class TestFlexMatchTicketAPI(BaseCloudkitTest):
         non_existant_ticket_url = self.endpoints["flexmatch_tickets"] + some_ticket_id
         with patch.object(flexmatch, 'get_player_ticket', return_value={}):
             response = self.get(non_existant_ticket_url, expected_status_code=http_client.NOT_FOUND)
-            self.assertDictEqual(response.json(), {})
+            self.assertIn("error", response.json())
         retval = {"TicketId": some_ticket_id}
         with patch.object(flexmatch, 'get_player_ticket', return_value=retval):
             response = self.get(non_existant_ticket_url, expected_status_code=http_client.OK)
@@ -77,7 +77,7 @@ class TestFlexMatchTicketAPI(BaseCloudkitTest):
         non_existant_ticket_url = self.endpoints["flexmatch_tickets"] + "1235-abcdef-whateves"
         with patch.object(flexmatch, 'update_player_acceptance', return_value=None):
             response = self.get(non_existant_ticket_url, expected_status_code=http_client.NOT_FOUND)
-            self.assertDictEqual(response.json(), {})
+            self.assertIn("error", response.json())
 
     def test_delete_api(self):
         self.make_player()
@@ -447,7 +447,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.patch(notification['invite_url'], data={'inviter_id': inviter_id}, expected_status_code=http_client.OK)
         # Ticket should now be cancelled
         response = self.get(ticket_url, expected_status_code=http_client.NOT_FOUND).json()
-        self.assertDictEqual(response, {})
+        self.assertIn("error", response)
         # Client should've been notified of the cancellation
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
         self.assertIsInstance(notification, dict)
