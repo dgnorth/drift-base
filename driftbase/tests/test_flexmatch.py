@@ -46,18 +46,28 @@ class TestFlexMatchTicketsAPI(BaseCloudkitTest):
         with patch.object(flexmatch, 'get_player_ticket', return_value={}):
             response = self.get(tickets_url, expected_status_code=http_client.NOT_FOUND)
             self.assertIn("error", response.json())
-        with patch.object(flexmatch, 'get_player_ticket', return_value={"TicketId": "SomeId", "Status": "SomeStatus"}):
-            response = self.get(tickets_url, expected_status_code=http_client.OK)
-            self.assertIn("ticket_url", response.json())
+        with patch.object(flexmatch, 'get_player_ticket', return_value={"TicketId": "SomeId", "Status": "SomeStatus", "ConfigurationName": "SomeConfig"}):
+            response = self.get(tickets_url, expected_status_code=http_client.OK).json()
+            self.assertIn("ticket_url", response)
+            self.assertIn("ticket_id", response)
+            self.assertIn("ticket_status", response)
+            self.assertIn("matchmaker", response)
 
     def test_post_api(self):
         self.make_player()
         tickets_url = self.endpoints["flexmatch_tickets"]
-        with patch.object(flexmatch, 'upsert_flexmatch_ticket', return_value={"TicketId": 123, "Status": "QUEUED"}):
+        with patch.object(flexmatch, 'upsert_flexmatch_ticket', return_value={"TicketId": 123, "Status": "QUEUED", "ConfigurationName": "unittest"}):
             self.post(tickets_url, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
             response = self.post(tickets_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.CREATED).json()
             self.assertIn("ticket_url", response)
+            self.assertIn("ticket_id", response)
+            self.assertIn("ticket_status", response)
+            self.assertIn("matchmaker", response)
+
             self.assertTrue(response["ticket_url"].endswith("123"))
+            self.assertTrue(response["ticket_id"] == "123")
+            self.assertTrue(response["ticket_status"] == "QUEUED")
+            self.assertTrue(response["matchmaker"] == "unittest")
 
 class TestFlexMatchTicketAPI(BaseCloudkitTest):
     def test_get_api(self):
@@ -235,6 +245,9 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["event"] == "MatchmakingStarted")
         self.assertIn("ticket_url", notification["data"])
+        self.assertIn("ticket_id", notification["data"])
+        self.assertIn("ticket_status", notification["data"])
+        self.assertIn("matchmaker", notification["data"])
 
     def test_matchmaking_includes_party_members(self):
         member, host = self._create_party()
@@ -259,6 +272,10 @@ class FlexMatchTest(_BaseFlexmatchTest):
         notification, message_number = self.get_player_notification("matchmaking", "MatchmakingStarted")
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["event"] == "MatchmakingStarted")
+        self.assertIn("ticket_url", notification["data"])
+        self.assertIn("ticket_id", notification["data"])
+        self.assertIn("ticket_status", notification["data"])
+        self.assertIn("matchmaker", notification["data"])
 
     def test_delete_ticket(self):
         # start the matchmaking and then stop it.

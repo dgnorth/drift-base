@@ -120,7 +120,16 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
         ticket = response["MatchmakingTicket"]
         ticket_lock.ticket = ticket
         log.info(f"New ticket {ticket['TicketId']} issued by player {player_id}: {ticket}")
-        _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True)})
+        _post_matchmaking_event_to_members(
+            member_ids,
+            "MatchmakingStarted",
+            {
+                "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
+                "ticket_id": ticket["TicketId"],
+                "ticket_status": ticket["Status"],
+                "matchmaker": ticket["ConfigurationName"],
+            }
+        )
         return ticket
 
 def cancel_active_ticket(player_id, ticket_id):
@@ -602,7 +611,6 @@ def _process_matchmaking_timeout_event(event):
             player_ticket["Status"] = "TIMED_OUT"
             players_to_notify.add(player_id)
     if players_to_notify:
-
         _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": "TimeOut"})
 
 def _process_matchmaking_failed_event(event):

@@ -101,6 +101,7 @@ class FlexMatchTicketsAPI(MethodView):
         ticket_url = fields.String()
         ticket_id = fields.String()
         ticket_status = fields.String()
+        matchmaker = fields.String()
 
     @staticmethod
     @bp.response(http_client.OK, FlexMatchTicketsAPIGetResponse)
@@ -114,7 +115,8 @@ class FlexMatchTicketsAPI(MethodView):
             return {
                 "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
                 "ticket_id": ticket["TicketId"],
-                "ticket_status": ticket["Status"]
+                "ticket_status": ticket["Status"],
+                "matchmaker": ticket["ConfigurationName"],
             }
         return abort(http_client.NOT_FOUND, message="No ticket found")
 
@@ -132,7 +134,8 @@ class FlexMatchTicketsAPI(MethodView):
             return {
                 "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
                 "ticket_id": ticket["TicketId"],
-                "ticket_status": ticket["Status"]
+                "ticket_status": ticket["Status"],
+                "matchmaker": ticket["ConfigurationName"],
             }
         except flexmatch.GameliftClientException as e:
             player_id = player_id or "UNKNOWN"
