@@ -540,9 +540,8 @@ def _process_matchmaking_cancelled_event(event):
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
-            if player_ticket is None:
-                continue  # Normal, player cancelled the ticket, and we've already cleared it from the cache
-            if ticket_id != player_ticket["TicketId"]:
+
+            if player_ticket and ticket_id != player_ticket["TicketId"]:
                 # This block is a hack (heuristics); we should mark MATCH_COMPLETE via an explicit event.
                 # MATCH_COMPLETE is not a flexmatch status, but I want to differentiate between statuses arising from the
                 # cancelling of backfill tickets and other states
@@ -556,9 +555,14 @@ def _process_matchmaking_cancelled_event(event):
                              f"{player_ticket['TicketId']} is in state {player_ticket['Status']}." +
                              f"Ignoring this player/ticket combo update.")
                 continue
-            player_ticket["Status"] = "CANCELLED"
+
             log.info(f"Notifying player {player_id} of the cancellation of ticket {ticket_id}")
             _post_matchmaking_event_to_members([player_id], "MatchmakingCancelled")
+
+            if player_ticket is None:
+                continue  # Normal, player cancelled the ticket, and we've already cleared it from the cache
+
+            player_ticket["Status"] = "CANCELLED"
 
 def _process_accept_match_event(event):
     game_session_info = event["gameSessionInfo"]
