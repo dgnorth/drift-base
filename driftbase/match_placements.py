@@ -562,7 +562,7 @@ def _process_fulfilled_queue_event(event_details: dict):
         elif party_id:
             log.info(f"Placement '{placement_id}' completed for party '{party_id}'")
 
-            party_member_ids = placement["party_member_ids"]
+            party_member_ids = placement["player_ids"]
 
             for party_member_id in party_member_ids:
                 if party_member_id not in connection_options_by_player_id:
@@ -631,7 +631,7 @@ def _process_cancelled_queue_event(event_details: dict):
         elif party_id:
             log.info(f"Placement '{placement_id}' cancelled for party '{party_id}'")
 
-            party_member_ids = placement["party_member_ids"]
+            party_member_ids = placement["player_ids"]
             _post_match_placement_event_to_members(party_member_ids, "MatchPlacementCancelled", placement)
         else:
             log.info(f"Placement '{placement_id}' cancelled for player '{player_id}'")
@@ -678,7 +678,7 @@ def _process_timed_out_queue_event(event_details: dict):
         elif party_id:
             log.info(f"Placement '{placement_id}' timed out for party '{party_id}'")
 
-            party_member_ids = placement["party_member_ids"]
+            party_member_ids = placement["player_ids"]
             _post_match_placement_event_to_members(party_member_ids, "MatchPlacementTimedOut", placement)
         else:
             log.info(f"Placement '{placement_id}' timed out for player '{player_id}'")
@@ -724,7 +724,7 @@ def _process_failed_queue_event(event_details: dict):
         elif party_id:
             log.info(f"Placement '{placement_id}' failed for party '{party_id}'")
 
-            party_member_ids = placement["party_member_ids"]
+            party_member_ids = placement["player_ids"]
             _post_match_placement_event_to_members(party_member_ids, "MatchPlacementFailed", placement)
         else:
             log.info(f"Placement '{placement_id}' failed for player '{player_id}'")
