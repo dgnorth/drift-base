@@ -40,7 +40,7 @@ Try it out here:
 ## Running Tests
 1. Launch the backend
 2. Add pycharm test config
-3. Install atomicwrites
+3. (Windows only) Install atomicwrites
 
 The backend needs to be up and running in order to run the tests successfully.
 Run the following command from WSL from the project root to get postgres & redis up and running:
@@ -57,7 +57,7 @@ Tests that are run need to have the following environment variable set in the py
 DRIFT_APP_ROOT=C:\path_to\project_root  # replace with proper path
 ```
 
-You might also need to install the atomicwrites package for the python interperater used by the environment.
+If on Windows, then you might also need to install the atomicwrites package for the python interperater used by the environment.
 
 
 ## Modifying library dependencies
