@@ -8,7 +8,7 @@ WORKDIR /build
 ENV PYTHONUSERBASE=/root/.app
 
 RUN python -m pip install --upgrade pip
-RUN pip install pipenv
+RUN pip install pipenv==2022.8.5
 RUN pip install --user --ignore-installed --no-warn-script-location uwsgi
 
 COPY Pipfile* ./
