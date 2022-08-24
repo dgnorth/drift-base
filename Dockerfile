@@ -8,7 +8,7 @@ WORKDIR /build
 ENV PYTHONUSERBASE=/root/.app
 
 RUN python -m pip install --upgrade pip
-RUN pip install pipenv==2022.8.5
+RUN pip install pipenv
 RUN pip install --user --ignore-installed --no-warn-script-location uwsgi
 
 COPY Pipfile* ./
@@ -20,7 +20,7 @@ COPY Pipfile* ./
 # really ends up in our /root/.local folder where we want it to be
 RUN --mount=type=secret,id=pip-credentials \
     export $(grep -v '^#' /run/secrets/pip-credentials | xargs) \
-    && pipenv lock --keep-outdated -r >requirements.txt
+    && pipenv requirements >requirements.txt
 
 # Once we have our requirements.txt, we install everything the user folder defined above with PYTHONUSERBASE
 RUN --mount=type=secret,id=pip-credentials \
