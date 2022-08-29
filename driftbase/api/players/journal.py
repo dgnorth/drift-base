@@ -5,7 +5,7 @@ import marshmallow as ma
 from dateutil import parser
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 from operator import itemgetter
 
 from drift.core.extensions.jwt import current_user

@@ -2,7 +2,7 @@ import datetime
 import http.client as http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 
 def setUpModule():
@@ -13,7 +13,7 @@ def tearDownModule():
     remove_tenant()
 
 
-class CountersTest(DriftBaseTestCase):
+class CountersTest(DriftTestCase):
     """
     Tests for the /counters endpoint
     """

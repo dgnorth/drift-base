@@ -1,11 +1,11 @@
 import logging
 
 import marshmallow as ma
-from drift.utils import Url
 from drift.utils import json_response
 from flask import g
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
+from flask_marshmallow.fields import AbsoluteURLFor
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 import http.client as http_client
 
@@ -14,7 +14,7 @@ from driftbase.players import can_edit_player
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("player_gamestate", __name__, url_prefix='/players', description="Datastore for game state information")
+bp = Blueprint("player_gamestate", __name__, url_prefix='/players')
 
 MAX_DATA_LEN = 1024 * 1024  # 1MB
 
@@ -32,14 +32,12 @@ class GameStateSchema(SQLAlchemyAutoSchema):
         include_relationships = True
         strict = True
         model = GameState
-    gamestate_url = Url('player_gamestate.entry',
+    gamestate_url = AbsoluteURLFor('player_gamestate.entry',
                         player_id='<player_id>',
-                        namespace='<namespace>',
-                        doc="Url to the game state resource")
-    gamestatehistory_url = Url('player_gamestate.historylist',
+                        namespace='<namespace>')
+    gamestatehistory_url = AbsoluteURLFor('player_gamestate.historylist',
                                player_id='<player_id>',
-                               namespace='<namespace>',
-                               doc="Url to the game state history resource")
+                               namespace='<namespace>')
 
 
 class GameStateHistorySchema(SQLAlchemyAutoSchema):
@@ -48,11 +46,10 @@ class GameStateHistorySchema(SQLAlchemyAutoSchema):
         include_relationships = True
         strict = True
         model = GameStateHistory
-    gamestatehistoryentry_url = Url('player_gamestate.historyentry',
+    gamestatehistoryentry_url = AbsoluteURLFor('player_gamestate.historyentry',
                                     player_id='<player_id>',
                                     namespace='<namespace>',
-                                    gamestatehistory_id='<gamestatehistory_id>',
-                                    doc="Url to the game state history resource")
+                                    gamestatehistory_id='<gamestatehistory_id>')
 
 
 @bp.route("/<int:player_id>/gamestates", endpoint="list")

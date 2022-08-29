@@ -15,12 +15,13 @@ import logging
 import marshmallow as ma
 from flask import request, url_for, g, current_app
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
+from flask_marshmallow.fields import AbsoluteURLFor
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
 from drift.core.extensions.jwt import current_user, issue_token
 from drift.core.extensions.urlregistry import Endpoints
-from drift.utils import json_response, Url
+from drift.utils import json_response
 from driftbase.config import get_client_heartbeat_config
 from driftbase.models.db import (
     User, CorePlayer, Client, UserIdentity
@@ -28,7 +29,7 @@ from driftbase.models.db import (
 from driftbase.utils import url_client
 
 log = logging.getLogger(__name__)
-bp = Blueprint("clients", __name__, url_prefix="/clients", description="Client registration")
+bp = Blueprint("clients", __name__, url_prefix="/clients")
 endpoints = Endpoints()
 
 
@@ -62,7 +63,7 @@ class ClientSchema(SQLAlchemyAutoSchema):
         model = Client
         exclude = ()
 
-    client_url = Url('clients.entry',
+    client_url = AbsoluteURLFor('clients.entry',
                      doc="Fully qualified URL of the client resource",
                      client_id='<client_id>')
 

@@ -1,7 +1,7 @@
 from drift.systesthelper import DriftTestCase
 
 
-class DriftBaseTestCase(DriftTestCase):
+class DriftTestCase(DriftTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

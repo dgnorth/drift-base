@@ -3,11 +3,12 @@ import logging
 import marshmallow as ma
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
-from drift.utils import Url
 from flask import url_for, g, current_app
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 import http.client as http_client
+
+from flask_marshmallow.fields import AbsoluteURLFor
 
 from driftbase.messages import post_message
 from driftbase.models.db import CorePlayer
@@ -57,7 +58,7 @@ class PartyInvitesSchema(ma.Schema):
 
 class PartyPlayerSchema(ma.Schema):
     player_id = ma.fields.Integer()
-    player_url = Url('players.entry', player_id='<player_id>', doc='Player resource')
+    player_url = AbsoluteURLFor('players.entry', player_id='<player_id>')
     player_name = ma.fields.String()
     identity_name = ma.fields.String()
 

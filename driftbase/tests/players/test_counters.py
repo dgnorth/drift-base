@@ -5,7 +5,7 @@ import http.client as http_client
 import unittest
 
 from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 
 def setUpModule():
@@ -16,7 +16,7 @@ def tearDownModule():
     remove_tenant()
 
 
-class CountersTests(DriftBaseTestCase):
+class CountersTests(DriftTestCase):
     def test_counters_basic(self):
         self.auth(username=uuid_string())
         player_url = self.endpoints["my_player"]

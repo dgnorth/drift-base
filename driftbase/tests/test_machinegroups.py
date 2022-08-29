@@ -1,9 +1,9 @@
 import http.client as http_client
 
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 
-class MachineGroupsTest(DriftBaseTestCase):
+class MachineGroupsTest(DriftTestCase):
     """
     Tests for the /machines service endpoints
     """

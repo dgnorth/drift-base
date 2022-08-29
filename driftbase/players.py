@@ -5,7 +5,7 @@ import http.client as http_client
 import logging
 
 from flask import g, request
-from flask_smorest import abort
+from drift.blueprint import abort
 
 from drift.core.extensions.jwt import current_user
 

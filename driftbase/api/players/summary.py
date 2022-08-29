@@ -2,7 +2,7 @@ import logging
 
 from flask import request, g, abort, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint
+from drift.blueprint import Blueprint
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 import http.client as http_client
 

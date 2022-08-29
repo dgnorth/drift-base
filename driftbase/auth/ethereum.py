@@ -1,4 +1,6 @@
 import datetime
+from hashlib import pbkdf2_hmac
+
 import eth_keys.exceptions
 import eth_utils.exceptions
 import http.client as http_client
@@ -7,8 +9,7 @@ import logging
 import marshmallow as ma
 from eth_account import Account
 from eth_account.messages import encode_defunct
-from flask_smorest import abort
-from werkzeug.security import pbkdf2_hex
+from drift.blueprint import abort
 
 from driftbase.auth import get_provider_config
 from .authenticate import authenticate as base_authenticate, AuthenticationException, ServiceUnavailableException, \
@@ -50,7 +51,7 @@ def authenticate(auth_info):
 
     automatic_account_creation = auth_info.get('automatic_account_creation', True)
     # FIXME: The static salt should perhaps be configured per tenant
-    username = "ethereum:" + pbkdf2_hex(identity_id, 'static_salt', iterations=1)
+    username = "ethereum:" + pbkdf2_hmac('sha256', identity_id, 'static_salt', iterations=1).hex()
     return base_authenticate(username, "", automatic_account_creation)
 
 

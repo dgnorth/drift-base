@@ -8,7 +8,7 @@ import logging
 import marshmallow as ma
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 
 from drift.core.extensions.jwt import requires_roles
 from drift.core.extensions.urlregistry import Endpoints
@@ -16,7 +16,7 @@ from driftbase.models.db import RunConfig
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("runconfigs", __name__, url_prefix="/runconfigs", description="Battleserver run configuration")
+bp = Blueprint("runconfigs", __name__, url_prefix="/runconfigs")
 endpoints = Endpoints()
 
 

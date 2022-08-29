@@ -4,10 +4,10 @@ import http.client as http_client
 from unittest.mock import patch
 
 from driftbase.api.servers import ServersPostResponseSchema, ServerPutResponseSchema, ServerHeartbeatPutResponseSchema
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 
-class ServersTest(DriftBaseTestCase):
+class ServersTest(DriftTestCase):
     """
     Tests for the /servers service endpoints
     """

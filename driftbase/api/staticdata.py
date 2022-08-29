@@ -4,13 +4,13 @@ import marshmallow as ma
 import requests
 from flask import g, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint
+from drift.blueprint import Blueprint
 
 from drift.core.extensions.urlregistry import Endpoints
 
 log = logging.getLogger(__file__)
 
-bp = Blueprint('staticdata', __name__, url_prefix='/staticdata', description="Static Data Management")
+bp = Blueprint('staticdata', __name__, url_prefix='/staticdata')
 endpoints = Endpoints()
 
 

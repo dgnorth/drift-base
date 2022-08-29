@@ -7,7 +7,7 @@ import logging
 import marshmallow as ma
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 
 from drift.core.extensions.jwt import requires_roles
 from drift.core.extensions.urlregistry import Endpoints
@@ -15,8 +15,7 @@ from driftbase.models.db import MachineGroup
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("machinegroups", __name__, url_prefix="/machinegroups",
-               description="Battleserver machine instance groups")
+bp = Blueprint("machinegroups", __name__, url_prefix="/machinegroups")
 endpoints = Endpoints()
 
 

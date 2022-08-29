@@ -7,7 +7,7 @@ import unittest
 
 from drift.systesthelper import setup_tenant, remove_tenant
 from drift.utils import get_config
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 
 def setUpModule():
@@ -18,7 +18,7 @@ def tearDownModule():
     remove_tenant()
 
 
-class CfgTest(DriftBaseTestCase):
+class CfgTest(DriftTestCase):
     """
     Tests for the /static-data endpoint
     """

@@ -8,7 +8,7 @@ import logging
 import marshmallow as ma
 from flask import g, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
@@ -19,7 +19,7 @@ from driftbase.utils import url_player
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("matchqueue", "matchqueue", url_prefix="/matchqueue", description="Queuing mechanism for matches")
+bp = Blueprint("matchqueue", "matchqueue", url_prefix="/matchqueue")
 
 endpoints = Endpoints()
 

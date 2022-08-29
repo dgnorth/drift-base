@@ -32,7 +32,6 @@
         "driftbase.api.lobbies",
         "driftbase.api.match_placements",
 
-        "drift.core.apps.schemas",
         "drift.core.apps.provision",
         "drift.core.apps.healthcheck",
         "drift.contrib.apps.servicestatus"

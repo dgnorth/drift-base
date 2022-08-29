@@ -7,7 +7,7 @@ from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from flask import request, g, abort, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint
+from drift.blueprint import Blueprint
 import http.client as http_client
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
@@ -25,7 +25,7 @@ MIN_WORDLIST_NUMBER_OF_WORDS = 2
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("friendships", __name__, url_prefix="/friendships", description="Player to player relationships")
+bp = Blueprint("friendships", __name__, url_prefix="/friendships")
 endpoints = Endpoints()
 
 

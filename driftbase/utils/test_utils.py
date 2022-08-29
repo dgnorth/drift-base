@@ -3,10 +3,10 @@
 """
 import http.client as http_client
 from drift.systesthelper import uuid_string
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 
-class BaseCloudkitTest(DriftBaseTestCase):
+class BaseCloudkitTest(DriftTestCase):
 
     def make_player(self, username=None):
         username = username or uuid_string()

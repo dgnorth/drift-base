@@ -5,7 +5,7 @@ import uuid
 import marshmallow as ma
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 import http.client as http_client
 
 from drift.core.extensions.jwt import current_user, requires_roles
@@ -17,7 +17,7 @@ from driftbase.models.db import (
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("servers", __name__, url_prefix="/servers", description="Battle server processes")
+bp = Blueprint("servers", __name__, url_prefix="/servers")
 endpoints = Endpoints()
 
 

@@ -6,7 +6,7 @@ import unittest
 from dateutil import parser
 
 from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 MIN_ENTRIES = 0
 
@@ -21,7 +21,7 @@ def tearDownModule():
 
 # patch celery to run its tasks inproc
 # @patch.dict('drift.core.extensions.celery.celery.conf', {'CELERY_ALWAYS_EAGER': True})
-class JournalTests(DriftBaseTestCase):
+class JournalTests(DriftTestCase):
     """
     Tests for the /players/x/journal endpoints
     """

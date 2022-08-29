@@ -6,7 +6,7 @@ import marshmallow as ma
 from dateutil import parser
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 from marshmallow import validate, ValidationError
 from marshmallow.decorators import validates_schema
 
@@ -17,7 +17,7 @@ from driftbase.models.db import Machine, MachineEvent
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("machines", __name__, url_prefix="/machines", description="Battleserver machine instances")
+bp = Blueprint("machines", __name__, url_prefix="/machines")
 endpoints = Endpoints()
 
 

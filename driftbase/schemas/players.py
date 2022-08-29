@@ -1,7 +1,7 @@
+from flask_marshmallow.fields import AbsoluteURLFor
 from marshmallow import pre_dump, fields
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from driftbase.models.db import CorePlayer
-from drift.utils import Url
 from flask import url_for
 
 
@@ -16,25 +16,21 @@ class PlayerSchema(SQLAlchemyAutoSchema):
 
     is_online = fields.Boolean()
 
-    player_url = Url(
+    player_url = AbsoluteURLFor(
         'players.entry',
-        doc="Fully qualified URL of the player resource",
         player_id='<player_id>',
     )
 
-    gamestates_url = Url(
+    gamestates_url = AbsoluteURLFor(
         'player_gamestate.list',
-        doc="Fully qualified URL of the players' gamestate resource",
         player_id='<player_id>',
     )
-    journal_url = Url(
+    journal_url = AbsoluteURLFor(
         'player_journal.list',
-        doc="Fully qualified URL of the players' journal resource",
         player_id='<player_id>',
     )
-    user_url = Url(
+    user_url = AbsoluteURLFor(
         'users.entry',
-        doc="Fully qualified URL of the players' user resource",
         user_id='<user_id>',
     )
     messagequeue_url = fields.Str(
@@ -43,30 +39,25 @@ class PlayerSchema(SQLAlchemyAutoSchema):
     messagequeue2_url = fields.Str(
         description="Fully qualified URL of the players' message queue resource"
     )
-    messages_url = Url(
+    messages_url = AbsoluteURLFor(
         'messages.exchange',
-        doc="Fully qualified URL of the players' messages resource",
         exchange='players',
         exchange_id='<player_id>',
     )
-    summary_url = Url(
+    summary_url = AbsoluteURLFor(
         'player_summary.list',
-        doc="Fully qualified URL of the players' summary resource",
         player_id='<player_id>',
     )
-    countertotals_url = Url(
+    countertotals_url = AbsoluteURLFor(
         'player_counters.totals',
-        doc="Fully qualified URL of the players' counter totals resource",
         player_id='<player_id>',
     )
-    counter_url = Url(
+    counter_url = AbsoluteURLFor(
         'player_counters.list',
-        doc="Fully qualified URL of the players' counter resource",
         player_id='<player_id>',
     )
-    tickets_url = Url(
+    tickets_url = AbsoluteURLFor(
         'player_tickets.list',
-        doc="Fully qualified URL of the players' tickets resource",
         player_id='<player_id>',
     )
 

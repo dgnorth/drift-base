@@ -4,7 +4,7 @@ import json
 import unittest
 
 from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
-from driftbase.systesthelper import DriftBaseTestCase
+from driftbase.systesthelper import DriftTestCase
 
 
 def setUpModule():
@@ -27,7 +27,7 @@ def _generate_dummy_gamestate(numkeys=100):
 
 
 # @patch.dict('from drift.core.extensions.celery.celery.conf', {'CELERY_ALWAYS_EAGER': True})
-class GameStateTests(DriftBaseTestCase):
+class GameStateTests(DriftTestCase):
     """
     Tests for the /players/x/gamestate endpoint
     """

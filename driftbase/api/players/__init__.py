@@ -5,7 +5,7 @@ from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from flask import g, url_for
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 from marshmallow import validates, ValidationError
 from sqlalchemy.sql import func
 import http.client as http_client
@@ -25,9 +25,7 @@ from driftbase.schemas.players import PlayerSchema
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint(
-    'players', __name__, url_prefix='/players', description='Player Management'
-)
+bp = Blueprint('players', __name__, url_prefix='/players')
 
 endpoints = Endpoints()
 
