@@ -36,9 +36,9 @@ def process_client_message(queue_name, message):
             log.info(f"Removing player '{player_id}' from party '{party_id}' since the player's client de-registered")
             leave_party(player_id, party_id)
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp_parties)
-    api.register_blueprint(bp_party_invites)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp_parties)
+    app.register_blueprint(bp_party_invites)
     endpoints.init_app(app)
     app.messagebus.register_consumer(process_client_message, "client")
 

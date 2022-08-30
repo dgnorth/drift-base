@@ -18,8 +18,8 @@ clientlogger = logging.getLogger("clientlog")
 eventlogger = logging.getLogger("eventlog")
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 

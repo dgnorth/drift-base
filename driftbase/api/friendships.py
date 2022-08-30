@@ -34,8 +34,8 @@ def on_message(queue_name, message):
         log.info("Friendship is forevur! This one just connected: %s", message['payload'])
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
     app.messagebus.register_consumer(on_message, "client")
 

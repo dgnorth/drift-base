@@ -19,8 +19,8 @@ bp = Blueprint("machinegroups", __name__, url_prefix="/machinegroups")
 endpoints = Endpoints()
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 

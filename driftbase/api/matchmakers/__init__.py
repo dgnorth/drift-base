@@ -11,8 +11,8 @@ MATCHMAKER_MODULES = ["flexmatch"]
 bp = Blueprint("matchmakers", __name__, url_prefix="/matchmakers")
 endpoints = Endpoints()
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 

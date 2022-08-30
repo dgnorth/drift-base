@@ -46,8 +46,8 @@ class UserIdentitiesPostSchema(ma.Schema):
     link_with_user_jti = ma.fields.Str(metadata=dict(description="User JTI to link the current player with"))
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 

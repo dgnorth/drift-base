@@ -66,14 +66,14 @@ class PlayerPatchArgs(ma.Schema):
         )
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
-    api.register_blueprint(counters.bp)
-    api.register_blueprint(gamestate.bp)
-    api.register_blueprint(journal.bp)
-    api.register_blueprint(playergroups.bp)
-    api.register_blueprint(summary.bp)
-    api.register_blueprint(tickets.bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
+    app.register_blueprint(counters.bp)
+    app.register_blueprint(gamestate.bp)
+    app.register_blueprint(journal.bp)
+    app.register_blueprint(playergroups.bp)
+    app.register_blueprint(summary.bp)
+    app.register_blueprint(tickets.bp)
     endpoints.init_app(app)
 
 

@@ -53,9 +53,9 @@ class UserRequestSchema(ma.Schema):
         ordered = True
 
 
-def drift_init_extension(app, api, **kwargs):
+def drift_init_extension(app, **kwargs):
     endpoints.init_app(app)
-    api.register_blueprint(bp)
+    app.register_blueprint(bp)
 
 
 #@bp.route('', endpoint='users')

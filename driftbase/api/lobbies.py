@@ -18,8 +18,8 @@ bp = Blueprint("lobbies", "lobbies", url_prefix="/lobbies")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 class LobbyMemberResponseSchema(Schema):

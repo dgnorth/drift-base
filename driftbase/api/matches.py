@@ -25,8 +25,8 @@ endpoints = Endpoints()
 MATCH_HEARTBEAT_TIMEOUT_SECONDS = 60
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 
