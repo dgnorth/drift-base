@@ -188,7 +188,8 @@ class MatchQueueEntryAPI(MethodView):
         Find a player in the queue by ID
         """
         result = g.db.query(MatchQueuePlayer, CorePlayer) \
-            .filter(MatchQueuePlayer.player_id == player_id, CorePlayer.player_id == player_id) \
+            .join(CorePlayer, CorePlayer.player_id == MatchQueuePlayer.player_id) \
+            .filter(MatchQueuePlayer.player_id == player_id) \
             .order_by(-MatchQueuePlayer.id).first()
 
         if not result:
