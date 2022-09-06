@@ -25,7 +25,7 @@ class EventsTest(DriftBaseTestCase):
         print(r.json())
         self.assertIn("'event_name'", r.json()["error"]["description"])
 
-        self.post(endpoint, expected_status_code=http_client.METHOD_NOT_ALLOWED)
+        self.post(endpoint, expected_status_code=http_client.BAD_REQUEST)
         self.post(
             endpoint, data=[], expected_status_code=http_client.METHOD_NOT_ALLOWED
         )
@@ -100,7 +100,12 @@ class EventsTest(DriftBaseTestCase):
         self.auth()
         self.assertIn("clientlogs", self.endpoints)
         endpoint = self.endpoints["clientlogs"]
-        self.post(endpoint, expected_status_code=http_client.METHOD_NOT_ALLOWED)
+        # FIXME: Werkzeug >= 2.1 responds with BAD_REQUEST if the Content-Type is not application/json and if we pass a
+        #        "false" value to the testing framework it won't set the header. In the past this always returned
+        #        METHOD_NOT_ALLOWED. However, METHOD_NOT_ALLOWED is arguably the wrong response in any case, since it's
+        #        really malformed. Modifying it would be a breaking change, but since this is always a user error that
+        #        should have been avoided already, perhaps it's not a big deal.
+        self.post(endpoint, expected_status_code=http_client.BAD_REQUEST)
         self.post(
             endpoint, data=[], expected_status_code=http_client.METHOD_NOT_ALLOWED
         )

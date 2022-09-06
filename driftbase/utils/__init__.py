@@ -5,7 +5,7 @@ from dateutil import parser
 import http.client as http_client
 
 from flask import g, url_for
-from flask_smorest import abort
+from drift.blueprint import abort
 
 from driftbase.models.db import MatchEvent
 log = logging.getLogger(__name__)

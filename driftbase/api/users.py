@@ -4,7 +4,7 @@ import http.client as http_client
 from flask import url_for, g
 from flask.views import MethodView
 import marshmallow as ma
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.models.db import User, CorePlayer, UserIdentity
@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 endpoints = Endpoints()
 
-bp = Blueprint('users', __name__, url_prefix='/users', description='User management')
+bp = Blueprint('users', __name__, url_prefix='/users')
 
 
 class UserPlayerSchema(SQLAlchemyAutoSchema):
@@ -53,9 +53,9 @@ class UserRequestSchema(ma.Schema):
         ordered = True
 
 
-def drift_init_extension(app, api, **kwargs):
+def drift_init_extension(app, **kwargs):
     endpoints.init_app(app)
-    api.register_blueprint(bp)
+    app.register_blueprint(bp)
 
 
 #@bp.route('', endpoint='users')

@@ -3,7 +3,7 @@ import http.client
 import http.client as http_client
 import logging
 from flask import g, current_app
-from flask_smorest import abort
+from drift.blueprint import abort
 
 from driftbase.models.db import User, CorePlayer, UserIdentity, UserRole
 from driftbase.utils import UserCache

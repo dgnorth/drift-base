@@ -24,7 +24,7 @@
 # QueueEventAPI @ /matchmakers/flexmatch/queue-events/ - endpoint "queue-events"
 #   PUT exposed to AWS EventBridge to publish flexmatch queue events
 
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import requires_roles
 from marshmallow import Schema, fields
@@ -35,13 +35,13 @@ from driftbase import flexmatch
 import http.client as http_client
 import logging
 
-bp = Blueprint("flexmatch", __name__, url_prefix="/matchmakers/flexmatch", description="Orchestration of GameLift/FlexMatch matchmakers.")
+bp = Blueprint("flexmatch", __name__, url_prefix="/matchmakers/flexmatch")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     app.messagebus.register_consumer(flexmatch.handle_party_event, "parties")
     app.messagebus.register_consumer(flexmatch.handle_client_event, "client")
     app.messagebus.register_consumer(flexmatch.handle_match_event, "match")

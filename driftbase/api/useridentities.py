@@ -6,7 +6,7 @@ from flask import url_for, g, jsonify
 from flask import make_response
 from flask.views import MethodView
 import marshmallow as ma
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
 from drift.core.extensions.jwt import current_user, get_cached_token
@@ -15,7 +15,7 @@ from driftbase.models.db import User, CorePlayer, UserIdentity
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint('useridentities', 'User Identities', url_prefix='/user-identities', description='User identity management')
+bp = Blueprint('useridentities', 'User Identities', url_prefix='/user-identities')
 
 endpoints = Endpoints()
 
@@ -46,8 +46,8 @@ class UserIdentitiesPostSchema(ma.Schema):
     link_with_user_jti = ma.fields.Str(metadata=dict(description="User JTI to link the current player with"))
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 

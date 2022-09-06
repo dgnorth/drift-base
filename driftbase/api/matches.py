@@ -6,7 +6,7 @@ import json
 from contextlib import ExitStack
 from flask import url_for, g, jsonify, current_app
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user, requires_roles
 from drift.core.extensions.urlregistry import Endpoints
@@ -19,14 +19,14 @@ DEFAULT_ROWS = 100
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("matches", __name__, url_prefix="/matches", description="Realtime matches")
+bp = Blueprint("matches", __name__, url_prefix="/matches")
 endpoints = Endpoints()
 
 MATCH_HEARTBEAT_TIMEOUT_SECONDS = 60
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 
