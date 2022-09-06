@@ -9,7 +9,7 @@ ENV PYTHONUSERBASE=/root/.app
 
 RUN python -m pip install --upgrade pip
 RUN pip install pipenv
-RUN pip install --user --ignore-installed --no-warn-script-location uwsgi
+RUN pip install --user --ignore-installed --no-warn-script-location gunicorn
 
 COPY Pipfile* ./
 
@@ -30,15 +30,11 @@ RUN --mount=type=secret,id=pip-credentials \
 FROM python:${PYTHON_VERSION}-slim-${BASE_IMAGE} as app
 LABEL Maintainer="Directive Games <info@directivegames.com>"
 
-RUN addgroup --gid 1000 uwsgi && useradd -ms /bin/bash uwsgi -g uwsgi
-
-RUN UWSGI_RUNTIME_DEPS=libxml2 \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends ${UWSGI_RUNTIME_DEPS}
+RUN addgroup --gid 1000 gunicorn && useradd -ms /bin/bash gunicorn -g gunicorn
 
 WORKDIR /app
 
-COPY --chown=uwsgi:uwsgi --from=builder /root/.app/ /home/uwsgi/.local/
+COPY --chown=gunicorn:gunicorn --from=builder /root/.app/ /home/gunicorn/.local/
 COPY . .
 
 ARG VERSION
@@ -51,8 +47,8 @@ LABEL CommitHash="${COMMIT_HASH}"
 # For runtime consumption
 RUN echo '{"version": "'${VERSION}'", "build_timestamp": "'${BUILD_TIMESTAMP}'", "commit_hash": "'${COMMIT_HASH}'"}' > .build_info
 
-USER uwsgi
+USER gunicorn
 
-ENV PATH /home/uwsgi/.local/bin:$PATH
+ENV PATH /home/gunicorn/.local/bin:$PATH
 
-CMD ["/app/wrap-uwsgi.sh"]
+CMD ["gunicorn", "--config", "./config/gunicorn.conf.py"]
