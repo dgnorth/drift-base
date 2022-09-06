@@ -1,11 +1,11 @@
 import http.client as http_client
 
 from drift.systesthelper import uuid_string
-from driftbase.systesthelper import DriftTestCase
+from driftbase.systesthelper import DriftBaseTestCase
 from driftbase.tests import has_key
 
 
-class UserIdentitiesTest(DriftTestCase):
+class UserIdentitiesTest(DriftBaseTestCase):
     def test_identities_missing_user(self):
         # authenticate with gamecenter
         username_gamecenter = "gamecenter:G:%s" % uuid_string()

@@ -5,10 +5,10 @@ import json
 import mock
 
 from drift.core.extensions.jwt import current_user
-from driftbase.systesthelper import DriftTestCase
+from driftbase.systesthelper import DriftBaseTestCase
 
 
-class EventsTest(DriftTestCase):
+class EventsTest(DriftBaseTestCase):
     """
     Tests for the /events and /clientlogs endpoint
     """

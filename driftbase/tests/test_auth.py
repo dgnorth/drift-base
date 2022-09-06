@@ -3,7 +3,7 @@ from mock import patch, MagicMock
 
 from drift.systesthelper import setup_tenant, remove_tenant
 from drift.utils import get_config
-from driftbase.systesthelper import DriftTestCase
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 def setUpModule():
@@ -32,7 +32,7 @@ def tearDownModule():
     remove_tenant()
 
 
-class AuthTests(DriftTestCase):
+class AuthTests(DriftBaseTestCase):
 
     def test_oculus_authentication(self):
         # Oculus provisional authentication check
@@ -161,7 +161,7 @@ uuid_auth_with_provider_data = {
 }
 
 
-class BaseAuthTests(DriftTestCase):
+class BaseAuthTests(DriftBaseTestCase):
     def _auth_and_get_user(self, data):
         token1 = self.post('/auth', data=data, expected_status_code=http_client.OK)
         user1 = self.get('/', headers={'Authorization': f"BEARER {token1.json()['token']}"}).json()['current_user']
