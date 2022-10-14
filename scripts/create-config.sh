@@ -18,12 +18,12 @@ dconf tier add $TIER --is-dev
 
 dconf organization add monkeyworks mw -d "Monkey Works"
 dconf product add $PRODUCT
-driftconfig push -f $CONFIG >/dev/null
+driftconfig push -f $CONFIG
 
-driftconfig register >/dev/null
+driftconfig register
 
 # These inputs are queried in random order
-expect >/dev/null <<EOF
+expect <<EOF
 spawn driftconfig assign-tier $DEPLOYABLE --tiers $TIER
 expect {
 "* drift.core.resources.postgres.server:" { send -- "postgres\r" ; exp_continue }
@@ -39,15 +39,15 @@ EOF
 
 dconf set --location $TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"postgres\", \"password\": \"\" }}}"
 
-dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}" >/dev/null
+dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}"
 #driftconfig assign-product $DEPLOYABLE --products $PRODUCT
-driftconfig push -f $CONFIG >/dev/null
+driftconfig push -f $CONFIG
 
-driftconfig create-tenant $TENANT $PRODUCT $TIER >/dev/null
+driftconfig create-tenant $TENANT $PRODUCT $TIER
 
-driftconfig provision-tenant $TENANT $DEPLOYABLE >/dev/null
+driftconfig provision-tenant $TENANT $DEPLOYABLE
 
-dconf set --location $TIER --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG" >/dev/null
-driftconfig push -f $CONFIG >/dev/null
+dconf set --location $TIER --raw cache="redis://127.0.0.1:6379?prefix=$CONFIG"
 
+driftconfig push -f $CONFIG
 driftconfig cache $CONFIG
