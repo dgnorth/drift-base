@@ -37,13 +37,16 @@ expect {
 }
 EOF
 
-dconf set --location $TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"postgres\", \"password\": \"\" }}}"
+# set a custom default DB user for the tier
+dconf set --location $TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"drift_tier_user\", \"password\": \"tier-pw\" }}}"
 
+# TODO: replace this with tooling, driftconfig assign-product $DEPLOYABLE --products $PRODUCT
 dconf set --location products.$PRODUCT --raw "{\"deployables\": [\"$DEPLOYABLE\"]}"
-#driftconfig assign-product $DEPLOYABLE --products $PRODUCT
 driftconfig push -f $CONFIG
 
 driftconfig create-tenant $TENANT $PRODUCT $TIER
+# set a custom DB user for the tenant
+dconf set --location tenants.$TIER.$DEPLOYABLE.$TENANT --raw "{\"postgres\": { \"username\": \"drift_tenant_user\", \"password\": \"tenant-pw\" }}"
 
 driftconfig provision-tenant $TENANT $DEPLOYABLE
 
