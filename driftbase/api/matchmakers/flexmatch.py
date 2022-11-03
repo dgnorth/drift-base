@@ -35,10 +35,10 @@ from driftbase import flexmatch
 import http.client as http_client
 import logging
 
-
 bp = Blueprint("flexmatch", __name__, url_prefix="/matchmakers/flexmatch", description="Orchestration of GameLift/FlexMatch matchmakers.")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
+
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
@@ -47,9 +47,9 @@ def drift_init_extension(app, api, **kwargs):
     app.messagebus.register_consumer(flexmatch.handle_match_event, "match")
     endpoints.init_app(app)
 
+
 @bp.route("/regions/", endpoint="regions")
 class FlexMatchPlayerAPI(MethodView):
-
     class FlexMatchRegionsSchema(Schema):
         regions = fields.List(fields.String(), metadata=dict(description="The list of regions."))
 
@@ -63,7 +63,6 @@ class FlexMatchPlayerAPI(MethodView):
 
 @bp.route("/<int:player_id>", endpoint="matchmaker")
 class FlexMatchPlayerAPI(MethodView):
-
     class FlexMatchLatencySchema(Schema):
         latencies = fields.Mapping(keys=fields.String(), values=fields.Integer(), required=True,
                                    metadata=dict(description="Latency between client and the region he's measuring against."))
@@ -91,7 +90,6 @@ class FlexMatchPlayerAPI(MethodView):
 
 @bp.route("/tickets/", endpoint="tickets")
 class FlexMatchTicketsAPI(MethodView):
-
     class FlexMatchTicketsAPIPostArgs(Schema):
         matchmaker = fields.String(required=True, metadata=dict(
             description="Which matchmaker (configuration name) to issue the ticket for. "))
@@ -103,6 +101,7 @@ class FlexMatchTicketsAPI(MethodView):
         ticket_url = fields.String()
         ticket_id = fields.String()
         ticket_status = fields.String()
+        matchmaker = fields.String()
 
     @staticmethod
     @bp.response(http_client.OK, FlexMatchTicketsAPIGetResponse)
@@ -114,11 +113,12 @@ class FlexMatchTicketsAPI(MethodView):
         ticket = flexmatch.get_player_ticket(player_id)
         if ticket:
             return {
-                       "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
-                       "ticket_id": ticket["TicketId"],
-                       "ticket_status": ticket["Status"]
-                   }, http_client.OK
-        return {}, http_client.NOT_FOUND
+                "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
+                "ticket_id": ticket["TicketId"],
+                "ticket_status": ticket["Status"],
+                "matchmaker": ticket["ConfigurationName"],
+            }
+        return abort(http_client.NOT_FOUND, message="No ticket found")
 
     @staticmethod
     @bp.arguments(FlexMatchTicketsAPIPostArgs)
@@ -134,18 +134,19 @@ class FlexMatchTicketsAPI(MethodView):
             return {
                 "ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True),
                 "ticket_id": ticket["TicketId"],
-                "ticket_status": ticket["Status"]
+                "ticket_status": ticket["Status"],
+                "matchmaker": ticket["ConfigurationName"],
             }
         except flexmatch.GameliftClientException as e:
             player_id = player_id or "UNKNOWN"
             log.error(
                 f"Inserting/updating matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
-            return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
+            return abort(http_client.INTERNAL_SERVER_ERROR, message=e.msg)
         except flexmatch.TicketConflict as e:
             player_id = player_id or "UNKNOWN"
             log.error(
                 f"Player {player_id} attempted to start matchmaking while older ticket is still being cancelled.\n{e.debugs}")
-            return {"error": e.msg}, http_client.CONFLICT
+            return abort(http_client.CONFLICT, message=e.msg)
 
 
 @bp.route("/tickets/<string:ticket_id>", endpoint="ticket")
@@ -160,6 +161,7 @@ class FlexMatchTicketAPI(MethodView):
         status = fields.String(required=True, metadata=dict(description="The status of the ticket after the operation"))
 
     @staticmethod
+    @bp.response(http_client.OK)
     def get(ticket_id):
         """
         Return the stored ticket if the calling player is a member of the ticket, either solo or via party
@@ -170,8 +172,8 @@ class FlexMatchTicketAPI(MethodView):
         if player_id:
             ticket = flexmatch.get_player_ticket(player_id)
             if ticket and ticket["TicketId"] == ticket_id:
-                return ticket, http_client.OK
-            return {}, http_client.NOT_FOUND
+                return ticket
+            return abort(http_client.NOT_FOUND, message=f"Ticket {ticket_id} not found")
         abort(http_client.UNAUTHORIZED)
 
     @staticmethod
@@ -189,10 +191,11 @@ class FlexMatchTicketAPI(MethodView):
                 return {"status": "Deleted"}
             except flexmatch.GameliftClientException as e:
                 log.error(f"Cancelling matchmaking ticket for player {player_id} failed: Gamelift response:\n{e.debugs}")
-                return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
+                return abort(http_client.INTERNAL_SERVER_ERROR, message=e.msg)
         abort(http_client.UNAUTHORIZED)
 
     @bp.arguments(FlexMatchTicketAPIPatchArgs)
+    @bp.response(http_client.OK)
     def patch(self, args, ticket_id):
         """
         Accept or decline a match
@@ -202,11 +205,11 @@ class FlexMatchTicketAPI(MethodView):
         player_id = current_user.get("player_id")
         try:
             flexmatch.update_player_acceptance(ticket_id, player_id, match_id, acceptance)
-            return {}, http_client.OK
+            return {}
         except flexmatch.GameliftClientException as e:
             log.error(
                 f"Updating the acceptance status for {match_id} on behalf of player {player_id} failed: Gamelift response:\n{e.debugs}")
-            return {"error": e.msg}, http_client.INTERNAL_SERVER_ERROR
+            return abort(http_client.INTERNAL_SERVER_ERROR, message=e.msg)
 
 
 @bp.route("/events", endpoint="events")
@@ -217,10 +220,12 @@ class FlexMatchEventAPI(MethodView):
         flexmatch.process_flexmatch_event(request.json)
         return {}, http_client.OK
 
+
 @bp.route("/queue-events", endpoint="queue-events")
 class FlexMatchQueueEventAPI(MethodView):
 
     @requires_roles("flexmatch_event")
+    @bp.response(http_client.OK)
     def put(self):
         # TODO: Have publish message consumer do the try/except in Drift lib
         log.info(f"Queue event: {request.json}")
@@ -229,7 +234,8 @@ class FlexMatchQueueEventAPI(MethodView):
         except Exception as e:
             log.error(f"Error processing queue event: {e}")
 
-        return {}, http_client.OK
+        return {}
+
 
 @endpoints.register
 def endpoint_info(*args):
@@ -248,4 +254,3 @@ def endpoint_info(*args):
         if player_ticket:
             ret["my_flexmatch_ticket"] = url_for("flexmatch.ticket", ticket_id=player_ticket["TicketId"], _external=True)
     return ret
-

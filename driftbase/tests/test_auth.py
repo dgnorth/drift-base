@@ -114,3 +114,153 @@ class AuthTests(DriftBaseTestCase):
             with patch('driftbase.auth.steam._call_check_app_ownership') as mock_own:
                 mock_own.return_value.status_code = 200
                 self.post('/auth', data=data, expected_status_code=http_client.UNAUTHORIZED)
+
+
+old_style_user_pass_data = {
+    'username': 'new-user',
+    'password': 'test',
+    'automatic_account_creation': True
+}
+
+old_style_auth_with_user_pass_provider_data = {
+    'provider': 'user+pass',
+    'username': 'new-user',
+    'password': 'test',
+    'automatic_account_creation': True
+}
+
+user_pass_auth_with_provider_data = {
+    'provider': 'user+pass',
+    'provider_details': {
+        'username': 'new-user',
+        'password': 'test',
+    },
+    'automatic_account_creation': True
+}
+
+old_style_uuid_data = {
+    'username': 'uuid:some_hash',
+    'password': 'test',
+    'automatic_account_creation': True
+}
+
+old_style_uuid_provider_data = {
+    'provider': 'uuid',
+    'username': 'some_hash',
+    'password': 'test',
+    'automatic_account_creation': True
+}
+
+uuid_auth_with_provider_data = {
+    'provider': 'uuid',
+    'provider_details': {
+        'key': 'some_hash',
+        'secret': 'test',
+    },
+    'automatic_account_creation': True
+}
+
+
+class BaseAuthTests(DriftBaseTestCase):
+    def _auth_and_get_user(self, data):
+        token1 = self.post('/auth', data=data, expected_status_code=http_client.OK)
+        user1 = self.get('/', headers={'Authorization': f"BEARER {token1.json()['token']}"}).json()['current_user']
+        return user1
+
+    def test_old_style_user_pass_auth(self):
+        user1 = self._auth_and_get_user(old_style_user_pass_data)
+        user2 = self._auth_and_get_user(old_style_user_pass_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+
+    def test_old_style_auth_with_user_pass_provider(self):
+        user1 = self._auth_and_get_user(old_style_auth_with_user_pass_provider_data)
+        user2 = self._auth_and_get_user(old_style_auth_with_user_pass_provider_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+
+    def test_user_pass_auth_with_provider(self):
+        user1 = self._auth_and_get_user(user_pass_auth_with_provider_data)
+        user2 = self._auth_and_get_user(user_pass_auth_with_provider_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+
+    def test_user_pass_with_missing_properties(self):
+        data = old_style_user_pass_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_user_pass_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = old_style_auth_with_user_pass_provider_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_auth_with_user_pass_provider_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = user_pass_auth_with_provider_data
+        del data['provider_details']['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = user_pass_auth_with_provider_data
+        del data['provider_details']['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+    def test_old_style_uuid(self):
+        user1 = self._auth_and_get_user(old_style_uuid_data)
+        user2 = self._auth_and_get_user(old_style_uuid_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+
+    def test_old_style_uuid_provider(self):
+        user1 = self._auth_and_get_user(old_style_uuid_provider_data)
+        user2 = self._auth_and_get_user(old_style_uuid_provider_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+
+    def test_uuid_auth_with_provider(self):
+        user1 = self._auth_and_get_user(uuid_auth_with_provider_data)
+        user2 = self._auth_and_get_user(uuid_auth_with_provider_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+
+    def test_uuid_with_missing_properties(self):
+        data = old_style_uuid_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_uuid_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = old_style_uuid_provider_data
+        del data['username']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = old_style_uuid_provider_data
+        del data['password']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+        data = uuid_auth_with_provider_data
+        del data['provider_details']['key']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+        data = uuid_auth_with_provider_data
+        del data['provider_details']['secret']
+        self.post('/auth', data=data, expected_status_code=http_client.BAD_REQUEST)
+
+    def test_user_pass_methods_resolve_to_same_user(self):
+        user1 = self._auth_and_get_user(old_style_user_pass_data)
+        user2 = self._auth_and_get_user(old_style_auth_with_user_pass_provider_data)
+        user3 = self._auth_and_get_user(user_pass_auth_with_provider_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user2['identity_id'], user3['identity_id'])
+        self.assertEqual(user2['user_id'], user3['user_id'])
+
+    def test_uuid_methods_resolve_to_same_user(self):
+        user1 = self._auth_and_get_user(old_style_uuid_data)
+        user2 = self._auth_and_get_user(old_style_uuid_provider_data)
+        user3 = self._auth_and_get_user(uuid_auth_with_provider_data)
+        self.assertEqual(user1['identity_id'], user2['identity_id'])
+        self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user2['identity_id'], user3['identity_id'])
+        self.assertEqual(user2['user_id'], user3['user_id'])

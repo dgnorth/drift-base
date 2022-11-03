@@ -56,7 +56,9 @@ def validate_steam_ticket():
 
     # Find configuration for the requested Steam app id.
     appid = int(provider_details.get('appid'))
-    if steam_config['appid'] != appid:
+    appids = [steam_config.get('appid'), steam_config.get('playtest_appid')]
+    supported_appids = list(filter(lambda id: id is not None, appids))
+    if appid not in supported_appids:
         abort(http_client.SERVICE_UNAVAILABLE, description="Steam authentication not configured for app %s." % appid)
 
     # Look up our secret key or key url

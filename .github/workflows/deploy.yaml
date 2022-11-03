@@ -99,6 +99,6 @@ jobs:
           PYPI_USERNAME: ${{ secrets.DG_TWINE_USERNAME }}
           PYPI_PASSWORD: ${{ secrets.DG_TWINE_PASSWORD }}
         run: |
-          echo "export PYPI_USERNAME=${PYPI_USERNAME}" >.env
-          echo "export PYPI_PASSWORD=${PYPI_PASSWORD}" >>.env
+          echo "PYPI_USERNAME=${PYPI_USERNAME}" >.env
+          echo "PYPI_PASSWORD=${PYPI_PASSWORD}" >>.env
           make build push REGISTRY=${{ steps.login-ecr.outputs.registry }} REF=${{ github.ref }} VERSION=${{ steps.gitversion.outputs.semVer }}

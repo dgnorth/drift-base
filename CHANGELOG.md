@@ -1,6 +1,7 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
+  - [0.10.0](#0100)
   - [0.9.0](#090)
   - [0.8.0](#080)
   - [0.7.0](#070)
@@ -31,6 +32,15 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.10.0
+
+### Bug Fixes / Feature Improvements
+- Update to Drift 0.10.2
+- Improve auth handling 
+- Parties/flexmatch: party ticket is now cancelled if player leaves party while searching for match
+- Fix potential deadlock in match svc by introducing timeouts on held locks
+
+
 ## 0.9.0
 
 ### Bug Fixes / Feature Improvements

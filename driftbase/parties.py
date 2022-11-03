@@ -1,7 +1,7 @@
 import logging
 from time import time
 
-from flask import g, url_for
+from flask import g, url_for, current_app
 from redis import WatchError
 import http.client as http_client
 from webargs.flaskparser import abort
@@ -175,6 +175,8 @@ def leave_party(player_id, party_id):
 
                 if result is None:
                     abort(http_client.BAD_REQUEST, message="You're not a member of this party")
+
+                current_app.messagebus.publish_message("parties", {"event": "player_left", "player_id": player_id, "party_id": party_id})
 
                 # Notify party members
                 members = get_party_members(party_id)

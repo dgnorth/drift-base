@@ -15,9 +15,9 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-def lock(redis):
+def lock(redis, **kwargs):
     # Moving this into a separate function so systems test can mock it out.
-    return redis.lock("process_match_queue")
+    return redis.lock("process_match_queue", **kwargs)
 
 
 def check_ref_and_placement(player, match, server, machine):
@@ -38,7 +38,7 @@ def process_match_queue(redis=None, db_session=None):
         redis = g.redis
     if db_session is None:
         db_session = g.db
-    with lock(redis):
+    with lock(redis, timeout=60*15):
         # find all valid players waiting in the queue
         queued_players = db_session.query(MatchQueuePlayer, Client) \
             .filter(Client.client_id == MatchQueuePlayer.client_id,
