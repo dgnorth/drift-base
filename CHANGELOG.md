@@ -1,6 +1,7 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
+  - [0.8.0](#080)
   - [0.7.0](#070)
   - [0.6.3](#063)
   - [0.6.2](#062)
@@ -29,6 +30,13 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.8.0
+
+### New features
+- Support generic match_placements without lobbies
+
+### Bug Fixes / Feature Improvements
+- Support fetching recent matches for a given player
 
 ## 0.7.0
 

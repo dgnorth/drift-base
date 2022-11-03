@@ -3,11 +3,14 @@ import json
 import datetime
 import typing
 import uuid
+import copy
 from flask import g
-from driftbase.models.db import Match
+from driftbase.models.db import Match, CorePlayer
 from driftbase import flexmatch
+from driftbase.parties import get_player_party, get_party_members
 from driftbase.lobbies import InvalidRequestException, NotFoundException, UnauthorizedException, ConflictException, _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, _get_lobby_host_player_id, _get_player_lobby_key
-from driftbase.utils.redis_utils import JsonLock
+from driftbase.utils.redis_utils import JsonLock, DEFAULT_LOCK_TTL_SECONDS, DEFAULT_LOCK_TIMEOUT_SECONDS
+from driftbase.messages import post_message
 
 MATCH_PROVIDER = "gamelift"
 
@@ -51,6 +54,7 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
 
 def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> dict:
     player_lobby_key = _get_player_lobby_key(player_id)
+    player_match_placement_key = _get_player_match_placement_key(player_id)
 
     # Check lobby id
     player_lobby_id = g.redis.conn.get(player_lobby_key)
@@ -64,25 +68,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
         raise UnauthorizedException(f"You don't have permission to access lobby {lobby_id}")
 
     # Check existing placement
-    player_match_placement_key = _get_player_match_placement_key(player_id)
-
-    existing_placement_id = g.redis.conn.get(player_match_placement_key)
-
-    if existing_placement_id:
-        with JsonLock(_get_match_placement_key(existing_placement_id)) as match_placement_lock:
-            if existing_placement_id != g.redis.conn.get(player_match_placement_key):
-                log.warning(f"Existing match placement check failed for player '{player_id}'. Player was assigned to match placement'{existing_placement_id}', but was no longer assigned to the match placement after getting the lock")
-                raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
-
-            placement = match_placement_lock.value
-
-            if not placement:
-                log.warning(f"Player '{player_id}' is assigned to match placement '{existing_placement_id}' but the match placement doesn't exist")
-                g.redis.conn.delete(player_match_placement_key)
-                existing_placement_id = None
-            elif placement["status"] == "pending":
-                log.warning(f"Player '{player_id}' attempted to start a match placement while assigned to pending match placement '{existing_placement_id}'")
-                raise InvalidRequestException("You have a pending match placement in progress")
+    existing_placement_id = _check_existing_match_placement(player_id)
 
     with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
         if lobby_id != g.redis.conn.get(player_lobby_key):
@@ -109,79 +95,86 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
             log.warning(f"Player '{player_id}' attempted to start the match for lobby '{lobby_id}' while the match is starting")
             raise InvalidRequestException(f"An active match placement is already in progress for the lobby")
 
-        # Request a game server
-        lobby_name = lobby["lobby_name"]
-        game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
-        placement_id = f"Lobby-{lobby_id}-{uuid.uuid4()}"[:48] # Placement id must be <= 48 characters
-        max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
-        custom_data = lobby["custom_data"]
+        # Lock players
+        player_ids = [member["player_id"] for member in lobby["members"]]
+        player_locks = _get_player_locks(player_ids)
 
-        lobby["placement_id"] = placement_id
+        try:
+            # Request a game server
+            lobby_name = lobby["lobby_name"]
+            game_session_name = f"Lobby-{lobby_id}-{lobby_name}"
+            placement_id = f"Lobby-{lobby_id}-{uuid.uuid4()}"[:48] # Placement id must be <= 48 characters
+            max_player_session_count = lobby["team_capacity"] * len(lobby["team_names"])
+            custom_data = lobby["custom_data"]
 
-        player_latencies = []
-        for member in lobby["members"]:
-            for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
-                player_latencies.append({
-                    "PlayerId": str(member["player_id"]),
-                    "RegionIdentifier": region,
-                    "LatencyInMilliseconds": latency
-                })
+            lobby["placement_id"] = placement_id
 
-        log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}' in queue '{queue}'. GameLift placement id: '{placement_id}'")
-        response = flexmatch.start_game_session_placement(
-            PlacementId=placement_id,
-            GameSessionQueueName=queue,
-            MaximumPlayerSessionCount=max_player_session_count,
-            GameSessionName=game_session_name,
-            GameProperties=[
-                {
-                    "Key": "lobby",
-                    "Value": "true",
-                },
-            ],
-            PlayerLatencies=player_latencies,
-            DesiredPlayerSessions=[
-                {
-                    "PlayerId": str(member["player_id"]),
-                    "PlayerData": json.dumps({
-                        "player_name": member["player_name"],
-                        "team_name": member["team_name"],
-                        "host": member["host"],
-                    }),
-                }
-                for member in lobby["members"] if member["team_name"]
-            ],
-            GameSessionData=json.dumps({
-                "lobby_id": lobby_id,
-                "lobby_name": lobby_name,
-                "lobby_map": lobby["map_name"],
-                "lobby_members": [
+            player_latencies = []
+            for member in lobby["members"]:
+                for region, latency in flexmatch.get_player_latency_averages(member["player_id"]).items():
+                    player_latencies.append({
+                        "PlayerId": str(member["player_id"]),
+                        "RegionIdentifier": region,
+                        "LatencyInMilliseconds": latency
+                    })
+
+            log.info(f"Host player '{player_id}' is starting lobby match for lobby '{lobby_id}' in queue '{queue}'. GameLift placement id: '{placement_id}'")
+            response = flexmatch.start_game_session_placement(
+                PlacementId=placement_id,
+                GameSessionQueueName=queue,
+                MaximumPlayerSessionCount=max_player_session_count,
+                GameSessionName=game_session_name,
+                GameProperties=[
                     {
-                        "player_id": str(member["player_id"]),
-                        "player_name": member["player_name"],
-                        "team_name": member["team_name"],
-                        "host": member["host"],
+                        "Key": "LobbyMatch",
+                        "Value": "1",
+                    },
+                    {
+                        "Key": "lobby", # FIXME: Remove this game property once TMA version 0.13 goes live
+                        "Value": "true",
                     }
-                    for member in lobby["members"]
                 ],
-                "lobby_custom_data": custom_data,
-            }),
-        )
+                PlayerLatencies=player_latencies,
+                DesiredPlayerSessions=[
+                    {
+                        "PlayerId": str(member["player_id"]),
+                        "PlayerData": json.dumps({
+                            "player_name": member["player_name"],
+                            "team_name": member["team_name"],
+                            "host": member["host"],
+                        }),
+                    }
+                    for member in lobby["members"] if member["team_name"]
+                ],
+                GameSessionData=json.dumps({
+                    "lobby_id": lobby_id,
+                    "lobby_name": lobby_name,
+                    "lobby_map": lobby["map_name"],
+                    "lobby_members": [
+                        {
+                            "player_id": str(member["player_id"]),
+                            "player_name": member["player_name"],
+                            "team_name": member["team_name"],
+                            "host": member["host"],
+                        }
+                        for member in lobby["members"]
+                    ],
+                    "lobby_custom_data": custom_data,
+                }),
+            )
 
-        log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
+            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
 
-        # Check if another placement started for the player while waiting for a response
-        if existing_placement_id != g.redis.conn.get(player_match_placement_key):
-            log.warning(
-                f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
+            # Check if another placement started for the player while waiting for a response
+            if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+                log.warning(
+                    f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
 
-            response = flexmatch.stop_game_session_placement(placement_id)
-            log.debug(f"match_placements::start_lobby_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+                response = flexmatch.stop_game_session_placement(placement_id)
+                log.debug(f"match_placements::start_lobby_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
 
-            raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
+                raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
 
-        # Lock used as a convenient way to serialize the JSON value - Locking isn't required here since this is a new placement id
-        with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
             match_placement = {
                 "placement_id": placement_id,
                 "player_id": player_id,
@@ -190,10 +183,17 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
                 "lobby_id": lobby_id,
                 "status": "pending",
                 "create_date": datetime.datetime.utcnow().isoformat(),
+                "map_name": lobby["map_name"],
+                "custom_data": custom_data,
+                "max_players": max_player_session_count,
+                "player_ids": player_ids,
             }
 
-            match_placement_lock.value = match_placement
-            g.redis.conn.set(player_match_placement_key, placement_id)
+            _save_match_placement(match_placement, player_ids)
+        finally:
+            # Release locks
+            for lock in player_locks:
+                lock.release()
 
         lobby["status"] = "starting"
         lobby["placement_date"] = datetime.datetime.utcnow().isoformat()
@@ -207,6 +207,106 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
         _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
 
         return match_placement
+
+def start_match_placement(player_id: int, queue: str, map_name: str, max_players: int, identifier: typing.Optional[str] = None, custom_data: typing.Optional[str] = None) -> dict:
+    player_match_placement_key = _get_player_match_placement_key(player_id)
+
+    # Check existing placement
+    existing_placement_id = _check_existing_match_placement(player_id)
+
+    party_id = get_player_party(player_id)
+    player_ids = get_party_members(party_id) if party_id else [player_id]
+
+    # Lock the players
+    player_locks = _get_player_locks(player_ids)
+
+    try:
+        players = []
+        player_latencies = []
+        for player_id_entry in player_ids:
+            # Latency
+            for region, latency in flexmatch.get_player_latency_averages(player_latencies).items():
+                player_latencies.append({
+                    "PlayerId": str(player_latencies),
+                    "RegionIdentifier": region,
+                    "LatencyInMilliseconds": latency
+                })
+
+            # Player
+            party_member_name = g.db.query(CorePlayer.player_name).filter(CorePlayer.player_id == player_id).first().player_name
+            players.append({
+                "PlayerId": str(player_id_entry),
+                "PlayerData": json.dumps({
+                    "player_name": party_member_name,
+                }),
+            })
+
+        # Request a game server
+        game_session_name = f"{identifier}-{uuid.uuid4()}"[:48]  # Placement id must be <= 48 characters
+        placement_id = game_session_name
+
+        log.info(f"Player '{player_id}' is starting match '{identifier}' in queue '{queue}'. Map name: '{map_name}'. GameLift placement id: '{placement_id}'")
+        response = flexmatch.start_game_session_placement(
+            PlacementId=placement_id,
+            GameSessionQueueName=queue,
+            MaximumPlayerSessionCount=max_players,
+            GameSessionName=game_session_name,
+            GameProperties=[
+                {
+                    "Key": "CustomMatch",
+                    "Value": "1",
+                },
+            ],
+            PlayerLatencies=player_latencies,
+            DesiredPlayerSessions=players,
+            GameSessionData=json.dumps({
+                "map_name": map_name,
+                "players": players,
+                "custom_data": custom_data,
+            }),
+        )
+
+        log.debug(f"match_placements::start_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
+
+        # Check if another placement started for the player while waiting for a response
+        if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+            log.warning( f"Player '{player_id}' attempted to start match placement, but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
+
+            response = flexmatch.stop_game_session_placement(placement_id)
+            log.debug(f"match_placements::start_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+
+            raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
+
+        match_placement = {
+            "placement_id": placement_id,
+            "player_id": player_id,
+            "match_provider": MATCH_PROVIDER,
+            "queue": queue,
+            "status": "pending",
+            "create_date": datetime.datetime.utcnow().isoformat(),
+            "map_name": map_name,
+            "custom_data": custom_data,
+            "max_players": max_players,
+            "player_ids": copy.copy(player_ids),
+        }
+
+        if party_id:
+            match_placement["party_id"] = party_id
+
+        _save_match_placement(match_placement, player_ids)
+    finally:
+        # Release locks
+        for lock in player_locks:
+            lock.release()
+
+    log.info(f"GameLift game session placement '{placement_id}' issued by player '{player_id}'")
+
+    # Notify players
+    player_ids.remove(player_id)
+    if player_ids:
+        _post_match_placement_event_to_members(player_ids, "MatchPlacementIssued", match_placement)
+
+    return match_placement
 
 def stop_player_match_placement(player_id: int, expected_match_placement_id: str):
     player_match_placement_key = _get_player_match_placement_key(player_id)
@@ -225,10 +325,6 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
         placement = match_placement_lock.value
 
         if placement:
-            lobby_id = placement.get("lobby_id", None)
-            if not lobby_id:
-                raise RuntimeError(f"Match placement '{placement_id}' doesn't contain a 'lobby_id' field. Only lobby match placements are supported at this time")
-
             match_provider = placement["match_provider"]
             if match_provider != MATCH_PROVIDER:
                 raise RuntimeError(f"Invalid match provider configured, '{match_provider}'. Only the GameLift match provider is supported at this time")
@@ -292,14 +388,73 @@ def process_match_message(queue_name: str, message: dict):
 
 # Helpers
 
+def _check_existing_match_placement(player_id: int) -> str:
+    player_match_placement_key = _get_player_match_placement_key(player_id)
+
+    existing_placement_id = g.redis.conn.get(player_match_placement_key)
+
+    if existing_placement_id:
+        with JsonLock(_get_match_placement_key(existing_placement_id)) as match_placement_lock:
+            if existing_placement_id != g.redis.conn.get(player_match_placement_key):
+                log.warning(
+                    f"Existing match placement check failed for player '{player_id}'. Player was assigned to match placement'{existing_placement_id}', but was no longer assigned to the match placement after getting the lock")
+                raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
+
+            placement = match_placement_lock.value
+
+            if not placement:
+                log.warning(f"Player '{player_id}' is assigned to match placement '{existing_placement_id}' but the match placement doesn't exist")
+                g.redis.conn.delete(player_match_placement_key)
+                existing_placement_id = None
+            elif placement["status"] == "pending":
+                log.warning(f"Player '{player_id}' attempted to start a match placement while assigned to pending match placement '{existing_placement_id}'")
+                raise InvalidRequestException("You have a pending match placement in progress")
+
+    return existing_placement_id
+
+def _post_match_placement_event_to_members(receiving_player_ids: list[int], event: str, event_data: typing.Optional[dict] = None, expiry: typing.Optional[int] = None):
+    """ Insert an event into the 'match_placements' queue of the 'players' exchange. """
+    log.info(f"Posting '{event}' to players '{receiving_player_ids}' with event_data '{event_data}'")
+
+    if not receiving_player_ids:
+        log.warning(f"Empty receiver in match placement event '{event}' message")
+        return
+
+    payload = {
+        "event": event,
+        "data": event_data or {}
+    }
+
+    for receiver_id in receiving_player_ids:
+        post_message("players", int(receiver_id), "match_placements", payload, expiry, sender_system=True)
+
+def _get_player_locks(player_ids: typing.List[int]):
+    player_locks = []
+    for player_id_entry in sorted(player_ids):
+        # Lock
+        placement_key = _get_player_match_placement_key(player_id_entry)
+        lock = g.redis.conn.lock(placement_key + "LOCK", timeout=30)
+        lock.acquire(blocking=True)
+        player_locks.append(lock)
+
+    return player_locks
+
+def _save_match_placement(match_placement: dict, player_ids: typing.List[int]):
+    placement_id = match_placement["placement_id"]
+    with g.redis.conn.pipeline() as pipe:
+        pipe.set(_get_match_placement_key(placement_id), json.dumps(match_placement), ex=DEFAULT_LOCK_TTL_SECONDS)
+
+        for player_id_entry in player_ids:
+            placement_key = _get_player_match_placement_key(player_id_entry)
+            pipe.set(placement_key, placement_id, ex=DEFAULT_LOCK_TTL_SECONDS)
+
+        pipe.execute()
+
 def _get_match_placement_key(placement_id: str) -> str:
     return g.redis.make_key(f"match-placement:{placement_id}:")
 
 def _get_player_match_placement_key(player_id: int) -> str:
     return g.redis.make_key(f"player:{player_id}:match-placement:")
-
-def _get_tenant_name():
-    return g.conf.tenant.get('tenant_name')
 
 def _get_event_details(event: dict):
     if event.get("detail-type", None) != "GameLift Queue Placement Event":
@@ -321,9 +476,12 @@ def _validate_gamelift_placement_for_queue_event(placement_id: str, placement: d
         log.info(f"GameLift placement '{placement_id}' not found in match placements. Ignoring.")
         return False
 
-    lobby_id = placement.get("lobby_id", None)
-    if not lobby_id:
-        raise RuntimeError(f"Malformed match placement. Match placement '{placement_id}' doesn't have a lobby id")
+    lobby_id = placement.get("lobby_id")
+    party_id = placement.get("party_id")
+    player_id = placement.get("player_id")
+
+    if not lobby_id and not party_id and not player_id:
+        raise RuntimeError(f"Malformed match placement. Match placement '{placement_id}' doesn't have a lobby id, party id or a player_id")
 
     log.info(f"Processing GameLift placement '{placement_id}' for lobby '{lobby_id}'")
 
@@ -339,63 +497,102 @@ def _process_fulfilled_queue_event(event_details: dict):
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
             return
 
-        lobby_id = placement["lobby_id"]
+        log.info(f"Placement '{placement_id}' completed. Duration: '{duration}s'")
+
+        # General connection info
+        ip_address: str = event_details["ipAddress"]
+        port = int(event_details["port"])
+
+        connection_string = f"{ip_address}:{port}"
+
         placement["status"] = "completed"
         placement["game_session_arn"] = event_details["gameSessionArn"]
+        placement["connection_string"] = connection_string
 
         match_placement_lock.value = placement
 
-        log.info(f"Placement '{placement_id}' completed. Duration: '{duration}s'")
+        # Gather connection info for each player
+        connection_options_by_player_id = {}
+        for player in event_details["placedPlayerSessions"]:
+            player_id = int(player["playerId"])
+            player_session_id: str = player["playerSessionId"]
 
-        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.value
+            connection_options_by_player_id[player_id] = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
 
-            if not lobby:
-                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing fulfilled queue event for placement '{placement_id}'")
+        lobby_id: str = placement.get("lobby_id")
+        party_id: int = placement.get("party_id")
+        player_id: int = placement.get("player_id")
 
-            ip_address: str = event_details["ipAddress"]
-            port = int(event_details["port"])
+        if lobby_id:
+            log.info(f"Placement '{placement_id}' completed for lobby '{lobby_id}'")
 
-            connection_string = f"{ip_address}:{port}"
+            with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+                lobby = lobby_lock.value
 
-            lobby["connection_string"] = connection_string
-            lobby["status"] = "started"
-            lobby["start_date"] = datetime.datetime.utcnow().isoformat()
+                if not lobby:
+                    raise RuntimeError(f"Lobby '{lobby_id}' not found while processing fulfilled queue event for placement '{placement_id}'")
 
-            log.info(f"Lobby match for lobby '{lobby_id}' has started.")
+                lobby["connection_string"] = connection_string
+                lobby["status"] = "started"
+                lobby["start_date"] = datetime.datetime.utcnow().isoformat()
 
-            lobby_lock.value = lobby
+                log.info(f"Lobby match for lobby '{lobby_id}' has started.")
 
-            # Notify members
+                lobby_lock.value = lobby
 
-            # Gather connection info for each player
-            connection_options_by_player_id = {}
-            for player in event_details["placedPlayerSessions"]:
-                player_id: int = int(player["playerId"])
-                player_session_id: str = player["playerSessionId"]
+                # Notify members
 
-                connection_options_by_player_id[player_id] = f"PlayerSessionId={player_session_id}?PlayerId={player_id}"
+                # Post events to players one-by-one for unique connection info
+                for member in lobby["members"]:
+                    member_player_id: int = member["player_id"]
 
-            # Post events to players one-by-one for unique connection info
-            for member in lobby["members"]:
-                member_player_id: int = member["player_id"]
+                    # Spectator only connection options for non-team lobby members
+                    connection_options = connection_options_by_player_id.get(member_player_id, "SpectatorOnly=1")
 
-                # Spectator only connection options for non-team lobby members
-                connection_options = connection_options_by_player_id.get(member_player_id, "SpectatorOnly=1")
+                    # Sanity check that if the player is assigned to a team, the player MUST have received a player session
+                    member_team_name = member["team_name"]
+                    if member_team_name and member_player_id not in connection_options_by_player_id:
+                        log.error(f"Player '{member_player_id}' in team '{member_team_name}' didn't receive a player session. Event details: '{event_details}'")
+                        continue
 
-                # Sanity check that if the player is assigned to a team, the player MUST have received a player session
-                member_team_name = member["team_name"]
-                if member_team_name and member_player_id not in connection_options_by_player_id:
-                    log.error(f"Player '{member_player_id}' in team '{member_team_name}' didn't receive a player session. Event details: '{event_details}'")
+                    event_data = {
+                        "lobby_id": lobby_id,
+                        "status": lobby["status"],
+                        "connection_string": connection_string,
+                        "connection_options": connection_options,
+                    }
+                    _post_lobby_event_to_members([member_player_id], "LobbyMatchStarted", event_data)
+        elif party_id:
+            log.info(f"Placement '{placement_id}' completed for party '{party_id}'")
+
+            party_member_ids = placement["party_member_ids"]
+
+            for party_member_id in party_member_ids:
+                if party_member_id not in connection_options_by_player_id:
+                    log.error(f"Player '{party_member_id}' didn't receive a player session. Event details: '{event_details}'")
                     continue
 
+                connection_options = connection_options_by_player_id[party_member_id]
+
                 event_data = {
-                    "lobby_id": lobby_id,
-                    "status": lobby["status"],
-                    "connection_string": connection_string,
+                    **placement,
                     "connection_options": connection_options,
                 }
-                _post_lobby_event_to_members([member_player_id], "LobbyMatchStarted", event_data)
+                _post_match_placement_event_to_members([party_member_id], "MatchPlacementFulfilled", event_data)
+        else:
+            log.info(f"Placement '{placement_id}' completed for player '{player_id}'")
+
+            if player_id not in connection_options_by_player_id:
+                log.error(f"Player '{player_id}' didn't receive a player session. Event details: '{event_details}'")
+                return
+
+            connection_options = connection_options_by_player_id[player_id]
+
+            event_data = {
+                **placement,
+                "connection_options": connection_options,
+            }
+            _post_match_placement_event_to_members([player_id], "MatchPlacementFulfilled", event_data)
 
 def _process_cancelled_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
@@ -407,28 +604,41 @@ def _process_cancelled_queue_event(event_details: dict):
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
             return
 
-        lobby_id = placement["lobby_id"]
         placement["status"] = "cancelled"
 
         match_placement_lock.value = placement
 
         log.info(f"Placement '{placement_id}' cancelled. Duration: '{duration}s'")
 
-        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.value
+        lobby_id: str = placement.get("lobby_id")
+        party_id: int = placement.get("party_id")
+        player_id: int = placement.get("player_id")
 
-            if not lobby:
-                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing cancelled queue event for placement '{placement_id}'")
+        if lobby_id:
+            log.info(f"Placement '{placement_id}' cancelled for lobby '{lobby_id}'")
+            with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+                lobby = lobby_lock.value
 
-            lobby["status"] = "cancelled"
+                if not lobby:
+                    raise RuntimeError(f"Lobby '{lobby_id}' not found while processing cancelled queue event for placement '{placement_id}'")
 
-            log.info(f"Lobby match placement for lobby '{lobby_id}' cancelled.")
+                lobby["status"] = "cancelled"
 
-            lobby_lock.value = lobby
+                log.info(f"Lobby match placement for lobby '{lobby_id}' cancelled.")
 
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby)
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchCancelled", {"lobby_id": lobby_id, "status": lobby["status"]})
+                lobby_lock.value = lobby
+
+                # Notify members
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchCancelled", {"lobby_id": lobby_id, "status": lobby["status"]})
+        elif party_id:
+            log.info(f"Placement '{placement_id}' cancelled for party '{party_id}'")
+
+            party_member_ids = placement["party_member_ids"]
+            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementCancelled", placement)
+        else:
+            log.info(f"Placement '{placement_id}' cancelled for player '{player_id}'")
+            _post_match_placement_event_to_members([player_id], "MatchPlacementCancelled", placement)
 
 
 def _process_timed_out_queue_event(event_details: dict):
@@ -441,28 +651,41 @@ def _process_timed_out_queue_event(event_details: dict):
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
             return
 
-        lobby_id = placement["lobby_id"]
         placement["status"] = "timed_out"
 
         match_placement_lock.value = placement
 
         log.info(f"Placement '{placement_id}' timed out. Duration: '{duration}s'")
 
-        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.value
+        lobby_id: str = placement.get("lobby_id")
+        party_id: int = placement.get("party_id")
+        player_id: int = placement.get("player_id")
 
-            if not lobby:
-                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing timed out queue event for placement '{placement_id}'")
+        if lobby_id:
+            log.info(f"Placement '{placement_id}' timed out for lobby '{lobby_id}'")
+            with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+                lobby = lobby_lock.value
 
-            lobby["status"] = "timed_out"
+                if not lobby:
+                    raise RuntimeError(f"Lobby '{lobby_id}' not found while processing timed out queue event for placement '{placement_id}'")
 
-            log.info(f"Lobby match placement for lobby '{lobby_id}' timed_out.")
+                lobby["status"] = "timed_out"
 
-            lobby_lock.value = lobby
+                log.info(f"Lobby match placement for lobby '{lobby_id}' timed_out.")
 
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby)
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchTimedOut", {"lobby_id": lobby_id, "status": lobby["status"]})
+                lobby_lock.value = lobby
+
+                # Notify members
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchTimedOut", {"lobby_id": lobby_id, "status": lobby["status"]})
+        elif party_id:
+            log.info(f"Placement '{placement_id}' timed out for party '{party_id}'")
+
+            party_member_ids = placement["party_member_ids"]
+            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementTimedOut", placement)
+        else:
+            log.info(f"Placement '{placement_id}' timed out for player '{player_id}'")
+            _post_match_placement_event_to_members([player_id], "MatchPlacementTimedOut", placement)
 
 def _process_failed_queue_event(event_details: dict):
     placement_id = event_details["placementId"]
@@ -474,28 +697,41 @@ def _process_failed_queue_event(event_details: dict):
         if not _validate_gamelift_placement_for_queue_event(placement_id, placement):
             return
 
-        lobby_id = placement["lobby_id"]
         placement["status"] = "failed"
 
         match_placement_lock.value = placement
 
         log.info(f"Placement '{placement_id}' failed. Duration: '{duration}s'")
 
-        with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
-            lobby = lobby_lock.value
+        lobby_id: str = placement.get("lobby_id")
+        party_id: int = placement.get("party_id")
+        player_id: int = placement.get("player_id")
 
-            if not lobby:
-                raise RuntimeError(f"Lobby '{lobby_id}' not found while processing failed queue event for placement '{placement_id}'")
+        if lobby_id:
+            log.info(f"Placement '{placement_id}' failed for lobby '{lobby_id}'")
+            with JsonLock(_get_lobby_key(lobby_id)) as lobby_lock:
+                lobby = lobby_lock.value
 
-            lobby["status"] = "failed"
+                if not lobby:
+                    raise RuntimeError(f"Lobby '{lobby_id}' not found while processing failed queue event for placement '{placement_id}'")
 
-            log.info(f"Lobby match placement for lobby '{lobby_id}' failed.")
+                lobby["status"] = "failed"
 
-            lobby_lock.value = lobby
+                log.info(f"Lobby match placement for lobby '{lobby_id}' failed.")
 
-            # Notify members
-            receiving_player_ids = _get_lobby_member_player_ids(lobby)
-            _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchFailed", {"lobby_id": lobby_id, "status": lobby["status"]})
+                lobby_lock.value = lobby
+
+                # Notify members
+                receiving_player_ids = _get_lobby_member_player_ids(lobby)
+                _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchFailed", {"lobby_id": lobby_id, "status": lobby["status"]})
+        elif party_id:
+            log.info(f"Placement '{placement_id}' failed for party '{party_id}'")
+
+            party_member_ids = placement["party_member_ids"]
+            _post_match_placement_event_to_members(party_member_ids, "MatchPlacementFailed", placement)
+        else:
+            log.info(f"Placement '{placement_id}' failed for player '{player_id}'")
+            _post_match_placement_event_to_members([player_id], "MatchPlacementFailed", placement)
 
 def _process_match_ended(match_id: int):
     match = g.db.query(Match).get(match_id)
