@@ -5,9 +5,11 @@ from driftbase.utils.test_utils import BaseCloudkitTest
 from unittest.mock import patch
 from driftbase import flexmatch
 import uuid
+import json
 
 REGION = "eu-west-1"
 EVENTS_ROLE = "flexmatch_event"
+
 
 class TestFlexmatchMatchmaker(BaseCloudkitTest):
     def test_flexmatch_is_in_matchmakers(self):
@@ -21,15 +23,17 @@ class TestFlexmatchMatchmaker(BaseCloudkitTest):
             self.make_player()
             self.assertIn("my_flexmatch_ticket", self.endpoints)
 
+
 class TestFlexMatchPlayerAPI(BaseCloudkitTest):
     def test_patch_api(self):
         self.make_player()
         flexmatch_url = self.endpoints["my_flexmatch"]
         with patch.object(flexmatch, 'update_player_latency', return_value=None):
             with patch.object(flexmatch, 'get_player_latency_averages', return_value={}):
-                with patch.object(flexmatch, 'get_valid_regions', return_value={REGION, "bleh_region"}):
+                with patch.object(flexmatch, 'get_valid_regions', return_value={REGION, "ble_region"}):
                     self.patch(flexmatch_url, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
-                    self.patch(flexmatch_url, data={"latencies": {REGION: 123, "bleh_region": 456}}, expected_status_code=http_client.OK)
+                    self.patch(flexmatch_url, data={"latencies": {REGION: 123, "ble_region": 456}},
+                               expected_status_code=http_client.OK)
 
     def test_get_api(self):
         self.make_player()
@@ -39,6 +43,7 @@ class TestFlexMatchPlayerAPI(BaseCloudkitTest):
             response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()
             self.assertDictEqual(retval, response["latencies"])
 
+
 class TestFlexMatchTicketsAPI(BaseCloudkitTest):
     def test_get_api(self):
         self.make_player()
@@ -46,7 +51,8 @@ class TestFlexMatchTicketsAPI(BaseCloudkitTest):
         with patch.object(flexmatch, 'get_player_ticket', return_value={}):
             response = self.get(tickets_url, expected_status_code=http_client.NOT_FOUND)
             self.assertIn("error", response.json())
-        with patch.object(flexmatch, 'get_player_ticket', return_value={"TicketId": "SomeId", "Status": "SomeStatus", "ConfigurationName": "SomeConfig"}):
+        retval = {"TicketId": "SomeId", "Status": "SomeStatus", "ConfigurationName": "SomeConfig"}
+        with patch.object(flexmatch, 'get_player_ticket', return_value=retval):
             response = self.get(tickets_url, expected_status_code=http_client.OK).json()
             self.assertIn("ticket_url", response)
             self.assertIn("ticket_id", response)
@@ -56,9 +62,11 @@ class TestFlexMatchTicketsAPI(BaseCloudkitTest):
     def test_post_api(self):
         self.make_player()
         tickets_url = self.endpoints["flexmatch_tickets"]
-        with patch.object(flexmatch, 'upsert_flexmatch_ticket', return_value={"TicketId": 123, "Status": "QUEUED", "ConfigurationName": "unittest"}):
+        retval = {"TicketId": 123, "Status": "QUEUED", "ConfigurationName": "unittest"}
+        with patch.object(flexmatch, 'upsert_flexmatch_ticket', return_value=retval):
             self.post(tickets_url, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
-            response = self.post(tickets_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.CREATED).json()
+            response = self.post(tickets_url, data={"matchmaker": "unittest"},
+                                 expected_status_code=http_client.CREATED).json()
             self.assertIn("ticket_url", response)
             self.assertIn("ticket_id", response)
             self.assertIn("ticket_status", response)
@@ -69,37 +77,40 @@ class TestFlexMatchTicketsAPI(BaseCloudkitTest):
             self.assertTrue(response["ticket_status"] == "QUEUED")
             self.assertTrue(response["matchmaker"] == "unittest")
 
+
 class TestFlexMatchTicketAPI(BaseCloudkitTest):
     def test_get_api(self):
         self.make_player()
-        some_ticket_id = "1235-abcdef-whateves"
-        non_existant_ticket_url = self.endpoints["flexmatch_tickets"] + some_ticket_id
+        some_ticket_id = "1235-abcdef-whatever"
+        non_existent_ticket_url = self.endpoints["flexmatch_tickets"] + some_ticket_id
         with patch.object(flexmatch, 'get_player_ticket', return_value={}):
-            response = self.get(non_existant_ticket_url, expected_status_code=http_client.NOT_FOUND)
+            response = self.get(non_existent_ticket_url, expected_status_code=http_client.NOT_FOUND)
             self.assertIn("error", response.json())
-        retval = {"TicketId": some_ticket_id}
+        retval = dict(TicketId=some_ticket_id, Status="SOMETHING", ConfigurationName="SomeConfig", Players=[])
         with patch.object(flexmatch, 'get_player_ticket', return_value=retval):
-            response = self.get(non_existant_ticket_url, expected_status_code=http_client.OK)
-            self.assertDictEqual(retval, response.json())
+            response = self.get(non_existent_ticket_url, expected_status_code=http_client.OK).json()
+            expected = dict(ticket_id=some_ticket_id, ticket_status="SOMETHING", configuration_name="SomeConfig",
+                            players=[], connection_info=None, match_status=None)
+            self.assertEqual(response, expected)
 
     def test_patch_api(self):
         self.make_player()
-        non_existant_ticket_url = self.endpoints["flexmatch_tickets"] + "1235-abcdef-whateves"
+        non_existent_ticket_url = self.endpoints["flexmatch_tickets"] + "1235-abcdef-whatever"
         with patch.object(flexmatch, 'update_player_acceptance', return_value=None):
-            response = self.get(non_existant_ticket_url, expected_status_code=http_client.NOT_FOUND)
+            response = self.get(non_existent_ticket_url, expected_status_code=http_client.NOT_FOUND)
             self.assertIn("error", response.json())
 
     def test_delete_api(self):
         self.make_player()
-        non_existant_ticket_url = self.endpoints["flexmatch_tickets"] + "1235-abcdef-whateves"
+        non_existent_ticket_url = self.endpoints["flexmatch_tickets"] + "1235-abcdef-whatever"
         with patch.object(flexmatch, 'cancel_active_ticket', return_value=None):
-            response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
+            response = self.delete(non_existent_ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["status"], "NoTicketFound")
         with patch.object(flexmatch, 'cancel_active_ticket', return_value="TicketState"):
-            response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
+            response = self.delete(non_existent_ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["status"], "TicketState")
         with patch.object(flexmatch, 'cancel_active_ticket', return_value={"Key": "Value"}):
-            response = self.delete(non_existant_ticket_url, expected_status_code=http_client.OK).json()
+            response = self.delete(non_existent_ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual(response["status"], "Deleted")
 
 
@@ -115,13 +126,15 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
         # last player created gets to play host and invites the others
         host_id = self.player_id
         for member in info[:-1]:
-            self.post(self.endpoints["party_invites"], data={"player_id": member["id"]}, expected_status_code=http_client.CREATED)
+            self.post(self.endpoints["party_invites"], data={"player_id": member["id"]},
+                      expected_status_code=http_client.CREATED)
 
         # The others accept the invite
         for member in info[:-1]:
             self.auth(username=member["name"])
             notification, _ = self.get_player_notification("party_notification", "invite")
-            accept_response = self.patch(notification["invite_url"], data={"inviter_id": host_id}, expected_status_code=http_client.OK).json()
+            accept_response = self.patch(notification["invite_url"], data={"inviter_id": host_id},
+                                         expected_status_code=http_client.OK).json()
             member["member_url"] = accept_response["member_url"]
 
         # Populate host member url
@@ -139,7 +152,8 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
         if extras:
             data["extras"] = extras
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            post_response = self.post(self.endpoints["flexmatch_tickets"], data=data, expected_status_code=http_client.CREATED).json()
+            post_response = self.post(self.endpoints["flexmatch_tickets"], data=data,
+                                      expected_status_code=http_client.CREATED).json()
             ticket_url = post_response["ticket_url"]
             ticket = self.get(ticket_url, expected_status_code=http_client.OK)
         return user_name, ticket_url, ticket.json()
@@ -223,26 +237,29 @@ class FlexMatchTest(_BaseFlexmatchTest):
         latencies = [1.0, 2.0, 3.0, 4.0, 5.0, 10.7]
         expected_avg = [1, 1, 2, 3, 4, 6]  # We expect integers representing the average of the last 3 values
         for i, latency in enumerate(latencies):
-            patch_response = self.patch(flexmatch_url, data={"latencies": {REGION: latency}}, expected_status_code=http_client.OK).json()
+            patch_response = self.patch(flexmatch_url, data={"latencies": {REGION: latency}},
+                                        expected_status_code=http_client.OK).json()
             self.assertIn("latencies", patch_response)
-            reponse_latencies = patch_response["latencies"]
-            self.assertEqual(reponse_latencies[REGION], expected_avg[i])
+            response_latencies = patch_response["latencies"]
+            self.assertEqual(response_latencies[REGION], expected_avg[i])
             # Fetch the same value via GET and make sure its the same
             get_response = self.get(flexmatch_url, expected_status_code=http_client.OK).json()["latencies"]
             self.assertEqual(get_response[REGION], expected_avg[i])
 
     def test_start_matchmaking(self):
         _, _, ticket = self._initiate_matchmaking()
-        self.assertTrue(ticket["Status"] == "QUEUED")
+        self.assertTrue(ticket["ticket_status"] == "QUEUED")
 
     def test_start_matchmaking_doesnt_modify_ticket_if_same_player_reissues_request(self):
         _, ticket1_url, ticket = self._initiate_matchmaking()
-        first_id = ticket["TicketId"]
+        first_id = ticket["ticket_id"]
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"}, expected_status_code=http_client.CREATED).json()
+            response = self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"},
+                                 expected_status_code=http_client.CREATED).json()
         self.assertIn("ticket_url", response)
         ticket2_url = response["ticket_url"]
-        second_id = self.get(ticket2_url, data={"matchmaker": "unittest"}, expected_status_code=http_client.OK).json()["TicketId"]
+        second_id = self.get(ticket2_url, data={"matchmaker": "unittest"},
+                             expected_status_code=http_client.OK).json()["ticket_id"]
         self.assertEqual(first_id, second_id)
         self.assertEqual(ticket1_url, ticket2_url)
 
@@ -262,7 +279,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         self.auth(member["name"])
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             _, ticket_url, ticket = self._initiate_matchmaking(member["name"])
-            players = ticket["Players"]
+            players = ticket["players"]
             self.assertEqual(len(players), 2)
             expected_players = {member["id"], host["id"]}
             response_players = {int(e["PlayerId"]) for e in players}
@@ -273,7 +290,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
         # Let member start matchmaking, host should be included in the ticket
         self.auth(member["name"])
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"}, expected_status_code=http_client.CREATED).json()
+            self.post(self.endpoints["flexmatch_tickets"], data={"matchmaker": "unittest"},
+                      expected_status_code=http_client.CREATED).json()
         # Check if party host got the message
         self.auth(host["name"])
         notification, message_number = self.get_player_notification("matchmaking", "MatchmakingStarted")
@@ -289,16 +307,16 @@ class FlexMatchTest(_BaseFlexmatchTest):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         # Check that we have a stored ticket
         response = self.get(ticket_url, expected_status_code=http_client.OK)
-        self.assertIn("TicketId", response.json())
+        self.assertIn("ticket_id", response.json())
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             self.delete(ticket_url, expected_status_code=http_client.OK)
         # Ticket should now be in 'CANCELLING' state
         response = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual("CANCELLING", response["Status"])
+        self.assertEqual("CANCELLING", response["ticket_status"])
 
     def test_ticket_in_matched_state_does_not_get_deleted(self):
         player_name, ticket_url, ticket = self._initiate_matchmaking()
-        ticket_id = ticket["TicketId"]
+        ticket_id = ticket["ticket_id"]
         player_info = {"playerId": str(self.player_id), "team": "winners"}
         event_details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated",
                                                 acceptanceRequired=True, acceptanceTimeout=123)
@@ -318,7 +336,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
 
     def test_delete_ticket_clears_cached_ticket_on_permanent_error(self):
         """ If a ticket isn't cancellable because it's completed, we should clear it ? """
-        def _stop_matchmaking_with_permanent_error_response(self, **kwargs):
+        def _stop_matchmaking_with_permanent_error_response(myself, **kwargs):
             response = {
                 'Error': {
                     'Message': 'Matchmaking ticket was not found.',
@@ -386,9 +404,9 @@ class FlexMatchTest(_BaseFlexmatchTest):
         _, _, ticket = self._initiate_matchmaking(host["name"])
         events_url = self.endpoints["flexmatch_events"]
         with self.as_bearer_token_user(EVENTS_ROLE):
-            player_info = [ {"playerId": player["id"], "playerSessionId": f"bleble-{player['id']}-flefle"}
+            player_info = [ {"playerId": player["id"], "playerSessionId": f"pebble-{player['id']}-flee"}
                             for player in (member, host) ]
-            details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSucceeded")
+            details = self._get_event_details(ticket["ticket_id"], player_info, "MatchmakingSucceeded")
             details["gameSessionInfo"].update({
                 "ipAddress": "1.2.3.4",
                 "port": "7780"
@@ -399,7 +417,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.auth(guy["name"])
             notification, _ = self.get_player_notification("matchmaking", "MatchmakingSuccess")
             self.assertIsInstance(notification, dict)
-            self.assertEqual(f"PlayerSessionId=bleble-{guy['id']}-flefle?PlayerId={guy['id']}", notification["data"]["options"])
+            self.assertEqual(f"PlayerSessionId=pebble-{guy['id']}-flee?PlayerId={guy['id']}",
+                             notification["data"]["options"])
 
     def test_completed_ticket_is_cleared_after_max_rejoin_time(self):
         username, ticket_url, ticket = self._initiate_matchmaking()
@@ -407,8 +426,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
         events_url = self.endpoints["flexmatch_events"]
         with patch.object(flexmatch._LockedTicket, 'MAX_REJOIN_TIME', 1):
             with self.as_bearer_token_user(EVENTS_ROLE):
-                player_info = [{"playerId": player_id, "playerSessionId": f"bleble-{player_id}-flefle"}]
-                details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSucceeded")
+                player_info = [{"playerId": player_id, "playerSessionId": f"pebble-{player_id}-flee"}]
+                details = self._get_event_details(ticket["ticket_id"], player_info, "MatchmakingSucceeded")
                 details["gameSessionInfo"].update({
                     "ipAddress": "1.2.3.4",
                     "port": "7780"
@@ -417,7 +436,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
                 self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username)
         response = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(response["Status"], "COMPLETED")
+        self.assertEqual(response["ticket_status"], "COMPLETED")
         time.sleep(1)
         self.get(ticket_url, expected_status_code=http_client.NOT_FOUND)
 
@@ -430,10 +449,10 @@ class FlexMatchTest(_BaseFlexmatchTest):
             }
         }
         _, ticket_url, ticket = self._initiate_matchmaking(user_name, extra_data)
-        self.assertIn("Players", ticket)
-        self.assertEqual(1, len(ticket["Players"]))
-        self.assertIn("PlayerAttributes", ticket["Players"][0])
-        player_attributes = ticket["Players"][0]["PlayerAttributes"]
+        self.assertIn("players", ticket)
+        self.assertEqual(1, len(ticket["players"]))
+        self.assertIn("PlayerAttributes", ticket["players"][0])
+        player_attributes = eval(ticket["players"][0]["PlayerAttributes"])
         for k, v in extra_data[str(self.player_id)].items():
             self.assertIn(k, player_attributes)
             self.assertEqual(v, player_attributes[k])
@@ -443,10 +462,10 @@ class FlexMatchTest(_BaseFlexmatchTest):
     def test_latencies_are_included_in_player_attributes(self):
         user_name = self.make_player()
         _, ticket_url, ticket = self._initiate_matchmaking(user_name)
-        self.assertIn("Players", ticket)
-        self.assertEqual(1, len(ticket["Players"]))
-        self.assertIn("PlayerAttributes", ticket["Players"][0])
-        player_attributes = ticket["Players"][0]["PlayerAttributes"]
+        self.assertIn("players", ticket)
+        self.assertEqual(1, len(ticket["players"]))
+        self.assertIn("PlayerAttributes", ticket["players"][0])
+        player_attributes = eval(ticket["players"][0]["PlayerAttributes"])
         self.assertIn("Latencies", player_attributes)
         self.assertIsInstance(player_attributes, dict)
 
@@ -464,7 +483,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
         # Login as first player and double check that the ticket is still in place
         self.auth(username=user_name)
         response = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(response["Status"], "QUEUED")
+        self.assertEqual(response["ticket_status"], "QUEUED")
         # Accept party invite
         notification, _ = self.get_player_notification("party_notification", "invite")
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
@@ -520,7 +539,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
             r = self.delete(client_url, expected_status_code=http_client.OK).json()
         # Ticket should be CANCELLING now
         ticket = self.get(ticket_url).json()
-        self.assertTrue(ticket["Status"] == "CANCELLING")
+        self.assertTrue(ticket["ticket_status"] == "CANCELLING")
         # Client should've been notified of the cancellation
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingStopped")
 
@@ -543,10 +562,9 @@ class FlexMatchTest(_BaseFlexmatchTest):
         # Verify the ticket is in 'MATCH_COMPLETE' state and that the connection info has been cleared.
         self.auth(user_name)
         ticket_resp = self.get(ticket_url).json()
-        self.assertEqual(ticket_resp["TicketId"], ticket["TicketId"])
-        self.assertEqual(ticket_resp["Status"], "MATCH_COMPLETE")
-        self.assertIsNone(ticket_resp["GameSessionConnectionInfo"])
-
+        self.assertEqual(ticket_resp["ticket_id"], ticket["ticket_id"])
+        self.assertEqual(ticket_resp["ticket_status"], "MATCH_COMPLETE")
+        self.assertIsNone(ticket_resp["connection_info"])
 
     def test_delete_on_cancelled_ticket_does_not_change_its_status(self):
         # create ticket
@@ -557,10 +575,11 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.assertEqual("CANCELLING", r["status"])
             # double check the ticket
             ticket = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual("CANCELLING", ticket["Status"])
+        self.assertEqual("CANCELLING", ticket["ticket_status"])
         # Fully cancel it
         events_url = self.endpoints["flexmatch_events"]
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)}, "MatchmakingCancelled")
+        details = self._get_event_details(ticket["ticket_id"],
+                                          {"playerId": str(self.player_id)}, "MatchmakingCancelled")
         data = self._get_event_data(details)
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
@@ -569,23 +588,22 @@ class FlexMatchTest(_BaseFlexmatchTest):
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
             ticket = self.get(ticket_url, expected_status_code=http_client.OK).json()
             # ticket should be CANCELLED now
-            self.assertEqual("CANCELLED", ticket["Status"])
+            self.assertEqual("CANCELLED", ticket["ticket_status"])
             r = self.delete(ticket_url, expected_status_code=http_client.OK).json()
             self.assertEqual("CANCELLED", r["status"])
-
 
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_searching_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id)}
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id)}
         with self.as_bearer_token_user(EVENTS_ROLE):
             details = self._get_event_details(ticket_id, player_info, "MatchmakingSearching")
             data = self._get_event_data(details)
             self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "SEARCHING")
+        self.assertEqual(r['ticket_status'], "SEARCHING")
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingSearching")
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["event"] == "MatchmakingSearching")
@@ -594,16 +612,16 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         events_url = self.endpoints["flexmatch_events"]
         acceptance_timeout = 123
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
-        details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=False, acceptanceTimeout=acceptance_timeout)
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id), "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=False,
+                                          acceptanceTimeout=acceptance_timeout)
         data = self._get_event_data(details)
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         # Verify state
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "PLACING")
-        self.assertEqual(r['MatchId'], details["matchId"])
+        self.assertEqual(r['ticket_status'], "PLACING")
         # Verify notification sent
         notification, _ = self.get_player_notification("matchmaking", "PotentialMatchCreated")
         self.assertIsInstance(notification, dict)
@@ -616,8 +634,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "REQUIRES_ACCEPTANCE")
-        self.assertEqual(r['MatchId'], details["matchId"])
+        self.assertEqual(r['ticket_status'], "REQUIRES_ACCEPTANCE")
         # Verify notification sent
         notification, _ = self.get_player_notification("matchmaking", "PotentialMatchCreated")
         self.assertTrue(notification["event"] == "PotentialMatchCreated")
@@ -629,7 +646,8 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         connection_ip, connection_port = "1.2.3.4", "7780"
         player_session_id = "psess-6f45ca3a-5522-4f6c-9293-7df04dc12cb6"
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "playerSessionId": player_session_id}
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id),
+                                                       "playerSessionId": player_session_id}
         details = self._get_event_details(ticket_id, player_info, "MatchmakingSucceeded")
         details["gameSessionInfo"].update({
             "ipAddress": connection_ip,
@@ -640,9 +658,9 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.put(self.endpoints["flexmatch_events"], data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual("COMPLETED", r['Status'])
-        self.assertTrue("GameSessionConnectionInfo" in r)
-        session_info = r["GameSessionConnectionInfo"]
+        self.assertEqual("COMPLETED", r['ticket_status'])
+        self.assertTrue("connection_info" in r)
+        session_info = r["connection_info"]
         self.assertEqual(connection_ip, session_info["ipAddress"])
         self.assertEqual(connection_port, session_info["port"])
         # Verify notification sent
@@ -655,13 +673,13 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
     def test_matchmaking_cancelled(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         events_url = self.endpoints["flexmatch_events"]
-        details = self._get_event_details(ticket["TicketId"], {"playerId": str(self.player_id)}, "MatchmakingCancelled")
+        details = self._get_event_details(ticket["ticket_id"], {"playerId": str(self.player_id)}, "MatchmakingCancelled")
         data = self._get_event_data(details)
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "CANCELLED")
+        self.assertEqual(r['ticket_status'], "CANCELLED")
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingCancelled")
         self.assertIsInstance(notification, dict)
 
@@ -670,7 +688,8 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         # for a match the player is in gets cancelled. This should not have to rely on heuristics like that.
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         # Set ticket to 'COMPLETED'
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "playerSessionId": "psess-123123", "team": "winners"}
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id),
+                                                       "playerSessionId": "psess-123123", "team": "winners"}
         details = self._get_event_details(ticket_id, player_info, "MatchmakingSucceeded")
         details["gameSessionInfo"].update({
             "ipAddress": "1.2.3.4",
@@ -683,7 +702,7 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         # Ensure this works for multiple backfill tickets being cancelled
         for _ in range(2):
             with self.as_bearer_token_user(EVENTS_ROLE):
-                real_ticket_id = ticket["TicketId"]
+                real_ticket_id = ticket["ticket_id"]
                 backfill_ticket_id = "BackFill--" + real_ticket_id
                 # The backfill tickets are issued by the battleserver with a ticketId drift doesn't track
                 details["tickets"][0]["ticketId"] = backfill_ticket_id
@@ -692,11 +711,11 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
                 self.put(events_url, data=data, expected_status_code=http_client.OK)
             self.auth(username=user_name)
             r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-            self.assertEqual(r['Status'], "MATCH_COMPLETE")
+            self.assertEqual(r['ticket_status'], "MATCH_COMPLETE")
 
     def test_accept_match_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id), "team": "winners"}
         details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=True, acceptanceTimeout=10)
         data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
@@ -705,14 +724,15 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         # Verify state
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "REQUIRES_ACCEPTANCE")
+        self.assertEqual(r['ticket_status'], "REQUIRES_ACCEPTANCE")
         # Verify notification sent
         notification, _ = self.get_player_notification("matchmaking", "PotentialMatchCreated")
         self.assertIsInstance(notification, dict)
         self.assertTrue(notification["data"]["acceptance_required"])
         # Accept the match
         with patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient):
-            self.patch(ticket_url, data={"match_id": details["matchId"], "acceptance": True}, expected_status_code=http_client.OK)
+            self.patch(ticket_url, data={"match_id": details["matchId"], "acceptance": True},
+                       expected_status_code=http_client.OK)
         # emit flexmatch event
         details["type"] = "AcceptMatch"
         details["tickets"][0]["players"][0]["accepted"] = True
@@ -722,14 +742,14 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['MatchId'], details["matchId"])
-        self.assertEqual(r['Status'], "REQUIRES_ACCEPTANCE")
-        self.assertTrue(r['Players'][0]['Accepted'])
+        self.assertEqual(r['ticket_status'], "REQUIRES_ACCEPTANCE")
+        self.assertTrue(r['players'][0]['Accepted'])
 
     def test_accept_match_completed_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
-        details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=True, acceptanceTimeout=10)
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id), "team": "winners"}
+        details = self._get_event_details(ticket_id, player_info, "PotentialMatchCreated", acceptanceRequired=True,
+                                          acceptanceTimeout=10)
         data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
         with self.as_bearer_token_user(EVENTS_ROLE):
@@ -740,23 +760,23 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['MatchStatus'], "ACCEPTED")
+        self.assertEqual(r['match_status'], "ACCEPTED")
         with self.as_bearer_token_user(EVENTS_ROLE):
             data["detail"]["acceptance"] = "TimedOut"
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['MatchStatus'], "TIMEDOUT")
+        self.assertEqual(r['match_status'], "TIMEDOUT")
         with self.as_bearer_token_user(EVENTS_ROLE):
             data["detail"]["acceptance"] = "Rejected"
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['MatchStatus'], "REJECTED")
+        self.assertEqual(r['match_status'], "REJECTED")
 
     def test_matchmaking_timed_out_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id), "team": "winners"}
         details = self._get_event_details(ticket_id, player_info, "MatchmakingTimedOut")
         data = self._get_event_data(details)
         events_url = self.endpoints["flexmatch_events"]
@@ -764,21 +784,21 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
             self.put(events_url, data=data, expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "TIMED_OUT")
+        self.assertEqual(r['ticket_status'], "TIMED_OUT")
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingFailed")
         self.assertIsInstance(notification, dict)
         self.assertEqual(notification["data"]["reason"], "TimeOut")
 
     def test_matchmaking_failed_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
-        ticket_id, player_info = ticket["TicketId"], {"playerId": str(self.player_id), "team": "winners"}
+        ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id), "team": "winners"}
         details = self._get_event_details(ticket_id, player_info, "MatchmakingFailed", reason="UnitTestInducedFailure")
         events_url = self.endpoints["flexmatch_events"]
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
         self.auth(username=user_name)
         r = self.get(ticket_url, expected_status_code=http_client.OK).json()
-        self.assertEqual(r['Status'], "FAILED")
+        self.assertEqual(r['ticket_status'], "FAILED")
         notification, _ = self.get_player_notification("matchmaking", "MatchmakingFailed")
         self.assertIsInstance(notification, dict)
         self.assertEqual(notification["data"]["reason"], details["reason"])
@@ -788,14 +808,15 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         member1, member2, host = self._create_party(party_size=3)
         # Start matchmaking as a team, check if all members are in ticket
         _, _, ticket = self._initiate_matchmaking(host["name"])
-        ticket_players = {int(p["PlayerId"]) for p in ticket["Players"]}
+        ticket_players = {int(p["PlayerId"]) for p in ticket["players"]}
         player_info = []
         for player in (member1, member2, host):
             self.assertIn(player["id"], ticket_players)
             player_info.append({"playerId": str(player["id"]), "team": "winners"})
         # PUT a PotentialMatchCreated event
         events_url = self.endpoints["flexmatch_events"]
-        details = self._get_event_details(ticket["TicketId"], player_info, "PotentialMatchCreated", acceptanceRequired=False, acceptanceTimeout=123)
+        details = self._get_event_details(ticket["ticket_id"], player_info, "PotentialMatchCreated",
+                                          acceptanceRequired=False, acceptanceTimeout=123)
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
         # Check if all team members get the PLACING notification
@@ -811,14 +832,15 @@ class FlexMatchEventTest(_BaseFlexmatchTest):
         member1, member2, host = self._create_party(party_size=3)
         # Start matchmaking as a team, check if all members are in ticket
         _, _, ticket = self._initiate_matchmaking(host["name"])
-        ticket_players = {int(p["PlayerId"]) for p in ticket["Players"]}
+        ticket_players = {int(p["PlayerId"]) for p in ticket["players"]}
         player_info = []
         for player in (member1, member2, host):
             self.assertIn(player["id"], ticket_players)
             player_info.append({"playerId": str(player["id"]), "team": "winners"})
         # PUT a MatchmakingSearching event
         events_url = self.endpoints["flexmatch_events"]
-        details = self._get_event_details(ticket["TicketId"], player_info, "MatchmakingSearching", acceptanceRequired=False, acceptanceTimeout=123)
+        details = self._get_event_details(ticket["ticket_id"], player_info, "MatchmakingSearching",
+                                          acceptanceRequired=False, acceptanceTimeout=123)
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.put(events_url, data=self._get_event_data(details), expected_status_code=http_client.OK)
         # Check if all team members get the MatchmakingSearching notification
@@ -952,4 +974,3 @@ class MockGameLiftClient(object):
 
     def accept_match(self, **kwargs):
         return {}
-
