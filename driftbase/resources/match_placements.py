@@ -1,17 +1,10 @@
 """
-Flexmatch configuration - shamelessly lifted from the parties resource configuration
+Match Placements configuration - shamelessly lifted from the parties resource configuration
 """
 
 import logging
 
 log = logging.getLogger(__name__)
-
-TIER_DEFAULTS = {
-    "aws_gamelift_role": "",
-    "valid_regions": ["eu-west-1"],
-    "max_rejoin_time_seconds": 2 * 60,
-    "backfill_ticket_pattern": "^BackFill--.*"  # This is highly tenant specific; Perseus/TMA server issues backfill tickets with this prefix, but there's no rule here"""
-}
 
 def drift_init_extension(app, **kwargs):
     pass

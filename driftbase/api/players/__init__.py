@@ -168,13 +168,19 @@ class PlayerAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(current_user):
+    template_player_gamestate_url = url_for("player_gamestate.entry", player_id=1337, namespace="namespace", _external=True)
+    template_player_gamestate_url = template_player_gamestate_url.replace("1337", "{player_id}")
+    template_player_gamestate_url = template_player_gamestate_url.replace("namespace", "{namespace}")
+
     ret = {
         "players": url_for("players.list", _external=True),
         "my_player": None,
         "my_gamestates": None,
         "my_player_groups": None,
         "my_summary": None,
+        "template_player_gamestate": template_player_gamestate_url,
     }
+
     if current_user:
         player_id = current_user["player_id"]
         ret["my_player"] = url_player(player_id)
@@ -197,4 +203,5 @@ def endpoint_info(current_user):
         ret["my_summary"] = url_for(
             "player_summary.list", player_id=player_id, _external=True
         )
+
     return ret

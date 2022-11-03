@@ -1,5 +1,7 @@
 import http.client as http_client
-from drift.systesthelper import uuid_string, DriftBaseTestCase
+
+from drift.systesthelper import uuid_string
+from driftbase.systesthelper import DriftBaseTestCase
 from driftbase.tests import has_key
 
 

@@ -1,23 +1,89 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
-  - [0.5.0](#050)
+  - [0.6.4](#064)
+  - [0.6.3](#063)
+  - [0.6.2](#062)
+  - [0.6.1](#061)
+  - [0.6.0](#060)
     - [New Features](#new-features)
+    - [Feature Improvements](#feature-improvements)
+  - [0.5.4](#054)
     - [Bug Fixes](#bug-fixes)
+    - [Optimizations](#optimizations)
+  - [0.5.3](#053)
+    - [Bug Fixes](#bug-fixes-1)
+  - [0.5.2](#052)
+    - [Optimizations](#optimizations-1)
+  - [0.5.1](#051)
+    - [Bug Fixes](#bug-fixes-2)
+  - [0.5.0](#050)
+    - [New Features](#new-features-1)
+    - [Bug Fixes](#bug-fixes-3)
     - [Deprecations](#deprecations)
   - [0.4.1](#041)
-    - [Bug Fixes](#bug-fixes-1)
+    - [Bug Fixes](#bug-fixes-4)
   - [0.4.0](#040)
-    - [New Features](#new-features-1)
-    - [Bug Fixes](#bug-fixes-2)
+    - [New Features](#new-features-2)
+    - [Bug Fixes](#bug-fixes-5)
     - [Deprecations](#deprecations-1)
 
 ---
-## 0.5.5
 
-### Bug fixes
+## 0.6.4
 
-- Fixed that if all counter updates were no-ops (count and value 0), the update would fail.
+### New features
+- New auth provider 'etherium' added
+
+### Bug Fixes / Feature Improvements
+- Support gzipped payloads in events endpoint
+- Added 'flexmatch_regions' endpoint in drift-flexmatch to expose supported regions
+
+
+## 0.6.3
+
+- Dependency updates, python-drift updated to 0.9.0
+
+### New Features
+- Datadog Runtime Metrics can now be enabled via an environment variable
+
+### Bug Fixes / Feature Improvements
+- The matches endpoint now has a PATCH handler to update a match players stats from battleservers
+- drift-flexmatch will now cancel any matchmaking tickets owned by players when their client entry is removed
+
+
+## 0.6.2
+
+### Bug Fixes / Feature Improvements
+- Added 'template_player_gamestate' to the players endpoint
+
+## 0.6.1
+
+### Bug Fixes / Feature Improvements
+
+- drift-flexmatch now cancels a players personal matchmaking ticket if he joins a party while searching
+- drift-flexmatch added a new state CANCELLING on tickets, which is active from the time a cancellation request is issued and until cancellation is confirmed by AWS. 
+- drift-flexmatch will now expire COMPLETED and MATCH_COMPLETE tickets from the cache after MAX_REJOIN_TIME has passed
+
+## 0.6.0
+
+### New Features
+
+- Custom Lobbies
+  * Support custom pre-match grouping of players via Lobbies and associated Gamelift match placements
+- EOS support (Beta)
+  * Preliminary support for authentication via Epic Online Store
+  
+### Feature Improvements
+- Friends:
+  * Friend tokens can now be generated out of wordlist in addition to uuid generation
+- Flexmatch:
+  * POST endpoint now accepts arbitrary extra data to be passed verbatim to Flexmatch's ticket 
+  * Drift now expects backfill ticket IDs to match a regular expression defined in the tenant config 'backfill_ticket_pattern'
+- Parties:
+  * Players will now be removed from their party if they gracefully disconnect
+  * Players can now join a party whilst being in another party, provided they flag their intention to leave the old party
+  
 
 ## 0.5.4
 
@@ -42,7 +108,7 @@
 
 ### Optimizations
 
-- Optimize reporting and fetching of player counters which was unacceptably slow for any non-trival amount of counters
+- Optimize reporting and fetching of player counters which was unacceptably slow for any non-trivial amount of counters
 
 ## 0.5.1
 
@@ -90,3 +156,4 @@
 
 - Dropped support for Python < 3.9.
 - Dropped all use of `drift.schemachecker` in favor of `Flask-Marshmallow`.
+

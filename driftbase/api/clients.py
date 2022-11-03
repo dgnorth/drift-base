@@ -226,10 +226,13 @@ class ClientsAPI(MethodView):
             "jwt": jwt,
         }
 
-        current_app.extensions['messagebus'].publish_message(
-            'clients',
-            {'event': 'created', 'payload': payload, 'url': resource_url}
-        )
+        message_data = {
+            "event": "created",
+            "player_id": player_id,
+            "client_id": client_id,
+        }
+
+        current_app.extensions["messagebus"].publish_message("client", message_data)
 
         return ret
 
@@ -330,14 +333,24 @@ class ClientAPI(MethodView):
         log.info("Client %s from player %s has been unregistered",
                  client_id, current_user["player_id"])
 
+        message_data = {
+            "event": "deleted",
+            "player_id": current_user["player_id"],
+            "client_id": client_id,
+        }
+
+        current_app.extensions["messagebus"].publish_message("client", message_data)
+
         return json_response("Client has been closed. Please terminate the client.",
                              http_client.OK)
 
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"clients": url_for("clients.list", _external=True)}
-    ret["my_client"] = None
+    ret = {
+        "clients": url_for("clients.list", _external=True),
+        "my_client": None
+    }
     if current_user and current_user.get("client_id"):
         ret["my_client"] = url_for("clients.entry", client_id=current_user.get("client_id"),
                                    _external=True)

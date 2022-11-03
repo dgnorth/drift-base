@@ -1,7 +1,7 @@
-import unittest
-import mock
 from json import loads, dumps
 
+import mock
+import unittest
 from werkzeug.exceptions import Unauthorized
 
 from driftbase.auth.psn import run_ticket_validation

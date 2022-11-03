@@ -1,14 +1,13 @@
-import logging
-
+import gzip
 import http.client as http_client
-
+import json
+import logging
 from flask import request, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 
-from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import current_user
-
+from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import verify_log_request
 
 log = logging.getLogger(__name__)
@@ -44,9 +43,12 @@ class EventsAPI(MethodView):
         """
         required_keys = ["event_name", "timestamp"]
 
-        verify_log_request(request, required_keys)
+        if request.headers.get('Content-Encoding', '') == 'gzip':
+            events = json.loads(gzip.decompress(request.data))
+        else:
+            events = request.json
 
-        args = request.json
+        verify_log_request(events, required_keys)
 
         # The event log API should enforce the player_id to the current player, unless
         # the user has role "service" in which case it should only set the player_id if
@@ -54,7 +56,7 @@ class EventsAPI(MethodView):
         player_id = current_user["player_id"]
         is_service = "service" in current_user["roles"]
 
-        for event in args:
+        for event in events:
             if is_service:
                 event.setdefault("player_id", player_id)
             else:

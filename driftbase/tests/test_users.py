@@ -1,7 +1,7 @@
 import http.client as http_client
 
-from drift.systesthelper import DriftBaseTestCase, big_number
-
+from drift.systesthelper import big_number
+from driftbase.systesthelper import DriftBaseTestCase
 from driftbase.tests import has_key
 
 
@@ -9,6 +9,7 @@ class UsersTest(DriftBaseTestCase):
     """
     Tests for the /users endpoint
     """
+
     def test_users(self):
         self.auth()
         resp = self.get("/")

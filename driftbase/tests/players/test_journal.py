@@ -1,12 +1,12 @@
 import datetime
-import unittest
-import random
+import http.client as http_client
 import json
+import random
+import unittest
 from dateutil import parser
 
-import http.client as http_client
-
-from drift.systesthelper import setup_tenant, remove_tenant, uuid_string, DriftBaseTestCase
+from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
+from driftbase.systesthelper import DriftBaseTestCase
 
 MIN_ENTRIES = 0
 
@@ -129,7 +129,8 @@ class JournalTests(DriftBaseTestCase):
         # Make sure we cannot write a rolled-back journal entry into a gamestate
         gamestate_data = {"journal gamestate": "test"}
         r = self.put(gamestate_url, data={"gamestate": json.dumps(gamestate_data),
-                     "journal_id": journal_id}, expected_status_code=http_client.UNPROCESSABLE_ENTITY)
+                                          "journal_id": journal_id},
+                     expected_status_code=http_client.UNPROCESSABLE_ENTITY)
 
         # Roll back a few entries and ensure they are not returned from
         # a GET to /journals except if asked for

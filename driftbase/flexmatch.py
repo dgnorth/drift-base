@@ -2,6 +2,7 @@ import copy
 import logging
 import boto3
 import json
+import re
 from collections import defaultdict
 from botocore.exceptions import ClientError, ParamValidationError
 from flask import g, url_for
@@ -13,6 +14,40 @@ from driftbase.resources.flexmatch import TIER_DEFAULTS
 
 NUM_VALUES_FOR_LATENCY_AVERAGE = 3
 REDIS_TTL = 1800
+
+# Ticket states:
+# QUEUED                <- Ticket has been submitted (flexmatch ticket status)
+# SEARCHING             <- Ticket is being processed by flexmatch (flexmatch ticket status, delivered via notification)
+# REQUIRES_ACCEPTANCE   <- Waiting for players to accept (not used, may get used by this code to cancel a match if a player hasn't sent a heartbeat in a while) (flexmatch ticket status)
+# PLACING               <- Match found and accepted, waiting for server to announce itself as ready (flexmatch ticket status)
+# COMPLETED             <- Server ready, players should join it (flexmatch ticket status)
+# CANCELLING            <- Request to cancel ticket has been sent to flexmatch (drift transition status)
+# CANCELLED             <- Ticket has been cancelled and is now invalid (flexmatch ticket status)
+# MATCH_COMPLETE        <- Ticket should be considered completed and unusable (drift status)
+# TIMED_OUT             <- No match found within the allowed time (flexmatch ticket status)
+# FAILED                <- Matchmaking failed, ticket is now invalid (flexmatch ticket status)
+
+
+NON_CANCELABLE_STATE = {  # tickets in any of these states may not be cancelled
+    "COMPLETED",
+    "PLACING",
+    "REQUIRES_ACCEPTANCE"
+}
+
+LIVE_STATE = {  # Tickets in these states are considered valid
+    "QUEUED",
+    "SEARCHING",
+    "REQUIRES_ACCEPTANCE",
+    "PLACING",
+    "COMPLETED",
+}
+
+EXPIRED_STATE = {
+    "CANCELLED",
+    "MATCH_COMPLETE",
+    "FAILED",
+    "TIMED_OUT",
+}
 
 # FIXME: Figure out how to do multi-region matchmaking; afaik, the configuration isn't region based, but both queues and
 #  events are. The queues themselves can have destination fleets in multiple regions.
@@ -45,29 +80,28 @@ def get_player_latency_averages(player_id):
 
 #  Matchmaking
 
-def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
+def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmaking_data):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
-        # Generate a list of players relevant to the request; this is the list of online players in the party if the player belongs to one, otherwise the list is just the player
-        member_ids = _get_player_party_members(player_id)
-
         if ticket_lock.ticket:  # Existing ticket found
             ticket_status = ticket_lock.ticket["Status"]
-            if ticket_status in ("QUEUED", "SEARCHING", "REQUIRES_ACCEPTANCE", "PLACING", "COMPLETED"):
-                # TODO: Check if I need to add player_id to the ticket. This is the use case where someone accepts a party
-                #  invite after matchmaking started.
-                log.info(f"Returning existing ticket {ticket_lock.ticket['TicketId']} to player {player_id}")
+            if ticket_status in LIVE_STATE:
+                log.info(f"Returning existing ticket {ticket_lock.ticket['TicketId']} in state {ticket_status} to player {player_id}")
                 return ticket_lock.ticket  # Ticket is still valid
+            elif ticket_status == "CANCELLING":
+                raise TicketConflict("Earlier ticket is still being cancelled.", ticket_lock.ticket)
             # otherwise, we issue a new ticket
 
+        # Generate a list of players relevant to the request; this is the list of online players in the party if the player belongs to one, otherwise the list is just the player
+        member_ids = _get_player_party_members(player_id)
         gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
         try:
-            log.info(f"Issuing a new matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
+            log.info(f"Issuing a new {matchmaking_configuration} matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
             response = gamelift_client.start_matchmaking(
                 ConfigurationName=matchmaking_configuration,
                 Players=[
                     {
                         "PlayerId": str(member_id),
-                        "PlayerAttributes": _get_player_attributes(member_id),
+                        "PlayerAttributes": _get_player_attributes(member_id, extra_matchmaking_data),
                         "LatencyInMs": get_player_latency_averages(member_id)
                     }
                     for member_id in member_ids
@@ -78,37 +112,52 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration):
         except ClientError as e:
             raise GameliftClientException("Failed to start matchmaking", str(e))
 
-        ticket_lock.ticket = response["MatchmakingTicket"]
-        log.info(f"New ticket {ticket_lock.ticket['TicketId']} issued by player {player_id}")
-        _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket_lock.ticket["TicketId"], _external=True)})
-        return ticket_lock.ticket
+        ticket = response["MatchmakingTicket"]
+        ticket_lock.ticket = ticket
+        log.info(f"New ticket {ticket['TicketId']} issued by player {player_id}: {ticket}")
+        _post_matchmaking_event_to_members(member_ids, "MatchmakingStarted", {"ticket_url": url_for("flexmatch.ticket", ticket_id=ticket["TicketId"], _external=True)})
+        return ticket
 
-def _cancel_locked_ticket(ticket_lock, player_id):
-    ticket = ticket_lock.ticket
-    if ticket["Status"] in ("COMPLETED", "PLACING", "REQUIRES_ACCEPTANCE"):
+def cancel_active_ticket(player_id, ticket_id):
+    # In case of retry-worthy errors, raise exception
+    # In case of unrecoverable errors, clear the ticket
+    with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
+        if ticket_lock.ticket and ticket_id == ticket_lock.ticket["TicketId"]:
+            try:
+                return _cancel_locked_ticket(ticket_lock.ticket, player_id)
+            except GameliftClientException:
+                ticket_lock.ticket = None  # Delete the ticket locally if there is an unrecoverable error
+                log.warning(f"Clearing ticket {ticket_id} from cache because of unrecoverable error during cancellation attempt.")
+                _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingCancelled")
+                raise
+    return None
+
+def _cancel_locked_ticket(ticket, player_id):
+    if ticket["Status"] in NON_CANCELABLE_STATE:
         log.info(f"Not cancelling ticket for player {player_id} as he has crossed the Rubicon on ticket {ticket['TicketId']}")
-        return ticket["Status"]  # Don't allow cancelling if we've already put you in a match or we're in the process of doing so
+        return ticket["Status"]  # Don't allow cancelling if we've already put you in a match, or we're in the process of doing so
+    if ticket["Status"] == "CANCELLED":
+        log.info(f"Ticket {ticket['TicketId']} already fully cancelled, so player {player_id} need not worry. Returning without updating.")
+        return ticket["Status"]
+    if ticket["Status"] == "CANCELLING":
+        log.info(f"Ticket {ticket['TicketId']} is already being cancelled. Doing nothing.")
+        return ticket["Status"]
     log.info(f"Cancelling ticket {ticket['TicketId']} for player {player_id}, currently in state {ticket['Status']}")
     gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
     try:
-        response = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
+        _ = gamelift_client.stop_matchmaking(TicketId=ticket["TicketId"])
+        log.info(f"Setting ticket {ticket['TicketId']} status to 'CANCELLING' for player {player_id}")
+        ticket["Status"] = "CANCELLING"
+        _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
+        return ticket["Status"]
     except ClientError as e:
         log.warning(f"ClientError from gamelift. Response: {e.response}")
-        if e.response["Error"]["Code"] != "InvalidRequestException":
-            raise GameliftClientException("Failed to cancel matchmaking ticket", str(e))
-    log.info(f"Clearing player {player_id}'s ticket from cache: {ticket_lock.ticket}")
-    ticket_lock.ticket = None
-    _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingStopped")
-    return ticket
-
-def cancel_player_ticket(player_id, ticket_id):
-    with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
-        if ticket_lock.ticket and ticket_id == ticket_lock.ticket["TicketId"]:
-            return _cancel_locked_ticket(ticket_lock, player_id)
-    if get_player_party(player_id):
-        with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
-            return _cancel_locked_ticket(ticket_lock, player_id)
-    return None
+        error_code = e.response["Error"]["Code"]
+        if error_code in ("InvalidRequestException", "InternalServiceException"):
+            log.warning(f"Failed to cancel matchmaking ticket {ticket['TicketId']} for player {player_id}. Not updating ticket state.")
+            return "Temporary failure"
+        # else it's a permanent failure, i.e. error_code in ("NotFoundException", "UnsupportedRegionException"):
+        raise GameliftClientException(f"Failed to cancel matchmaking ticket: {e.response['Error']['Message'] }", str(e))
 
 
 def get_player_ticket(player_id):
@@ -145,6 +194,23 @@ def update_player_acceptance(ticket_id, player_id, match_id, acceptance):
 def get_valid_regions():
     return _get_tenant_config_value("valid_regions")
 
+def handle_party_event(queue_name, event_data):
+    log.debug("handle_party_event", event_data)
+    if queue_name == "parties" and event_data["event"] == "player_joined":
+        player_id = event_data["player_id"]
+        party_id = event_data["party_id"]
+        with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
+            if ticket_lock.ticket:
+                log.info(f"handle_party_event:player_joined: Cancelling ticket {ticket_lock.ticket['TicketId']} for player {player_id} since he has now joined party {party_id}")
+                _cancel_locked_ticket(ticket_lock.ticket, player_id)
+
+def handle_client_event(queue_name, event_data):
+    if queue_name == "client" and event_data["event"] == "deleted":
+        player_id, client_id = event_data["player_id"], event_data["client_id"]
+        player_ticket = get_player_ticket(player_id)
+        if player_ticket:
+            log.info(f"Client {client_id} unregistered. Attempting to cancel ticket {player_ticket['TicketId']}. Ticket dump: {player_ticket}.")
+            cancel_active_ticket(player_id, player_ticket["TicketId"])
 
 def process_flexmatch_event(flexmatch_event):
     event = _get_event_details(flexmatch_event)
@@ -174,6 +240,50 @@ def process_flexmatch_event(flexmatch_event):
 
     raise RuntimeError(f"Unknown event '{event_type}'")
 
+def start_game_session_placement(**kwargs):
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        return gamelift_client.start_game_session_placement(**kwargs)
+    except ParamValidationError as e:
+        raise GameliftClientException("Invalid parameters to request", str(e))
+    except ClientError as e:
+        raise GameliftClientException("Failed to start game session placement", str(e))
+
+def stop_game_session_placement(placement_id: str):
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        return gamelift_client.stop_game_session_placement(PlacementId=placement_id)
+    except ParamValidationError as e:
+        raise GameliftClientException("Invalid parameters to request", str(e))
+    except ClientError as e:
+        raise GameliftClientException("Failed to stop game session placement", str(e))
+
+def describe_game_sessions(**kwargs):
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        return gamelift_client.describe_game_sessions(**kwargs)
+    except ParamValidationError as e:
+        raise GameliftClientException("Invalid parameters to request", str(e))
+    except ClientError as e:
+        raise GameliftClientException("Failed to describe game sessions", str(e))
+
+def describe_player_sessions(**kwargs):
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        return gamelift_client.describe_player_sessions(**kwargs)
+    except ParamValidationError as e:
+        raise GameliftClientException("Invalid parameters to request", str(e))
+    except ClientError as e:
+        raise GameliftClientException("Failed to describe player sessions", str(e))
+
+def create_player_session(**kwargs):
+    gamelift_client = GameLiftRegionClient(AWS_REGION, _get_tenant_name())
+    try:
+        return gamelift_client.create_player_session(**kwargs)
+    except ParamValidationError as e:
+        raise GameliftClientException("Invalid parameters to request", str(e))
+    except ClientError as e:
+        raise GameliftClientException("Failed to create player session", str(e))
 
 # Helpers
 
@@ -204,15 +314,18 @@ def _get_player_ticket_key(player_id):
 
 def _get_player_party_members(player_id):
     """ Return the full list of players who share a party with 'player_id', including 'player_id'. If 'player_id' isn't
-    in a party, the returned list will contain only 'player_id'"""
+    a party member, the returned list will contain only 'player_id'"""
     party_id = get_player_party(player_id)
     if party_id:
         return get_party_members(party_id)
     return [player_id]
 
-def _get_player_attributes(player_id):
-    # FIXME: Placeholder for extra matchmaking attribute gathering per player
-    return {"skill": {"N": 50}}
+def _get_player_attributes(player_id, extra_player_data):
+    ret = extra_player_data.get(player_id, {})
+    if "Skill" not in ret:
+        # Always include the skill for consistency across game modes and rulesets.  Shouldn't be needed though...
+        ret["Skill"] = {"N": 100.0}
+    return ret
 
 def _get_tenant_config_value(config_key):
     default_value = TIER_DEFAULTS.get(config_key, None)
@@ -248,35 +361,35 @@ def _get_event_details(event):
         raise RuntimeError("Event is missing details!")
     return details
 
+def _is_backfill_ticket(ticket_id):
+    res = re.match(_get_tenant_config_value("backfill_ticket_pattern"), ticket_id)
+    return res is not None
+
 def _process_searching_event(event):
-    updated_tickets = set()
     for ticket_id, player in _ticket_players(event):
         player_id = int(player["playerId"])
+        if _is_backfill_ticket(ticket_id):
+            log.info(f"Ignoring backfill ticket {ticket_id} containing player {player_id}")
+            continue
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
-            if player_ticket is None:  # This is either a back fill ticket (i.e. not issued by us) or an event for a already deleted ticket.
-                log.info(f"Ignoring back-fill ticket with player {player_id} in it as current player.")
+            if player_ticket is None:  # Might be an event for an already deleted ticket.
+                log.warning(f"Ignoring 'SEARCHING' event on ticket {ticket_id} containing player {player_id} as this player has no ticket in our store.")
                 continue
             if ticket_id != player_ticket["TicketId"]:
-                log.info(f"'SEARCHING' event has player {player_id} on ticket {ticket_id}, which doesn't match his current ticket {player_ticket['TicketId']}. Ignoring this player/ticket combo update")
-                continue
-            if ticket_key in updated_tickets:
-                log.info(f"Skipping update on ticket for player {player_id} as it resolves to previously updated ticket key {ticket_key}")
+                log.warning(f"'SEARCHING' event has player {player_id} on ticket {ticket_id}, which doesn't match his current ticket {player_ticket['TicketId']}. Ignoring this player/ticket combo update")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
-                # If we've recorded a session, then the player is in a match already and this is either a backfill ticket or a very much out of order ticket
+                # If we've recorded a session, then the player is in a match already and this is either a backfill ticket or a very much out-of-order ticket
                 log.info(f"Existing session for player {player_id} found. Not updating {player_ticket['TicketId']}")
                 continue
-            if player_ticket["Status"] == "SEARCHING":
-                continue  # Save on redis calls
-            if player_ticket["Status"] not in ("QUEUED", "REQUIRES_ACCEPTANCE"):
+            if player_ticket["Status"] not in ("QUEUED", "SEARCHING", "REQUIRES_ACCEPTANCE"):
                 log.info(f"MatchmakingSearching event for ticket {player_ticket['TicketId']} in state {player_ticket['Status']} doesn't make sense.  Probably out of order delivery; ignoring.")
                 continue
-            log.info(f"Updating ticket {player_ticket['TicketId']} from {player_ticket['Status']} to SEARCHING")
-            player_ticket["Status"] = "SEARCHING"
-            ticket_lock.ticket = player_ticket
-            updated_tickets.add(ticket_key)
+            if player_ticket["Status"] != "SEARCHING":
+                log.info(f"Updating ticket {player_ticket['TicketId']} from {player_ticket['Status']} to SEARCHING")
+                player_ticket["Status"] = "SEARCHING"
             _post_matchmaking_event_to_members([player_id], "MatchmakingSearching")
 
 def _process_potential_match_event(event):
@@ -319,7 +432,6 @@ def _process_potential_match_event(event):
                 log.info(f"Updating ticket {player_ticket['TicketId']} for player key {ticket_key} from {player_ticket['Status']} to {new_state}")
                 player_ticket["Status"] = new_state
                 player_ticket["MatchId"] = match_id
-                ticket_lock.ticket = player_ticket
             else:
                 log.info(f"Party ticket {player_ticket['TicketId']} for player key {ticket_key} already updated.")
 
@@ -329,7 +441,7 @@ def _process_potential_match_event(event):
                 "match_id":  match_id,
                 "acceptance_timeout": acceptance_timeout
             }
-            _post_matchmaking_event_to_members(player_id, "PotentialMatchCreated", event_data=message_data)
+            _post_matchmaking_event_to_members([player_id], "PotentialMatchCreated", event_data=message_data)
 
 def _process_matchmaking_succeeded_event(event):
     game_session_info = event["gameSessionInfo"]
@@ -352,12 +464,12 @@ def _process_matchmaking_succeeded_event(event):
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
-            if player_ticket is None:  # This has to be a back fill ticket, i.e. not issued by us.
+            if player_ticket is None:  # This has to be a backfill ticket, i.e. not issued by us.
                 log.info(f"MatchmakingSucceeded event received for a player who has no ticket. Probably backfill.")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
                 # If we've recorded a session, then the player has been placed in a match already, or there are multiple players in the ticket.
-                # either way, we dont want/need to update it.
+                # either way, we don't want/need to update it.
                 log.info(f"Player {player_id} has a session on his ticket already. Not updating {player_ticket['TicketId']}")
                 continue
             # sanity check
@@ -374,7 +486,6 @@ def _process_matchmaking_succeeded_event(event):
                 "ConnectionString": connection_string,
                 "ConnectionOptions": connection_info_by_player_id[player_id]
             })
-            ticket_lock.ticket = player_ticket
             for ticket_player in player_ticket["Players"]:
                 receiver_id = int(ticket_player["PlayerId"])
                 event_data = {
@@ -395,19 +506,19 @@ def _process_matchmaking_cancelled_event(event):
                 # This block is a hack (heuristics); we should mark MATCH_COMPLETE via an explicit event.
                 # MATCH_COMPLETE is not a flexmatch status, but I want to differentiate between statuses arising from the
                 # cancelling of backfill tickets and other states
-                log.info(f"'CANCELLED' event has player {player_id} on ticket {ticket_id} when his active ticket {player_ticket['TicketId']} is in state {player_ticket['Status']}.")
-                if player_ticket["Status"] in ("MATCH_COMPLETE", "COMPLETED"):
-                    log.info(f"Found player {player_id} in a foreign ticket being cancelled. Inferring a backfill ticket being cancelled")
+                if _is_backfill_ticket(ticket_id):
+                    log.info(f"Backfill ticket {ticket_id} being cancelled.")
                     if player_ticket["Status"] == "COMPLETED":
-                        log.info(f"Setting player ticket {player_ticket['TicketId']} to state 'MATCH_COMPLETE'.")
+                        log.info(f"Found active player {player_id} in backfill ticket. Setting his actual tickets {player_ticket['TicketId']} to state 'MATCH_COMPLETE'")
                         player_ticket["Status"] = "MATCH_COMPLETE"
-                        ticket_lock.ticket = player_ticket
                 else:
-                    log.info(f"Ignoring this player/ticket combo update.")
+                    log.info(f"'CANCELLED' event has player {player_id} on ticket {ticket_id} when his active ticket " +
+                             f"{player_ticket['TicketId']} is in state {player_ticket['Status']}." +
+                             f"Ignoring this player/ticket combo update.")
                 continue
             player_ticket["Status"] = "CANCELLED"
+            log.info(f"Notifying player {player_id} of the cancellation of ticket {ticket_id}")
             _post_matchmaking_event_to_members([player_id], "MatchmakingCancelled")
-            ticket_lock.ticket = player_ticket
 
 def _process_accept_match_event(event):
     game_session_info = event["gameSessionInfo"]
@@ -428,7 +539,6 @@ def _process_accept_match_event(event):
                 for ticket_player in player_ticket["Players"]:
                     if ticket_player['PlayerId'] == player_id:
                         ticket_player["Accepted"] = acceptance
-                        ticket_lock.ticket = player_ticket
                         break
     if acceptance_by_player_id:
         _post_matchmaking_event_to_members(list(acceptance_by_player_id), "AcceptMatch", acceptance_by_player_id)
@@ -451,12 +561,14 @@ def _process_accept_match_completed_event(event):
                 log.error(f"Received acceptance event for player {player_id} who has a ticket in invalid state {player_ticket['Status']}.")
                 return
             player_ticket["MatchStatus"] = acceptance_result
-            ticket_lock.ticket = player_ticket
 
 def _process_matchmaking_timeout_event(event):
     players_to_notify = set()
     for ticket_id, player in _ticket_players(event):
         player_id = int(player["playerId"])
+        if _is_backfill_ticket(ticket_id):
+            log.info(f"Ignoring TimeOut on backfill ticket {ticket_id}")
+            continue
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
@@ -464,17 +576,17 @@ def _process_matchmaking_timeout_event(event):
                 log.warning(f"Timeout event for ticket {ticket_id} includes player {player_id} who has no ticket.")
                 continue
             if ticket_id != player_ticket["TicketId"]:
-                # Maybe a timeout on a backfill ticket?
                 log.warning(f"Timeout event for ticket {ticket_id} includes player {player_id} who has ticket {player_ticket['TicketId']}.")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
                 # If we've recorded a session, then the player has been placed in a match already
-                log.info(f"Player {player_id} has a session attached to his ticket.  Timeout is nonsensical here. Ignoring.")
+                log.info(f"Player {player_id} has a session attached to ticket {ticket_id}.  Timeout is nonsensical here. Ignoring.")
                 continue
+            log.info(f"Updating ticket {ticket_id} / player {player_id} from state {player_ticket['Status']} to TIMED_OUT.")
             player_ticket["Status"] = "TIMED_OUT"
-            ticket_lock.ticket = player_ticket
             players_to_notify.add(player_id)
     if players_to_notify:
+
         _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": "TimeOut"})
 
 def _process_matchmaking_failed_event(event):
@@ -482,6 +594,9 @@ def _process_matchmaking_failed_event(event):
     players_to_notify = set()
     for ticket_id, player in _ticket_players(event):
         player_id = int(player["playerId"])
+        if _is_backfill_ticket(ticket_id):
+            log.info(f"Ignoring 'FAILED' event for backfill ticket {ticket_id}.")
+            continue
         ticket_key = _get_player_ticket_key(player_id)
         with _LockedTicket(ticket_key) as ticket_lock:
             player_ticket = ticket_lock.ticket
@@ -489,15 +604,14 @@ def _process_matchmaking_failed_event(event):
                 log.warning(f"Failed event for ticket {ticket_id} includes player {player_id} who has no ticket.")
                 continue
             if ticket_id != player_ticket["TicketId"]:
-                # Maybe a failure on a backfill ticket?
                 log.warning(f"Failed event for ticket {ticket_id} includes player {player_id} who has ticket {player_ticket['TicketId']}.")
                 continue
             if player_ticket.get("GameSessionConnectionInfo", None) is not None:
                 # If we've recorded a session, then the player has been placed in a match already
-                log.info(f"Player {player_id} has a session attached to his ticket.  Timeout is nonsensical here. Ignoring.")
+                log.info(f"Player {player_id} has a session attached to his ticket.  Failure is nonsensical here. Ignoring.")
                 continue
+            log.info(f"Updating ticket {ticket_id} / player {player_id} from state {player_ticket['Status']} to FAILED.")
             player_ticket["Status"] = "FAILED"
-            ticket_lock.ticket = player_ticket
             players_to_notify.add(player_id)
     if players_to_notify:
         _post_matchmaking_event_to_members(players_to_notify, "MatchmakingFailed", event_data={"reason": event["reason"]})
@@ -542,9 +656,9 @@ class _LockedTicket(object):
     def __init__(self, key):
         self._key = key
         self._redis = g.redis
-        self._modified = False
         self._ticket = None
         self._ticket_id = None
+        self._entry_ticket_str = None
         self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
         if self.MAX_REJOIN_TIME is None:  # deferred initialization of class variable as we're not in app context at import time.
             self.__class__.MAX_REJOIN_TIME = _get_tenant_config_value("max_rejoin_time_seconds")
@@ -556,7 +670,6 @@ class _LockedTicket(object):
     @ticket.setter
     def ticket(self, new_ticket):
         self._ticket = new_ticket
-        self._modified = True
 
     def __enter__(self):
         self._lock.acquire(blocking=True)
@@ -565,18 +678,14 @@ class _LockedTicket(object):
             self._ticket_id = ticket_key.split(":")[-1]
         if self._ticket_id is not None:
             ticket = json.loads(self._redis.conn.get(self._make_ticket_key()))
-            if ticket["Status"] == "COMPLETED":
-                ttl = self._redis.conn.ttl(self._key)
-                if self.TICKET_TTL_SECONDS - ttl >= self.MAX_REJOIN_TIME:
-                    ticket["Status"] = "MATCH_COMPLETE"
-                    self._modified = True
+            self._entry_ticket_str = str(ticket)
             self._ticket = ticket
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._lock.owned():  # If we don't own the lock at this point, we don't want to update anything
             with self._redis.conn.pipeline() as pipe:
-                if self._modified is True and exc_type in (None, GameliftClientException):
+                if self._entry_ticket_str != str(self._ticket) and exc_type in (None, GameliftClientException):
                     if self._ticket_id:
                         pipe.delete(self._make_ticket_key())  # Always update the ticket wholesale, i.e. don't leave stale fields behind.
                     if self._ticket is None:
@@ -584,7 +693,10 @@ class _LockedTicket(object):
                     else:
                         self._ticket_id = self._ticket["TicketId"]
                         ticket_key = self._make_ticket_key()
-                        pipe.set(self._key, ticket_key, ex=self.TICKET_TTL_SECONDS)
+                        ttl = self.TICKET_TTL_SECONDS
+                        if self._ticket["Status"] in ("COMPLETED", "MATCH_COMPLETE"):
+                            ttl = self.MAX_REJOIN_TIME
+                        pipe.set(self._key, ticket_key, ex=ttl)
                         pipe.set(ticket_key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS)
                 pipe.execute()
             self._lock.release()
@@ -607,3 +719,8 @@ class GameliftClientException(Exception):
         self.msg = user_message
         self.debugs = debug_info
 
+class TicketConflict(Exception):
+    def __init__(self, user_message, debug_info):
+        super().__init__(user_message, debug_info)
+        self.msg = user_message
+        self.debugs = debug_info

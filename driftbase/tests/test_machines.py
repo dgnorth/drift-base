@@ -1,10 +1,9 @@
 import datetime
+import http.client as http_client
 from unittest.mock import patch
 
-from drift.systesthelper import DriftBaseTestCase
-import http.client as http_client
-
 from driftbase.api.machines import MachinesPostResponseSchema, MachinePutResponseSchema
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 class MachinesTest(DriftBaseTestCase):

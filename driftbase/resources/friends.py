@@ -1,5 +1,5 @@
 """
-Flexmatch configuration - shamelessly lifted from the parties resource configuration
+Friendships configuration
 """
 
 import logging
@@ -7,10 +7,9 @@ import logging
 log = logging.getLogger(__name__)
 
 TIER_DEFAULTS = {
-    "aws_gamelift_role": "",
-    "valid_regions": ["eu-west-1"],
-    "max_rejoin_time_seconds": 2 * 60,
-    "backfill_ticket_pattern": "^BackFill--.*"  # This is highly tenant specific; Perseus/TMA server issues backfill tickets with this prefix, but there's no rule here"""
+    "invite_token_format": "uuid",
+    "invite_token_worldlist_number_of_words": 3,
+    "invite_expiration_seconds": 60 * 60 * 1, # 1 hour
 }
 
 def drift_init_extension(app, **kwargs):

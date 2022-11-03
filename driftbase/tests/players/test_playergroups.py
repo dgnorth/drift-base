@@ -1,7 +1,6 @@
 import http.client as http_client
 
 from drift.systesthelper import setup_tenant, remove_tenant
-
 from driftbase.utils.test_utils import BaseCloudkitTest
 
 
@@ -16,7 +15,6 @@ def tearDownModule():
 class PlayerGroupsTest(BaseCloudkitTest):
 
     def test_playergroups(self):
-
         self.auth()
 
         def pg_url(group_name):
@@ -91,11 +89,10 @@ class PlayerGroupsTest(BaseCloudkitTest):
         r = self.put(pg_url('empty'), data={'player_ids': []})
         self.assertEqual(len(r.json()['players']), 0)
         r = self.put(pg_url('not_found'), data={'player_ids': [123456],
-                     'identity_names': ['nobody']})
+                                                'identity_names': ['nobody']})
         self.assertEqual(len(r.json()['players']), 0)
 
     def test_players_with_group(self):
-
         self.make_player(username="Number one user")
         p1 = self.player_id
         self.make_player(username="Number two user")

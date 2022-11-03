@@ -4,7 +4,7 @@ import marshmallow as ma
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from drift.utils import Url
-from flask import url_for, g
+from flask import url_for, g, current_app
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 import http.client as http_client
@@ -20,11 +20,26 @@ bp_parties = Blueprint("parties", __name__, url_prefix='/parties')
 bp_party_invites = Blueprint("party_invites", __name__, url_prefix='/party-invites')
 endpoints = Endpoints()
 
+def process_client_message(queue_name, message):
+    log.debug(f"parties::process_client_message() received event in queue '{queue_name}': '{message}'")
+
+    if message["event"] == "deleted":
+        """
+        Remove the player from a party if any when the player's client gracefully disconnects
+        """
+        player_id = message["player_id"]
+
+        party_id = get_player_party(player_id)
+
+        if party_id:
+            log.info(f"Removing player '{player_id}' from party '{party_id}' since the player's client de-registered")
+            leave_party(player_id, party_id)
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp_parties)
     api.register_blueprint(bp_party_invites)
     endpoints.init_app(app)
+    app.messagebus.register_consumer(process_client_message, "client")
 
 
 class PartyGetSchema(ma.Schema):
@@ -37,6 +52,7 @@ class PartyGetRequestSchema(ma.Schema):
 
 class PartyInvitesSchema(ma.Schema):
     inviter_id = ma.fields.Integer()
+    leave_existing_party = ma.fields.Bool(required=False, load_default=False, metadata=dict(description="Whether or not to leave an existing party before joining the new one"))
 
 
 class PartyPlayerSchema(ma.Schema):
@@ -122,27 +138,8 @@ class PartyPlayerAPI(MethodView):
         if player_id != current_user['player_id']:
             abort(http_client.FORBIDDEN, message="You can only remove yourself from a party")
 
-        if leave_party(player_id, party_id) is None:
-            abort(http_client.BAD_REQUEST, message="You're not a member of this party")
+        leave_party(player_id, party_id)
 
-        members = get_party_members(party_id)
-        for member in members:
-            post_message("players", member, "party_notification",
-                         {
-                             "event": "player_left",
-                             "party_id": party_id,
-                             "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-                             "player_id": player_id,
-                             "player_url": url_for("players.entry", player_id=player_id, _external=True),
-                         })
-        if len(members) <= 1:
-            disband_party(party_id)
-            post_message("players", members[0], "party_notification",
-                         {
-                             "event": "disbanded",
-                             "party_id": party_id,
-                             "party_url": url_for("parties.entry", party_id=party_id, _external=True),
-                         })
         return {}, http_client.NO_CONTENT
 
 
@@ -203,8 +200,13 @@ class PartyInviteAPI(MethodView):
     def patch(self, args, invite_id):
         player_id = current_user['player_id']
         inviter_id = args.get('inviter_id')
-        party_id, party_members = accept_party_invite(invite_id, inviter_id, player_id)
+        leave_existing_party = args.get('leave_existing_party')
+
+        party_id, party_members = accept_party_invite(invite_id, inviter_id, player_id, leave_existing_party)
         log.debug("Player {} accepted invite from player {} to party {}".format(player_id, inviter_id, party_id))
+
+        current_app.messagebus.publish_message("parties", {"event": "player_joined", "player_id": player_id, "party_id": party_id})
+
         member_url = url_for("parties.member", party_id=party_id, player_id=player_id, _external=True)
         for member in party_members:
             if member == player_id:

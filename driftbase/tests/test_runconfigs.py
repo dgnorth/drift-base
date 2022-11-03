@@ -1,12 +1,15 @@
-import unittest
 import http.client as http_client
-from drift.systesthelper import DriftBaseTestCase, make_unique
+import unittest
+
+from drift.systesthelper import make_unique
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 class RunConfigsTest(DriftBaseTestCase):
     """
     Tests for the /machines service endpoints
     """
+
     def test_runconfig_create(self):
         self.auth_service()
         data = {

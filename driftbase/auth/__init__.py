@@ -1,9 +1,8 @@
-import importlib
 import functools
+import importlib
 
-from drift.utils import get_config
 from drift.core.extensions import jwt
-
+from drift.utils import get_config
 
 AUTH_MODULES = {
     'gamecenter': 'driftbase.auth.gamecenter',
@@ -12,10 +11,12 @@ AUTH_MODULES = {
     'psn': 'driftbase.auth.psn',
     'steam': 'driftbase.auth.steam',
     'epic': 'driftbase.auth.epic',
+    'eos': 'driftbase.auth.eos',
+    'ethereum': 'driftbase.auth.ethereum',
 }
 
 LOCAL_AUTH = [
-    'device_id', 'user+pass', 'uuid', 'unit_test', 'viveport', 'hypereal', '7663',
+    'device_id', 'user+pass', 'uuid', 'viveport', 'hypereal', '7663',
 ]
 
 
@@ -26,7 +27,6 @@ def _authentication_thunker(module, func, *args, **kw):
 
 
 def drift_init_extension(app, api, **kwds):
-
     # register authentication handlers
     for name, module in AUTH_MODULES.items():
         jwt.register_auth_provider(app, name, functools.partial(_authentication_thunker, module, 'authenticate'))

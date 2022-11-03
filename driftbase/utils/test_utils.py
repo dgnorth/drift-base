@@ -2,7 +2,8 @@
     Utilities functions assisting the system tests
 """
 import http.client as http_client
-from drift.systesthelper import uuid_string, DriftBaseTestCase
+from drift.systesthelper import uuid_string
+from driftbase.systesthelper import DriftBaseTestCase
 
 
 class BaseCloudkitTest(DriftBaseTestCase):
@@ -24,11 +25,10 @@ class BaseCloudkitTest(DriftBaseTestCase):
             "app_guid": "app_guid",
             "version": "version"
         }
-        r = self.post(clients_url, data=data, expected_status_code=http_client.CREATED)
-        new_jti = r.json()["jti"]
-        self.headers["Authorization"] = "JTI %s" % new_jti
-        r = self.get("/")
-        self.endpoints = r.json()["endpoints"]
+        r = self.post(clients_url, data=data, expected_status_code=http_client.CREATED).json()
+        self.headers["Authorization"] = "BEARER %s" % r["jwt"]
+        r = self.get("/").json()
+        self.endpoints = r["endpoints"]
         return username
 
     def get_player_notification(self, queue_name, event, messages_after=None):
