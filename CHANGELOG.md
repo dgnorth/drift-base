@@ -1,6 +1,7 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
+  - [0.9.0](#090)
   - [0.8.0](#080)
   - [0.7.0](#070)
   - [0.6.3](#063)
@@ -30,10 +31,24 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.9.0
+
+### Bug Fixes / Feature Improvements
+- Update to Drift 0.9.2
+- Match placements now includes player latencies when starting placements
+- Total match time is now correctly logged
+- The Players resource now includes total play time in response if asked to
+- Flexmatch tickets in state PLACING will now timeout after PLACEMENT_TIMEOUT seconds so players don't get stuck past the timeout if server doesn't comply
+- Support 'system' messages/notifications coming in from other deployables
+- Player latencies are now also sent as part of the players attributes in Flexmatch tickets
+- Fix a bug where a players latency to a region that has been removed from valid regions would still be passed on to flexmatch
+- If a player leaves a match early his ticket is now set to MATCH_COMPLETE
+
+
 ## 0.8.0
 
 ### New features
-- Support generic match_placements without lobbies
+- Support generic match_placements without lobbies.
 
 ### Bug Fixes / Feature Improvements
 - Support fetching recent matches for a given player

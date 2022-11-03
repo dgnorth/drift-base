@@ -35,7 +35,6 @@ def before_request():
         # we are no longer logged in
         client_status = g.db.query(Client).get(client_id).status
         log.warning("Denying access for user %s on client %s. client status = '%s'", user_id, client_id, client_status)
-        print("bummer", current_app.error_handler_spec)
         abort(http_client.FORBIDDEN,
               error_code="client_session_terminated",
               description="Your client, %s is no longer registered here. Status is '%s'" % (client_id, client_status),

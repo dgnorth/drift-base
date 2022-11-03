@@ -49,72 +49,6 @@ class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
         self.match_placement_id = match_placement["placement_id"]
         self.match_placement_url = match_placement["match_placement_url"]
 
-    @contextlib.contextmanager
-    def _managed_bearer_token_user(self):
-        # FIXME: this whole thing is pretty much a c/p from test_jwt; consolidate.
-        self._access_key = str(uuid.uuid4())[:12]
-        self._user_name = "testuser_{}".format(self._access_key[:4])
-        self._role_name = "flexmatch_event"
-        try:
-            self._setup_service_user_with_bearer_token()
-            self.headers["Authorization"] = f"Bearer {self._access_key}"
-            yield
-        finally:
-            self._remove_service_user_with_bearer_token()
-            del self.headers["Authorization"]
-
-    def _setup_service_user_with_bearer_token(self):
-        conf = get_config()
-        ts = conf.table_store
-        # setup access roles
-        ts.get_table("access-roles").add({
-            "role_name": self._role_name,
-            "deployable_name": conf.deployable["deployable_name"]
-        })
-        # Setup a user with an access key
-        ts.get_table("users").add({
-            "user_name": self._user_name,
-            "password": self._access_key,
-            "access_key": self._access_key,
-            "is_active": True,
-            "is_role_admin": False,
-            "is_service": True,
-            "organization_name": conf.organization["organization_name"]
-        })
-        # Associate the bunch.
-        ts.get_table("users-acl").add({
-            "organization_name": conf.organization["organization_name"],
-            "user_name": self._user_name,
-            "role_name": self._role_name,
-            "tenant_name": conf.tenant["tenant_name"]
-        })
-
-    def _remove_service_user_with_bearer_token(self):
-        conf = get_config()
-        ts = conf.table_store
-        ts.get_table("users-acl").remove({
-            "organization_name": conf.organization["organization_name"],
-            "user_name": self._user_name,
-            "role_name": self._role_name,
-            "tenant_name": conf.tenant["tenant_name"]
-        })
-        ts.get_table("users").remove({
-            "user_name": self._user_name,
-            "access_key": self._access_key,
-            "is_active": True,
-            "is_role_admin": False,
-            "is_service": True,
-            "organization_name": conf.organization["organization_name"]
-        })
-        ts.get_table("access-roles").remove({
-            "role_name": self._role_name,
-            "deployable_name": conf.deployable["deployable_name"],
-            "description": "a throwaway test role"
-        })
-        delattr(self, '_access_key')
-        delattr(self, '_user_name')
-        delattr(self, '_role_name')
-
 """
 Match Placements API
 """
@@ -524,7 +458,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.create_match_placement()
 
         # Publish the queue event
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user("flexmatch_event"):
             event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
             event["detail"]["placementId"] = self.match_placement_id
             self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
@@ -561,7 +495,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.create_match_placement()
 
         # Publish the queue event
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user("flexmatch_event"):
             event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
             event["detail"]["placementId"] = self.match_placement_id
             event["detail"]["type"] = "PlacementCancelled"
@@ -594,7 +528,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.create_match_placement()
 
         # Publish the queue event
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user("flexmatch_event"):
             event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
             event["detail"]["placementId"] = self.match_placement_id
             event["detail"]["type"] = "PlacementTimedOut"
@@ -627,7 +561,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.create_match_placement()
 
         # Publish the queue event
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user("flexmatch_event"):
             event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
             event["detail"]["placementId"] = self.match_placement_id
             event["detail"]["type"] = "PlacementFailed"
@@ -664,7 +598,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         old_match_placement = copy.deepcopy(self.match_placement)
 
         # Publish the queue event
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user("flexmatch_event"):
             event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
             self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
 
@@ -686,7 +620,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         old_match_placement = copy.deepcopy(self.match_placement)
 
         # Publish the queue event
-        with self._managed_bearer_token_user():
+        with self.as_bearer_token_user("flexmatch_event"):
             event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
             event["detail"]["type"] = "42"
 

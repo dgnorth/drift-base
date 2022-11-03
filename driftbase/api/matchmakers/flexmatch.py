@@ -44,6 +44,7 @@ def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     app.messagebus.register_consumer(flexmatch.handle_party_event, "parties")
     app.messagebus.register_consumer(flexmatch.handle_client_event, "client")
+    app.messagebus.register_consumer(flexmatch.handle_match_event, "match")
     endpoints.init_app(app)
 
 @bp.route("/regions/", endpoint="regions")
@@ -75,7 +76,7 @@ class FlexMatchPlayerAPI(MethodView):
         Returns a region->avg_latency mapping.
         """
         for region, latency in args.get("latencies", {}).items():
-            if not isinstance(latency, (int, float)) or region not in flexmatch.get_valid_regions():
+            if not isinstance(latency, (int, float)):
                 abort(http_client.BAD_REQUEST, message="Invalid or missing arguments")
             flexmatch.update_player_latency(player_id, region, latency)
         return {"latencies": flexmatch.get_player_latency_averages(player_id)}

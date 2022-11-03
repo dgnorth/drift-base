@@ -46,9 +46,6 @@ class BaseCloudkitTest(DriftBaseTestCase):
                 break
         return notification, message_number
 
-
-class BaseMatchTest(BaseCloudkitTest):
-
     def _create_machine(self):
         if "service" not in self.current_user["roles"]:
             raise RuntimeError("Only service users can call this method")
@@ -105,6 +102,9 @@ class BaseMatchTest(BaseCloudkitTest):
             resp = self.get(resp.json()["url"])
             return resp.json()
         return None
+
+
+class BaseMatchTest(BaseCloudkitTest):
 
     def _filter_matches(self, resp, match_ids):
         return [m for m in resp.json() if m["match_id"] in match_ids]

@@ -144,6 +144,7 @@ class MessagesQueueAPI(MethodView):
     @bp.response(http_client.OK, MessagesQueuePostResponse)
     def post(self, args, exchange, exchange_id, queue):
         driftbase.messages.check_can_use_exchange(exchange, exchange_id, read=False)
+
         expire_seconds = args.get("expire") or driftbase.messages.DEFAULT_EXPIRE_SECONDS
 
         message = driftbase.messages.post_message(
@@ -152,6 +153,7 @@ class MessagesQueueAPI(MethodView):
             queue=queue,
             payload=args["message"],
             expire_seconds=expire_seconds,
+            sender_system=driftbase.messages.is_service()
         )
 
         # Fill in legacy data the new API doesn't care about

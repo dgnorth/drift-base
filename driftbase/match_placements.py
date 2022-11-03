@@ -163,7 +163,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
                 }),
             )
 
-            log.debug(f"match_placements::start_lobby_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
+            log.info(f"Placement start response for placement '{placement_id}': '{_jsonify(response)}'")
 
             # Check if another placement started for the player while waiting for a response
             if existing_placement_id != g.redis.conn.get(player_match_placement_key):
@@ -171,7 +171,7 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
                     f"Player '{player_id}' attempted to start lobby match placement for lobby '{lobby_id}', but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
 
                 response = flexmatch.stop_game_session_placement(placement_id)
-                log.debug(f"match_placements::start_lobby_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+                log.info(f"Placement stop response for placement '{placement_id}': '{_jsonify(response)}'")
 
                 raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
 
@@ -225,9 +225,9 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
         player_latencies = []
         for player_id_entry in player_ids:
             # Latency
-            for region, latency in flexmatch.get_player_latency_averages(player_latencies).items():
+            for region, latency in flexmatch.get_player_latency_averages(player_id_entry).items():
                 player_latencies.append({
-                    "PlayerId": str(player_latencies),
+                    "PlayerId": str(player_id_entry),
                     "RegionIdentifier": region,
                     "LatencyInMilliseconds": latency
                 })
@@ -245,7 +245,7 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
         game_session_name = f"{identifier}-{uuid.uuid4()}"[:48]  # Placement id must be <= 48 characters
         placement_id = game_session_name
 
-        log.info(f"Player '{player_id}' is starting match '{identifier}' in queue '{queue}'. Map name: '{map_name}'. GameLift placement id: '{placement_id}'")
+        log.info(f"Player '{player_id}' is starting match '{identifier}' in queue '{queue}'. Map name: '{map_name}'. GameLift placement id: '{placement_id}'. Players latencies: '{_jsonify(player_latencies)}'")
         response = flexmatch.start_game_session_placement(
             PlacementId=placement_id,
             GameSessionQueueName=queue,
@@ -266,14 +266,14 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
             }),
         )
 
-        log.debug(f"match_placements::start_match_placement() start_game_session_placement response: '{_jsonify(response)}'")
+        log.info(f"Placement start response for placement '{placement_id}': '{_jsonify(response)}'")
 
         # Check if another placement started for the player while waiting for a response
         if existing_placement_id != g.redis.conn.get(player_match_placement_key):
             log.warning( f"Player '{player_id}' attempted to start match placement, but was assigned to a match placement while starting the match placement. Stopping created match placement '{placement_id}'")
 
             response = flexmatch.stop_game_session_placement(placement_id)
-            log.debug(f"match_placements::start_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+            log.info(f"Placement stop response for placement '{placement_id}': '{_jsonify(response)}'")
 
             raise ConflictException("You were assigned to a match placement while attempting to start the lobby match placement")
 
@@ -335,7 +335,7 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
                 raise InvalidRequestException(f"Cannot stop a match placement in status {placement_status}")
 
             response = flexmatch.stop_game_session_placement(placement_id)
-            log.debug(f"match_placements::stop_player_match_placement() stop_game_session_placement response: '{_jsonify(response)}'")
+            log.info(f"Placement stop response for placement '{placement_id}': '{_jsonify(response)}'")
 
             log.info(f"Player '{player_id}' stopped match placement '{placement_id}'")
 

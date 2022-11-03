@@ -13,7 +13,6 @@ from driftbase.messages import post_message
 from driftbase.resources.flexmatch import TIER_DEFAULTS
 
 NUM_VALUES_FOR_LATENCY_AVERAGE = 3
-REDIS_TTL = 1800
 
 # Ticket states:
 # QUEUED                <- Ticket has been submitted (flexmatch ticket status)
@@ -65,7 +64,8 @@ def update_player_latency(player_id, region, latency_ms):
 
 def get_player_latency_averages(player_id):
     player_latency_key = _make_player_latency_key(player_id)
-    regions = _get_player_regions(player_id)
+    valid_regions = get_valid_regions()
+    regions = {region for region in _get_player_regions(player_id) if region in valid_regions}
     with g.redis.conn.pipeline() as pipe:
         for region in regions:
             pipe.lrange(player_latency_key + region, 0, NUM_VALUES_FOR_LATENCY_AVERAGE)
@@ -94,16 +94,23 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
         gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
         try:
             log.info(f"Issuing a new {matchmaking_configuration} matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
-            response = gamelift_client.start_matchmaking(
-                ConfigurationName=matchmaking_configuration,
-                Players=[
+            players = []
+            for member_id in member_ids:
+                attributes = _get_player_attributes(member_id, extra_matchmaking_data)
+                latencies = get_player_latency_averages(member_id)
+                attributes["Latencies"] = {
+                    "SDM": latencies
+                }
+                players.append(
                     {
                         "PlayerId": str(member_id),
-                        "PlayerAttributes": _get_player_attributes(member_id, extra_matchmaking_data),
-                        "LatencyInMs": get_player_latency_averages(member_id)
+                        "PlayerAttributes": attributes,
+                        "LatencyInMs": latencies
                     }
-                    for member_id in member_ids
-                ],
+                )
+            response = gamelift_client.start_matchmaking(
+                ConfigurationName=matchmaking_configuration,
+                Players=players
             )
         except ParamValidationError as e:
             raise GameliftClientException("Invalid parameters to request", str(e))
@@ -157,7 +164,6 @@ def _cancel_locked_ticket(ticket, player_id):
         # else it's a permanent failure, i.e. error_code in ("NotFoundException", "UnsupportedRegionException"):
         raise GameliftClientException(f"Failed to cancel matchmaking ticket: {e.response['Error']['Message'] }", str(e))
 
-
 def get_player_ticket(player_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         log.info(f"get_player_ticket returning ticket for player {player_id}: {ticket_lock.ticket}")
@@ -209,6 +215,17 @@ def handle_client_event(queue_name, event_data):
         if player_ticket:
             log.info(f"Client {client_id} unregistered. Attempting to cancel ticket {player_ticket['TicketId']}. Ticket dump: {player_ticket}.")
             cancel_active_ticket(player_id, player_ticket["TicketId"])
+
+def handle_match_event(queue_name, event_data):
+    if queue_name == "match" and event_data["event"] == "match_player_left":
+        player_id = event_data["player_id"]
+        with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
+            player_ticket = ticket_lock.ticket
+            if player_ticket:
+                log.info(f"Player {player_id} left match {event_data['match_id']}. Clearing local ticket {player_ticket['TicketId']}. Ticket dump: {player_ticket}.")
+                player_ticket["Status"] = "MATCH_COMPLETE"
+                player_ticket["GameSessionConnectionInfo"] = None
+
 
 def process_flexmatch_event(flexmatch_event):
     event = _get_event_details(flexmatch_event)
@@ -649,6 +666,7 @@ class _LockedTicket(object):
     """
     MAX_LOCK_WAIT_TIME_SECONDS = 30
     TICKET_TTL_SECONDS = 10 * 60
+    PLACEMENT_TIMEOUT = 5 * 60
     MAX_REJOIN_TIME = None
 
     def __init__(self, key):
@@ -694,6 +712,8 @@ class _LockedTicket(object):
                         ttl = self.TICKET_TTL_SECONDS
                         if self._ticket["Status"] in ("COMPLETED", "MATCH_COMPLETE"):
                             ttl = self.MAX_REJOIN_TIME
+                        elif self._ticket["Status"] == "PLACING":
+                            ttl = self.PLACEMENT_TIMEOUT
                         pipe.set(self._key, ticket_key, ex=ttl)
                         pipe.set(ticket_key, self._jsonify_ticket(), ex=self.TICKET_TTL_SECONDS)
                 pipe.execute()
