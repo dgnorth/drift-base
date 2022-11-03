@@ -1,23 +1,36 @@
 {
     "name": "drift-base",
     "PORT": 10080,
+    "DISABLE_JWT": 0,
+    "OPENAPI_URL_PREFIX": "/doc",
+    "OPENAPI_REDOC_PATH": "/redoc",
+    "OPENAPI_SWAGGER_UI_PATH": "/swagger",
+    "OPENAPI_SWAGGER_UI_VERSION": "3.19.4",
+    "SQLALCHEMY_ENGINE_OPTIONS": {
+        "pool_pre_ping": true
+    },
     "apps": [
-        "driftbase.tasks",
-        "driftbase.players",
-        "driftbase.users",
-        "driftbase.clients",
-        "driftbase.events",
-        "driftbase.counters",
-        "driftbase.friendships",
-        "driftbase.useridentities",
-        "driftbase.matches",
-        "driftbase.servers",
-        "driftbase.machines",
-        "driftbase.staticdata",
-        "driftbase.runconfigs",
-        "driftbase.machinegroups",
-        "driftbase.matchqueue",
-        "driftbase.messages",
+        "driftbase.api.players",
+        "driftbase.api.users",
+        "driftbase.api.useridentities",
+        "driftbase.api.clients",
+        "driftbase.api.clientlogs",
+        "driftbase.api.events",
+        "driftbase.api.counters",
+        "driftbase.api.friendships",
+        "driftbase.api.useridentities",
+        "driftbase.api.matches",
+        "driftbase.api.servers",
+        "driftbase.api.machines",
+        "driftbase.api.parties",
+        "driftbase.api.staticdata",
+        "driftbase.api.runconfigs",
+        "driftbase.api.machinegroups",
+        "driftbase.api.matchqueue",
+        "driftbase.api.messages",
+        "driftbase.api.matchmakers",
+        "driftbase.api.matchmakers.flexmatch",
+
         "drift.core.apps.schemas",
         "drift.core.apps.provision",
         "drift.core.apps.healthcheck",
@@ -30,66 +43,21 @@
     "resources": [
         "drift.core.resources.postgres",
         "drift.core.resources.redis",
+        "drift.core.resources.jwtsession",
+        "drift.core.resources.sentry",
         "driftbase.resources.staticdata",
-        "driftbase.resources.gameserver"
+        "driftbase.resources.gameserver",
+        "driftbase.resources.parties",
+        "driftbase.resources.flexmatch",
+        "driftbase.auth"
     ],
-    "models": [
-        "driftbase.db.models"
-    ],
+    "resource_attributes": {
+        "drift.core.resources.postgres": {"models": ["driftbase.models.db"]}
+    },
     "default_timeout": 5,
     "heartbeat_period": 30,
     "heartbeat_timeout": 300,
     "systest_db": {
         "server": "localhost:5432"
-    },
-    "CELERYBEAT_SCHEDULERxxx": "drift.core.extensions.celery.SingletonScheduler",
-    "CELERYBEAT_SCHEDULE": {
-        "cleanup_orphaned_matchqueues": {
-            "options": {
-                "expires": 1000
-            },
-            "schedule": 180,
-            "task": "driftbase.matchqueue.cleanup_orphaned_matchqueues"
-        },
-        "counter-flush": {
-            "options": {
-                "expires": 160
-            },
-            "schedule": 80,
-            "task": "driftbase.tasks.flush_counters"
-        },
-        "online-statistics": {
-            "options": {
-                "expires": 120
-            },
-            "schedule": 60,
-            "task": "driftbase.tasks.update_online_statistics"
-        },
-        "request-statistics": {
-            "options": {
-                "expires": 140
-            },
-            "schedule": 70,
-            "task": "driftbase.tasks.flush_request_statistics"
-        },
-        "timeout-clients": {
-            "options": {
-                "expires": 400
-            },
-            "schedule": 200,
-            "task": "driftbase.tasks.timeout_clients"
-        }
-    },
-    "CELERYD_HIJACK_ROOT_LOGGER": true,
-    "CELERYD_LOG_LEVEL": "INFO",
-    "CELERY_ACCEPT_CONTENT": [
-        "json"
-    ],
-    "CELERY_DEFAULT_EXCHANGE": "ck-tasker-default",
-    "CELERY_DEFAULT_QUEUE": "ck-tasker-default",
-    "CELERY_DEFAULT_ROUTING_KEY": "ck-tasker-default",
-    "CELERY_RESULT_SERIALIZER": "json",
-    "CELERY_STORE_ERRORS_EVEN_IF_IGNORED": true,
-    "CELERY_TASK_RESULT_EXPIRES": 3600,
-    "CELERY_TASK_SERIALIZER": "json"
+    }
 }

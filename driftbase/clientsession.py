@@ -1,12 +1,12 @@
 import logging
-import httplib
+import http.client as http_client
 
-from flask import g
-from flask_restful import abort
+from flask import g, current_app
+from flask_smorest import abort
 
-from drift.auth.jwtchecker import query_current_user
+from drift.core.extensions.jwt import query_current_user
 
-from driftbase.db.models import Client
+from driftbase.models.db import Client
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +17,9 @@ def before_request():
         return
 
     # we do not log off service users
-    if "service" in current_user["roles"]:
+    if current_user.get("is_service"):
+        return
+    if current_user["roles"] == "service":  # Legacy service user
         return
 
     if not current_user.get("client_id"):
@@ -32,9 +34,10 @@ def before_request():
     if current_client_id != client_id:
         # we are no longer logged in
         client_status = g.db.query(Client).get(client_id).status
-        log.warn("Denying access for user %s on client %s. client status = '%s'", user_id, client_id, client_status)
-        abort(httplib.FORBIDDEN,
-              code="client_session_terminated",
+        log.warning("Denying access for user %s on client %s. client status = '%s'", user_id, client_id, client_status)
+        print("bummer", current_app.error_handler_spec)
+        abort(http_client.FORBIDDEN,
+              error_code="client_session_terminated",
               description="Your client, %s is no longer registered here. Status is '%s'" % (client_id, client_status),
               reason=client_status,
               )

@@ -1,7 +1,0 @@
-{
-    "redis_server": "localhost",
-    "db_server": "localhost",
-    "systest_db": {
-        "server": "localhost:5432"
-    }
-}

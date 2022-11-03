@@ -1,0 +1,43 @@
+version: '2'
+
+services:
+  driftbase:
+    container_name: driftapp
+    image: ${DOCKER_IMAGE}
+    restart: always
+    user: '1000:1000'
+    env_file:
+      - /etc/environment
+    ports:
+      - '10080:10080'
+      - '8080:8080'
+      - '9191:9191'
+
+  datadog:
+    container_name: datadog
+    image: datadog/agent:latest
+    restart: always
+    environment:
+      - DD_API_KEY
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_APM_ENABLED=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_AC_EXCLUDE="name:datadog"
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_AGENT_HOST=datadog
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_TRACE_ANALYTICS_ENABLED=true
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+      - '/proc/:/host/proc/:ro'
+      - '/sys/fs/cgroup/:/host/sys/fs/cgroup:ro'
+      - '/etc/passwd:/etc/passwd:ro'
+      - '/opt/datadog-agent/run:/opt/datadog-agent/run:rw'
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    command: '--cleanup --include-stopped'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

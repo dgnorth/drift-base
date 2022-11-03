@@ -1,15 +1,16 @@
-# -*- coding: utf-8 -*-
+import sys
+import socket
+import logging
+from logging.config import fileConfig
 
-from __future__ import with_statement
+import os
+from click import echo, secho
 from alembic import context
 from sqlalchemy import pool, create_engine
-from logging.config import fileConfig
-import logging
 from drift.core.resources.postgres import format_connection_string
 from drift.utils import get_tier_name
-from os.path import abspath, join
-import os, sys, socket
 from driftconfig.util import get_default_drift_config
+
 
 def get_ts():
     return get_default_drift_config()
@@ -62,10 +63,10 @@ def get_engines():
     tenants = []
     ts = get_ts()
     tier = get_tier_name()
-    tenants_table = ts.get_table('tenants').find({'deployable_name': 'drift-base'}) #!
+    tenants_table = ts.get_table('tenants').find({'deployable_name': 'drift-base'})
     pick_tenant = context.get_x_argument(as_dictionary=True).get('tenant')
     if pick_tenant:
-        print 'picking tenant %s' % pick_tenant
+        echo('picking tenant %s' % pick_tenant)
     dry_run = context.get_x_argument(as_dictionary=True).get('dry-run')
 
     for t in tenants_table:
@@ -77,19 +78,25 @@ def get_engines():
 
     for tenant_config in tenants:
         conn_info = tenant_config["postgres"]
-        conn_info["username"] = MASTER_USERNAME
-        conn_info["password"] = MASTER_PASSWORD
-        this_conn_string = format_connection_string(conn_info)
-        print this_conn_string
+        if not conn_info.get("database"):
+            echo('skipping tenant %s as db name is null' % tenant_config["tenant_name"])
+            continue
 
-        if this_conn_string not in [e["url"] for e in engines.itervalues()]:
+        username = os.environ.get('DRIFT_POSTGRES_MASTER_USER', MASTER_USERNAME)
+        password = os.environ.get('DRIFT_POSTGRES_MASTER_PASSWORD', MASTER_PASSWORD)
+        conn_info["username"] = username
+        conn_info["password"] = password
+
+        this_conn_string = format_connection_string(conn_info)
+
+        if this_conn_string not in [e["url"] for e in engines.values()]:
             engines["{}.{}".format(tenant_config["tier_name"],
                                    tenant_config["tenant_name"])] = rec = {"url": this_conn_string}
 
     # quick and dirty connectivity test before trying to upgrade all db's
-    print "Checking connectivity..."
+    echo("Checking connectivity...")
     db_servers = set()
-    for key, engine in engines.iteritems():
+    for key, engine in engines.items():
         server = engine["url"].split("/")
         db_servers.add(server[2].split("@")[1].lower())
     err = False
@@ -101,21 +108,20 @@ def get_engines():
         sock.settimeout(2)
         result = sock.connect_ex((db_server, port))
         if result != 0:
-            print "Unable to connect to server '%s' on port %s" % (db_server, port)
+            secho("Unable to connect to server '%s' on port %s" % (db_server, port), fg="red")
             err = True
         else:
-            print "OK"
+            secho("OK", fg="green")
     if err:
-        raise Exception("Unable to connect to one or more db servers. Bailing out!")
+        raise RuntimeError("Unable to connect to one or more db servers. Bailing out!")
 
     if dry_run:
-        print "Dry run, exiting without taking further action"
+        secho("Dry run, exiting without taking further action", fg="yellow")
         return {}
 
     for key in engines.keys():
         rec = engines[key]
         connection_string = rec["url"]
-        logger.info("Connecting '{}'...".format(connection_string))
         rec['engine'] = create_engine(connection_string,
                                       echo=False,
                                       poolclass=pool.NullPool)
@@ -189,7 +195,7 @@ def run_migrations_online():
 
         for rec in engines.values():
             rec['transaction'].commit()
-    except:
+    except BaseException:
         for rec in engines.values():
             rec['transaction'].rollback()
         raise

@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """
     Utilities functions assisting the system tests
 """
-import httplib
+import http.client as http_client
 from drift.systesthelper import uuid_string, DriftBaseTestCase
 
 
@@ -25,12 +24,27 @@ class BaseCloudkitTest(DriftBaseTestCase):
             "app_guid": "app_guid",
             "version": "version"
         }
-        r = self.post(clients_url, data=data, expected_status_code=httplib.CREATED)
+        r = self.post(clients_url, data=data, expected_status_code=http_client.CREATED)
         new_jti = r.json()["jti"]
         self.headers["Authorization"] = "JTI %s" % new_jti
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
         return username
+
+    def get_player_notification(self, queue_name, event, messages_after=None):
+        """ Return the first notification in 'queue_name' matching 'event' from 'players' exchange. """
+        notification = None
+        args = "?messages_after={}".format(messages_after) if messages_after else ""
+        messages = self.get(self.endpoints["my_messages"] + args).json()
+        topic = messages.get(queue_name, [])
+        message_number = messages_after
+        for message in topic:
+            message_number = message.get('message_number')
+            payload = message.get('payload', {})
+            if payload.get('event', None) == event:
+                notification = payload
+                break
+        return notification, message_number
 
 
 class BaseMatchTest(BaseCloudkitTest):
@@ -45,7 +59,7 @@ class BaseMatchTest(BaseCloudkitTest):
                 "instance_id": "instance_id",
                 "public_ip": "8.8.8.8",
                 }
-        resp = self.post("/machines", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/machines", data=data, expected_status_code=http_client.CREATED)
         url = resp.json()["url"]
         resp = self.get(url)
         return resp.json()
@@ -68,10 +82,10 @@ class BaseMatchTest(BaseCloudkitTest):
                 "details": {"details": "yes"},
                 "ref": "test/testing",
                 }
-        resp = self.post("/servers", data=data, expected_status_code=httplib.CREATED)
+        resp = self.post("/servers", data=data, expected_status_code=http_client.CREATED)
         return resp.json()
 
-    def _create_match(self, server_id=None, **kwargs):
+    def _create_match(self, server_id=None, expected_status_code=http_client.CREATED, **kwargs):
         if "service" not in self.current_user["roles"]:
             raise RuntimeError("Only service users can call this method")
         if not server_id:
@@ -86,9 +100,11 @@ class BaseMatchTest(BaseCloudkitTest):
                 "max_players": 2,
                 }
         data.update(**kwargs)
-        resp = self.post("/matches", data=data, expected_status_code=httplib.CREATED)
-        resp = self.get(resp.json()["url"])
-        return resp.json()
+        resp = self.post("/matches", data=data, expected_status_code=expected_status_code)
+        if resp:
+            resp = self.get(resp.json()["url"])
+            return resp.json()
+        return None
 
     def _filter_matches(self, resp, match_ids):
         return [m for m in resp.json() if m["match_id"] in match_ids]

@@ -1,0 +1,29 @@
+[[source]]
+url = "https://${PYPI_USERNAME}:${PYPI_PASSWORD}@nexus.directivegames.com/repository/pypi/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+python-drift = "==0.7.0"
+#python-drift = {editable = true, extras = ["aws", "test"], path = "../drift"}
+gevent = "*"
+requests = "*"
+boto3 = "*"
+botocore = "*"
+greenlet = "*"
+python-decouple = "*"
+python-driftconfig = "*"
+#python-driftconfig = {editable = true, extras = ["redis-backend", "s3-backend"], path = "./../drift-config"}
+psycogreen = "*"
+aws-assume-role-lib = "*"
+ddtrace = "*"
+
+[dev-packages]
+pytest = "*"
+pytest-cov = "*"
+codecov="*"
+responses = "*"
+mock = "*"
+
+[requires]
+python_version = "3.9"
