@@ -191,13 +191,6 @@ class ProviderDetailsTests(BaseAuthTestCase):
     def test_auth(self):
         responses.add(
             responses.GET,
-            'broken_cert',
-            body='not a valid cert',
-            status=200,
-            content_type='application/x-x509-ca-cert'
-        )
-        responses.add(
-            responses.GET,
             template['public_key_url'],
             body=gc_prod_2_cer,
             status=200,
