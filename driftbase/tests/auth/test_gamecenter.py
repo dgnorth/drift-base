@@ -187,26 +187,26 @@ gamecenter_data = {
 
 class ProviderDetailsTests(BaseAuthTestCase):
     @mock.patch('datetime.datetime', DateInside)
+    @responses.activate
     def test_auth(self):
-        with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.GET,
-                'broken_cert',
-                body='not a valid cert',
-                status=200,
-                content_type='application/x-x509-ca-cert'
-            )
-            rsps.add(
-                responses.GET,
-                template['public_key_url'],
-                body=gc_prod_2_cer,
-                status=200,
-                content_type='application/x-x509-ca-cert'
-            )
-            rsps.add_passthru(re.compile('http://localhost/\\w+'))
-            with mock.patch('driftbase.auth.gamecenter.get_provider_config') as config:
-                config.return_value = dict(bundle_ids=[])
-                user1 = self._auth_and_get_user(gamecenter_data)
-                user2 = self._auth_and_get_user(gamecenter_data)
-                assert user1['identity_id'] == user2['identity_id']
-                assert user1['user_id'] == user2['user_id']
+        responses.add(
+            responses.GET,
+            'broken_cert',
+            body='not a valid cert',
+            status=200,
+            content_type='application/x-x509-ca-cert'
+        )
+        responses.add(
+            responses.GET,
+            template['public_key_url'],
+            body=gc_prod_2_cer,
+            status=200,
+            content_type='application/x-x509-ca-cert'
+        )
+        responses.add_passthru(re.compile('http://localhost/\\w+'))
+        with mock.patch('driftbase.auth.gamecenter.get_provider_config') as config:
+            config.return_value = dict(bundle_ids=[])
+            user1 = self._auth_and_get_user(gamecenter_data)
+            user2 = self._auth_and_get_user(gamecenter_data)
+            assert user1['identity_id'] == user2['identity_id']
+            assert user1['user_id'] == user2['user_id']
