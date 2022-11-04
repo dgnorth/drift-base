@@ -1,12 +1,13 @@
+import json
+import unittest
 from unittest import mock
 
-import json
 import jwt
-import unittest
 
 import driftbase.auth.eos as eos
 from driftbase.auth.authenticate import InvalidRequestException, ServiceUnavailableException, \
     UnauthorizedException
+from driftbase.tests.test_auth import BaseAuthTestCase
 
 # Examples from https://tools.ietf.org/html/rfc7518, https://tools.ietf.org/html/rfc7519
 TEST_JWT = 'eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'
@@ -144,3 +145,32 @@ class TestEosRunAuthentication(unittest.TestCase):
 def _make_test_token_and_key(payload):
     jwk = jwt.PyJWK.from_json(TEST_JWK)
     return jwt.encode(payload=payload, key=jwk.key, algorithm=TEST_JWT_ALGORITHM), jwk
+
+
+@mock.patch('driftbase.auth.eos.JWT_ALGORITHM', TEST_JWT_ALGORITHM)
+class ProviderDetailsTests(BaseAuthTestCase):
+    def setUp(self):
+        self.token_audience = 'foo'
+        self.valid_client_ids = [self.token_audience]
+        self.expected_sub = 'eos_account_id'
+
+    def make_provider_data(self, token):
+        return {
+            'provider': 'eos',
+            'provider_details': {
+                'token': token,
+            }
+        }
+
+    def test_auth(self):
+        with mock.patch('driftbase.auth.eos.get_provider_config') as config:
+            config.return_value = dict(client_ids=[self.token_audience])
+            payload = dict(aud=self.token_audience, iss=eos.TRUSTED_ISSUER_URL_BASE, sub=self.expected_sub)
+            token, jwk = _make_test_token_and_key(payload)
+            with mock.patch('driftbase.auth.eos._get_key_from_token', return_value=jwk.key):
+                user1 = self._auth_and_get_user(self.make_provider_data(token))
+            token, jwk = _make_test_token_and_key(payload)
+            with mock.patch('driftbase.auth.eos._get_key_from_token', return_value=jwk.key):
+                user2 = self._auth_and_get_user(self.make_provider_data(token))
+            assert user1['identity_id'] == user2['identity_id']
+            assert user1['user_id'] == user2['user_id']
