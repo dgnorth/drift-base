@@ -66,7 +66,7 @@
 ## 0.7.0
 
 ### New features
-- New auth provider 'etherium' added
+- New auth provider 'ethereum' added
 
 ### Bug Fixes / Feature Improvements
 - Support gzipped payloads in events endpoint

@@ -1,8 +1,9 @@
 import http.client as http_client
-from mock import patch, MagicMock
 
 from drift.systesthelper import setup_tenant, remove_tenant
 from drift.utils import get_config
+from mock import patch, MagicMock
+
 from driftbase.systesthelper import DriftBaseTestCase
 
 
@@ -161,12 +162,14 @@ uuid_auth_with_provider_data = {
 }
 
 
-class BaseAuthTests(DriftBaseTestCase):
+class BaseAuthTestCase(DriftBaseTestCase):
     def _auth_and_get_user(self, data):
         token1 = self.post('/auth', data=data, expected_status_code=http_client.OK)
         user1 = self.get('/', headers={'Authorization': f"BEARER {token1.json()['token']}"}).json()['current_user']
         return user1
 
+
+class UserPassAuthTests(BaseAuthTestCase):
     def test_old_style_user_pass_auth(self):
         user1 = self._auth_and_get_user(old_style_user_pass_data)
         user2 = self._auth_and_get_user(old_style_user_pass_data)

@@ -1,11 +1,11 @@
 import base64
+import http.client as http_client
 import struct
 from hashlib import pbkdf2_hmac
 
 import OpenSSL
 import marshmallow as ma
 from drift.blueprint import abort
-import http.client as http_client
 from six.moves.urllib.parse import urlparse
 from werkzeug.exceptions import Unauthorized
 
@@ -24,8 +24,8 @@ def authenticate(auth_info):
     identity_id = validate_gamecenter_token(provider_details)
     # The GameCenter user_id cannot be stored in plain text, so let's
     # give it one cycle of hashing.
-    username = "gamecenter:" + pbkdf2_hmac('sha256', identity_id, "staticsalt",
-                                          iterations=1).hex()
+    username = "gamecenter:" + pbkdf2_hmac('sha256', identity_id.encode('utf-8'), b"staticsalt",
+                                           iterations=1).hex()
     return base_authenticate(username, "", automatic_account_creation)
 
 

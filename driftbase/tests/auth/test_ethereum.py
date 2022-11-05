@@ -1,11 +1,11 @@
-from unittest import mock
-
 import datetime
 import unittest
+from unittest import mock
 
 import driftbase.auth.ethereum as ethereum
 from driftbase.auth.authenticate import InvalidRequestException, ServiceUnavailableException, \
     UnauthorizedException
+from driftbase.tests.test_auth import BaseAuthTestCase
 
 
 class TestEthereumAuthenticate(unittest.TestCase):
@@ -126,3 +126,27 @@ class TestEthereumRunAuthentication(unittest.TestCase):
             now.return_value = self.timestamp - datetime.timedelta(seconds=10)
             with self.assertRaises(UnauthorizedException):
                 ethereum._run_ethereum_message_validation(self.address, self.message, self.signature)
+
+
+signature_timestamp = datetime.datetime.fromisoformat('2022-01-12T08:12:59.787')
+
+ethereum_data = {
+    'provider': 'ethereum',
+    'provider_details': {
+        'signer': '0x854Cc1Ce8e826e514f1dD8127f9D0AF689f181A9',
+        'message': '{\r\n\t"message": "Authorize for Drift login",\r\n\t"timestamp": "2022-01-12T08:12:59.787Z"\r\n}',
+        'signature': '0x5b0bf23f6cccf4315f561a04aef11b60dadced91bc17ac168db14b467851d4010349a8d3fbaec28c4671eb27ba7a8160900b51c2ded5137b3a9804881f3ee32c1c',
+    }
+}
+
+
+class ProviderDetailsTests(BaseAuthTestCase):
+    def test_auth(self):
+        with mock.patch('driftbase.auth.ethereum.utcnow') as now:
+            now.return_value = signature_timestamp + datetime.timedelta(seconds=5)
+            with mock.patch('driftbase.auth.ethereum.get_provider_config') as config:
+                config.return_value = dict()
+                user1 = self._auth_and_get_user(ethereum_data)
+                user2 = self._auth_and_get_user(ethereum_data)
+                assert user1['identity_id'] == user2['identity_id']
+                assert user1['user_id'] == user2['user_id']
