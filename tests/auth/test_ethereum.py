@@ -5,7 +5,7 @@ from unittest import mock
 import driftbase.auth.ethereum as ethereum
 from driftbase.auth.authenticate import InvalidRequestException, ServiceUnavailableException, \
     UnauthorizedException
-from driftbase.tests.test_auth import BaseAuthTestCase
+from tests.test_auth import BaseAuthTestCase
 
 
 class TestEthereumAuthenticate(unittest.TestCase):

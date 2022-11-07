@@ -1,14 +1,11 @@
 import http.client as http_client
 import typing
 import copy
-import contextlib
-import uuid
 
 from driftbase.utils.test_utils import BaseCloudkitTest
 from unittest.mock import patch
 from driftbase import match_placements, lobbies, flexmatch
-from driftbase.tests import test_lobbies
-from drift.utils import get_config
+from tests import test_lobbies
 
 MOCK_PLACEMENT = {
     "placement_id": "123456"

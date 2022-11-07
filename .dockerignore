@@ -3,7 +3,9 @@
 
 .coveragerc
 .dockerignore
+.editorconfig
 .env
+.gitattributes
 .gitignore
 
 .driftonconfig-developer/
@@ -13,8 +15,10 @@ drift_base.egg-info/
 
 aws/
 deployment/
+tests/
 scripts/
 
+CHANGELOG.md
 Dockerfile
 GitVersion.yml
 LICENSE
@@ -27,4 +31,3 @@ example.env
 notes-on-sls.md
 pytest.ini
 settings.ini
-setup.py

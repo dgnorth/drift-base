@@ -9,7 +9,7 @@ import responses
 from werkzeug.exceptions import Unauthorized
 
 from driftbase.auth.gamecenter import run_gamecenter_token_validation
-from driftbase.tests.test_auth import BaseAuthTestCase
+from tests.test_auth import BaseAuthTestCase
 
 template = {
     "public_key_url": "https://static.gc.apple.com/public-key/gc-prod-2.cer",

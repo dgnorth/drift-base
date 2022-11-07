@@ -7,7 +7,7 @@ import jwt
 import driftbase.auth.eos as eos
 from driftbase.auth.authenticate import InvalidRequestException, ServiceUnavailableException, \
     UnauthorizedException
-from driftbase.tests.test_auth import BaseAuthTestCase
+from tests.test_auth import BaseAuthTestCase
 
 # Examples from https://tools.ietf.org/html/rfc7518, https://tools.ietf.org/html/rfc7519
 TEST_JWT = 'eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'
@@ -67,7 +67,7 @@ class TestEosGetKeys(unittest.TestCase):
     def test_fails_when_failing_to_load_keys(self):
         with self.assertRaises(ServiceUnavailableException) as e:
             eos._get_key_from_token(TEST_JWT)
-        self.assertTrue(e.exception.msg.find('Failed to fetch') != -1)
+            self.assertTrue(e.exception.msg.find('Failed to fetch') != -1)
 
     def test_fails_when_key_set_is_empty(self):
         with mock.patch('driftbase.auth.eos.jwt.PyJWKClient') as mock_jwk_client:
@@ -76,14 +76,14 @@ class TestEosGetKeys(unittest.TestCase):
             instance.get_signing_key_from_jwt.return_value = None
             with self.assertRaises(UnauthorizedException) as e:
                 eos._get_key_from_token(TEST_JWT)
-            self.assertTrue(e.exception.msg.find('Failed to find') != -1)
+                self.assertTrue(e.exception.msg.find('Failed to find') != -1)
 
     def test_fails_when_key_set_is_invalid(self):
         with mock.patch.object(eos.jwt.PyJWKClient, 'fetch_data') as mock_fetch:
             mock_fetch.side_effect = json.decoder.JSONDecodeError('mock', '', 42)
             with self.assertRaises(ServiceUnavailableException) as e:
                 eos._get_key_from_token(TEST_JWT)
-            self.assertTrue(e.exception.msg.find('Failed to read') != -1)
+                self.assertTrue(e.exception.msg.find('Failed to read') != -1)
 
 
 @mock.patch('driftbase.auth.eos.JWT_ALGORITHM', TEST_JWT_ALGORITHM)

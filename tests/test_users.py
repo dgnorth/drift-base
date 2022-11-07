@@ -2,7 +2,7 @@ import http.client as http_client
 
 from drift.systesthelper import big_number
 from driftbase.systesthelper import DriftBaseTestCase
-from driftbase.tests import has_key
+from tests import has_key
 
 
 class UsersTest(DriftBaseTestCase):

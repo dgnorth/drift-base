@@ -1,5 +1,6 @@
 {
     "name": "drift-base",
+    "description": "Base Services for Drift",
     "PORT": 10080,
     "DISABLE_JWT": 0,
     "OPENAPI_URL_PREFIX": "/doc",
