@@ -1,6 +1,6 @@
 import http.client as http_client
 
-from drift.systesthelper import setup_tenant, remove_tenant
+from drift.test_helpers.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
 
 
@@ -21,7 +21,7 @@ class TicketsTests(BaseCloudkitTest):
             "ticket_type": "bla",
             "external_id": "test.1"
         }
-        self.post(player["tickets_url"], data=data, expected_status_code=http_client.UNAUTHORIZED)
+        self.post(player["tickets_url"], data=data, expected_status_code=http_client.FORBIDDEN)
 
         self.auth_service()
         r = self.post(player["tickets_url"], data=data, expected_status_code=http_client.CREATED)

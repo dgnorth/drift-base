@@ -2,7 +2,7 @@
     Utilities functions assisting the system tests
 """
 import http.client as http_client
-from drift.systesthelper import uuid_string
+from drift.test_helpers.systesthelper import uuid_string
 from driftbase.systesthelper import DriftBaseTestCase
 
 

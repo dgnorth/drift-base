@@ -89,7 +89,7 @@ def authenticate_with_provider(auth_info):
 def authenticate(username, password, automatic_account_creation=True):
     """basic authentication"""
     identity_type = ""
-    create_roles = []
+    create_roles = set()
     lst = username.split(":")
     # old backwards compatible (non-identity)
     is_old = True
@@ -126,7 +126,9 @@ def authenticate(username, password, automatic_account_creation=True):
                 abort(http_client.METHOD_NOT_ALLOWED,
                       message="Incorrect password for service user")
             else:
-                create_roles.append("service")
+                create_roles.add("service")
+        else:
+            create_roles.add("player")
 
         my_identity = UserIdentity(name=username, identity_type=identity_type)
         my_identity.set_password(password)
@@ -187,6 +189,12 @@ def authenticate(username, password, automatic_account_creation=True):
 
     if my_user:
         user_roles = [r.role for r in my_user.roles]
+        if username != service_user["username"] and "player" not in user_roles:
+            # Lazily add player role to existing users
+            log.info("User %s has no 'player' role, adding it", user_id)
+            role = UserRole(user_id=user_id, role="player")
+            g.db.add(role)
+            user_roles.append("player")
         user_id = my_user.user_id
         my_user_name = my_user.user_name
 

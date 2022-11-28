@@ -3,7 +3,7 @@ import http.client as http_client
 import unittest
 from mock import patch
 
-from drift.systesthelper import uuid_string, big_number
+from drift.test_helpers.systesthelper import uuid_string, big_number
 from driftbase.utils.test_utils import BaseCloudkitTest
 
 

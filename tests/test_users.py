@@ -1,6 +1,6 @@
 import http.client as http_client
 
-from drift.systesthelper import big_number
+from drift.test_helpers.systesthelper import big_number
 from driftbase.systesthelper import DriftBaseTestCase
 from tests import has_key
 

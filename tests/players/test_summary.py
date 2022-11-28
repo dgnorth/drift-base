@@ -1,7 +1,7 @@
 import copy
 import http.client as http_client
 
-from drift.systesthelper import setup_tenant, remove_tenant
+from drift.test_helpers.systesthelper import setup_tenant, remove_tenant
 from driftbase.utils.test_utils import BaseCloudkitTest
 
 

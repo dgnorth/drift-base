@@ -1,4 +1,4 @@
-from drift.systesthelper import DriftTestCase
+from drift.test_helpers.systesthelper import DriftTestCase
 
 
 class DriftBaseTestCase(DriftTestCase):

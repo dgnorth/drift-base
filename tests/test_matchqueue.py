@@ -2,7 +2,7 @@ import collections
 import datetime
 import http.client as http_client
 from mock import patch
-from drift.systesthelper import uuid_string
+from drift.test_helpers.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseMatchTest
 
 
