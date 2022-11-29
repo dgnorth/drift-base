@@ -1,8 +1,9 @@
 import http.client as http_client
-
+import datetime
 from drift.systesthelper import uuid_string
 from driftbase.systesthelper import DriftBaseTestCase
 from tests import has_key
+from unittest import mock
 
 
 class UserIdentitiesTest(DriftBaseTestCase):
@@ -174,3 +175,29 @@ class UserIdentitiesTest(DriftBaseTestCase):
         self.assertEqual(r.json()[0]["identity_name"], username)
 
         self.assertFalse(has_key(r.json(), "password_hash"))
+
+    def test_get_identity_by_wallet_id(self):
+        # authenticate with wallet/ethereum
+        ethereum_data = {
+            'provider': 'ethereum',
+            'provider_details': {
+                'signer': '0x854Cc1Ce8e826e514f1dD8127f9D0AF689f181A9',
+                'message': '{\r\n\t"message": "Authorize for Drift login",\r\n\t"timestamp": "2022-01-12T08:12:59.787Z"\r\n}',
+                'signature': '0x5b0bf23f6cccf4315f561a04aef11b60dadced91bc17ac168db14b467851d4010349a8d3fbaec28c4671eb27ba7a8160900b51c2ded5137b3a9804881f3ee32c1c',
+            }
+        }
+        with mock.patch('driftbase.auth.ethereum.utcnow') as now:
+            now.return_value = datetime.datetime.fromisoformat('2022-01-12T08:12:59.787') + datetime.timedelta(seconds=5)
+            with mock.patch('driftbase.auth.ethereum.get_provider_config') as config:
+                config.return_value = dict()
+                token = self.post('/auth', data=ethereum_data, expected_status_code=http_client.OK).json()['token']
+                headers = {'Authorization': f'Bearer {token}'}
+                response = self.get('/', headers=headers).json()
+                identities_url = response['endpoints']['user_identities']
+                user = response['current_user']
+                identity_string = f"ethereum:{ethereum_data['provider_details']['signer']}"
+                identity = self.get(f'{identities_url}?name={identity_string}', headers=headers).json()
+                self.assertEqual(len(identity), 1)
+                self.assertEqual(identity[0]['identity_name'], identity_string)
+                self.assertEqual(identity[0]['player_id'], user['player_id'])
+                self.assertEqual(identity[0]['player_name'], user['player_name'])

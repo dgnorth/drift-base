@@ -6,6 +6,7 @@ from flask import url_for, g, jsonify
 from flask import make_response
 from flask.views import MethodView
 import marshmallow as ma
+from hashlib import pbkdf2_hmac
 from drift.blueprint import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 
@@ -72,8 +73,10 @@ class UserIdentitiesAPI(MethodView):
         ret = []
         rows = []
         if names:
+            hashed_names_by_name = _hash_identity_names(names)
+            names_by_hashed_name = {v: k for k, v in hashed_names_by_name.items()}
             rows = g.db.query(UserIdentity, CorePlayer) \
-                       .filter(UserIdentity.name.in_(names),
+                       .filter(UserIdentity.name.in_(hashed_names_by_name.values()),
                                CorePlayer.user_id == UserIdentity.user_id) \
                        .all()
         elif player_ids:
@@ -86,7 +89,7 @@ class UserIdentitiesAPI(MethodView):
                 "player_id": r[1].player_id,
                 "player_url": url_for("players.entry", player_id=r[1].player_id, _external=True),
                 "player_name": r[1].player_name,
-                "identity_name": r[0].name,
+                "identity_name": r[0].name if player_ids else names_by_hashed_name[r[0].name],
             }
             ret.append(d)
         return ret
@@ -206,6 +209,22 @@ class UserIdentitiesAPI(MethodView):
         # TODO: We should log this into the db but we don't have db logging set up yet
 
         return "OK"
+
+
+def _hash_identity_names(names):
+    """hash the identity part where appropriate before lookup"""
+    if not isinstance(names, list):
+        names = [names]
+    ret = {}
+    for name in names:
+        parts = name.split(":")
+        if len(parts) == 2:
+            if parts[0] in ("eos", "ethereum", "gamecenter"):
+                parts[1] = pbkdf2_hmac('sha256', parts[1].lower().encode('utf-8'), b'static_salt', iterations=1).hex()
+            ret[name] = ":".join(parts)
+        else:
+            ret[name] = name
+    return ret
 
 
 # TODO: Remove legacy name "user-identities" once all clients has been patched to use the new name
