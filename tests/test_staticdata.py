@@ -5,7 +5,7 @@ import json
 import responses
 import unittest
 
-from drift.systesthelper import setup_tenant, remove_tenant
+from drift.test_helpers.systesthelper import setup_tenant, remove_tenant
 from drift.utils import get_config
 from driftbase.systesthelper import DriftBaseTestCase
 

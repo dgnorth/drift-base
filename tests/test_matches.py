@@ -2,7 +2,7 @@ from collections import defaultdict
 
 import http.client as http_client
 
-from drift.systesthelper import uuid_string
+from drift.test_helpers.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseMatchTest
 
 
@@ -14,13 +14,13 @@ class MatchesTest(BaseMatchTest):
 
         self.auth()
 
-        resp = self.get("/matches/1", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.get("/matches/1", expected_status_code=http_client.FORBIDDEN)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.post("/matches", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.post("/matches", expected_status_code=http_client.FORBIDDEN)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.put("/matches/1", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.put("/matches/1", expected_status_code=http_client.FORBIDDEN)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
     def test_get_matches(self):

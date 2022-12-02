@@ -1,7 +1,7 @@
 import http.client as http_client
 import unittest
 
-from drift.systesthelper import make_unique
+from drift.test_helpers.systesthelper import make_unique
 from driftbase.systesthelper import DriftBaseTestCase
 
 

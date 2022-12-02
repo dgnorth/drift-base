@@ -5,7 +5,7 @@ import random
 import unittest
 from dateutil import parser
 
-from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
+from drift.test_helpers.systesthelper import setup_tenant, remove_tenant, uuid_string
 from driftbase.systesthelper import DriftBaseTestCase
 
 MIN_ENTRIES = 0
