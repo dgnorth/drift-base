@@ -4,7 +4,7 @@ import datetime
 import http.client as http_client
 import unittest
 
-from drift.systesthelper import setup_tenant, remove_tenant, uuid_string
+from drift.test_helpers.systesthelper import setup_tenant, remove_tenant, uuid_string
 from driftbase.systesthelper import DriftBaseTestCase
 
 

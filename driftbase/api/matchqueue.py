@@ -8,7 +8,7 @@ import logging
 import marshmallow as ma
 from flask import g, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
@@ -19,13 +19,13 @@ from driftbase.utils import url_player
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("matchqueue", "matchqueue", url_prefix="/matchqueue", description="Queuing mechanism for matches")
+bp = Blueprint("matchqueue", "matchqueue", url_prefix="/matchqueue")
 
 endpoints = Endpoints()
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 
@@ -188,7 +188,8 @@ class MatchQueueEntryAPI(MethodView):
         Find a player in the queue by ID
         """
         result = g.db.query(MatchQueuePlayer, CorePlayer) \
-            .filter(MatchQueuePlayer.player_id == player_id, CorePlayer.player_id == player_id) \
+            .join(CorePlayer, CorePlayer.player_id == MatchQueuePlayer.player_id) \
+            .filter(MatchQueuePlayer.player_id == player_id) \
             .order_by(-MatchQueuePlayer.id).first()
 
         if not result:

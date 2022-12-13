@@ -3,11 +3,12 @@ import logging
 import marshmallow as ma
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
-from drift.utils import Url
 from flask import url_for, g, current_app
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 import http.client as http_client
+
+from flask_marshmallow.fields import AbsoluteURLFor
 
 from driftbase.messages import post_message
 from driftbase.models.db import CorePlayer
@@ -35,9 +36,9 @@ def process_client_message(queue_name, message):
             log.info(f"Removing player '{player_id}' from party '{party_id}' since the player's client de-registered")
             leave_party(player_id, party_id)
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp_parties)
-    api.register_blueprint(bp_party_invites)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp_parties)
+    app.register_blueprint(bp_party_invites)
     endpoints.init_app(app)
     app.messagebus.register_consumer(process_client_message, "client")
 
@@ -57,7 +58,7 @@ class PartyInvitesSchema(ma.Schema):
 
 class PartyPlayerSchema(ma.Schema):
     player_id = ma.fields.Integer()
-    player_url = Url('players.entry', player_id='<player_id>', doc='Player resource')
+    player_url = AbsoluteURLFor('players.entry', player_id='<player_id>')
     player_name = ma.fields.String()
     identity_name = ma.fields.String()
 

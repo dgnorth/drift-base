@@ -2,23 +2,23 @@
 Match placements
 """
 
-from flask_smorest import Blueprint
+from drift.blueprint import Blueprint
 from drift.core.extensions.urlregistry import Endpoints
 from marshmallow import Schema, fields
 from flask.views import MethodView
-from flask_smorest import abort
+from drift.blueprint import abort
 from flask import url_for
 from drift.core.extensions.jwt import current_user
 from driftbase import match_placements, lobbies, flexmatch
 import http.client as http_client
 import logging
 
-bp = Blueprint("match-placements", "match-placements", url_prefix="/match-placements", description="Placements for pending matches.")
+bp = Blueprint("match-placements", "match-placements", url_prefix="/match-placements")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     app.messagebus.register_consumer(match_placements.process_match_message, "match")
     app.messagebus.register_consumer(match_placements.process_gamelift_queue_event, "gamelift_queue")
     endpoints.init_app(app)

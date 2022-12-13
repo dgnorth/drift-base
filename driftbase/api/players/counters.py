@@ -11,10 +11,11 @@ import time
 from dateutil import parser
 from flask import request, g, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user
-from drift.utils import Url
+from flask_marshmallow.fields import AbsoluteUrlFor
+
 from driftbase.counters import get_counter, get_player, add_count, check_and_update_player_counter, COUNTER_PERIODS, \
     get_all_counters, \
     batch_get_or_create_counters, batch_create_player_counters, batch_update_counter_entries
@@ -27,7 +28,7 @@ LEGAL_COUNTER_TYPES = (COUNTER_TYPE_COUNT, COUNTER_TYPE_ABSOLUTE)
 
 log = logging.getLogger(__name__)
 
-bp = Blueprint("player_counters", __name__, url_prefix='/players', description="Counters for individual players")
+bp = Blueprint("player_counters", __name__, url_prefix='/players')
 
 
 class PlayerCounterRequestSchema(ma.Schema):
@@ -43,7 +44,7 @@ class PlayerCounterSchema(ma.Schema):
     first_update = ma.fields.DateTime()
     last_update = ma.fields.DateTime()
     num_updates = ma.fields.Integer()
-    url = Url('player_counters.entry', player_id='<player_id>', counter_id='<counter_id>', doc="This is the url")
+    url = AbsoluteUrlFor('player_counters.entry', player_id='<player_id>', counter_id='<counter_id>')
     name = ma.fields.String()
     total = ma.fields.Integer()
     periods = ma.fields.Dict()

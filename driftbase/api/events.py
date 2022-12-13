@@ -4,22 +4,22 @@ import json
 import logging
 from flask import request, url_for, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint
+from drift.blueprint import Blueprint
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
 from driftbase.utils import verify_log_request
 
 log = logging.getLogger(__name__)
-bp = Blueprint("events", __name__, url_prefix="/events", description="Client Logs")
+bp = Blueprint("events", __name__, url_prefix="/events")
 endpoints = Endpoints()
 
 clientlogger = logging.getLogger("clientlog")
 eventlogger = logging.getLogger("eventlog")
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     endpoints.init_app(app)
 
 

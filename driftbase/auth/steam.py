@@ -3,7 +3,7 @@ import logging
 import marshmallow as ma
 import requests
 from flask import request
-from flask_smorest import abort
+from drift.blueprint import abort
 import http.client as http_client
 from werkzeug.exceptions import Unauthorized
 

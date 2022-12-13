@@ -2,7 +2,7 @@ import logging
 import http.client as http_client
 
 from flask import g, current_app
-from flask_smorest import abort
+from drift.blueprint import abort
 
 from drift.core.extensions.jwt import query_current_user
 

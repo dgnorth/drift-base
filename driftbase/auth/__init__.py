@@ -26,7 +26,7 @@ def _authentication_thunker(module, func, *args, **kw):
     return getattr(m, func)(*args, **kw)
 
 
-def drift_init_extension(app, api, **kwds):
+def drift_init_extension(app, **kwds):
     # register authentication handlers
     for name, module in AUTH_MODULES.items():
         jwt.register_auth_provider(app, name, functools.partial(_authentication_thunker, module, 'authenticate'))

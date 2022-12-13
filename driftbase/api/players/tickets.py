@@ -3,10 +3,10 @@ import logging
 
 import marshmallow as ma
 from drift.core.extensions.jwt import requires_roles
-from drift.utils import Url
 from flask import url_for, g, jsonify
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
+from flask_marshmallow.fields import AbsoluteURLFor
 from marshmallow import pre_dump
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 import http.client as http_client
@@ -30,15 +30,13 @@ class TicketSchema(SQLAlchemyAutoSchema):
         model = Ticket
         # exclude = ('player_summary',)
 
-    player_url = Url(
+    player_url = AbsoluteURLFor(
         'players.entry',
-        doc="Fully qualified URL of the player resource",
-        player_id='<player_id>',
+        player_id='<player_id>'
     )
 
-    url = Url(
+    url = AbsoluteURLFor(
         'player_tickets.entry',
-        doc="Fully qualified URL of the player resource",
         player_id='<player_id>',
         ticket_id='<ticket_id>'
     )

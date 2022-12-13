@@ -1,5 +1,6 @@
 {
     "name": "drift-base",
+    "description": "Base Services for Drift",
     "PORT": 10080,
     "DISABLE_JWT": 0,
     "OPENAPI_URL_PREFIX": "/doc",
@@ -18,7 +19,6 @@
         "driftbase.api.events",
         "driftbase.api.counters",
         "driftbase.api.friendships",
-        "driftbase.api.useridentities",
         "driftbase.api.matches",
         "driftbase.api.servers",
         "driftbase.api.machines",
@@ -33,7 +33,6 @@
         "driftbase.api.lobbies",
         "driftbase.api.match_placements",
 
-        "drift.core.apps.schemas",
         "drift.core.apps.provision",
         "drift.core.apps.healthcheck",
         "drift.contrib.apps.servicestatus"

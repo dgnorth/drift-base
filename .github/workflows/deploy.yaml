@@ -10,12 +10,12 @@ jobs:
 
     services:
       redis:
-        image: redis:6.0-alpine
+        image: redis:7.0-alpine
         ports:
           - 6379:6379
 
       postgres:
-        image: postgres:12-alpine
+        image: postgres:15-alpine
         ports:
           - 5432:5432
         env:
@@ -23,12 +23,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
 
@@ -42,25 +42,25 @@ jobs:
           pipenv install --dev --system
 
       - name: Run PyTest
-        run: pytest --cov=driftbase/ --disable-warnings
+        run: pytest --cov=driftbase/ --disable-warnings tests/
 
   publish:
     runs-on: ubuntu-latest
     needs: test
     steps:
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v0.9.9
+        uses: gittools/actions/gitversion/setup@v0.9.15
         with:
           versionSpec: '5.x'
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Determine version
         id: gitversion
-        uses: gittools/actions/gitversion/execute@v0.9.9
+        uses: gittools/actions/gitversion/execute@v0.9.15
         with:
           useConfigFile: true
 
@@ -69,7 +69,7 @@ jobs:
           echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
 

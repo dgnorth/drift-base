@@ -1,8 +1,10 @@
 import http.client as http_client
+
+import mock
+from drift.test_helpers.systesthelper import setup_tenant, remove_tenant
+from drift.utils import get_config
 from mock import patch, MagicMock
 
-from drift.systesthelper import setup_tenant, remove_tenant
-from drift.utils import get_config
 from driftbase.systesthelper import DriftBaseTestCase
 
 
@@ -161,12 +163,80 @@ uuid_auth_with_provider_data = {
 }
 
 
-class BaseAuthTests(DriftBaseTestCase):
+class PlayerRoleTestCase(DriftBaseTestCase):
+
+    def _old_authenticate_without_roles(self, username, password, automatic_account_creation=True):
+        """ Stripped down version of the old authentication method, i.e. before we added role 'player' by default. """
+        from flask import g
+        from driftbase.models.db import User, UserIdentity, CorePlayer
+
+        my_identity = g.db.query(UserIdentity).filter(UserIdentity.name == username).first()
+        self.assertIsNone(my_identity)
+
+        my_identity = UserIdentity(name=username, identity_type='')
+        my_identity.set_password(password)
+        my_user = g.db.query(User).filter(User.user_name == username).first()
+        self.assertIsNone(my_user)
+
+        g.db.add(my_identity)
+        g.db.flush()
+        identity_id = my_identity.identity_id
+        my_user = g.db.query(User).get(my_identity.user_id)
+        self.assertIsNone(my_user)
+
+        my_user = User(user_name=username)
+        g.db.add(my_user)
+        g.db.flush()
+        user_id = my_user.user_id
+        my_identity.user_id = user_id
+        user_id = my_user.user_id
+        my_user_name = my_user.user_name
+        my_player = g.db.query(CorePlayer).filter(CorePlayer.user_id == user_id).first()
+        self.assertIsNone(my_player)
+
+        my_player = CorePlayer(user_id=user_id, player_name=u"")
+        g.db.add(my_player)
+        g.db.flush()
+
+        player_id = my_player.player_id
+        player_name = my_player.player_name
+        my_user.default_player_id = my_player.player_id
+        g.db.commit()
+
+        ret = {
+            "user_name": my_user_name,
+            "user_id": user_id,
+            "identity_id": identity_id,
+            "player_id": player_id,
+            "player_name": player_name,
+            "roles": [],
+        }
+        return ret
+
+    def test_player_has_player_role(self):
+        token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK)
+        user = self.get('/', headers={'Authorization': f"BEARER {token.json()['token']}"}).json()['current_user']
+        self.assertIn('player', user['roles'])
+
+    def test_existing_users_get_player_role_added(self):
+        with mock.patch('driftbase.auth.authenticate.authenticate', self._old_authenticate_without_roles):
+            token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK)
+            user = self.get('/', headers={'Authorization': f"BEARER {token.json()['token']}"}).json()['current_user']
+            self.assertNotIn('player', user['roles'])
+
+        token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK)
+        user = self.get('/', headers={'Authorization': f"BEARER {token.json()['token']}"}).json()['current_user']
+        self.assertIn('player', user['roles'])
+
+
+class BaseAuthTestCase(DriftBaseTestCase):
     def _auth_and_get_user(self, data):
         token1 = self.post('/auth', data=data, expected_status_code=http_client.OK)
         user1 = self.get('/', headers={'Authorization': f"BEARER {token1.json()['token']}"}).json()['current_user']
         return user1
 
+
+class UserPassAuthTests(BaseAuthTestCase):
     def test_old_style_user_pass_auth(self):
         user1 = self._auth_and_get_user(old_style_user_pass_data)
         user2 = self._auth_and_get_user(old_style_user_pass_data)

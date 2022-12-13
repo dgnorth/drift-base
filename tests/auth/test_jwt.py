@@ -78,8 +78,8 @@ class TestJWTAccessControl(BaseCloudkitTest):
             self.delete("/testapi", expected_status_code=http.HTTPStatus.OK)
 
             # This should fail as the post method requires role 'service' which we don't have
-            self.post("/testapi", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
-            self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.UNAUTHORIZED)
+            self.post("/testapi", expected_status_code=http.HTTPStatus.FORBIDDEN)
+            self.post("/trivialfunctions", expected_status_code=http.HTTPStatus.FORBIDDEN)
 
             # Test success for ROLE_NAME
             self.patch("/testapi", expected_status_code=http.HTTPStatus.OK)

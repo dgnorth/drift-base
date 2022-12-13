@@ -1,14 +1,14 @@
-from json import JSONDecodeError
-
 import http.client as http_client
-import jwt
 import logging
-import marshmallow as ma
 from datetime import timedelta
-from flask_smorest import abort
-from jwt import PyJWKClientError
+from hashlib import pbkdf2_hmac
+from json import JSONDecodeError
 from urllib.error import URLError
-from werkzeug.security import pbkdf2_hex
+
+import jwt
+import marshmallow as ma
+from drift.blueprint import abort
+from jwt import PyJWKClientError
 
 from driftbase.auth import get_provider_config
 from .authenticate import authenticate as base_authenticate, AuthenticationException, ServiceUnavailableException, \
@@ -50,7 +50,7 @@ def authenticate(auth_info):
 
     automatic_account_creation = auth_info.get('automatic_account_creation', True)
     # FIXME: The static salt should perhaps be configured per tenant
-    username = "eos:" + pbkdf2_hex(identity_id, 'static_salt', iterations=1)
+    username = "eos:" + pbkdf2_hmac('sha256', identity_id.encode('utf-8'), b'static_salt', iterations=1).hex()
     return base_authenticate(username, "", automatic_account_creation)
 
 

@@ -24,7 +24,7 @@
 # QueueEventAPI @ /matchmakers/flexmatch/queue-events/ - endpoint "queue-events"
 #   PUT exposed to AWS EventBridge to publish flexmatch queue events
 
-from flask_smorest import Blueprint, abort
+from drift.blueprint import Blueprint, abort
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.jwt import requires_roles
 from marshmallow import Schema, fields
@@ -35,13 +35,13 @@ from driftbase import flexmatch
 import http.client as http_client
 import logging
 
-bp = Blueprint("flexmatch", __name__, url_prefix="/matchmakers/flexmatch", description="Orchestration of GameLift/FlexMatch matchmakers.")
+bp = Blueprint("flexmatch", __name__, url_prefix="/matchmakers/flexmatch")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
 
-def drift_init_extension(app, api, **kwargs):
-    api.register_blueprint(bp)
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
     app.messagebus.register_consumer(flexmatch.handle_party_event, "parties")
     app.messagebus.register_consumer(flexmatch.handle_client_event, "client")
     app.messagebus.register_consumer(flexmatch.handle_match_event, "match")
@@ -107,7 +107,8 @@ class FlexMatchTicketsAPI(MethodView):
     @bp.response(http_client.OK, FlexMatchTicketsAPIGetResponse)
     def get():
         """
-        Returns the URL to the active matchmaking ticket for the requesting player or his party, or empty dict if no such thing is found.
+        Returns the URL to the active matchmaking ticket for the requesting player or his party, or empty dict if no
+        such thing is found.
         """
         player_id = current_user.get("player_id")
         ticket = flexmatch.get_player_ticket(player_id)
@@ -160,19 +161,33 @@ class FlexMatchTicketAPI(MethodView):
     class FlexMatchTicketAPIDeleteResponse(Schema):
         status = fields.String(required=True, metadata=dict(description="The status of the ticket after the operation"))
 
+    class FlexMatchTicketAPIGetResponse(Schema):
+        ticket_id = fields.String(required=True)
+        ticket_status = fields.String(required=True)
+        configuration_name = fields.String(required=True)
+        players = fields.List(fields.Mapping(keys=fields.String(), values=fields.String()))
+        connection_info = fields.Mapping(keys=fields.String(), values=fields.String())
+        match_status = fields.String(required=False)
+
     @staticmethod
-    @bp.response(http_client.OK)
+    @bp.response(http_client.OK, FlexMatchTicketAPIGetResponse)
     def get(ticket_id):
         """
         Return the stored ticket if the calling player is a member of the ticket, either solo or via party
-        (TODO define leaner schema for response? Maybe useful to have this for full ticket dump as the 'lean' version is
-        returned via GET/POST on the collections API)
         """
         player_id = current_user.get("player_id")
         if player_id:
             ticket = flexmatch.get_player_ticket(player_id)
             if ticket and ticket["TicketId"] == ticket_id:
-                return ticket
+                ret = dict(
+                    ticket_id=ticket["TicketId"],
+                    ticket_status=ticket["Status"],
+                    configuration_name=ticket["ConfigurationName"],
+                    players=ticket["Players"],
+                    connection_info=ticket.get("GameSessionConnectionInfo"),
+                    match_status=ticket.get("MatchStatus")
+                )
+                return ret
             return abort(http_client.NOT_FOUND, message=f"Ticket {ticket_id} not found")
         abort(http_client.UNAUTHORIZED)
 

@@ -14,13 +14,13 @@ class MachinesTest(DriftBaseTestCase):
     def test_access(self):
         self.auth()
         resp = self.get("/machines?realm=local&instance_name=dummy",
-                        expected_status_code=http_client.UNAUTHORIZED)
+                        expected_status_code=http_client.FORBIDDEN)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.get("/machines/1", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.get("/machines/1", expected_status_code=http_client.FORBIDDEN)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
-        resp = self.post("/machines", expected_status_code=http_client.UNAUTHORIZED)
+        resp = self.post("/machines", expected_status_code=http_client.FORBIDDEN)
         self.assertIn("You do not have access", resp.json()["error"]["description"])
 
     def test_get_invalid(self):

@@ -4,16 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-drift = "==0.10.3"
-#python-drift = {editable = true, extras = ["aws", "test"], path = "../drift"}
+python-drift = "==0.13.4"
 gevent = "*"
 requests = "*"
 boto3 = "*"
 botocore = "*"
 greenlet = "*"
 python-decouple = "*"
-python-driftconfig = "*"
-#python-driftconfig = {editable = true, extras = ["redis-backend", "s3-backend"], path = "./../drift-config"}
+python-driftconfig = "==0.3.0"
 psycogreen = "*"
 aws-assume-role-lib = "*"
 ddtrace = "*"

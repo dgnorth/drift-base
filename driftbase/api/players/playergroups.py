@@ -3,11 +3,12 @@ import uuid
 
 import marshmallow as ma
 from drift.core.extensions.jwt import current_user
-from drift.utils import Url
 from flask import url_for, g
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort, utils
+from drift.blueprint import Blueprint, abort
 import http.client as http_client
+
+from flask_marshmallow.fields import AbsoluteURLFor
 
 from driftbase.models.db import CorePlayer, UserIdentity
 from driftbase.players import get_playergroup, set_playergroup
@@ -28,7 +29,7 @@ class PlayerGroupPutRequestSchema(ma.Schema):
 
 class PlayerGroupPlayerSchema(ma.Schema):
     player_id = ma.fields.Integer()
-    player_url = Url('players.entry', player_id='<player_id>', doc='Player resource')
+    player_url = AbsoluteURLFor('players.entry', player_id='<player_id>')
     player_name = ma.fields.String()
     identity_name = ma.fields.String()
 
@@ -125,5 +126,4 @@ class PlayerGroupsAPI(MethodView):
                                player_id=player_id, _external=True)
         response_header = {"Location": resource_uri}
         log.info("Created user group %s for player %s", group_name, player_id)
-        utils.get_appcontext().setdefault('headers', {}).update(response_header)
-        return payload
+        return payload, response_header

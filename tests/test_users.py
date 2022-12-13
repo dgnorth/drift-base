@@ -1,8 +1,8 @@
 import http.client as http_client
 
-from drift.systesthelper import big_number
+from drift.test_helpers.systesthelper import big_number
 from driftbase.systesthelper import DriftBaseTestCase
-from driftbase.tests import has_key
+from tests import has_key
 
 
 class UsersTest(DriftBaseTestCase):
@@ -29,7 +29,7 @@ class UsersTest(DriftBaseTestCase):
         self.get("/users/{}".format(big_number), expected_status_code=http_client.NOT_FOUND)
 
     def test_requires_authentication(self):
-        r = self.get("/users", expected_status_code=http_client.UNAUTHORIZED)
-        self.assertIn("error", r.json())
-        self.assertIn("code", r.json()["error"])
-        self.assertIn("Authorization Required", r.json()["error"]["description"])
+        r = self.get("/users", expected_status_code=http_client.UNAUTHORIZED).json()
+        self.assertIn("error", r)
+        self.assertIn("code", r["error"])
+        self.assertIn("Authorization Required", r["error"]["description"])
