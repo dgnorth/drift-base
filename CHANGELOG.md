@@ -1,6 +1,7 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
+  - [0.11.0](#0110)
   - [0.10.0](#0100)
   - [0.9.0](#090)
   - [0.8.0](#080)
@@ -32,6 +33,17 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.11.0
+
+### Bug Fixes / Feature Improvements
+- Move from uwsgi to gunicorn
+- Update to redis 7
+- Update to postgres 15
+- Update drift to 0.13
+- Allow lookups of eos, gamecenter and ethereum player identities
+- Authenticated player accounts now get a 'player' role by default
+
+
 ## 0.10.0
 
 ### Bug Fixes / Feature Improvements
