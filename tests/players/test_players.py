@@ -3,8 +3,10 @@ import http.client as http_client
 import unittest
 from mock import patch
 
-from drift.test_helpers.systesthelper import uuid_string, big_number
+from drift.test_helpers.systesthelper import uuid_string
 from driftbase.utils.test_utils import BaseCloudkitTest
+
+BIG_NUMBER = 9999999999
 
 
 class PlayersTest(BaseCloudkitTest):
@@ -91,7 +93,7 @@ class PlayersTest(BaseCloudkitTest):
         self.assertEqual(players[0], player_info)
 
         # Let's not find a particular player
-        self.get(self.endpoints["players"] + "/{}".format(big_number),
+        self.get(self.endpoints["players"] + "/{}".format(BIG_NUMBER),
                  expected_status_code=http_client.NOT_FOUND)
 
     def test_find_player(self):

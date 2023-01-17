@@ -1,8 +1,9 @@
 import http.client as http_client
 
-from drift.test_helpers.systesthelper import big_number
 from driftbase.systesthelper import DriftBaseTestCase
 from tests import has_key
+
+BIG_NUMBER = 9999999999
 
 
 class UsersTest(DriftBaseTestCase):
@@ -26,7 +27,7 @@ class UsersTest(DriftBaseTestCase):
 
     def test_non_existing_user_not_found(self):
         self.auth()
-        self.get("/users/{}".format(big_number), expected_status_code=http_client.NOT_FOUND)
+        self.get("/users/{}".format(BIG_NUMBER), expected_status_code=http_client.NOT_FOUND)
 
     def test_requires_authentication(self):
         r = self.get("/users", expected_status_code=http_client.UNAUTHORIZED).json()
