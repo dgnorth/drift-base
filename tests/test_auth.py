@@ -162,9 +162,7 @@ uuid_auth_with_provider_data = {
     'automatic_account_creation': True
 }
 
-
-class PlayerRoleTestCase(DriftBaseTestCase):
-
+class _BasePlayerAttributeTestCase(DriftBaseTestCase):
     def _old_authenticate_without_roles(self, username, password, automatic_account_creation=True):
         """ Stripped down version of the old authentication method, i.e. before we added role 'player' by default. """
         from flask import g
@@ -213,6 +211,8 @@ class PlayerRoleTestCase(DriftBaseTestCase):
         }
         return ret
 
+class PlayerRoleTestCase(_BasePlayerAttributeTestCase):
+
     def test_player_has_player_role(self):
         token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK)
         user = self.get('/', headers={'Authorization': f"BEARER {token.json()['token']}"}).json()['current_user']
@@ -227,6 +227,23 @@ class PlayerRoleTestCase(DriftBaseTestCase):
         token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK)
         user = self.get('/', headers={'Authorization': f"BEARER {token.json()['token']}"}).json()['current_user']
         self.assertIn('player', user['roles'])
+
+
+class PlayerUUIDTestCase(_BasePlayerAttributeTestCase):
+    def test_player_has_uuid(self):
+        token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK).json()
+        user = self.get('/', headers={'Authorization': f"BEARER {token['token']}"}).json()['current_user']
+        self.assertIn('player_uuid', user)
+
+    def test_existing_users_get_uuid_added(self):
+        with mock.patch('driftbase.auth.authenticate.authenticate', self._old_authenticate_without_roles):
+            token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK).json()
+            user = self.get('/', headers={'Authorization': f"BEARER {token['token']}"}).json()['current_user']
+            self.assertNotIn('player_uuid', user)
+
+        token = self.post('/auth', data=old_style_user_pass_data, expected_status_code=http_client.OK).json()
+        user = self.get('/', headers={'Authorization': f"BEARER {token['token']}"}).json()['current_user']
+        self.assertIn('player_uuid', user)
 
 
 class BaseAuthTestCase(DriftBaseTestCase):
