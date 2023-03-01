@@ -214,6 +214,9 @@ def authenticate(username, password, automatic_account_creation=True):
                      f"and uuid {my_player.player_uuid}")
 
     if my_player:
+        if my_player.player_uuid is None:
+            # Add an uuid for existing players
+            my_player.player_uuid = uuid.uuid4()
         player_id = my_player.player_id
         player_uuid = my_player.player_uuid
         player_name = my_player.player_name
