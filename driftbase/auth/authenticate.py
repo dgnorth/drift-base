@@ -2,6 +2,8 @@ import http.client
 
 import http.client as http_client
 import logging
+import uuid
+
 from flask import g, current_app
 from drift.blueprint import abort
 
@@ -158,6 +160,7 @@ def authenticate(username, password, automatic_account_creation=True):
     user_id = 0
     user_roles = []
     player_id = 0
+    player_uuid = None
     player_name = ""
     if my_identity.user_id:
         my_user = g.db.query(User).get(my_identity.user_id)
@@ -207,11 +210,12 @@ def authenticate(username, password, automatic_account_creation=True):
             g.db.add(my_player)
             # this is so we can access the auto-increment key value
             g.db.flush()
-            log.info("Player for user %s has been created with player_id %s",
-                     my_user.user_id, my_player.player_id)
+            log.info(f"Player for user {my_user.user_id} has been created with player_id {my_player.player_id} "
+                     f"and uuid {my_player.player_uuid}")
 
     if my_player:
         player_id = my_player.player_id
+        player_uuid = my_player.player_uuid
         player_name = my_player.player_name
 
     if my_user and not my_user.default_player_id:
@@ -226,6 +230,7 @@ def authenticate(username, password, automatic_account_creation=True):
         "identity_id": identity_id,
         "player_id": player_id,
         "player_name": player_name,
+        "player_uuid": player_uuid.hex if player_uuid else None,
         "roles": user_roles,
     }
     cache = UserCache()

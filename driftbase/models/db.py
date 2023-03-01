@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 from drift.orm import ModelBase, utc_now, Base
 from sqlalchemy import CheckConstraint, UniqueConstraint
@@ -14,7 +15,7 @@ from sqlalchemy import (
     Boolean,
 )
 from sqlalchemy import DDL, event
-from sqlalchemy.dialects.postgresql import ENUM, INET, JSON
+from sqlalchemy.dialects.postgresql import ENUM, INET, JSON, UUID
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.schema import Sequence, Index
@@ -112,6 +113,7 @@ class CorePlayer(ModelBase):
     __tablename__ = "ck_players"
 
     player_id = Column(Integer, primary_key=True)
+    player_uuid = Column(UUID(as_uuid=True), index=True, default=uuid.uuid4)
     player_name = Column(Unicode(200), doc="Players display name")
     user_id = Column(Integer, ForeignKey("ck_users.user_id"), index=True)
     create_date = Column(DateTime, nullable=False, server_default=utc_now)
