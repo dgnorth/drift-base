@@ -12,15 +12,16 @@ down_revision = '085d7e9a951c'
 branch_labels = None
 depends_on = None
 
+import uuid
 from alembic import op
+from sqlalchemy.dialects.postgresql import UUID
 import sqlalchemy as sa
 
 
 def upgrade(engine_name):
     print("Upgrading {}".format(engine_name))
-    # your upgrade script goes here
-    # see http://alembic.readthedocs.org/en/latest/tutorial.html for examples
+    op.add_column('ck_players', sa.Column('player_uuid', UUID(as_uuid=True), default=uuid.uuid4))
 
 def downgrade(engine_name):
     print("Downgrading {}".format(engine_name))
-    # your downgrade script goes here
+    op.drop_column('ck_players', 'player_uuid')
