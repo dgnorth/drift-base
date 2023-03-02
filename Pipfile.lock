@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "18664a582ea89c3abe382e8bd80f5d37de74fc79742b64a92946ec8b4f4c461f"
+            "sha256": "5ad135f8ad04c7143f7c49b4eb2425516e98d14e987e7eab2c47adbad5e8904a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -1189,19 +1189,19 @@
         },
         "python-drift": {
             "hashes": [
-                "sha256:21f2f2a6feebfc447704a1da0710008334a8e4dbedc00bb9d50bfec7f4c90897",
-                "sha256:547c1167cb26ac00da5a04a52cb7145aa25480d4b0bbe1e81ce4d194a068061f"
+                "sha256:93af52462cf6e7ff502fdc718c3b0d22d0368edbe268692d361be9e8b236aef6",
+                "sha256:9407e7c0e079684f8354c22f08a86725b46b1f7233f20589e29430b0428cc270"
             ],
             "index": "pypi",
-            "version": "==0.13.4"
+            "version": "==0.14.1"
         },
         "python-driftconfig": {
             "hashes": [
-                "sha256:287c790ddca03f8072ea218c0506dca07318dfc5517b7178ad0938f5f7103cbe",
-                "sha256:78e6f6113d767ad415c8183b23597339b650c73db3dc7faa6567dab78ca2d5da"
+                "sha256:539f37cefc77fd26b6b2fc1ae129235dbe7a512f67f3e3f74b03d9bd44354286",
+                "sha256:73a63497ab8d0d23c26ffa9874fc866bd196539b03bf14a68da6ac91ba146747"
             ],
             "index": "pypi",
-            "version": "==0.3.0"
+            "version": "==0.3.1"
         },
         "redis": {
             "hashes": [
