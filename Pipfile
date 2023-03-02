@@ -16,6 +16,7 @@ psycogreen = "*"
 aws-assume-role-lib = "*"
 ddtrace = "*"
 eth-account = "*"
+sqlalchemy = "==1.4.46"
 
 [dev-packages]
 pytest = "*"
