@@ -38,6 +38,7 @@
 
 ### Feature Improvements
 - Give each player a global UUID as well as a player_id and put that in the JWT payload
+- Update to latest drift and drift-config for config caching
 
 
 ## 0.11.0
