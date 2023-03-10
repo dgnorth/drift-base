@@ -2,12 +2,15 @@ import gzip
 import http.client as http_client
 import json
 import logging
+from json import JSONDecodeError
+
 from flask import request, url_for, jsonify
 from flask.views import MethodView
-from drift.blueprint import Blueprint
+from drift.blueprint import Blueprint, abort
 
 from drift.core.extensions.jwt import current_user
 from drift.core.extensions.urlregistry import Endpoints
+
 from driftbase.utils import verify_log_request
 
 log = logging.getLogger(__name__)
@@ -44,7 +47,12 @@ class EventsAPI(MethodView):
         required_keys = ["event_name", "timestamp"]
 
         if request.headers.get('Content-Encoding', '') == 'gzip':
-            events = json.loads(gzip.decompress(request.data))
+            try:
+                data = gzip.decompress(request.data)
+                events = json.loads(data)
+            except JSONDecodeError as e:
+                log.info(f"failed to decode compressed event data: {e.msg}")
+                abort(http_client.BAD_REQUEST, "failed to decode compressed event data")
         else:
             events = request.json
 
