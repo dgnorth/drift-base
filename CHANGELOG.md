@@ -1,6 +1,7 @@
 # Drift-Base Change Log
 
 - [Drift-Base Change Log](#drift-base-change-log)
+  - [0.12.0](#0120)
   - [0.11.0](#0110)
   - [0.10.0](#0100)
   - [0.9.0](#090)
@@ -33,6 +34,13 @@
     - [Deprecations](#deprecations-1)
 
 ---
+## 0.12.0
+
+### Feature Improvements
+- Give each player a global UUID as well as a player_id and put that in the JWT payload
+- Update to latest drift and drift-config for config caching
+
+
 ## 0.11.0
 
 ### Bug Fixes / Feature Improvements
