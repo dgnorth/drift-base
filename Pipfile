@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-drift = "==0.14.1"
+python-drift = "==0.14.7"
 gevent = "*"
 requests = "*"
 boto3 = "*"
@@ -16,7 +16,9 @@ psycogreen = "*"
 aws-assume-role-lib = "*"
 ddtrace = "*"
 eth-account = "*"
-sqlalchemy = "==1.4.46"
+sqlalchemy = "==1.4.47"
+# required until we support flask-sqlalchemy 3.0
+flask-marshmallow = "~=0.14.0"
 
 [dev-packages]
 pytest = "*"
