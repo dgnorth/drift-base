@@ -22,6 +22,13 @@ driftconfig push -f $CONFIG
 
 driftconfig register
 
+if ! command -v expect; then
+    RED='\033[0;31m'
+    RESET='\033[0m'
+    echo -e "${RED}Error: expect is not installed. Please install it and try again.${RESET}"
+    exit 1
+fi
+
 # These inputs are queried in random order
 expect <<EOF
 spawn driftconfig assign-tier $DEPLOYABLE --tiers $TIER
