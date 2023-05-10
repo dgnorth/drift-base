@@ -1,7 +1,9 @@
-version: '3.8'
 services:
   drift-base:
-    build: .
+    build:
+      context: .
+      tags:
+        - app-drift-base:latest
     ports:
       - "8080:8080"
     env_file:

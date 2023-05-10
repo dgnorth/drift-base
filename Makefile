@@ -28,7 +28,7 @@ REGISTRY ?=
 TAGS = ${BRANCH_TAG} ${VERSION}
 # If no registry has been specified, tag the image so that it will work with docker-compose automatically
 ifeq ($(strip ${REGISTRY}),)
-TAG_ARGS = --tag app_drift-base:latest
+TAG_ARGS = --tag app-drift-base:latest
 else
 TAG_ARGS = $(foreach TAG,${TAGS},--tag ${IMAGE_NAME}:${TAG})
 endif
@@ -85,23 +85,23 @@ run-flask: run-backend local-config
 
 # Run app in Docker with logs to stdout, CTRL+C to stop
 run-app: run-backend local-config
-	docker-compose -p app -f ./compose-app.yml up
+	docker compose -p app -f ./compose-app.yml up
 
 # Run app in Docker in the background, make stop-app to stop
 run-appd: run-backend local-config
-	docker-compose -p app -f ./compose-app.yml up -d
+	docker compose -p app -f ./compose-app.yml up -d
 
 # Stop app in Docker
 stop-app:
-	docker-compose -p app -f ./compose-app.yml down
+	docker compose -p app -f ./compose-app.yml down
 
 # Run backend support functions in Docker
 run-backend:
-	docker-compose -p backend -f ./compose-backend.yml up -d
+	docker compose -p backend -f ./compose-backend.yml up -d
 
 # Stop backend support functions in Docker
 stop-backend: stop-app
-	docker-compose -p backend -f ./compose-backend.yml down
+	docker compose -p backend -f ./compose-backend.yml down
 
 stop-all: stop-app stop-backend
 
