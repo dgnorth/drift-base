@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+if ! command -v expect; then
+    RED='\033[0;31m'
+    RESET='\033[0m'
+    echo -e "${RED}Error: expect is not installed. Please install it and try again.${RESET}"
+    exit 1
+fi
+
 DIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 
