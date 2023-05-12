@@ -74,3 +74,4 @@ celerybeat-schedule
 # Drift config folder for local development
 .driftconfig-developer
 
+.python-version
