@@ -198,6 +198,6 @@ class UserIdentitiesTest(DriftBaseTestCase):
                 identity_string = f"ethereum:{ethereum_data['provider_details']['signer']}"
                 identity = self.get(f'{identities_url}?name={identity_string}', headers=headers).json()
                 self.assertEqual(len(identity), 1)
-                self.assertEqual(identity[0]['identity_name'], identity_string)
+                self.assertEqual(identity[0]['identity_name'], identity_string.lower())
                 self.assertEqual(identity[0]['player_id'], user['player_id'])
                 self.assertEqual(identity[0]['player_name'], user['player_name'])

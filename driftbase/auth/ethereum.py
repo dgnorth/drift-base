@@ -50,9 +50,11 @@ def authenticate(auth_info):
         abort_unauthorized(e.msg)
 
     automatic_account_creation = auth_info.get('automatic_account_creation', True)
+    # We no longer hash the user ID, so we pass the old "username" as a fallback to be upgraded
+    username = f"ethereum:{identity_id}"
     # FIXME: The static salt should perhaps be configured per tenant
-    username = "ethereum:" + pbkdf2_hmac('sha256', identity_id.encode('utf-8'), b'static_salt', iterations=1).hex()
-    return base_authenticate(username, "", automatic_account_creation)
+    fallback_username = "ethereum:" + pbkdf2_hmac('sha256', identity_id.encode('utf-8'), b'static_salt', iterations=1).hex()
+    return base_authenticate(username, "", automatic_account_creation, fallback_username=fallback_username)
 
 
 def _load_provider_details(provider_details):
@@ -73,6 +75,9 @@ def _validate_ethereum_message(signer, message, signature):
 
 
 def _run_ethereum_message_validation(signer, message, signature, timestamp_leeway=DEFAULT_TIMESTAMP_LEEWAY):
+    """
+    Validate an Ethereum message signature and return the signer address in lowercase if valid.
+    """
     try:
         recovered = Account.recover_message(encode_defunct(text=message), signature=signature).lower()
     except eth_utils.exceptions.ValidationError:
