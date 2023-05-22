@@ -14,6 +14,11 @@ from drift.core.extensions.jwt import current_user, get_cached_token
 
 from driftbase.models.db import User, CorePlayer, UserIdentity
 
+# Authentication types that hash their usernames
+HASHING_IDENTITY_PROVIDERS = ("eos", "ethereum", "gamecenter")
+# Authentication types that used to hash their usernames, but now lazily convert them to clear text
+LEGACY_HASHING_IDENTITY_PROVIDERS = ("ethereum")
+
 log = logging.getLogger(__name__)
 
 bp = Blueprint('useridentities', 'User Identities', url_prefix='/user-identities')
@@ -74,9 +79,16 @@ class UserIdentitiesAPI(MethodView):
         rows = []
         if names:
             hashed_names_by_name = _hash_identity_names(names)
+            all_names = set(hashed_names_by_name.values())
+            # As we no longer store new identities hashed, and we only lazily convert existing user identities,
+            # we need to add the non-hashed versions to the set as well
+            def _need_add_clear_name_lookup(name):
+                return name.split(':')[0] in LEGACY_HASHING_IDENTITY_PROVIDERS
+
+            all_names.update([n.lower() for n in names if _need_add_clear_name_lookup(n)])
             names_by_hashed_name = {v: k for k, v in hashed_names_by_name.items()}
             rows = g.db.query(UserIdentity, CorePlayer) \
-                       .filter(UserIdentity.name.in_(hashed_names_by_name.values()),
+                       .filter(UserIdentity.name.in_(all_names),
                                CorePlayer.user_id == UserIdentity.user_id) \
                        .all()
         elif player_ids:
@@ -89,7 +101,7 @@ class UserIdentitiesAPI(MethodView):
                 "player_id": r[1].player_id,
                 "player_url": url_for("players.entry", player_id=r[1].player_id, _external=True),
                 "player_name": r[1].player_name,
-                "identity_name": r[0].name if player_ids else names_by_hashed_name[r[0].name],
+                "identity_name": r[0].name if player_ids else (names_by_hashed_name.get(r[0].name) or r[0].name),
             }
             ret.append(d)
         return ret
@@ -219,7 +231,7 @@ def _hash_identity_names(names):
     for name in names:
         parts = name.split(":")
         if len(parts) == 2:
-            if parts[0] in ("eos", "ethereum", "gamecenter"):
+            if parts[0] in HASHING_IDENTITY_PROVIDERS:
                 parts[1] = pbkdf2_hmac('sha256', parts[1].lower().encode('utf-8'), b'static_salt', iterations=1).hex()
             ret[name] = ":".join(parts)
         else:
