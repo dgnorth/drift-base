@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-drift = "==0.14.7"
+python-drift = "==0.15.4"
 gevent = "*"
 requests = "*"
 boto3 = "*"
@@ -28,4 +28,4 @@ responses = "*"
 mock = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.11"
