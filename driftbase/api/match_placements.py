@@ -42,15 +42,25 @@ class MatchPlacementResponseSchema(Schema):
 
     match_placement_url = fields.Url(metadata=dict(description="The URL for the match placement"))
 
+
 @bp.route("/", endpoint="match-placements")
 class MatchPlacementsAPI(MethodView):
     class CreateMatchPlacementRequestSchema(Schema):
-        queue = fields.String(required=True, metadata=dict(description="Which queue to issue the match placement into."))
-        lobby_id = fields.String(required=False, metadata=dict(description="Create a match placement for a lobby. Will override most other parameters."))
-        identifier = fields.String(required=False, load_default="Match", metadata=dict(description="Arbitrary identifier for the match placement. Used in logging and debugging."))
-        map_name = fields.String(required=False, metadata=dict(description="What map the match should play on. Required if lobby_id is not specified."))
-        max_players = fields.Integer(required=False, load_default=8, metadata=dict(description="Maximum number of players to allow in the match."))
-        custom_data = fields.String(required=False, metadata=dict(description="Custom data to forward to the match server."))
+        queue = fields.String(required=True, metadata=dict(
+            description="Which queue to issue the match placement into."))
+        lobby_id = fields.String(required=False, metadata=dict(
+            description="Create a match placement for a lobby. Will override most other parameters."))
+        identifier = fields.String(required=False, load_default="Match", metadata=dict(
+            description="Arbitrary identifier for the match placement. Used in logging and debugging."))
+        map_name = fields.String(required=False, metadata=dict(
+            description="What map the match should play on. Required if lobby_id is not specified."))
+        max_players = fields.Integer(required=False, load_default=8, metadata=dict(
+            description="Maximum number of players to allow in the match."))
+        custom_data = fields.String(required=False, metadata=dict(
+            description="Custom data to forward to the match server."))
+        is_public = fields.Boolean(required=False, load_default=False, metadata=dict(
+            description="Whether the match should be public (accept any player) or not. "
+                        "Only relevant for non-lobby matches."))
 
     @bp.response(http_client.OK, MatchPlacementResponseSchema)
     def get(self):
@@ -83,7 +93,9 @@ class MatchPlacementsAPI(MethodView):
             if lobby_id:
                 match_placement = match_placements.start_lobby_match_placement(player_id, args.get("queue"), args.get("lobby_id"))
             else:
-                match_placement = match_placements.start_match_placement(player_id, args.get("queue"), args.get("map_name"), args.get("max_players"), args.get("identifier"), args.get("custom_data"))
+                match_placement = match_placements.start_match_placement(
+                    player_id, args.get("queue"), args.get("map_name"), args.get("max_players"), args.get("identifier"),
+                    args.get("custom_data"), args.get("is_public"))
 
             match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement["placement_id"], _external=True)
 
@@ -114,6 +126,17 @@ class MatchPlacementAPI(MethodView):
                                                              match_placement_id=match_placement_id, _external=True)
 
             return match_placement
+        except lobbies.NotFoundException as e:
+            abort(http_client.NOT_FOUND, message=e.msg)
+        except lobbies.UnauthorizedException as e:
+            abort(http_client.UNAUTHORIZED, message=e.msg)
+
+    @bp.response(http_client.CREATED)
+    def post(self, match_placement_id: str):
+        # For Genesys; create a player session on a public match placement
+        try:
+            player_id = current_user["player_id"]
+            return match_placements.add_player_to_public_match_placement(player_id, match_placement_id)
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:

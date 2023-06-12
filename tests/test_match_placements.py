@@ -11,7 +11,77 @@ MOCK_PLACEMENT = {
     "placement_id": "123456"
 }
 
+MOCK_PLAYER_SESSION = {
+   "PlayerSession": {
+      "CreationTime": "",
+      "DnsName": "string",
+      "FleetArn": "string",
+      "FleetId": "string",
+      "GameSessionId": "string",
+      "IpAddress": "string",
+      "PlayerData": "string",
+      "PlayerId": "string",
+      "PlayerSessionId": "string",
+      "Port": "7777",
+      "Status": "string",
+      "TerminationTime": ""
+   }
+}
+
+MOCK_GAME_SESSIONS = {
+   "GameSessions": [
+      {
+         "CreationTime": "number",
+         "CreatorId": "string",
+         "CurrentPlayerSessionCount": "number",
+         "DnsName": "string",
+         "FleetArn": "string",
+         "FleetId": "string",
+         "GameProperties": [
+            {
+               "Key": "string",
+               "Value": "string"
+            }
+         ],
+         "GameSessionData": "string",
+         "GameSessionId": "string",
+         "IpAddress": "string",
+         "Location": "string",
+         "MatchmakerData": "string",
+         "MaximumPlayerSessionCount": "number",
+         "Name": "string",
+         "PlayerSessionCreationPolicy": "string",
+         "Port": "number",
+         "Status": "string",
+         "StatusReason": "string",
+         "TerminationTime": "number"
+      }
+   ],
+   "NextToken": "string"
+}
+
+MOCK_PLAYER_SESSIONS = {
+   "NextToken": "string",
+   "PlayerSessions": [
+      {
+         "CreationTime": "number",
+         "DnsName": "string",
+         "FleetArn": "string",
+         "FleetId": "string",
+         "GameSessionId": "string",
+         "IpAddress": "string",
+         "PlayerData": "string",
+         "PlayerId": "string",
+         "PlayerSessionId": "string",
+         "Port": "number",
+         "Status": "string",
+         "TerminationTime": "number"
+      }
+   ]
+}
+
 MOCK_ERROR = "Some error"
+
 
 class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
     match_placement = None
@@ -366,8 +436,72 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         # Assert message queue for player 1
         notification, _ = self.get_player_notification("match_placements", "MatchPlacementIssued")
-        self.assertIsNone(notification) # Shouldn't have any notification since the player knows whether or not it succeeded
+        self.assertIsNone(notification)  #Shouldn't have any notification since the player knows whether or not it succeeded
         # TODO: Brainstorm and figure out if this is the best approach
+
+    def test_create_public_match_placement(self):
+        self.make_player()
+
+        # Create placement
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "123",
+            "map_name": "map",
+            "max_players": 2,
+            "is_public": True,
+        })
+
+        # Get placement
+        response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.OK)
+        placement = response.json()
+
+        self.assertDictEqual(placement, self.match_placement)
+        placement_url = placement["match_placement_url"]
+        # Fetch as another player
+        self.make_player()
+        placement = self.get(placement_url, expected_status_code=http_client.OK).json()
+        self.assertDictEqual(placement, self.match_placement)
+
+    def test_join_active_public_match_placement(self):
+        self.make_player()
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "12345",
+            "map_name": "map",
+            "max_players": 2,
+            "is_public": True,
+        })
+        player_1_id = self.player_id
+
+        # Make the placement be fulfilled
+        event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+        event["detail"]["placementId"] = self.match_placement_id
+        event["detail"]["placedPlayerSessions"] = [
+            {
+                "playerId": str(player_1_id),
+                "playerSessionId": "psess-3defcd9c-6953-577e-5e03-fffffe9a948a"
+            }
+        ]
+        with self.as_bearer_token_user("flexmatch_event"):
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+
+        # Join as another player
+        self.make_player()
+        game_sessions = copy.deepcopy(MOCK_GAME_SESSIONS)
+        game_sessions["GameSessions"][0]["Status"] = "ACTIVE"
+        with patch.object(flexmatch, "describe_game_sessions", return_value=game_sessions):
+            player_sessions = copy.deepcopy(MOCK_PLAYER_SESSIONS)
+            player_sessions["PlayerSessions"][0]["PlayerId"] = str(player_1_id)
+            player_sessions["PlayerSessions"][0]["Status"] = "RESERVED"
+            with patch.object(flexmatch, "describe_player_sessions", return_value=player_sessions):
+                with patch.object(flexmatch, "create_player_session", return_value=MOCK_PLAYER_SESSION):
+                    response = self.post(self.match_placement_url, expected_status_code=http_client.CREATED).json()
+        self.assertDictEqual(response, MOCK_PLAYER_SESSION["PlayerSession"])
+        notification, _ = self.get_player_notification("match_placements", "MatchPlacementFulfilled")
+        notification_data = notification["data"]
+        self.assertIsInstance(notification_data, dict)
+        self.assertIn("connection_string", notification_data)
+        self.assertIn("connection_options", notification_data)
 
     def test_create_match_placement_not_in_lobby(self):
         self.make_player()

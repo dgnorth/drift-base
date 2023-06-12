@@ -29,19 +29,32 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
     player_match_placement_key = _get_player_match_placement_key(player_id)
 
     placement_id = g.redis.conn.get(player_match_placement_key)
-
+    public_placement = False
     if not placement_id:
-        log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
-        message = f"Match placement {expected_match_placement_id} not found" if expected_match_placement_id else "No match placement found"
-        raise NotFoundException(message)
+        # Check if it's public
+        placement = g.redis.conn.get(_get_match_placement_key(expected_match_placement_id))
+        if placement:
+            placement = json.loads(placement)
+            if placement["public"]:
+                placement_id = placement["placement_id"]
+                public_placement = True
+
+        if not placement_id:
+            log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
+            message = f"Match placement {expected_match_placement_id} not found" \
+                if expected_match_placement_id else "No match placement found"
+            raise NotFoundException(message)
 
     if expected_match_placement_id and expected_match_placement_id != placement_id:
-        log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}', but the player didn't issue the match placement")
-        raise UnauthorizedException(f"You don't have permission to access match placement {expected_match_placement_id}")
+        log.warning(f"Player '{player_id}' attempted to fetch match placement "
+                    f"'{expected_match_placement_id}', but the player didn't issue the match placement")
+        raise UnauthorizedException(f"You don't have permission to access match placement"
+                                    f" {expected_match_placement_id}")
 
     with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
-        if placement_id != g.redis.conn.get(player_match_placement_key):
-            log.warning(f"Player '{player_id}' attempted to get match placement '{placement_id}', but was no longer assigned to the match placement after getting the lock")
+        if placement_id != g.redis.conn.get(player_match_placement_key) and not public_placement:
+            log.warning(f"Player '{player_id}' attempted to get match placement '{placement_id}'"
+                        f", but was no longer assigned to the match placement after getting the lock")
             raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
 
         placement = match_placement_lock.value
@@ -55,6 +68,57 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
         log.info(f"Returning match placement '{placement_id}' for player '{player_id}'")
 
         return placement
+
+
+def add_player_to_public_match_placement(player_id: int, placement_id: str) -> typing.Union[dict, None]:
+    with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
+        placement = match_placement_lock.value
+        if not placement:
+            log.warning(f"Player '{player_id}' attempted to join match placement '{placement_id}'"
+                        f" but the match placement doesn't exist")
+            raise NotFoundException("Match placement not found")
+
+        if not placement.get("public"):
+            log.warning(f"Player '{player_id}' attempted to join match placement '{placement_id}'"
+                        f" but the match placement is not public")
+            raise UnauthorizedException("You can't join a public match placement")
+
+        game_session_arn = placement.get("game_session_arn", None)
+        if not game_session_arn:
+            raise RuntimeError(f"Failed to create player session for player '{player_id}'. "
+                               f"No game session arn exists for placement id '{placement_id}'")
+        # Check if the game session is still valid
+        game_sessions = flexmatch.describe_game_sessions(GameSessionId=game_session_arn)
+        if len(game_sessions["GameSessions"]) == 0:
+            log.warning(f"Unable to ensure a player session for player '{player_id}'. "
+                        f"Game session '{game_session_arn}' not found. "
+                        f"Assuming the game session has been deleted/cleaned up")
+            raise NotFoundException("Match placement is gone.")
+        game_session = game_sessions["GameSessions"][0]
+        game_session_status = game_session["Status"]
+        if game_session_status not in ("ACTIVE", "ACTIVATING"):
+            log.warning(f"Unable to ensure a player session for player '{player_id}'. "
+                        f"Game session '{game_session_arn}' is in status '{game_session_status}'")
+            raise NotFoundException("Match placement isn't valid (yet)")
+        # Check if player has a valid player session
+        player_sessions = flexmatch.describe_player_sessions(GameSessionId=game_session_arn)
+        for player_session in player_sessions["PlayerSessions"]:
+            if player_session["PlayerId"] == str(player_id) and player_session["Status"] in ("RESERVED", "ACTIVE"):
+                return player_session["PlayerSessionId"]
+        # Create new player session since no valid one was found
+        response = flexmatch.create_player_session(
+            GameSessionId=game_session_arn,
+            PlayerId=str(player_id)
+        )
+        if game_session_status == "ACTIVE":
+            connection_options = f"PlayerSessionId={response['PlayerSession']['PlayerSessionId']}?PlayerId={player_id}"
+            event_data = {
+                **placement,
+                "connection_options": connection_options
+            }
+            _post_match_placement_event_to_members([player_id], "MatchPlacementFulfilled", event_data)
+        return response["PlayerSession"]
+
 
 def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> dict:
     player_lobby_key = _get_player_lobby_key(player_id)
@@ -217,11 +281,15 @@ def start_lobby_match_placement(player_id: int, queue: str, lobby_id: str) -> di
 
         # Notify members
         receiving_player_ids = _get_lobby_member_player_ids(lobby, [player_id])
-        _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id, "status": lobby["status"]})
+        _post_lobby_event_to_members(receiving_player_ids, "LobbyMatchStarting", {"lobby_id": lobby_id,
+                                                                                  "status": lobby["status"]})
 
         return match_placement
 
-def start_match_placement(player_id: int, queue: str, map_name: str, max_players: int, identifier: typing.Optional[str] = None, custom_data: typing.Optional[str] = None) -> dict:
+
+def start_match_placement(player_id: int, queue: str, map_name: str, max_players: int,
+                          identifier: typing.Optional[str] = None, custom_data: typing.Optional[str] = None,
+                          public: bool = False) -> dict:
     player_match_placement_key = _get_player_match_placement_key(player_id)
 
     # Check existing placement
@@ -310,6 +378,8 @@ def start_match_placement(player_id: int, queue: str, map_name: str, max_players
 
         if party_id:
             match_placement["party_id"] = party_id
+        if public:
+            match_placement["public"] = True
 
         _save_match_placement(match_placement, player_ids)
     finally:
@@ -423,8 +493,11 @@ def _check_existing_match_placement(player_id: int) -> str:
         with JsonLock(_get_match_placement_key(existing_placement_id)) as match_placement_lock:
             if existing_placement_id != g.redis.conn.get(player_match_placement_key):
                 log.warning(
-                    f"Existing match placement check failed for player '{player_id}'. Player was assigned to match placement'{existing_placement_id}', but was no longer assigned to the match placement after getting the lock")
-                raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
+                    f"Existing match placement check failed for player '{player_id}'. Player was assigned to "
+                    f"match placement'{existing_placement_id}', but was no longer assigned to the match placement after"
+                    f" getting the lock")
+                raise ConflictException("You were no longer assigned to the match placement "
+                                        "while attempting to fetch it")
 
             placement = match_placement_lock.value
 
