@@ -17,11 +17,13 @@ bp = Blueprint("match-placements", "match-placements", url_prefix="/match-placem
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
+
 def drift_init_extension(app, **kwargs):
     app.register_blueprint(bp)
     app.messagebus.register_consumer(match_placements.process_match_message, "match")
     app.messagebus.register_consumer(match_placements.process_gamelift_queue_event, "gamelift_queue")
     endpoints.init_app(app)
+
 
 class MatchPlacementResponseSchema(Schema):
     placement_id = fields.String(metadata=dict(description="The id of the match placement."))
@@ -94,6 +96,7 @@ class MatchPlacementsAPI(MethodView):
             log.error(f"Failed to start match placement for player '{player_id}': Gamelift response:\n'{e.debugs}'")
             abort(http_client.INTERNAL_SERVER_ERROR, message=e.msg)
 
+
 @bp.route("/<string:match_placement_id>", endpoint="match-placement")
 class MatchPlacementAPI(MethodView):
 
@@ -107,7 +110,8 @@ class MatchPlacementAPI(MethodView):
             player_id = current_user["player_id"]
             match_placement = match_placements.get_player_match_placement(player_id, match_placement_id)
 
-            match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement_id, _external=True)
+            match_placement["match_placement_url"] = url_for("match-placements.match-placement",
+                                                             match_placement_id=match_placement_id, _external=True)
 
             return match_placement
         except lobbies.NotFoundException as e:

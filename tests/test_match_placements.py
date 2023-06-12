@@ -46,14 +46,17 @@ class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
         self.match_placement_id = match_placement["placement_id"]
         self.match_placement_url = match_placement["match_placement_url"]
 
+
 """
 Match Placements API
 """
+
 
 class TestMatchPlacements(BaseCloudkitTest):
     def test_match_placements(self):
         self.make_player()
         self.assertIn("match_placements", self.endpoints)
+
 
 # /match-placements
 class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
@@ -144,6 +147,7 @@ class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
+
 # /match-placements/<match_placement_id>
 class TestMatchPlacementAPI(_BaseMatchPlacementTest):
     # Get
@@ -210,9 +214,11 @@ class TestMatchPlacementAPI(_BaseMatchPlacementTest):
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
+
 """
 Match placement implementation
 """
+
 
 class MatchPlacementsTest(_BaseMatchPlacementTest):
     # Get match placement
@@ -373,7 +379,8 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                response = self.post(self.endpoints["match_placements"], data=post_data, expected_status_code=http_client.BAD_REQUEST)
+                response = self.post(self.endpoints["match_placements"], data=post_data,
+                                     expected_status_code=http_client.BAD_REQUEST)
 
                 self._assert_error(response)
 
@@ -632,37 +639,38 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertDictEqual(self.lobby, old_lobby)
         self.assertDictEqual(self.match_placement, old_match_placement)
 
+
 MOCK_GAMELIFT_QUEUE_EVENT = {
-   "version":"0",
-   "id":"93111702-4e98-8e1c-07d4-740ee173c4c0",
-   "detail-type":"GameLift Queue Placement Event",
-   "source":"aws.gamelift",
-   "account":"420691337",
-   "time":"2021-10-06T09:50:55Z",
-   "region":"eu-west-1",
-   "resources":[
+   "version": "0",
+   "id": "93111702-4e98-8e1c-07d4-740ee173c4c0",
+   "detail-type": "GameLift Queue Placement Event",
+   "source": "aws.gamelift",
+   "account": "420691337",
+   "time": "2021-10-06T09:50:55Z",
+   "region": "eu-west-1",
+   "resources": [
       "arn:aws:gamelift:eu-west-1:509899862212:gamesessionqueue/default"
    ],
-   "detail":{
-      "placementId":"1941b6ae-dd29-4605-b0df-8c5ac8d37663",
-      "port":"1337",
-      "gameSessionArn":"arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663",
-      "ipAddress":"1.1.1.1",
-      "placedPlayerSessions":[
+   "detail": {
+      "placementId": "1941b6ae-dd29-4605-b0df-8c5ac8d37663",
+      "port": "1337",
+      "gameSessionArn": "arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663",
+      "ipAddress": "1.1.1.1",
+      "placedPlayerSessions": [
          {
-            "playerId":"1",
-            "playerSessionId":"psess-3defcd9c-6953-577e-5e03-fffffe9a948a"
+            "playerId": "1",
+            "playerSessionId": "psess-3defcd9c-6953-577e-5e03-fffffe9a948a"
          },
          {
-            "playerId":"2",
-            "playerSessionId":"psess-3defcd9c-6953-577e-5e03-fffffe9afda7"
+            "playerId": "2",
+            "playerSessionId": "psess-3defcd9c-6953-577e-5e03-fffffe9afda7"
          }
       ],
-      "customEventData":"Target-DriftDevStable-GameSessionQueue",
-      "dnsName":"ec2-1-1-1-1.eu-west-1.compute.amazonaws.com",
-      "startTime":"2021-10-06T09:50:46.923Z",
-      "endTime":"2021-10-06T09:50:55.245Z",
-      "type":"PlacementFulfilled",
-      "gameSessionRegion":"eu-west-1"
+      "customEventData": "Target-DriftDevStable-GameSessionQueue",
+      "dnsName": "ec2-1-1-1-1.eu-west-1.compute.amazonaws.com",
+      "startTime": "2021-10-06T09:50:46.923Z",
+      "endTime": "2021-10-06T09:50:55.245Z",
+      "type": "PlacementFulfilled",
+      "gameSessionRegion": "eu-west-1"
    }
 }

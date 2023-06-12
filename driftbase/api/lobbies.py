@@ -18,9 +18,11 @@ bp = Blueprint("lobbies", "lobbies", url_prefix="/lobbies")
 endpoints = Endpoints()
 log = logging.getLogger(__name__)
 
+
 def drift_init_extension(app, **kwargs):
     app.register_blueprint(bp)
     endpoints.init_app(app)
+
 
 class LobbyMemberResponseSchema(Schema):
     player_id = fields.Integer(metadata=dict(description="The player id of the lobby member."))
@@ -31,6 +33,7 @@ class LobbyMemberResponseSchema(Schema):
     join_date = fields.String(metadata=dict(description="The UTC timestamp of when the lobby member joined the lobby."))
 
     lobby_member_url = fields.URL(metadata=dict(description="Lobby member URL"))
+
 
 class LobbyResponseSchema(Schema):
     lobby_id = fields.String(metadata=dict(description="The id for the lobby."))
@@ -71,9 +74,6 @@ class LobbiesAPI(MethodView):
         Returns a lobby.
         """
         player_id = current_user["player_id"]
-
-
-
         try:
             lobby = lobbies.get_player_lobby(player_id)
             return _add_lobby_urls(lobby)
@@ -108,6 +108,7 @@ class LobbiesAPI(MethodView):
             abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.ConflictException as e:
             abort(http_client.CONFLICT, message=e.msg)
+
 
 @bp.route("/<string:lobby_id>", endpoint="lobby")
 class LobbyAPI(MethodView):
@@ -179,6 +180,7 @@ class LobbyAPI(MethodView):
         except lobbies.ConflictException as e:
             abort(http_client.CONFLICT, message=e.msg)
 
+
 @bp.route("/<string:lobby_id>/members", endpoint="members")
 class LobbyMembersAPI(MethodView):
 
@@ -199,6 +201,7 @@ class LobbyMembersAPI(MethodView):
             abort(http_client.BAD_REQUEST, message=e.msg)
         except lobbies.ConflictException as e:
             abort(http_client.CONFLICT, message=e.msg)
+
 
 @bp.route("/<string:lobby_id>/members/<int:member_player_id>", endpoint="member")
 class LobbyMemberAPI(MethodView):
@@ -249,6 +252,7 @@ class LobbyMemberAPI(MethodView):
         except lobbies.ConflictException as e:
             abort(http_client.CONFLICT, message=e.msg)
 
+
 @endpoints.register
 def endpoint_info(*args):
     ret = {
@@ -271,6 +275,7 @@ def endpoint_info(*args):
     return ret
 
 # Helpers
+
 
 def _add_lobby_urls(lobby: dict):
     lobby_id = lobby["lobby_id"]

@@ -480,6 +480,7 @@ def _get_personalized_lobby(lobby: dict, player_id: int) -> dict:
 
     return lobby
 
+
 def _ensure_player_session(lobby: dict, player_id: int, member: dict) -> typing.Optional[str]:
     from driftbase import match_placements
 
