@@ -133,10 +133,13 @@ class MatchPlacementAPI(MethodView):
 
     @bp.response(http_client.CREATED)
     def post(self, match_placement_id: str):
-        # For Genesys; create a player session on a public match placement
+        # For Genesys; create a player session on a public match placement and return it
         try:
             player_id = current_user["player_id"]
-            return match_placements.add_player_to_public_match_placement(player_id, match_placement_id)
+            player_session = match_placements.add_player_to_public_match_placement(player_id, match_placement_id)
+            log.info(f"Created player session '{player_session['PlayerSessionId']}' for player '{player_id}' "
+                     f"on match placement '{match_placement_id}'")
+            return player_session
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.UnauthorizedException as e:

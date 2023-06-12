@@ -11,23 +11,6 @@ MOCK_PLACEMENT = {
     "placement_id": "123456"
 }
 
-MOCK_PLAYER_SESSION = {
-   "PlayerSession": {
-      "CreationTime": "",
-      "DnsName": "string",
-      "FleetArn": "string",
-      "FleetId": "string",
-      "GameSessionId": "string",
-      "IpAddress": "string",
-      "PlayerData": "string",
-      "PlayerId": "string",
-      "PlayerSessionId": "string",
-      "Port": "7777",
-      "Status": "string",
-      "TerminationTime": ""
-   }
-}
-
 MOCK_GAME_SESSIONS = {
    "GameSessions": [
       {
@@ -78,6 +61,23 @@ MOCK_PLAYER_SESSIONS = {
          "TerminationTime": "number"
       }
    ]
+}
+
+MOCK_PLAYER_SESSION = {
+   "PlayerSession": {
+      "CreationTime": "",
+      "DnsName": "string",
+      "FleetArn": "string",
+      "FleetId": "string",
+      "GameSessionId": "string",
+      "IpAddress": "string",
+      "PlayerData": "string",
+      "PlayerId": "string",
+      "PlayerSessionId": "string",
+      "Port": "7777",
+      "Status": "string",
+      "TerminationTime": ""
+   }
 }
 
 MOCK_ERROR = "Some error"

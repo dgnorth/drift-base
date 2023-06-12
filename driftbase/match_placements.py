@@ -104,7 +104,7 @@ def add_player_to_public_match_placement(player_id: int, placement_id: str) -> t
         player_sessions = flexmatch.describe_player_sessions(GameSessionId=game_session_arn)
         for player_session in player_sessions["PlayerSessions"]:
             if player_session["PlayerId"] == str(player_id) and player_session["Status"] in ("RESERVED", "ACTIVE"):
-                return player_session["PlayerSessionId"]
+                return player_session
         # Create new player session since no valid one was found
         response = flexmatch.create_player_session(
             GameSessionId=game_session_arn,
@@ -117,6 +117,7 @@ def add_player_to_public_match_placement(player_id: int, placement_id: str) -> t
                 "connection_options": connection_options
             }
             _post_match_placement_event_to_members([player_id], "MatchPlacementFulfilled", event_data)
+        # else the player should get a notification with connection infor when the game session becomes active
         return response["PlayerSession"]
 
 
