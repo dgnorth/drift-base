@@ -225,7 +225,7 @@ class TestMatchPlacementAPI(_BaseMatchPlacementTest):
         self.make_player()
         match_placement_url = self.endpoints["match_placements"] + "123456"
 
-        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
+        with patch.object(match_placements, "get_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
             # Valid
             response = self.get(match_placement_url, expected_status_code=http_client.OK)
 
@@ -318,13 +318,29 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         self._assert_error(response)
 
-    def test_get_match_placement_unauthorized(self):
-        self.make_player()
         self.create_lobby()
         self.create_match_placement()
 
         # Bogus match placement
-        response = self.get(self.endpoints["match_placements"] + "123456", expected_status_code=http_client.UNAUTHORIZED)
+        response = self.get(self.endpoints["match_placements"] + "123456",
+                            expected_status_code=http_client.NOT_FOUND)
+        self._assert_error(response)
+
+    def test_get_match_placement_unauthorized(self):
+        self.make_player()
+        self.create_lobby()
+        self.create_match_placement()
+        match_placement_url = self.match_placement_url
+        # Fetch first placement as another player who owns another placement
+        self.make_player()
+        self.lobby_id = None
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "123",
+            "map_name": "map",
+            "max_players": 2,
+        })
+        response = self.get(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
 
         self._assert_error(response)
 

@@ -25,36 +25,35 @@ Only lobby matches with GameLift provider supported at the time of writing!!!
 log = logging.getLogger(__name__)
 
 
+def get_match_placement(player_id: int, match_placement_id: str) -> dict:
+    """ Get a match placement by id. The placement must be public or have the player registered to it."""
+    with JsonLock(_get_match_placement_key(match_placement_id)) as match_placement_lock:
+        match_placement = match_placement_lock.value
+        if not match_placement:
+            raise NotFoundException(f"Match placement {match_placement_id} not found")
+    if not match_placement.get("public"):
+        # Attempt to get the player's match placement
+        return get_player_match_placement(player_id, match_placement_id)
+    return match_placement
+
+
 def get_player_match_placement(player_id: int, expected_match_placement_id: typing.Optional[str] = None) -> dict:
     player_match_placement_key = _get_player_match_placement_key(player_id)
-
     placement_id = g.redis.conn.get(player_match_placement_key)
-    public_placement = False
     if not placement_id:
-        # Check if it's public
-        placement = g.redis.conn.get(_get_match_placement_key(expected_match_placement_id))
-        if placement:
-            placement = json.loads(placement)
-            if placement["public"]:
-                placement_id = placement["placement_id"]
-                public_placement = True
-
-        if not placement_id:
-            log.info(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}' which is"
-                     f" neither his nor public")
-            message = f"Match placement {expected_match_placement_id} not found" \
-                if expected_match_placement_id else "No match placement found"
-            raise NotFoundException(message)
+        log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
+        message = f"Match placement {expected_match_placement_id} not found" \
+            if expected_match_placement_id else "No match placement found"
+        raise NotFoundException(message)
 
     if expected_match_placement_id and expected_match_placement_id != placement_id:
-        log.warning(f"Player '{player_id}' attempted to fetch match placement "
-                    f"'{expected_match_placement_id}' while we found '{placement_id}'."
-                    f" The player didn't issue the match placement and apparently doesn't have access to it.")
+        log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}'"
+                    f", but the player didn't issue the match placement")
         raise UnauthorizedException(f"You don't have permission to access match placement"
                                     f" {expected_match_placement_id}")
 
     with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
-        if placement_id != g.redis.conn.get(player_match_placement_key) and not public_placement:
+        if placement_id != g.redis.conn.get(player_match_placement_key):
             log.warning(f"Player '{player_id}' attempted to get match placement '{placement_id}'"
                         f", but was no longer assigned to the match placement after getting the lock")
             raise ConflictException("You were no longer assigned to the match placement while attempting to fetch it")
@@ -120,6 +119,10 @@ def add_player_to_public_match_placement(player_id: int, placement_id: str) -> t
             }
             _post_match_placement_event_to_members([player_id], "MatchPlacementFulfilled", event_data)
         # else the player should get a notification with connection infor when the game session becomes active
+
+        # Not sure if this is a good idea, but when we don't get an explicit event about match ending, we're left with a
+        # lingering match placement key on the player, which we kind of have to clean up.
+        g.redis.conn.delete(_get_player_match_placement_key(player_id))
         return response["PlayerSession"]
 
 
@@ -446,7 +449,7 @@ def stop_player_match_placement(player_id: int, expected_match_placement_id: str
 
 
 def process_gamelift_queue_event(queue_name: str, message: dict):
-    log.debug(f"match-placements::process_gamelift_queue_event() received event in queue '{queue_name}': '{message}'")
+    log.info(f"match-placements::process_gamelift_queue_event() received event in queue '{queue_name}': '{message}'")
 
     event_details = _get_event_details(message)
     event_type = event_details.get("type", None)
@@ -468,7 +471,7 @@ def process_gamelift_queue_event(queue_name: str, message: dict):
 
 
 def process_match_message(queue_name: str, message: dict):
-    log.debug(f"match-placements::process_match_message() received event in queue '{queue_name}': '{message}'")
+    log.info(f"match-placements::process_match_message() received event in queue '{queue_name}': '{message}'")
     event = message["event"]
     if event == "match_status_changed":
         match_id = message.get("match_id", None)

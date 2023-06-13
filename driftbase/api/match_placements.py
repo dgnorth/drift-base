@@ -120,11 +120,9 @@ class MatchPlacementAPI(MethodView):
         """
         try:
             player_id = current_user["player_id"]
-            match_placement = match_placements.get_player_match_placement(player_id, match_placement_id)
-
+            match_placement = match_placements.get_match_placement(player_id, match_placement_id)
             match_placement["match_placement_url"] = url_for("match-placements.match-placement",
                                                              match_placement_id=match_placement_id, _external=True)
-
             return match_placement
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)

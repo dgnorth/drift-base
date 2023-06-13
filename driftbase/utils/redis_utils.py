@@ -6,7 +6,7 @@ import datetime
 import json
 
 OPERATION_TIMEOUT = 10
-DEFAULT_LOCK_TTL_SECONDS = 60 * 60 * 24 # 24 hours
+DEFAULT_LOCK_TTL_SECONDS = 60 * 60  # 1 hour
 DEFAULT_LOCK_TIMEOUT_SECONDS = 30
 
 
