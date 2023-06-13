@@ -40,14 +40,16 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
                 public_placement = True
 
         if not placement_id:
-            log.info(f"Player '{player_id}' attempted to fetch a match placement without having a match placement")
+            log.info(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}' which is"
+                     f" neither his nor public")
             message = f"Match placement {expected_match_placement_id} not found" \
                 if expected_match_placement_id else "No match placement found"
             raise NotFoundException(message)
 
     if expected_match_placement_id and expected_match_placement_id != placement_id:
         log.warning(f"Player '{player_id}' attempted to fetch match placement "
-                    f"'{expected_match_placement_id}', but the player didn't issue the match placement")
+                    f"'{expected_match_placement_id}' while we found '{placement_id}'."
+                    f" The player didn't issue the match placement and apparently doesn't have access to it.")
         raise UnauthorizedException(f"You don't have permission to access match placement"
                                     f" {expected_match_placement_id}")
 

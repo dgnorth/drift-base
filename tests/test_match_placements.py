@@ -436,7 +436,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         # Assert message queue for player 1
         notification, _ = self.get_player_notification("match_placements", "MatchPlacementIssued")
-        self.assertIsNone(notification)  #Shouldn't have any notification since the player knows whether or not it succeeded
+        self.assertIsNone(notification)  # Shouldn't have any notification since the player knows whether it succeeded
         # TODO: Brainstorm and figure out if this is the best approach
 
     def test_create_public_match_placement(self):
