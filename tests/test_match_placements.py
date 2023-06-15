@@ -11,7 +11,77 @@ MOCK_PLACEMENT = {
     "placement_id": "123456"
 }
 
+MOCK_GAME_SESSIONS = {
+   "GameSessions": [
+      {
+         "CreationTime": "number",
+         "CreatorId": "string",
+         "CurrentPlayerSessionCount": "number",
+         "DnsName": "string",
+         "FleetArn": "string",
+         "FleetId": "string",
+         "GameProperties": [
+            {
+               "Key": "string",
+               "Value": "string"
+            }
+         ],
+         "GameSessionData": "string",
+         "GameSessionId": "string",
+         "IpAddress": "string",
+         "Location": "string",
+         "MatchmakerData": "string",
+         "MaximumPlayerSessionCount": "number",
+         "Name": "string",
+         "PlayerSessionCreationPolicy": "string",
+         "Port": "number",
+         "Status": "string",
+         "StatusReason": "string",
+         "TerminationTime": "number"
+      }
+   ],
+   "NextToken": "string"
+}
+
+MOCK_PLAYER_SESSIONS = {
+   "NextToken": "string",
+   "PlayerSessions": [
+      {
+         "CreationTime": "number",
+         "DnsName": "string",
+         "FleetArn": "string",
+         "FleetId": "string",
+         "GameSessionId": "string",
+         "IpAddress": "string",
+         "PlayerData": "string",
+         "PlayerId": "string",
+         "PlayerSessionId": "string",
+         "Port": "number",
+         "Status": "string",
+         "TerminationTime": "number"
+      }
+   ]
+}
+
+MOCK_PLAYER_SESSION = {
+   "PlayerSession": {
+      "CreationTime": "",
+      "DnsName": "string",
+      "FleetArn": "string",
+      "FleetId": "string",
+      "GameSessionId": "string",
+      "IpAddress": "string",
+      "PlayerData": "string",
+      "PlayerId": "string",
+      "PlayerSessionId": "string",
+      "Port": "7777",
+      "Status": "string",
+      "TerminationTime": ""
+   }
+}
+
 MOCK_ERROR = "Some error"
+
 
 class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
     match_placement = None
@@ -46,14 +116,17 @@ class _BaseMatchPlacementTest(test_lobbies._BaseLobbyTest):
         self.match_placement_id = match_placement["placement_id"]
         self.match_placement_url = match_placement["match_placement_url"]
 
+
 """
 Match Placements API
 """
+
 
 class TestMatchPlacements(BaseCloudkitTest):
     def test_match_placements(self):
         self.make_player()
         self.assertIn("match_placements", self.endpoints)
+
 
 # /match-placements
 class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
@@ -144,6 +217,7 @@ class TestMatchPlacementsAPI(_BaseMatchPlacementTest):
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
+
 # /match-placements/<match_placement_id>
 class TestMatchPlacementAPI(_BaseMatchPlacementTest):
     # Get
@@ -151,7 +225,7 @@ class TestMatchPlacementAPI(_BaseMatchPlacementTest):
         self.make_player()
         match_placement_url = self.endpoints["match_placements"] + "123456"
 
-        with patch.object(match_placements, "get_player_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
+        with patch.object(match_placements, "get_match_placement", return_value=MOCK_PLACEMENT) as start_lobby_match_placement_mock:
             # Valid
             response = self.get(match_placement_url, expected_status_code=http_client.OK)
 
@@ -164,10 +238,10 @@ class TestMatchPlacementAPI(_BaseMatchPlacementTest):
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
-            # Unauthorized
-            start_lobby_match_placement_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+            # Forbidden
+            start_lobby_match_placement_mock.side_effect = lobbies.ForbiddenException(MOCK_ERROR)
 
-            response = self.get(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
+            response = self.get(match_placement_url, expected_status_code=http_client.FORBIDDEN)
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
@@ -210,9 +284,11 @@ class TestMatchPlacementAPI(_BaseMatchPlacementTest):
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
+
 """
 Match placement implementation
 """
+
 
 class MatchPlacementsTest(_BaseMatchPlacementTest):
     # Get match placement
@@ -242,13 +318,29 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         self._assert_error(response)
 
-    def test_get_match_placement_unauthorized(self):
-        self.make_player()
         self.create_lobby()
         self.create_match_placement()
 
         # Bogus match placement
-        response = self.get(self.endpoints["match_placements"] + "123456", expected_status_code=http_client.UNAUTHORIZED)
+        response = self.get(self.endpoints["match_placements"] + "123456",
+                            expected_status_code=http_client.NOT_FOUND)
+        self._assert_error(response)
+
+    def test_get_match_placement_forbidden(self):
+        self.make_player()
+        self.create_lobby()
+        self.create_match_placement()
+        match_placement_url = self.match_placement_url
+        # Fetch first placement as another player who owns another placement
+        self.make_player()
+        self.lobby_id = None
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "123",
+            "map_name": "map",
+            "max_players": 2,
+        })
+        response = self.get(match_placement_url, expected_status_code=http_client.FORBIDDEN)
 
         self._assert_error(response)
 
@@ -360,8 +452,72 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         # Assert message queue for player 1
         notification, _ = self.get_player_notification("match_placements", "MatchPlacementIssued")
-        self.assertIsNone(notification) # Shouldn't have any notification since the player knows whether or not it succeeded
+        self.assertIsNone(notification)  # Shouldn't have any notification since the player knows whether it succeeded
         # TODO: Brainstorm and figure out if this is the best approach
+
+    def test_create_public_match_placement(self):
+        self.make_player()
+
+        # Create placement
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "123",
+            "map_name": "map",
+            "max_players": 2,
+            "is_public": True,
+        })
+
+        # Get placement
+        response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.OK)
+        placement = response.json()
+
+        self.assertDictEqual(placement, self.match_placement)
+        placement_url = placement["match_placement_url"]
+        # Fetch as another player
+        self.make_player()
+        placement = self.get(placement_url, expected_status_code=http_client.OK).json()
+        self.assertDictEqual(placement, self.match_placement)
+
+    def test_join_active_public_match_placement(self):
+        self.make_player()
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "12345",
+            "map_name": "map",
+            "max_players": 2,
+            "is_public": True,
+        })
+        player_1_id = self.player_id
+
+        # Make the placement be fulfilled
+        event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+        event["detail"]["placementId"] = self.match_placement_id
+        event["detail"]["placedPlayerSessions"] = [
+            {
+                "playerId": str(player_1_id),
+                "playerSessionId": "psess-3defcd9c-6953-577e-5e03-fffffe9a948a"
+            }
+        ]
+        with self.as_bearer_token_user("flexmatch_event"):
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+
+        # Join as another player
+        self.make_player()
+        game_sessions = copy.deepcopy(MOCK_GAME_SESSIONS)
+        game_sessions["GameSessions"][0]["Status"] = "ACTIVE"
+        with patch.object(flexmatch, "describe_game_sessions", return_value=game_sessions):
+            player_sessions = copy.deepcopy(MOCK_PLAYER_SESSIONS)
+            player_sessions["PlayerSessions"][0]["PlayerId"] = str(player_1_id)
+            player_sessions["PlayerSessions"][0]["Status"] = "RESERVED"
+            with patch.object(flexmatch, "describe_player_sessions", return_value=player_sessions):
+                with patch.object(flexmatch, "create_player_session", return_value=MOCK_PLAYER_SESSION):
+                    response = self.post(self.match_placement_url, expected_status_code=http_client.CREATED).json()
+        self.assertDictEqual(response, MOCK_PLAYER_SESSION["PlayerSession"])
+        notification, _ = self.get_player_notification("match_placements", "MatchPlacementFulfilled")
+        notification_data = notification["data"]
+        self.assertIsInstance(notification_data, dict)
+        self.assertIn("connection_string", notification_data)
+        self.assertIn("connection_options", notification_data)
 
     def test_create_match_placement_not_in_lobby(self):
         self.make_player()
@@ -373,7 +529,8 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
 
         with patch.object(flexmatch, "get_player_latency_averages", return_value={}):
             with patch.object(flexmatch, "start_game_session_placement", return_value=MOCK_PLACEMENT):
-                response = self.post(self.endpoints["match_placements"], data=post_data, expected_status_code=http_client.BAD_REQUEST)
+                response = self.post(self.endpoints["match_placements"], data=post_data,
+                                     expected_status_code=http_client.BAD_REQUEST)
 
                 self._assert_error(response)
 
@@ -632,37 +789,38 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         self.assertDictEqual(self.lobby, old_lobby)
         self.assertDictEqual(self.match_placement, old_match_placement)
 
+
 MOCK_GAMELIFT_QUEUE_EVENT = {
-   "version":"0",
-   "id":"93111702-4e98-8e1c-07d4-740ee173c4c0",
-   "detail-type":"GameLift Queue Placement Event",
-   "source":"aws.gamelift",
-   "account":"420691337",
-   "time":"2021-10-06T09:50:55Z",
-   "region":"eu-west-1",
-   "resources":[
+   "version": "0",
+   "id": "93111702-4e98-8e1c-07d4-740ee173c4c0",
+   "detail-type": "GameLift Queue Placement Event",
+   "source": "aws.gamelift",
+   "account": "420691337",
+   "time": "2021-10-06T09:50:55Z",
+   "region": "eu-west-1",
+   "resources": [
       "arn:aws:gamelift:eu-west-1:509899862212:gamesessionqueue/default"
    ],
-   "detail":{
-      "placementId":"1941b6ae-dd29-4605-b0df-8c5ac8d37663",
-      "port":"1337",
-      "gameSessionArn":"arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663",
-      "ipAddress":"1.1.1.1",
-      "placedPlayerSessions":[
+   "detail": {
+      "placementId": "1941b6ae-dd29-4605-b0df-8c5ac8d37663",
+      "port": "1337",
+      "gameSessionArn": "arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663",
+      "ipAddress": "1.1.1.1",
+      "placedPlayerSessions": [
          {
-            "playerId":"1",
-            "playerSessionId":"psess-3defcd9c-6953-577e-5e03-fffffe9a948a"
+            "playerId": "1",
+            "playerSessionId": "psess-3defcd9c-6953-577e-5e03-fffffe9a948a"
          },
          {
-            "playerId":"2",
-            "playerSessionId":"psess-3defcd9c-6953-577e-5e03-fffffe9afda7"
+            "playerId": "2",
+            "playerSessionId": "psess-3defcd9c-6953-577e-5e03-fffffe9afda7"
          }
       ],
-      "customEventData":"Target-DriftDevStable-GameSessionQueue",
-      "dnsName":"ec2-1-1-1-1.eu-west-1.compute.amazonaws.com",
-      "startTime":"2021-10-06T09:50:46.923Z",
-      "endTime":"2021-10-06T09:50:55.245Z",
-      "type":"PlacementFulfilled",
-      "gameSessionRegion":"eu-west-1"
+      "customEventData": "Target-DriftDevStable-GameSessionQueue",
+      "dnsName": "ec2-1-1-1-1.eu-west-1.compute.amazonaws.com",
+      "startTime": "2021-10-06T09:50:46.923Z",
+      "endTime": "2021-10-06T09:50:55.245Z",
+      "type": "PlacementFulfilled",
+      "gameSessionRegion": "eu-west-1"
    }
 }

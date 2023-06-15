@@ -33,6 +33,7 @@ MOCK_LOBBY = {
 
 MOCK_ERROR = "Some error"
 
+
 class _BaseLobbyTest(BaseCloudkitTest):
     lobby = None
     lobby_id = None
@@ -89,9 +90,11 @@ class _BaseLobbyTest(BaseCloudkitTest):
         if expected_description:
             self.assertEqual(response_json["error"]["description"], expected_description)
 
+
 """
 Lobby API
 """
+
 
 class TestLobbies(BaseCloudkitTest):
     def test_lobbies(self):
@@ -179,6 +182,7 @@ class TestLobbiesAPI(_BaseLobbyTest):
             response = self.post(lobbies_url, data=post_data, expected_status_code=http_client.BAD_REQUEST)
 
             self._assert_error(response, expected_description=MOCK_ERROR)
+
 
 # /lobbies/<lobby_id>
 class TestLobbyAPI(_BaseLobbyTest):
