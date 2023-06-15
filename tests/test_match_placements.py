@@ -238,10 +238,10 @@ class TestMatchPlacementAPI(_BaseMatchPlacementTest):
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
-            # Unauthorized
-            start_lobby_match_placement_mock.side_effect = lobbies.UnauthorizedException(MOCK_ERROR)
+            # Forbidden
+            start_lobby_match_placement_mock.side_effect = lobbies.ForbiddenException(MOCK_ERROR)
 
-            response = self.get(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
+            response = self.get(match_placement_url, expected_status_code=http_client.FORBIDDEN)
 
             self._assert_error(response, expected_description=MOCK_ERROR)
 
@@ -326,7 +326,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
                             expected_status_code=http_client.NOT_FOUND)
         self._assert_error(response)
 
-    def test_get_match_placement_unauthorized(self):
+    def test_get_match_placement_forbidden(self):
         self.make_player()
         self.create_lobby()
         self.create_match_placement()
@@ -340,7 +340,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             "map_name": "map",
             "max_players": 2,
         })
-        response = self.get(match_placement_url, expected_status_code=http_client.UNAUTHORIZED)
+        response = self.get(match_placement_url, expected_status_code=http_client.FORBIDDEN)
 
         self._assert_error(response)
 

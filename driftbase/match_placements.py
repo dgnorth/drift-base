@@ -9,8 +9,8 @@ from driftbase.models.db import Match, CorePlayer
 from driftbase import flexmatch
 from driftbase.parties import get_player_party, get_party_members
 from driftbase.lobbies import InvalidRequestException, NotFoundException, UnauthorizedException, ConflictException, \
-    _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, _get_lobby_host_player_id, \
-    _get_player_lobby_key
+    ForbiddenException, _post_lobby_event_to_members, _get_lobby_member_player_ids, _get_lobby_key, \
+    _get_lobby_host_player_id, _get_player_lobby_key
 from driftbase.utils.redis_utils import JsonLock, DEFAULT_LOCK_TTL_SECONDS
 from driftbase.messages import post_message
 
@@ -49,7 +49,7 @@ def get_player_match_placement(player_id: int, expected_match_placement_id: typi
     if expected_match_placement_id and expected_match_placement_id != placement_id:
         log.warning(f"Player '{player_id}' attempted to fetch match placement '{expected_match_placement_id}'"
                     f", but the player didn't issue the match placement")
-        raise UnauthorizedException(f"You don't have permission to access match placement"
+        raise ForbiddenException(f"You don't have permission to access match placement"
                                     f" {expected_match_placement_id}")
 
     with JsonLock(_get_match_placement_key(placement_id)) as match_placement_lock:
@@ -82,7 +82,7 @@ def add_player_to_public_match_placement(player_id: int, placement_id: str) -> t
         if not placement.get("public"):
             log.warning(f"Player '{player_id}' attempted to join match placement '{placement_id}'"
                         f" but the match placement is not public")
-            raise UnauthorizedException("You can't join a public match placement")
+            raise ForbiddenException("You can't join a private match placement")
 
         game_session_arn = placement.get("game_session_arn", None)
         if not game_session_arn:
@@ -118,7 +118,7 @@ def add_player_to_public_match_placement(player_id: int, placement_id: str) -> t
                 "connection_options": connection_options
             }
             _post_match_placement_event_to_members([player_id], "MatchPlacementFulfilled", event_data)
-        # else the player should get a notification with connection infor when the game session becomes active
+        # else the player should get a notification with connection info when the game session becomes active
 
         # Not sure if this is a good idea, but when we don't get an explicit event about match ending, we're left with a
         # lingering match placement key on the player, which we kind of have to clean up.

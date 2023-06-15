@@ -72,7 +72,9 @@ class MatchPlacementsAPI(MethodView):
             player_id = current_user["player_id"]
             match_placement = match_placements.get_player_match_placement(player_id)
 
-            match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement["placement_id"], _external=True)
+            match_placement["match_placement_url"] = url_for("match-placements.match-placement",
+                                                             match_placement_id=match_placement["placement_id"],
+                                                             _external=True)
 
             return match_placement
         except lobbies.NotFoundException as e:
@@ -91,13 +93,16 @@ class MatchPlacementsAPI(MethodView):
         lobby_id = args.get("lobby_id")
         try:
             if lobby_id:
-                match_placement = match_placements.start_lobby_match_placement(player_id, args.get("queue"), args.get("lobby_id"))
+                match_placement = match_placements.start_lobby_match_placement(player_id, args.get("queue"),
+                                                                               args.get("lobby_id"))
             else:
                 match_placement = match_placements.start_match_placement(
                     player_id, args.get("queue"), args.get("map_name"), args.get("max_players"), args.get("identifier"),
                     args.get("custom_data"), args.get("is_public"))
 
-            match_placement["match_placement_url"] = url_for("match-placements.match-placement", match_placement_id=match_placement["placement_id"], _external=True)
+            match_placement["match_placement_url"] = url_for("match-placements.match-placement",
+                                                             match_placement_id=match_placement["placement_id"],
+                                                             _external=True)
 
             return match_placement
         except lobbies.InvalidRequestException as e:
@@ -126,8 +131,8 @@ class MatchPlacementAPI(MethodView):
             return match_placement
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)
-        except lobbies.UnauthorizedException as e:
-            abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ForbiddenException as e:
+            abort(http_client.FORBIDDEN, message=e.msg)
 
     @bp.response(http_client.CREATED)
     def post(self, match_placement_id: str):
@@ -140,8 +145,8 @@ class MatchPlacementAPI(MethodView):
             return player_session
         except lobbies.NotFoundException as e:
             abort(http_client.NOT_FOUND, message=e.msg)
-        except lobbies.UnauthorizedException as e:
-            abort(http_client.UNAUTHORIZED, message=e.msg)
+        except lobbies.ForbiddenException as e:
+            abort(http_client.FORBIDDEN, message=e.msg)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, match_placement_id: str):
@@ -164,7 +169,7 @@ class MatchPlacementAPI(MethodView):
 
 
 @endpoints.register
-def endpoint_info(*args):
+def endpoint_info(_):
     ret = {
         "match_placements": url_for("match-placements.match-placements", _external=True)
     }
