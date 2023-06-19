@@ -788,3 +788,7 @@ class ConflictException(LobbyException):
 
 class ForbiddenException(LobbyException):
     pass
+
+
+class TryLaterException(LobbyException):
+    pass

@@ -147,6 +147,8 @@ class MatchPlacementAPI(MethodView):
             abort(http_client.NOT_FOUND, message=e.msg)
         except lobbies.ForbiddenException as e:
             abort(http_client.FORBIDDEN, message=e.msg)
+        except lobbies.TryLaterException as e:
+            abort(http_client.SERVICE_UNAVAILABLE, message=e.msg)
 
     @bp.response(http_client.NO_CONTENT)
     def delete(self, match_placement_id: str):
