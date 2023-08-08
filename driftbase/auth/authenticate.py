@@ -252,6 +252,8 @@ def authenticate(username, password, automatic_account_creation=True, fallback_u
         "player_uuid": player_uuid.hex if player_uuid else None,
         "roles": user_roles,
     }
+    if my_identity.identity_type == "ethereum":
+        ret["ethereum_address"] = my_user_name.split(":")[1]
     cache = UserCache()
     cache.set_all(user_id, ret)
     return ret

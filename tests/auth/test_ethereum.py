@@ -148,5 +148,15 @@ class ProviderDetailsTests(BaseAuthTestCase):
                 config.return_value = dict()
                 user1 = self._auth_and_get_user(ethereum_data)
                 user2 = self._auth_and_get_user(ethereum_data)
+                assert user1['ethereum_address'] == user2['ethereum_address']
                 assert user1['identity_id'] == user2['identity_id']
                 assert user1['user_id'] == user2['user_id']
+
+    def test_ethereum_address_in_returned_payload(self):
+        with mock.patch('driftbase.auth.ethereum.utcnow') as now:
+            now.return_value = signature_timestamp + datetime.timedelta(seconds=5)
+            with mock.patch('driftbase.auth.ethereum.get_provider_config') as config:
+                config.return_value = dict()
+                user = self._auth_and_get_user(ethereum_data)
+                assert "ethereum_address" in user
+                assert user['ethereum_address'] == ethereum_data['provider_details']['signer'].lower()
