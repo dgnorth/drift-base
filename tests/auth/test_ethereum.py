@@ -148,7 +148,7 @@ class ProviderDetailsTests(BaseAuthTestCase):
                 config.return_value = dict()
                 user1 = self._auth_and_get_user(ethereum_data)
                 user2 = self._auth_and_get_user(ethereum_data)
-                assert user1['ethereum_address'] == user2['ethereum_address']
+                assert user1['provider_id'] == user2['provider_id']
                 assert user1['identity_id'] == user2['identity_id']
                 assert user1['user_id'] == user2['user_id']
 
@@ -158,5 +158,5 @@ class ProviderDetailsTests(BaseAuthTestCase):
             with mock.patch('driftbase.auth.ethereum.get_provider_config') as config:
                 config.return_value = dict()
                 user = self._auth_and_get_user(ethereum_data)
-                assert "ethereum_address" in user
-                assert user['ethereum_address'] == ethereum_data['provider_details']['signer'].lower()
+                assert "provider_id" in user
+                assert user['provider_id'] == ethereum_data['provider_details']['signer'].lower()

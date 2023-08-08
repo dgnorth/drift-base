@@ -203,3 +203,4 @@ class ProviderDetailsTests(BaseAuthTestCase):
             user2 = self._auth_and_get_user(gamecenter_data)
             assert user1['identity_id'] == user2['identity_id']
             assert user1['user_id'] == user2['user_id']
+            assert user1['provider_id'] == user2['provider_id']

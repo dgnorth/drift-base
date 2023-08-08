@@ -197,7 +197,7 @@ class MatchesAPI(MethodView):
         Dump the DB rows out as json
         """
 
-        print(f"Fetching matches for player {current_user['player_id']} with args {args}")
+        log.info(f"Fetching matches for player {current_user['player_id']} with args {args}")
 
         is_service = current_user.get('is_service', False) or "service" in current_user["roles"]
 
