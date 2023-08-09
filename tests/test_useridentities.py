@@ -105,7 +105,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
         r = self.get("/").json()
         new_gamecenter_user_id = r["current_user"]["user_id"]
         self.assertEqual(new_gamecenter_user_id, device_user_id)
-        self.assertEqual(r["current_user"]["provider_id"], username_gamecenter.split(":")[-1])
+        self.assertEqual(r["current_user"]["provider_user_id"], username_gamecenter.split(":")[-1])
 
         # I should not be able to associate the same user again (now with a proper jwt)
         self.post(user_identities_url, data=data, expected_status_code=http_client.BAD_REQUEST)
