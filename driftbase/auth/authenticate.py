@@ -157,7 +157,6 @@ def authenticate(username, password, automatic_account_creation=True, fallback_u
     else:
         if not my_identity.check_password(password):
             abort(http_client.METHOD_NOT_ALLOWED, message="Incorrect password")
-            return
 
     if my_identity:
         identity_id = my_identity.identity_id
@@ -242,16 +241,21 @@ def authenticate(username, password, automatic_account_creation=True, fallback_u
 
     g.db.commit()
 
+    provider_id = user_id  # by default
+    if identity_type and identity_type != 'user+pass':
+        provider_id = lst[-1]
+
     # store the user information in the cache for later lookup
-    ret = {
-        "user_name": my_user_name,
-        "user_id": user_id,
-        "identity_id": identity_id,
-        "player_id": player_id,
-        "player_name": player_name,
-        "player_uuid": player_uuid.hex if player_uuid else None,
-        "roles": user_roles,
-    }
+    ret = dict(
+        user_name=my_user_name,
+        user_id=user_id,
+        identity_id=identity_id,
+        provider_user_id=provider_id,
+        player_id=player_id,
+        player_name=player_name,
+        player_uuid=player_uuid.hex if player_uuid else None,
+        roles=user_roles
+    )
     cache = UserCache()
     cache.set_all(user_id, ret)
     return ret
