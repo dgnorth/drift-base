@@ -153,10 +153,11 @@ class ProviderDetailsTests(BaseAuthTestCase):
                 assert user1['user_id'] == user2['user_id']
 
     def test_ethereum_address_in_returned_payload(self):
-        with mock.patch('driftbase.auth.ethereum.utcnow') as now:
+        with (mock.patch('driftbase.auth.ethereum.utcnow') as now):
             now.return_value = signature_timestamp + datetime.timedelta(seconds=5)
             with mock.patch('driftbase.auth.ethereum.get_provider_config') as config:
                 config.return_value = dict()
                 user = self._auth_and_get_user(ethereum_data)
                 assert "provider_user_id" in user
-                assert user['provider_user_id'] == ethereum_data['provider_details']['signer'].lower()
+                assert user['provider_user_id'] == f"{ethereum_data['provider']}:" + \
+                       f"{ethereum_data['provider_details']['signer'].lower()}"

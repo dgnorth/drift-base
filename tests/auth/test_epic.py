@@ -24,7 +24,7 @@ class EpicCase(BaseCloudkitTest):
         ret = self.post('/auth', data=auth_info).json()
         self.assertIn('token', ret)
         user = self.get('/', headers=dict(Authorization=f"BEARER {ret['token']}")).json()['current_user']
-        self.assertEqual(user['provider_user_id'], account_id)
+        self.assertEqual(user['provider_user_id'], f"{auth_info['provider']}:{account_id}")
 
 
 if __name__ == "__main__":

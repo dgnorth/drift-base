@@ -94,12 +94,11 @@ def authenticate(username, password, automatic_account_creation=True, fallback_u
     create_roles = set()
     lst = username.split(":")
     # old backwards compatible (non-identity)
-    is_old = True
-    if len(lst) > 1:
-        identity_type = lst[0]
-        is_old = False
-    else:
+    is_old = True if len(lst) == 1 else False
+    if is_old:
         log.info(f"Old-style authentication for '{username}'")
+    else:
+        identity_type = lst[0]
 
     identity_id = 0
 
@@ -243,7 +242,7 @@ def authenticate(username, password, automatic_account_creation=True, fallback_u
 
     provider_id = user_id  # by default
     if identity_type and identity_type != 'user+pass':
-        provider_id = lst[-1]
+        provider_id = username if is_old is False else f"{identity_type}:{username}"
 
     # store the user information in the cache for later lookup
     ret = dict(
