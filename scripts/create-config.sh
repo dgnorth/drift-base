@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
 
-if ! command -v expect; then
-    RED='\033[0;31m'
-    RESET='\033[0m'
-    echo -e "${RED}Error: expect is not installed. Please install it and try again.${RESET}"
-    exit 1
-fi
-
 DIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 
@@ -29,20 +22,7 @@ driftconfig push -f $CONFIG
 
 driftconfig register
 
-# These inputs are queried in random order
-expect <<EOF
-spawn driftconfig assign-tier $DEPLOYABLE --tiers $TIER
-expect {
-"* drift.core.resources.postgres.server:" { send -- "postgres\r" ; exp_continue }
-"* drift.core.resources.redis.host:" { send -- "redis\r" ; exp_continue }
-"* drift.core.resources.awsdeploy.region:" { send -- "eu-west-1\r" ; exp_continue }
-"* drift.core.resources.awsdeploy.ssh_key:" { send -- "my-ssh-key\r" ; exp_continue }
-"* drift.core.resources.sentry.dsn:" { send -- "\r" ; exp_continue }
-"* driftbase.resources.staticdata.repository:" { send -- "git@github.com:foo/bar\r" ; exp_continue }
-"* driftbase.resources.staticdata.revision:" { send -- "\r" ; exp_continue }
-"* driftbase.resources.gameserver.build_bucket_url:" { send -- "s3://builds-bucket\r" ; exp_continue }
-}
-EOF
+driftconfig assign-tier $DEPLOYABLE --tiers $TIER --values "$DIR/tier-config.json"
 
 # set a custom default DB user for the tier
 dconf set --location $TIER --raw "{\"resources\": { \"drift.core.resources.postgres\": { \"username\": \"drift_tier_user\", \"password\": \"tier-pw\" }}}"

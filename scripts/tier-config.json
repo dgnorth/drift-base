@@ -1,0 +1,10 @@
+{
+    "drift.core.resources.postgres.server": "postgres",
+    "drift.core.resources.redis.host": "redis",
+    "drift.core.resources.awsdeploy.region": "eu-west-1",
+    "drift.core.resources.awsdeploy.ssh_key": "my-ssh-key",
+    "drift.core.resources.sentry.dsn": "",
+    "driftbase.resources.staticdata.repository": "git@github.com:foo/bar",
+    "driftbase.resources.staticdata.revision": "",
+    "driftbase.resources.gameserver.build_bucket_url": "s3://builds-bucket"
+}
