@@ -298,6 +298,7 @@ def stop_game_session_placement(placement_id: str):
     except ClientError as e:
         raise GameliftClientException("Failed to stop game session placement", str(e))
 
+
 def describe_game_sessions(**kwargs):
     gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
@@ -306,6 +307,7 @@ def describe_game_sessions(**kwargs):
         raise GameliftClientException("Invalid parameters to request", str(e))
     except ClientError as e:
         raise GameliftClientException("Failed to describe game sessions", str(e))
+
 
 def describe_player_sessions(**kwargs):
     gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
@@ -316,6 +318,7 @@ def describe_player_sessions(**kwargs):
     except ClientError as e:
         raise GameliftClientException("Failed to describe player sessions", str(e))
 
+
 def create_player_session(**kwargs):
     gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
     try:
@@ -324,6 +327,7 @@ def create_player_session(**kwargs):
         raise GameliftClientException("Invalid parameters to request", str(e))
     except ClientError as e:
         raise GameliftClientException("Failed to create player session", str(e))
+
 
 # Helpers
 
@@ -664,6 +668,7 @@ def _ticket_players(event):
     for ticket in event["tickets"]:
         for player in ticket["players"]:
             yield ticket["ticketId"], player
+
 
 class GameLiftRegionClient(object):
     __gamelift_clients_by_region = {}

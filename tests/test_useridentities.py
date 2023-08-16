@@ -14,14 +14,11 @@ class UserIdentitiesTest(DriftBaseTestCase):
         headers_gamecenter = self.headers
         user_identities_url = self.endpoints["user_identities"]
 
-        r = self.get("/").json()
-        gamecenter_user_id = r["current_user"]["user_id"]
-        gamecenter_jti = r["current_user"]["jti"]
+        self.get("/").json()
 
         # authenticate with device
         self.auth(username="device_%s" % uuid_string())
         r = self.get("/").json()
-        device_user_id = r["current_user"]["user_id"]
         device_jti = r["current_user"]["jti"]
 
         # switch to gamecenter user
@@ -40,9 +37,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
         headers_gamecenter = self.headers
         user_identities_url = self.endpoints["user_identities"]
 
-        r = self.get("/").json()
-        gamecenter_user_id = r["current_user"]["user_id"]
-        gamecenter_jti = r["current_user"]["jti"]
+        self.get("/").json()
 
         # authenticate with device
         self.auth(username="device_%s" % uuid_string())
@@ -52,7 +47,6 @@ class UserIdentitiesTest(DriftBaseTestCase):
         # authenticate with device again
         self.auth(username="device_%s" % uuid_string())
         r = self.get("/").json()
-        device_user_id = r["current_user"]["user_id"]
         device_jti = r["current_user"]["jti"]
 
         # switch to gamecenter user
@@ -68,10 +62,8 @@ class UserIdentitiesTest(DriftBaseTestCase):
     def test_identities_add_gamecenter(self):
         """
         Use case #1:
-        Player starts the game for the first time. His Game Center id has
-        no user account association. The
-        game client will automatically associate his Game Center id with his
-        current device user account.
+        Player starts the game for the first time. His Game Center id has no user account association.
+        The game client will automatically associate his Game Center id with his current device user account.
 
         ```device_jwt, device_jti = POST /auth {"username": "deviceid:12345"}
         gamecenter_jwt, gamecenter_jti =
@@ -89,9 +81,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
         headers_gamecenter = self.headers
         user_identities_url = self.endpoints["user_identities"]
 
-        r = self.get("/").json()
-        gamecenter_user_id = r["current_user"]["user_id"]
-        gamecenter_jti = r["current_user"]["jti"]
+        self.get("/").json()
 
         # authenticate with device
         self.auth(username="device_%s" % uuid_string())
@@ -115,6 +105,7 @@ class UserIdentitiesTest(DriftBaseTestCase):
         r = self.get("/").json()
         new_gamecenter_user_id = r["current_user"]["user_id"]
         self.assertEqual(new_gamecenter_user_id, device_user_id)
+        self.assertEqual(r["current_user"]["provider_user_id"], username_gamecenter)
 
         # I should not be able to associate the same user again (now with a proper jwt)
         self.post(user_identities_url, data=data, expected_status_code=http_client.BAD_REQUEST)
@@ -198,6 +189,6 @@ class UserIdentitiesTest(DriftBaseTestCase):
                 identity_string = f"ethereum:{ethereum_data['provider_details']['signer']}"
                 identity = self.get(f'{identities_url}?name={identity_string}', headers=headers).json()
                 self.assertEqual(len(identity), 1)
-                self.assertEqual(identity[0]['identity_name'], identity_string)
+                self.assertEqual(identity[0]['identity_name'], identity_string.lower())
                 self.assertEqual(identity[0]['player_id'], user['player_id'])
                 self.assertEqual(identity[0]['player_name'], user['player_name'])

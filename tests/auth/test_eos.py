@@ -1,6 +1,7 @@
 import json
 import unittest
 from unittest import mock
+from hashlib import pbkdf2_hmac
 
 import jwt
 
@@ -154,7 +155,8 @@ class ProviderDetailsTests(BaseAuthTestCase):
         self.valid_client_ids = [self.token_audience]
         self.expected_sub = 'eos_account_id'
 
-    def make_provider_data(self, token):
+    @staticmethod
+    def make_provider_data(token):
         return {
             'provider': 'eos',
             'provider_details': {
@@ -165,6 +167,8 @@ class ProviderDetailsTests(BaseAuthTestCase):
     def test_auth(self):
         with mock.patch('driftbase.auth.eos.get_provider_config') as config:
             config.return_value = dict(client_ids=[self.token_audience])
+            test_eos_account_id = pbkdf2_hmac('sha256', self.expected_sub.encode('utf-8'),
+                                              b'static_salt', iterations=1).hex()
             payload = dict(aud=self.token_audience, iss=eos.TRUSTED_ISSUER_URL_BASE, sub=self.expected_sub)
             token, jwk = _make_test_token_and_key(payload)
             with mock.patch('driftbase.auth.eos._get_key_from_token', return_value=jwk.key):
@@ -174,3 +178,5 @@ class ProviderDetailsTests(BaseAuthTestCase):
                 user2 = self._auth_and_get_user(self.make_provider_data(token))
             assert user1['identity_id'] == user2['identity_id']
             assert user1['user_id'] == user2['user_id']
+            assert user1['provider_user_id'] == user2['provider_user_id']
+            assert user1['provider_user_id'] == f"eos:{test_eos_account_id}"

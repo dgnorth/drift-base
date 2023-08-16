@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.9
+ARG PYTHON_VERSION=3.11
 ARG BASE_IMAGE=buster
 
 FROM python:${PYTHON_VERSION}-${BASE_IMAGE} as builder
@@ -23,7 +23,7 @@ RUN --mount=type=secret,id=pip-credentials \
     && pipenv requirements >requirements.txt
 
 # Once we have our requirements.txt, we install everything the user folder defined above with PYTHONUSERBASE
-RUN --mount=type=secret,id=pip-credentials \
+RUN --mount=type=secret,id=pip-credentials --mount=type=cache,target=/root/.cache \
     export $(grep -v '^#' /run/secrets/pip-credentials | xargs) \
     && pip install --user --ignore-installed --no-warn-script-location -r requirements.txt
 

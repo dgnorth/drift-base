@@ -1,7 +1,11 @@
-version: '3.8'
 services:
   drift-base:
-    build: .
+    build:
+      context: .
+      tags:
+        - app-drift-base:latest
+      secrets:
+        - pip-credentials
     ports:
       - "8080:8080"
     env_file:
@@ -9,6 +13,10 @@ services:
     networks:
       - app
       - backend
+
+secrets:
+  pip-credentials:
+    file: ./.env
 
 networks:
   app:

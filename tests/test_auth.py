@@ -61,7 +61,10 @@ class AuthTests(DriftBaseTestCase):
             }
         }
         with patch('driftbase.auth.oculus.run_ticket_validation', return_value=u'testuser'):
-            self.post('/auth', data=data)
+            token = self.post('/auth', data=data).json()['token']
+            user = self.get('/', headers={'Authorization': f"BEARER {token}"}).json()['current_user']
+            self.assertEqual(user['provider_user_id'], f"{data['provider']}:"
+                                                       f"{data['provider_details']['user_id']}")
 
     def test_steam_authentication(self):
         # Steam normal authentication check
@@ -79,7 +82,10 @@ class AuthTests(DriftBaseTestCase):
             mock_auth.return_value.json.return_value = {'response': {'params': {'steamid': u'steamtester'}}}
             with patch('driftbase.auth.steam._call_check_app_ownership') as mock_own:
                 mock_own.return_value.status_code = 200
-                self.post('/auth', data=data)
+                token = self.post('/auth', data=data).json()['token']
+                user = self.get('/', headers={'Authorization': f"BEARER {token}"}).json()['current_user']
+                self.assertEqual(user['provider_user_id'], f"{data['provider']}:"
+                                                           f"{data['provider_details']['steamid']}")
 
     def test_steam_authentication_ignores_legacy_id(self):
         # Steam normal authentication check
@@ -211,6 +217,7 @@ class _BasePlayerAttributeTestCase(DriftBaseTestCase):
         }
         return ret
 
+
 class PlayerRoleTestCase(_BasePlayerAttributeTestCase):
 
     def test_player_has_player_role(self):
@@ -259,18 +266,22 @@ class UserPassAuthTests(BaseAuthTestCase):
         user2 = self._auth_and_get_user(old_style_user_pass_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user2['provider_user_id'])
+        self.assertEqual(user1['provider_user_id'], user1['user_id'])
 
     def test_old_style_auth_with_user_pass_provider(self):
         user1 = self._auth_and_get_user(old_style_auth_with_user_pass_provider_data)
         user2 = self._auth_and_get_user(old_style_auth_with_user_pass_provider_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user1['user_id'])
 
     def test_user_pass_auth_with_provider(self):
         user1 = self._auth_and_get_user(user_pass_auth_with_provider_data)
         user2 = self._auth_and_get_user(user_pass_auth_with_provider_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user1['user_id'])
 
     def test_user_pass_with_missing_properties(self):
         data = old_style_user_pass_data
@@ -299,18 +310,26 @@ class UserPassAuthTests(BaseAuthTestCase):
         user2 = self._auth_and_get_user(old_style_uuid_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user2['provider_user_id'])
+        self.assertEqual(user1['provider_user_id'], old_style_uuid_data['username'])
 
     def test_old_style_uuid_provider(self):
         user1 = self._auth_and_get_user(old_style_uuid_provider_data)
         user2 = self._auth_and_get_user(old_style_uuid_provider_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user2['provider_user_id'])
+        self.assertEqual(user1['provider_user_id'], f"{uuid_auth_with_provider_data['provider']}:"
+                                                    f"{old_style_uuid_provider_data['username']}")
 
     def test_uuid_auth_with_provider(self):
         user1 = self._auth_and_get_user(uuid_auth_with_provider_data)
         user2 = self._auth_and_get_user(uuid_auth_with_provider_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user2['provider_user_id'])
+        self.assertEqual(user1['provider_user_id'], f"{uuid_auth_with_provider_data['provider']}:"
+                                                    f"{uuid_auth_with_provider_data['provider_details']['key']}")
 
     def test_uuid_with_missing_properties(self):
         data = old_style_uuid_data
@@ -340,8 +359,10 @@ class UserPassAuthTests(BaseAuthTestCase):
         user3 = self._auth_and_get_user(user_pass_auth_with_provider_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user2['provider_user_id'])
         self.assertEqual(user2['identity_id'], user3['identity_id'])
         self.assertEqual(user2['user_id'], user3['user_id'])
+        self.assertEqual(user2['provider_user_id'], user3['provider_user_id'])
 
     def test_uuid_methods_resolve_to_same_user(self):
         user1 = self._auth_and_get_user(old_style_uuid_data)
@@ -349,5 +370,7 @@ class UserPassAuthTests(BaseAuthTestCase):
         user3 = self._auth_and_get_user(uuid_auth_with_provider_data)
         self.assertEqual(user1['identity_id'], user2['identity_id'])
         self.assertEqual(user1['user_id'], user2['user_id'])
+        self.assertEqual(user1['provider_user_id'], user2['provider_user_id'])
         self.assertEqual(user2['identity_id'], user3['identity_id'])
         self.assertEqual(user2['user_id'], user3['user_id'])
+        self.assertEqual(user2['provider_user_id'], user3['provider_user_id'])

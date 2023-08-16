@@ -11,9 +11,11 @@ forwarded_allow_ips = '*'
 proxy_protocol=True
 proxy_allow_ips = '*'
 
-workers=1
+# using two workers reduces the risk of a single long-running request blocking heartbeats
+workers=2
+# being mostly IO bound, gevent should work well for us
 worker_class='gevent'
-worker_connections=1000
+worker_connections=100
 
 graceful_timeout=30
 keep_alive=2

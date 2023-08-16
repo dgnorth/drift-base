@@ -1,13 +1,14 @@
-version: '3.8'
 services:
   redis:
     image: redis:7.0-alpine
+    container_name: redis
     ports:
       - "6379:6379"
     networks:
       - backend
   postgres:
     image: postgres:15-alpine
+    container_name: postgres
     ports:
       - "5432:5432"
     environment:

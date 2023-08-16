@@ -88,24 +88,32 @@ def authenticate_with_provider(auth_info):
     return identity
 
 
-def authenticate(username, password, automatic_account_creation=True):
+def authenticate(username, password, automatic_account_creation=True, fallback_username=None):
     """basic authentication"""
     identity_type = ""
     create_roles = set()
     lst = username.split(":")
     # old backwards compatible (non-identity)
-    is_old = True
-    if len(lst) > 1:
-        identity_type = lst[0]
-        is_old = False
+    is_old = True if len(lst) == 1 else False
+    if is_old:
+        log.info(f"Old-style authentication for '{username}'")
     else:
-        log.info("Old-style authentication for '%s'", username)
+        identity_type = lst[0]
 
     identity_id = 0
 
-    my_identity = g.db.query(UserIdentity) \
-        .filter(UserIdentity.name == username) \
-        .first()
+    my_identity = (
+        g.db.query(UserIdentity)
+            .filter(UserIdentity.name == username)
+            .first()
+    )
+
+    if not my_identity and fallback_username:
+        my_identity = (
+            g.db.query(UserIdentity)
+                .filter(UserIdentity.name == fallback_username)
+                .first()
+        )
 
     try:
         service_user = g.conf.tier.get('service_user')
@@ -144,15 +152,18 @@ def authenticate(username, password, automatic_account_creation=True):
 
         g.db.add(my_identity)
         g.db.flush()
-        log.info("User Identity '%s' has been created with id %s",
-                 username, my_identity.identity_id)
+        log.info(f"User Identity '{username}' has been created with id {my_identity.identity_id}")
     else:
         if not my_identity.check_password(password):
             abort(http_client.METHOD_NOT_ALLOWED, message="Incorrect password")
-            return
 
     if my_identity:
         identity_id = my_identity.identity_id
+        # upgrade the identity name if it's the fallback version
+        if fallback_username and my_identity.name != username:
+            my_identity.name = username
+            g.db.flush()
+            log.info(f"User Identity '{username}' has been upgraded from the legacy username format '{fallback_username}'")
 
     my_user = None
     my_player = None
@@ -165,18 +176,16 @@ def authenticate(username, password, automatic_account_creation=True):
     if my_identity.user_id:
         my_user = g.db.query(User).get(my_identity.user_id)
         if my_user.status != "active":
-            log.info("Logon identity is using an inactive user %s, "
-                     "creating new one", my_user.user_id)
+            log.info(f"Logon identity is using an inactive user {my_user.user_id}, creating new one")
             my_user = None
         else:
             user_id = my_user.user_id
 
     if my_user is None:
         if not automatic_account_creation:
-            log.info("User Identity %s has no user but "
-                     "automatic_account_creation is false so he "
-                     "gets no user account",
-                     my_identity.identity_id)
+            log.info(
+                f"User Identity '{my_identity.identity_id}' has no user"
+                " but automatic_account_creation is false so user gets no user account")
         else:
             my_user = User(user_name=username)
             g.db.add(my_user)
@@ -187,18 +196,23 @@ def authenticate(username, password, automatic_account_creation=True):
                 role = UserRole(user_id=user_id, role=role_name)
                 g.db.add(role)
             my_identity.user_id = user_id
-            log.info("User '%s' has been created with user_id %s",
-                     username, user_id)
+            log.info(f"User '{username}' has been created with user_id {user_id}")
 
     if my_user:
         user_roles = [r.role for r in my_user.roles]
         if username != service_user["username"] and "player" not in user_roles:
             # Lazily add player role to existing users
-            log.info("User %s has no 'player' role, adding it", user_id)
+            log.info(f"User {user_id} has no 'player' role, adding it")
             role = UserRole(user_id=user_id, role="player")
             g.db.add(role)
             user_roles.append("player")
         user_id = my_user.user_id
+
+        if fallback_username and my_user.user_name == fallback_username:
+            my_user.user_name = username
+            g.db.flush()
+            log.info(f"User '{username}' has been upgraded from the legacy username format '{fallback_username}'")
+
         my_user_name = my_user.user_name
 
         my_player = g.db.query(CorePlayer) \
@@ -210,8 +224,8 @@ def authenticate(username, password, automatic_account_creation=True):
             g.db.add(my_player)
             # this is so we can access the auto-increment key value
             g.db.flush()
-            log.info(f"Player for user {my_user.user_id} has been created with player_id {my_player.player_id} "
-                     f"and uuid {my_player.player_uuid}")
+            log.info(f"Player for user {my_user.user_id} has been created with player_id {my_player.player_id}"
+                     f" and uuid {my_player.player_uuid}")
 
     if my_player:
         if my_player.player_uuid is None:
@@ -226,16 +240,21 @@ def authenticate(username, password, automatic_account_creation=True):
 
     g.db.commit()
 
+    provider_id = user_id  # by default
+    if identity_type and identity_type != 'user+pass':
+        provider_id = username if is_old is False else f"{identity_type}:{username}"
+
     # store the user information in the cache for later lookup
-    ret = {
-        "user_name": my_user_name,
-        "user_id": user_id,
-        "identity_id": identity_id,
-        "player_id": player_id,
-        "player_name": player_name,
-        "player_uuid": player_uuid.hex if player_uuid else None,
-        "roles": user_roles,
-    }
+    ret = dict(
+        user_name=my_user_name,
+        user_id=user_id,
+        identity_id=identity_id,
+        provider_user_id=provider_id,
+        player_id=player_id,
+        player_name=player_name,
+        player_uuid=player_uuid.hex if player_uuid else None,
+        roles=user_roles
+    )
     cache = UserCache()
     cache.set_all(user_id, ret)
     return ret
