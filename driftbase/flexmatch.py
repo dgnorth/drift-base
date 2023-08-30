@@ -6,11 +6,12 @@ import re
 from collections import defaultdict
 from botocore.exceptions import ClientError, ParamValidationError
 from flask import g, url_for
+from drift.core.extensions.driftconfig import get_tenant_config_value
 from aws_assume_role_lib import assume_role
 from driftbase.parties import get_player_party, get_party_members
 from driftbase.messages import post_message
 
-from driftbase.resources.flexmatch import TIER_DEFAULTS
+from driftbase.resources.flexmatch import FLEXMATCH_DEFAULTS
 
 NUM_VALUES_FOR_LATENCY_AVERAGE = 3
 
@@ -208,7 +209,7 @@ def update_player_acceptance(ticket_id, player_id, match_id, acceptance):
 
 
 def get_valid_regions():
-    return _get_tenant_config_value("valid_regions")
+    return _get_flexmatch_config_value("valid_regions")
 
 def handle_party_event(queue_name, event_data):
     log.debug("handle_party_event", event_data)
@@ -371,12 +372,8 @@ def _get_player_attributes(player_id, extra_player_data):
         ret["Skill"] = {"N": 100.0}
     return ret
 
-def _get_tenant_config_value(config_key):
-    default_value = TIER_DEFAULTS.get(config_key, None)
-    tenant = g.conf.tenant
-    if tenant:
-        return tenant.get("flexmatch", {}).get(config_key, default_value)
-    return default_value
+def _get_flexmatch_config_value(config_key):
+    return get_tenant_config_value("flexmatch", config_key, dict(flexmatch=FLEXMATCH_DEFAULTS))
 
 def _get_tenant_name():
     return g.conf.tenant.get('tenant_name')
@@ -406,7 +403,7 @@ def _get_event_details(event):
     return details
 
 def _is_backfill_ticket(ticket_id):
-    res = re.match(_get_tenant_config_value("backfill_ticket_pattern"), ticket_id)
+    res = re.match(_get_flexmatch_config_value("backfill_ticket_pattern"), ticket_id)
     return res is not None
 
 def _process_searching_event(event):
@@ -682,7 +679,7 @@ class GameLiftRegionClient(object):
             session = self.__class__.__gamelift_sessions_by_region.get((region, tenant))
             if session is None:
                 session = boto3.Session(region_name=self.region)
-                role_to_assume = _get_tenant_config_value("aws_gamelift_role")
+                role_to_assume = _get_flexmatch_config_value("aws_gamelift_role")
                 if role_to_assume:
                     session = assume_role(session, role_to_assume)
                 self.__class__.__gamelift_sessions_by_region[(region, tenant)] = session
@@ -710,7 +707,7 @@ class _LockedTicket(object):
         self._entry_ticket_str = None
         self._lock = g.redis.conn.lock(self._key + "LOCK", timeout=self.MAX_LOCK_WAIT_TIME_SECONDS)
         if self.MAX_REJOIN_TIME is None:  # deferred initialization of class variable as we're not in app context at import time.
-            self.__class__.MAX_REJOIN_TIME = _get_tenant_config_value("max_rejoin_time_seconds")
+            self.__class__.MAX_REJOIN_TIME = _get_flexmatch_config_value("max_rejoin_time_seconds")
 
     @property
     def ticket(self):
