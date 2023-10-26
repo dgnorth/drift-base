@@ -37,6 +37,17 @@ def get_match_placement(player_id: int, match_placement_id: str) -> dict:
     return match_placement
 
 
+def get_public_match_placement() -> list[dict]:
+    """ Total hack to get all public placements."""
+    placements = []
+    for key in g.redis.conn.keys(g.redis.make_key(f"match-placement:*")):
+        with JsonLock(key) as match_placement_lock:
+            match_placement = match_placement_lock.value
+            if match_placement.get("public"):
+                placements.append(match_placement)
+    return placements
+
+
 def get_player_match_placement(player_id: int, expected_match_placement_id: typing.Optional[str] = None) -> dict:
     player_match_placement_key = _get_player_match_placement_key(player_id)
     placement_id = g.redis.conn.get(player_match_placement_key)

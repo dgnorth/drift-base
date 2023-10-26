@@ -478,6 +478,29 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         placement = self.get(placement_url, expected_status_code=http_client.OK).json()
         self.assertDictEqual(placement, self.match_placement)
 
+    def test_get_all_public_match_placements(self):
+        self.make_player()
+
+        # Create placement as player 1
+        self.create_match_placement({
+            "queue": "yup",
+            "identifier": "123",
+            "map_name": "map",
+            "max_players": 2,
+            "is_public": True,
+        })
+
+        # Verify
+        response = self.get(self.endpoints["match_placements"], expected_status_code=http_client.OK)
+        placement = response.json()
+        self.assertDictEqual(placement, self.match_placement)
+        placements_url = f"{self.endpoints['public_match_placements']}"
+        # Fetch all public placements as another player
+        self.make_player()
+        placements = self.get(placements_url, expected_status_code=http_client.OK).json()
+        self.assertGreater(len(placements), 1)
+        self.assertIn(self.match_placement, placements)
+
     def test_join_active_public_match_placement(self):
         self.make_player()
         self.create_match_placement({

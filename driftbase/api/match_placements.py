@@ -62,6 +62,7 @@ class MatchPlacementsAPI(MethodView):
             description="Whether the match should be public (accept any player) or not. "
                         "Only relevant for non-lobby matches."))
 
+
     @bp.response(http_client.OK, MatchPlacementResponseSchema)
     def get(self):
         """
@@ -170,10 +171,23 @@ class MatchPlacementAPI(MethodView):
             abort(http_client.UNAUTHORIZED, message=e.msg)
 
 
+@bp.route("/public", endpoint="public-match-placements")
+class PublicMatchPlacementAPI(MethodView):
+    @bp.response(http_client.OK, MatchPlacementResponseSchema(many=True))
+    def get(self):
+        placements = match_placements.get_public_match_placement()
+        for placement in placements:
+            placement["match_placement_url"] = url_for("match-placements.match-placement",
+                                                       match_placement_id=placement["placement_id"],
+                                                       _external=True)
+        return placements
+
+
 @endpoints.register
 def endpoint_info(_):
     ret = {
-        "match_placements": url_for("match-placements.match-placements", _external=True)
+        "match_placements": url_for("match-placements.match-placements", _external=True),
+        "public_match_placements": url_for("match-placements.public-match-placements", _external=True)
     }
 
     return ret
