@@ -38,13 +38,29 @@ def get_match_placement(player_id: int, match_placement_id: str) -> dict:
 
 
 def get_public_match_placement() -> list[dict]:
-    """ Total hack to get all public placements."""
+    """ Total hack to get all public placements. Won't scale at all for many reasons, e.g. keys() and querying aws for
+    every game session."""
     placements = []
     for key in g.redis.conn.keys(g.redis.make_key(f"match-placement:*")):
         with JsonLock(key) as match_placement_lock:
             match_placement = match_placement_lock.value
-            if match_placement.get("public"):
-                placements.append(match_placement)
+            if not match_placement.get("public"):
+                continue
+            if match_placement['status'] != 'completed':
+                continue
+            # Check if the game session is still valid
+            game_session_arn = match_placement.get("game_session_arn", None)
+            game_sessions = flexmatch.describe_game_sessions(GameSessionId=game_session_arn)
+            if not isinstance(game_sessions, dict):
+                log.info(f"game session arn '{game_session_arn}' not found or invalid '{game_sessions}'. Skipping.")
+                continue
+            if len(game_sessions["GameSessions"]) != 1:
+                log.info(f"game session arn '{game_session_arn}' doesn't map to a single game session. Skipping.")
+                continue
+            game_session = game_sessions["GameSessions"][0]
+            if game_session["Status"] not in ("ACTIVE", "ACTIVATING"):
+                continue
+            placements.append(match_placement)
     return placements
 
 

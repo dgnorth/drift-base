@@ -487,7 +487,7 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
             "identifier": "123",
             "map_name": "map",
             "max_players": 2,
-            "is_public": True,
+            "is_public": True
         })
 
         # Verify
@@ -495,10 +495,19 @@ class MatchPlacementsTest(_BaseMatchPlacementTest):
         placement = response.json()
         self.assertDictEqual(placement, self.match_placement)
         placements_url = f"{self.endpoints['public_match_placements']}"
+        # Set placement status to active
+        with self.as_bearer_token_user("flexmatch_event"):
+            event = copy.deepcopy(MOCK_GAMELIFT_QUEUE_EVENT)
+            event["detail"]["placementId"] = self.match_placement_id
+            self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+            self.match_placement["status"] = "completed"
         # Fetch all public placements as another player
         self.make_player()
-        placements = self.get(placements_url, expected_status_code=http_client.OK).json()
-        self.assertGreater(len(placements), 1)
+        game_sessions = copy.deepcopy(MOCK_GAME_SESSIONS)
+        game_sessions["GameSessions"][0]["Status"] = "ACTIVE"
+        with patch.object(flexmatch, "describe_game_sessions", return_value=game_sessions):
+            placements = self.get(placements_url, expected_status_code=http_client.OK).json()
+        self.assertGreaterEqual(len(placements), 1)
         self.assertIn(self.match_placement, placements)
 
     def test_join_active_public_match_placement(self):
