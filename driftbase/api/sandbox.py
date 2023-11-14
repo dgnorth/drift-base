@@ -45,5 +45,10 @@ class ExperienceAPI(MethodView):
 
 @endpoints.register
 def endpoint_info(*args):
-    ret = {"sandbox": url_for("sandbox.placements", _external=True), }
+    template_url = url_for("sandbox.placement", location_id="99999", _external=True)
+    template_url = template_url.replace("/99999", "/{location_id}")
+    ret = {
+        "sandbox": url_for("sandbox.placements", _external=True),
+        "template_sandbox": template_url,
+    }
     return ret
