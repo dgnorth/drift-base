@@ -131,6 +131,8 @@ def get_running_game_session(location_id):
             log.info(f"Found a running match for '{location_id}'.")
             return match.details["game_session_arn"]
 
+    return None
+
 def _ensure_player_session(game_session_arn, player_id):
     game_sessions = flexmatch.describe_game_sessions(GameSessionId=game_session_arn)
     if len(game_sessions["GameSessions"]) == 0:
