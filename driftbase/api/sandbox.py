@@ -36,12 +36,22 @@ class SandboxAPI(MethodView):
 @bp.route('/<int:location_id>', endpoint='placement')
 class ExperienceAPI(MethodView):
 
+    class SandboxPutSchema(ma.Schema):
+        queue = ma.fields.String(required=False)
+
     class SandboxPutResponse(ma.Schema):
         placement_id = ma.fields.String()
 
+    @bp.arguments(SandboxPutSchema)
     @bp.response(http_client.CREATED, SandboxPutResponse)
-    def put(self, location_id):
-        return dict(placement_id=sandbox.handle_player_session_request(location_id, current_user["player_id"]))
+    def put(self, args, location_id):
+        return dict(
+            placement_id=sandbox.handle_player_session_request(
+                location_id,
+                current_user["player_id"],
+                args.get("queue")
+            )
+        )
 
 @endpoints.register
 def endpoint_info(*args):

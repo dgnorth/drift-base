@@ -23,22 +23,27 @@ SANDBOX_MAP_NAME = "L_Play"
 
 # FIXME: Return the game session arn instead of placement id
 
-def _redis_placement_key(location_id: int) -> str:
-    return g.redis.make_key(f"Sandbox-Experience-{location_id}")
+def _redis_placement_key(location_id: int, queue: str|None) -> str:
+    template = f"Sandbox-Experience-{location_id}"
+    if queue is not None and queue != "default":
+        template += f"-{queue}"
+    return g.redis.make_key(template)
 
-def handle_player_session_request(location_id, player_id):
+def handle_player_session_request(location_id, player_id, queue=None):
     """
     Handle a player session request for a sandbox placement.
     """
-    log.info(f"Player session for player '{player_id}' on kratos location/experience '{location_id}'")
+    if queue is None:
+        queue = "default"
+    log.info(f"Player session for player '{player_id}' on kratos location/experience '{location_id}' in queue '{queue}'")
     # Check if there's an existing placement available in db
-    game_session_arn = get_running_game_session(location_id)
+    game_session_arn = get_running_game_session(location_id, queue)
     placement: t.Union[dict,None] = None
     if not game_session_arn:
         # Check/Wait for pending placements
         wait_time = 0
         while wait_time < PLACEMENT_TIMEOUT:
-            with JsonLock(_redis_placement_key(location_id)) as placement_lock:
+            with JsonLock(_redis_placement_key(location_id, queue)) as placement_lock:
                 placement = placement_lock.value
                 if placement is None or placement["status"] != "pending":
                     break
@@ -49,23 +54,23 @@ def handle_player_session_request(location_id, player_id):
             log.warning(f"Exceeded {wait_time} seconds for pending placement for location '{location_id}'. Giving up.")
             if placement:
                 log.warning(f"Nuking sticky placement: {placement}")
-                g.redis.delete(_redis_placement_key(location_id))
+                g.redis.delete(_redis_placement_key(location_id, queue))
             abort(http_client.SERVICE_UNAVAILABLE, message="Timeout waiting for placement")
 
         if placement is None:
             log.info(f"No game session and no placement for location '{location_id}'. Creating it...")
-            return _create_placement(location_id, player_id)
+            return _create_placement(location_id, player_id, queue)
         elif placement["status"] == "completed": # recurse, we should now have a match entry with game_session_arn
             log.info(f"Placement completed while we waited. Recursing to add player session...")
-            return handle_player_session_request(location_id, player_id)
+            return handle_player_session_request(location_id, player_id, queue)
         else:
             abort(http_client.SERVICE_UNAVAILABLE, message=f"Pending placement failed ({placement['status']}). Try again later.")
 
     log.info(f"Found existing placement '{game_session_arn}' for location '{location_id}'. Ensuring player session.")
     return _ensure_player_session(game_session_arn, player_id)
 
-def _create_placement(location_id, player_id):
-    game_session_name = _redis_placement_key(location_id)
+def _create_placement(location_id, player_id, queue):
+    game_session_name = _redis_placement_key(location_id, queue)
     with JsonLock(game_session_name, ttl=PLACEMENT_TIMEOUT) as placement_lock:
         placement = placement_lock.value
         if placement is not None:  # Did we lose a race?
@@ -83,7 +88,7 @@ def _create_placement(location_id, player_id):
                  f" GameLift placement id: '{game_session_name}'.")
         response = flexmatch.start_game_session_placement(
             PlacementId=placement_id,
-            GameSessionQueueName="default",
+            GameSessionQueueName=queue,
             MaximumPlayerSessionCount=MAX_PLAYERS_PER_MATCH,
             GameSessionName=game_session_name,
             GameProperties=[{
@@ -105,11 +110,12 @@ def _create_placement(location_id, player_id):
             "kratos_location": location_id,
             "game_session_arn": None,
             "player_ids": [player_id],
+            "queue": queue,
         }
         placement_lock.value = match_placement
         return placement_id
 
-def get_running_game_session(location_id):
+def get_running_game_session(location_id, queue):
     """
     Returns a running match for a location if such a thing exists
     """
@@ -127,8 +133,9 @@ def get_running_game_session(location_id):
     # when I do that. So a bit of manual filtering instead.
     detail = "{\"KratosLocation\": %d}" % location_id
     for match, server in matches:
-        if match.details["custom_data"] == detail:
-            log.info(f"Found a running match for '{location_id}'.")
+        match_queue = match.details.get("queue")
+        if match.details["custom_data"] == detail and ((match_queue is None and queue == "default") or (match_queue == queue)):
+            log.info(f"Found a running match for '{location_id}' in queue '{queue}'.")
             return match.details["game_session_arn"]
 
     return None
@@ -176,18 +183,21 @@ def process_placement_event(queue_name, message: dict):
 
     log.info(f"Got '{event_type}' queue event: '{details}'")
 
+    fleet_queue_arn = message.get("resources", [None])[0]
+    fleet_queue = fleet_queue_arn is not None and fleet_queue_arn.split('/')[-1] or None
+
     if event_type == "PlacementFulfilled":
         log.info(f"Placement {details['placementId']}. Updating cache.")
-        return _process_fulfilled_event(details)
+        return _process_fulfilled_event(details, fleet_queue)
     elif event_type in ("PlacementCancelled", "PlacementTimedOut", "PlacementFailed"):
         log.warning(f"Placement failed: '{event_type}'. Nuking placement cache")
-        return _process_placement_failure(details["placementId"], event_type)
+        return _process_placement_failure(details["placementId"], fleet_queue, event_type)
 
     raise RuntimeError(f"Unknown event '{event_type}'")
 
-def _process_placement_failure(placement_id, failure):
+def _process_placement_failure(placement_id, queue, failure):
     location_id = placement_id.split('-')[-1]
-    with JsonLock(_redis_placement_key(location_id), PLACEMENT_REDIS_TTL) as placement_lock:
+    with JsonLock(_redis_placement_key(location_id, queue), PLACEMENT_REDIS_TTL) as placement_lock:
         placement = placement_lock.value
         if placement is None:
             log.error(f"_process_placement_failure: Placement '{placement_id}' not found in redis. Ignoring event.")
@@ -195,10 +205,10 @@ def _process_placement_failure(placement_id, failure):
         placement_lock.value = None
     _post_failure(placement["player_ids"][0], placement_id, failure)
 
-def _process_fulfilled_event(details: dict):
+def _process_fulfilled_event(details: dict, queue: str|None):
     placement_id = details["placementId"]
     location_id = placement_id.split('-')[-1]
-    with JsonLock(_redis_placement_key(location_id), PLACEMENT_REDIS_TTL) as placement_lock:
+    with JsonLock(_redis_placement_key(location_id, queue), PLACEMENT_REDIS_TTL) as placement_lock:
         placement = placement_lock.value
         if placement is None:
             log.error(f"_process_fulfilled_queue_event: Placement '{placement_id}' not found in redis. Ignoring event.")

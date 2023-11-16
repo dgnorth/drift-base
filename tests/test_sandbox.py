@@ -131,6 +131,9 @@ class SandboxTest(BaseCloudkitTest):
 MOCK_GAMELIFT_QUEUE_EVENT = """{
    "version": "0",
    "detail-type": "GameLift Queue Placement Event",
+   "resources": [
+      "arn:aws:gamelift:eu-west-1:509899862212:gamesessionqueue/default"
+   ],
    "detail": {
       "placementId": "%(placement_id)s",
       "port": "1337",
