@@ -1,4 +1,4 @@
-
+import datetime
 import json
 import threading
 import http.client as http_client
@@ -82,7 +82,7 @@ class SandboxTest(BaseCloudkitTest):
             with patch.object(flexmatch, "describe_game_sessions", return_value=json.loads(game_sessions)):
                 player_sessions = MOCK_PLAYER_SESSIONS % dict(player_id=self.player_id, status="ACTIVE")
                 with patch.object(flexmatch, "describe_player_sessions", return_value=json.loads(player_sessions)):
-                    info_dict["started"] = True
+                    info_dict["started"] = datetime.datetime.utcnow() + datetime.timedelta(seconds=1)
                     info_dict["result"] = self.put(f"{self.endpoints['sandbox']}/{location_id}",
                                         expected_status_code=http_client.CREATED).json()
         blocked_thread = threading.Thread(group=None, target=threaded_func, args=(thread_flag_result,))
@@ -90,10 +90,12 @@ class SandboxTest(BaseCloudkitTest):
         # wait until thread starts and then check that the thread is blocked
         while thread_flag_result["started"] is False:
             time.sleep(0.1)
-        self.assertTrue(blocked_thread.is_alive())
+        self.assertTrue(blocked_thread.is_alive())  # if it ran and errored, or if it didn't block, catch it.
+        if thread_flag_result["started"] > datetime.datetime.utcnow():
+            time.sleep((thread_flag_result["started"] - datetime.datetime.utcnow()).seconds)
+
         # fulfill the placement
         with self.as_bearer_token_user(EVENTS_ROLE):
-            time.sleep(0.1)
             self.assertTrue(blocked_thread.is_alive())
             # patch the db-dipping call so that when thread unblocks, it won't recurse endlessly
             with patch.object(sandbox, "get_running_game_session",
