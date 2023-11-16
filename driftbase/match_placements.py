@@ -44,6 +44,8 @@ def get_public_match_placement() -> list[dict]:
     for key in g.redis.conn.keys(g.redis.make_key(f"match-placement:*")):
         with JsonLock(key) as match_placement_lock:
             match_placement = match_placement_lock.value
+            if match_placement is None:
+                continue
             if not match_placement.get("public"):
                 continue
             if match_placement['status'] != 'completed':
