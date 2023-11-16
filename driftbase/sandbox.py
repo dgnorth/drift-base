@@ -99,7 +99,10 @@ def _create_placement(location_id, player_id, queue):
             GameSessionData=json.dumps({
                 "map_name": SANDBOX_MAP_NAME,
                 "players": [player],
-                "custom_data": json.dumps(dict(KratosLocation=location_id)),
+                "custom_data": json.dumps(dict(
+                    KratosLocation=location_id,
+                    Queue=queue,
+                )),
             }),
         )
         log.info(f"Placement start response for placement '{placement_id}': '{str(response)}'")
@@ -128,13 +131,11 @@ def get_running_game_session(location_id, queue):
                 Server.heartbeat_date >= datetime.datetime.utcnow() - datetime.timedelta(seconds=heartbeat_timeout)) \
         .all()
 
-    # I should be able to put this in the filter above, but I get
-    # "sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedFunction) operator does not exist: json = unknown"
-    # when I do that. So a bit of manual filtering instead.
-    detail = "{\"KratosLocation\": %d}" % location_id
+    # FIXME: Do the json field filtering on details in the query
     for match, server in matches:
         match_queue = match.details.get("queue")
-        if match.details["custom_data"] == detail and ((match_queue is None and queue == "default") or (match_queue == queue)):
+        kratos_location_id = match.details.get("kratos_location_id")
+        if match_queue == queue and kratos_location_id == location_id:
             log.info(f"Found a running match for '{location_id}' in queue '{queue}'.")
             return match.details["game_session_arn"]
 
@@ -162,6 +163,7 @@ def _ensure_player_session(game_session_arn, player_id):
             GameSessionId=game_session_arn,
             PlayerId=str(player_id)
         )
+        log.info(f"Created new player session '{player_session}'.")
     connection_info = f"{game_session['IpAddress']}:{game_session['Port']}?PlayerSessionId={player_session['PlayerSessionId']}?PlayerId={player_session['PlayerId']}"
     _post_connection_info(player_id, game_session_arn, connection_info)
     return game_session["GameSessionId"]
@@ -211,7 +213,7 @@ def _process_fulfilled_event(details: dict, queue: str|None):
     with JsonLock(_redis_placement_key(location_id, queue), PLACEMENT_REDIS_TTL) as placement_lock:
         placement = placement_lock.value
         if placement is None:
-            log.error(f"_process_fulfilled_queue_event: Placement '{placement_id}' not found in redis. Ignoring event.")
+            log.info(f"_process_fulfilled_queue_event: Placement '{placement_id}' not found in redis. Ignoring event.")
             return
         ip_address = details["ipAddress"]
         port = int(details["port"])
