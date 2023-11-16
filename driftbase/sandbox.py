@@ -23,11 +23,8 @@ SANDBOX_MAP_NAME = "L_Play"
 
 # FIXME: Return the game session arn instead of placement id
 
-def _redis_placement_key(location_id: int, queue: str|None) -> str:
-    template = f"Sandbox-Experience-{location_id}"
-    if queue is not None and queue != "default":
-        template += f"-{queue}"
-    return g.redis.make_key(template)
+def _redis_placement_key(location_id: int, queue: str) -> str:
+    return g.redis.make_key(f"{queue}-Sandbox-Experience-{location_id}")
 
 def handle_player_session_request(location_id, player_id, queue=None):
     """
@@ -71,6 +68,13 @@ def handle_player_session_request(location_id, player_id, queue=None):
     return _ensure_player_session(game_session_arn, player_id)
 
 def _create_placement(location_id, player_id, queue):
+    # FIXME: It's probably a good idea to disassociate the game_session_name and the placement_id completely
+    # and just store a 'pointer' from the placement_id to the redis key so we can look it up from the placement id.
+    # For context, placement_id must be unique and can't be re-used, but since it's really useful to be able to look up
+    # cached placements knowing only the location_id (and queue), we want the redis key to be deterministic.
+    # So, in summary, redis key should be deterministic, but the placement_id needs have a random element and we need to
+    # be able to map from placement_id to key.  We're currently relying on the format of the placement_id to do this
+    # but it's ugly and fragile.
     game_session_name = _redis_placement_key(location_id, queue)
     with JsonLock(game_session_name, ttl=PLACEMENT_TIMEOUT) as placement_lock:
         placement = placement_lock.value
@@ -86,7 +90,7 @@ def _create_placement(location_id, player_id, queue):
             ))
         )
         log.info(f"Player '{player_id}' ({player_name}) is starting server for experience '{location_id}'."
-                 f" GameLift placement id: '{game_session_name}'.")
+                 f" Session name/Redis key: '{game_session_name}' - Placement Id: {placement_id}.")
         response = flexmatch.start_game_session_placement(
             PlacementId=placement_id,
             GameSessionQueueName=queue,
@@ -214,7 +218,7 @@ def _process_fulfilled_event(details: dict, queue):
     with JsonLock(_redis_placement_key(location_id, queue), PLACEMENT_REDIS_TTL) as placement_lock:
         placement = placement_lock.value
         if placement is None:
-            log.info(f"_process_fulfilled_queue_event: Placement '{placement_id}' not found in redis. Ignoring event.")
+            log.info(f"_process_fulfilled_event: Placement '{placement_id}' not found in redis. Ignoring event.")
             return
         ip_address = details["ipAddress"]
         port = int(details["port"])
