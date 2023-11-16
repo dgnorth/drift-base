@@ -167,7 +167,7 @@ def _ensure_player_session(game_session_arn, player_id):
         player_session = flexmatch.create_player_session(
             GameSessionId=game_session_arn,
             PlayerId=str(player_id)
-        )
+        )['PlayerSession']
         log.info(f"Created new player session '{player_session}'.")
     connection_info = f"{game_session['IpAddress']}:{game_session['Port']}?PlayerSessionId={player_session['PlayerSessionId']}?PlayerId={player_session['PlayerId']}"
     _post_connection_info(player_id, game_session_arn, connection_info)
