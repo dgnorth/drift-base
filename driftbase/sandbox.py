@@ -42,14 +42,15 @@ def handle_player_session_request(location_id, player_id, queue=None):
     if not game_session_arn:
         # Check/Wait for pending placements
         wait_time = 0
+        sleep_time = 0.5
         while wait_time < PLACEMENT_TIMEOUT:
             with JsonLock(_redis_placement_key(location_id, queue)) as placement_lock:
                 placement = placement_lock.value
                 if placement is None or placement["status"] != "pending":
                     break
-            log.info(f"Placement is pending for location '{location_id}'. Waiting ({wait_time})...")
-            time.sleep(0.5)
-            wait_time += 1
+            log.info(f"Placement is pending for location '{location_id}'. Waiting ({wait_time}/{PLACEMENT_TIMEOUT})...")
+            time.sleep(sleep_time)
+            wait_time += sleep_time
         else:
             log.warning(f"Exceeded {wait_time} seconds for pending placement for location '{location_id}'. Giving up.")
             if placement:
@@ -185,8 +186,8 @@ def process_placement_event(queue_name, message: dict):
 
     log.info(f"Got '{event_type}' queue event: '{details}'")
 
-    fleet_queue_arn = message.get("resources", [None])[0]
-    fleet_queue = fleet_queue_arn is not None and fleet_queue_arn.split('/')[-1] or None
+    fleet_queue_arn = message.get("resources", [""])[0]
+    fleet_queue = "default" if not fleet_queue_arn else fleet_queue_arn.split('/')[-1]
 
     if event_type == "PlacementFulfilled":
         log.info(f"Placement {details['placementId']}. Updating cache.")
@@ -207,7 +208,7 @@ def _process_placement_failure(placement_id, queue, failure):
         placement_lock.value = None
     _post_failure(placement["player_ids"][0], placement_id, failure)
 
-def _process_fulfilled_event(details: dict, queue: str|None):
+def _process_fulfilled_event(details: dict, queue):
     placement_id = details["placementId"]
     location_id = placement_id.split('-')[-1]
     with JsonLock(_redis_placement_key(location_id, queue), PLACEMENT_REDIS_TTL) as placement_lock:
