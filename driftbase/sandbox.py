@@ -26,7 +26,7 @@ SANDBOX_MAP_NAME = "L_Play"
 def _redis_placement_key(location_id: int, queue: str) -> str:
     return g.redis.make_key(f"{queue}-Sandbox-Experience-{location_id}")
 
-def handle_player_session_request(location_id, player_id, queue=None):
+def handle_player_session_request(location_id: int, player_id: int, queue=t.Union[str,None]) -> str:
     """
     Handle a player session request for a sandbox placement.
     """
@@ -34,7 +34,7 @@ def handle_player_session_request(location_id, player_id, queue=None):
         queue = "default"
     log.info(f"Player session for player '{player_id}' on kratos location/experience '{location_id}' in queue '{queue}'")
     # Check if there's an existing placement available in db
-    game_session_arn = get_running_game_session(location_id, queue)
+    game_session_arn: str = get_running_game_session(location_id, queue)
     placement: t.Union[dict,None] = None
     if not game_session_arn:
         # Check/Wait for pending placements
@@ -42,7 +42,7 @@ def handle_player_session_request(location_id, player_id, queue=None):
         sleep_time = 0.5
         while wait_time < PLACEMENT_TIMEOUT:
             with JsonLock(_redis_placement_key(location_id, queue)) as placement_lock:
-                placement = placement_lock.value
+                placement: dict = placement_lock.value
                 if placement is None or placement["status"] != "pending":
                     break
             log.info(f"Placement is pending for location '{location_id}'. Waiting ({wait_time}/{PLACEMENT_TIMEOUT})...")
@@ -67,7 +67,7 @@ def handle_player_session_request(location_id, player_id, queue=None):
     log.info(f"Found existing placement '{game_session_arn}' for location '{location_id}'. Ensuring player session.")
     return _ensure_player_session(game_session_arn, player_id)
 
-def _create_placement(location_id, player_id, queue):
+def _create_placement(location_id: int, player_id: int, queue: str) -> str:
     # FIXME: It's probably a good idea to disassociate the game_session_name and the placement_id completely
     # and just store a 'pointer' from the placement_id to the redis key so we can look it up from the placement id.
     # For context, placement_id must be unique and can't be re-used, but since it's really useful to be able to look up
@@ -77,11 +77,11 @@ def _create_placement(location_id, player_id, queue):
     # but it's ugly and fragile.
     game_session_name = _redis_placement_key(location_id, queue)
     with JsonLock(game_session_name, ttl=PLACEMENT_TIMEOUT) as placement_lock:
-        placement = placement_lock.value
+        placement: dict = placement_lock.value
         if placement is not None:  # Did we lose a race?
             return handle_player_session_request(location_id, player_id)
         placement_id = f"{uuid.uuid4().hex[:10]}-{game_session_name.split(':')[-1]}"
-        player_name = g.db.query(CorePlayer.player_name). \
+        player_name: t.Union[str,None] = g.db.query(CorePlayer.player_name). \
             filter(CorePlayer.player_id == player_id).first().player_name
         player = dict(
             PlayerId=str(player_id),
@@ -91,7 +91,7 @@ def _create_placement(location_id, player_id, queue):
         )
         log.info(f"Player '{player_id}' ({player_name}) is starting server for experience '{location_id}'."
                  f" Session name/Redis key: '{game_session_name}' - Placement Id: {placement_id}.")
-        response = flexmatch.start_game_session_placement(
+        response: dict = flexmatch.start_game_session_placement(
             PlacementId=placement_id,
             GameSessionQueueName=queue,
             MaximumPlayerSessionCount=MAX_PLAYERS_PER_MATCH,
@@ -123,7 +123,7 @@ def _create_placement(location_id, player_id, queue):
         placement_lock.value = match_placement
         return placement_id
 
-def get_running_game_session(location_id, queue):
+def get_running_game_session(location_id: int, queue: str) -> t.Union[str,None]:
     """
     Returns a running match for a location if such a thing exists
     """
@@ -146,7 +146,7 @@ def get_running_game_session(location_id, queue):
 
     return None
 
-def _ensure_player_session(game_session_arn, player_id):
+def _ensure_player_session(game_session_arn: str, player_id: int) -> str:
     game_sessions = flexmatch.describe_game_sessions(GameSessionId=game_session_arn)
     if len(game_sessions["GameSessions"]) == 0:
         log.warning(f"game session '{game_session_arn}' has become invalid.")
@@ -174,7 +174,7 @@ def _ensure_player_session(game_session_arn, player_id):
     return game_session["GameSessionId"]
 
 
-def process_placement_event(queue_name, message: dict):
+def process_placement_event(queue_name: str, message: dict) -> None:
     log.info(f"sandbox::process_placement_event received event in queue '{queue_name}': '{message}'")
     if message.get("detail-type", None) != "GameLift Queue Placement Event":
         log.error("Event is not a GameLift Queue Placement Event. Ignoring")
@@ -202,9 +202,9 @@ def process_placement_event(queue_name, message: dict):
 
     raise RuntimeError(f"Unknown event '{event_type}'")
 
-def _process_placement_failure(placement_id, queue, failure):
+def _process_placement_failure(placement_id: str, queue: str, failure: str) -> None:
     location_id = placement_id.split('-')[-1]
-    with JsonLock(_redis_placement_key(location_id, queue), PLACEMENT_REDIS_TTL) as placement_lock:
+    with JsonLock(_redis_placement_key(int(location_id), queue), PLACEMENT_REDIS_TTL) as placement_lock:
         placement = placement_lock.value
         if placement is None:
             log.error(f"_process_placement_failure: Placement '{placement_id}' not found in redis. Ignoring event.")
@@ -212,7 +212,7 @@ def _process_placement_failure(placement_id, queue, failure):
         placement_lock.value = None
     _post_failure(placement["player_ids"][0], placement_id, failure)
 
-def _process_fulfilled_event(details: dict, queue):
+def _process_fulfilled_event(details: dict, queue: str) -> None:
     placement_id = details["placementId"]
     location_id = placement_id.split('-')[-1]
     with JsonLock(_redis_placement_key(location_id, queue), PLACEMENT_REDIS_TTL) as placement_lock:
