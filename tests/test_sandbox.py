@@ -46,7 +46,7 @@ class SandboxTest(BaseCloudkitTest):
     def test_put_new_placement(self):
         self.make_player()
         location_id = next(self.location_id())
-        placement_id = f"Sandbox-Experience-{location_id}"
+        placement_id = f"SB-Experience-{location_id}"
         with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}", expected_status_code=http_client.CREATED).json()
         self.assertIn(placement_id, response["placement_id"])
@@ -66,7 +66,7 @@ class SandboxTest(BaseCloudkitTest):
         # Create a placement but don't fulfill it
         self.make_player()
         location_id = next(self.location_id())
-        placement_id = f"Sandbox-Experience-{location_id}"
+        placement_id = f"SB-Experience-{location_id}"
         with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}", expected_status_code=http_client.CREATED).json()
         self.assertIn(placement_id, response["placement_id"])
@@ -115,7 +115,7 @@ class SandboxTest(BaseCloudkitTest):
     def test_failed_placement_posts_message(self):
         username = self.make_player()
         location_id = next(self.location_id())
-        placement_id = f"Sandbox-Experience-{location_id}"
+        placement_id = f"SB-Experience-{location_id}"
         with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}",
                                 expected_status_code=http_client.CREATED).json()

@@ -24,7 +24,7 @@ SANDBOX_MAP_NAME = "L_Play"
 # FIXME: Return the game session arn instead of placement id
 
 def _redis_placement_key(location_id: int, queue: str) -> str:
-    return g.redis.make_key(f"{queue}-Sandbox-Experience-{location_id}")
+    return g.redis.make_key(f"{queue}-SB-Experience-{location_id}")
 
 def handle_player_session_request(location_id: int, player_id: int, queue=t.Union[str,None]) -> str:
     """
