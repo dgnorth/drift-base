@@ -20,16 +20,18 @@ PLACEMENT_TIMEOUT = 300  # This is the queue timeout, specified in terraform-nex
 PLACEMENT_REDIS_TTL = 90
 MAX_PLAYERS_PER_MATCH = 128
 SANDBOX_MAP_NAME = "L_Play"
+MAX_RECURSION_LEVEL = 20
 
 # FIXME: Return the game session arn instead of placement id
 
 def _redis_placement_key(location_id: int, queue: str) -> str:
     return g.redis.make_key(f"{queue}-SB-Experience-{location_id}")
 
-def handle_player_session_request(location_id: int, player_id: int, queue=t.Union[str,None]) -> str:
+def handle_player_session_request(location_id: int, player_id: int, queue=t.Union[str,None], recursionlevel=0) -> str:
     """
     Handle a player session request for a sandbox placement.
     """
+
     if queue is None:
         queue = "default"
     log.info(f"Player session for player '{player_id}' on kratos location/experience '{location_id}' in queue '{queue}'")
@@ -49,7 +51,7 @@ def handle_player_session_request(location_id: int, player_id: int, queue=t.Unio
             time.sleep(sleep_time)
             wait_time += sleep_time
         else:
-            log.warning(f"Exceeded {wait_time} seconds for pending placement for location '{location_id}'. Giving up.")
+            log.warning(f"Exceeded {PLACEMENT_TIMEOUT} seconds for pending placement for location '{location_id}'. Giving up.")
             if placement:
                 log.warning(f"Nuking sticky placement: {placement}")
                 g.redis.delete(_redis_placement_key(location_id, queue))
@@ -59,8 +61,15 @@ def handle_player_session_request(location_id: int, player_id: int, queue=t.Unio
             log.info(f"No game session and no placement for location '{location_id}'. Creating it...")
             return _create_placement(location_id, player_id, queue)
         elif placement["status"] == "completed": # recurse, we should now have a match entry with game_session_arn
-            log.info(f"Placement completed while we waited. Recursing to add player session...")
-            return handle_player_session_request(location_id, player_id, queue)
+            log.info(f"Placement completed while we waited. Recursing in 1 second to add player session...")
+            sleep_time = 0.5
+            time.sleep(sleep_time)
+            if recursionlevel > MAX_RECURSION_LEVEL:
+                log.error(f"Server hasn't registered a match on this experience yet. "
+                          f"It's been {sleep_time*MAX_RECURSION_LEVEL} seconds since it reported ready to gamelift. "
+                          f"Check placement {placement['placement_id']} I Giving up")
+                abort(http_client.SERVICE_UNAVAILABLE, message="Too many recursions. Giving up.")
+            return handle_player_session_request(location_id, player_id, queue, recursionlevel+1)
         else:
             abort(http_client.SERVICE_UNAVAILABLE, message=f"Pending placement failed ({placement['status']}). Try again later.")
 

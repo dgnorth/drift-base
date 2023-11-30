@@ -26,9 +26,9 @@ class LockedGenerator:
     def __next__(self):
         with self.lock:
             self.location_id += 1
-            yield self.location_id
+            return self.location_id
 
-location_id_gen = LockedGenerator()
+location_id_gen = iter(LockedGenerator())
 
 class SandboxTest(BaseCloudkitTest):
 
@@ -45,7 +45,7 @@ class SandboxTest(BaseCloudkitTest):
 
     def test_put_new_placement(self):
         self.make_player()
-        location_id = next(self.location_id())
+        location_id = self.location_id()
         placement_id = f"SB-Experience-{location_id}"
         with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}", expected_status_code=http_client.CREATED).json()
@@ -65,7 +65,7 @@ class SandboxTest(BaseCloudkitTest):
         """NOTE:  This test is flaky as fuck since the threads may trample each other's auth headers"""
         # Create a placement but don't fulfill it
         self.make_player()
-        location_id = next(self.location_id())
+        location_id = self.location_id()
         placement_id = f"SB-Experience-{location_id}"
         with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}", expected_status_code=http_client.CREATED).json()
@@ -75,6 +75,7 @@ class SandboxTest(BaseCloudkitTest):
         # Try to put the same placement again in a separate thread
         thread_flag_result = dict(
             started = False,
+            ended = False,
             result = None
         )
         def threaded_func(info_dict):
@@ -82,14 +83,19 @@ class SandboxTest(BaseCloudkitTest):
             with patch.object(flexmatch, "describe_game_sessions", return_value=json.loads(game_sessions)):
                 player_sessions = MOCK_PLAYER_SESSIONS % dict(player_id=self.player_id, status="ACTIVE")
                 with patch.object(flexmatch, "describe_player_sessions", return_value=json.loads(player_sessions)):
-                    info_dict["started"] = datetime.datetime.utcnow() + datetime.timedelta(seconds=1)
-                    info_dict["result"] = self.put(f"{self.endpoints['sandbox']}/{location_id}",
-                                        expected_status_code=http_client.CREATED).json()
+                    info_dict["started"] = datetime.datetime.utcnow() + datetime.timedelta(seconds=0.5) # Lie about when we started so that we can test the thread is blocked
+                    try:
+                        info_dict["result"] = self.put(f"{self.endpoints['sandbox']}/{location_id}",
+                                            expected_status_code=http_client.CREATED).json()
+                    except Exception as e:
+                        print("Exception in thread: ", e)
+                    finally:
+                        info_dict["ended"] = datetime.datetime.utcnow()
         blocked_thread = threading.Thread(group=None, target=threaded_func, args=(thread_flag_result,))
         blocked_thread.start()
         # wait until thread starts and then check that the thread is blocked
         while thread_flag_result["started"] is False:
-            time.sleep(0.1)
+            time.sleep(0.01)
         self.assertTrue(blocked_thread.is_alive())  # if it ran and errored, or if it didn't block, catch it.
         if thread_flag_result["started"] > datetime.datetime.utcnow():
             time.sleep((thread_flag_result["started"] - datetime.datetime.utcnow()).seconds)
@@ -102,11 +108,12 @@ class SandboxTest(BaseCloudkitTest):
                               return_value="arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663"):
                 event = MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id, event_type="PlacementFulfilled")
                 self.put(self.endpoints["flexmatch_queue"], data=json.loads(event), expected_status_code=http_client.OK)
-                # yield to thread before unpatching
-                time.sleep(1)
+                # yield to thread before un-patching
+                while thread_flag_result["ended"] is False:
+                    time.sleep(0.1)
+        blocked_thread.join()
         self.assertFalse(blocked_thread.is_alive())
         self.assertIsNotNone(thread_flag_result["result"])
-        blocked_thread.join()
         notification, _ = self.get_player_notification("sandbox", "PlayerSessionReserved")
         data = notification['data']
         self.assertIn("game_session", data)
@@ -114,7 +121,7 @@ class SandboxTest(BaseCloudkitTest):
 
     def test_failed_placement_posts_message(self):
         username = self.make_player()
-        location_id = next(self.location_id())
+        location_id = self.location_id()
         placement_id = f"SB-Experience-{location_id}"
         with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}",
