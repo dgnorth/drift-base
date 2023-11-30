@@ -101,6 +101,7 @@ class SandboxTest(BaseCloudkitTest):
             time.sleep((thread_flag_result["started"] - datetime.datetime.utcnow()).seconds)
 
         # fulfill the placement
+        time.sleep(0.2) # entering the ctxmgr to quickly after thread starts may trample the auth header of the thread
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.assertTrue(blocked_thread.is_alive())
             # patch the db-dipping call so that when thread unblocks, it won't recurse endlessly
