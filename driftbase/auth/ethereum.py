@@ -3,6 +3,7 @@ import http.client as http_client
 import json
 import logging
 from hashlib import pbkdf2_hmac
+from json import JSONDecodeError
 
 import eth_keys.exceptions
 import eth_utils.exceptions
@@ -10,6 +11,8 @@ import marshmallow as ma
 from drift.blueprint import abort
 from eth_account import Account
 from eth_account.messages import encode_defunct
+
+import siwe
 
 from driftbase.auth import get_provider_config
 from .authenticate import authenticate as base_authenticate, AuthenticationException, ServiceUnavailableException, \
@@ -79,22 +82,39 @@ def _run_ethereum_message_validation(signer, message, signature, timestamp_leewa
     Validate an Ethereum message signature and return the signer address in lowercase if valid.
     """
     try:
-        recovered = Account.recover_message(encode_defunct(text=message), signature=signature).lower()
-    except eth_utils.exceptions.ValidationError:
-        raise InvalidRequestException("Signature validation failed") from None
-    except ValueError:
-        raise InvalidRequestException("Signature contains invalid characters") from None
-    except eth_keys.exceptions.BadSignature:
-        raise InvalidRequestException("Bad signature") from None
+        message_json = json.loads(message)
+        try:
+            recovered = Account().recover_message(encode_defunct(text=message), signature=signature).lower()
+        except eth_utils.exceptions.ValidationError:
+            raise InvalidRequestException("Signature validation failed") from None
+        except ValueError:
+            raise InvalidRequestException("Signature contains invalid characters") from None
+        except eth_keys.exceptions.BadSignature:
+            raise InvalidRequestException("Bad signature") from None
+        try:
+            timestamp = datetime.datetime.fromisoformat(message_json['timestamp'][:-1])
+            if utcnow() - timestamp > datetime.timedelta(seconds=timestamp_leeway):
+                raise UnauthorizedException("Timestamp out of bounds")
+            if utcnow() + datetime.timedelta(seconds=5) < timestamp:
+                raise UnauthorizedException("Timestamp is in the future")
+        except KeyError:
+            raise UnauthorizedException("Missing timestamp")
 
-    message = json.loads(message)
-    timestamp = datetime.datetime.fromisoformat(message['timestamp'][:-1])
-    if utcnow() - timestamp > datetime.timedelta(seconds=timestamp_leeway):
-        raise UnauthorizedException("Timestamp out of bounds")
-    if utcnow() + datetime.timedelta(seconds=5) < timestamp:
-        raise UnauthorizedException("Timestamp is in the future")
-
-    if recovered != signer.lower():
-        raise UnauthorizedException("Signer does not match passed in address")
+        if recovered != signer.lower():
+            raise UnauthorizedException("Signer does not match passed in address")
+    except JSONDecodeError:
+        # Message is not JSON, it's probably EIP-4361
+        try:
+            siwe_message: siwe.SiweMessage = siwe.SiweMessage(message=message)
+            siwe_message.verify(signature)
+            recovered = signer.lower()
+        except ValueError:
+            raise UnauthorizedException("Invalid message format")
+        except siwe.ExpiredMessage:
+            raise UnauthorizedException("Message expired")
+        except siwe.MalformedSession:
+            raise UnauthorizedException("Session is malformed")
+        except siwe.InvalidSignature:
+            raise UnauthorizedException("Bad signature")
 
     return recovered
