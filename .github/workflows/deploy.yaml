@@ -2,47 +2,19 @@ name: Build and Publish
 
 on:
   push:
+    branches:
+      - 'master'
+      - 'develop'
+      - 'release/**'
+      - 'hotfix/**'
+      - 'support/**'
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7.0-alpine
-        ports:
-          - 6379:6379
-
-      postgres:
-        image: postgres:15-alpine
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_HOST_AUTH_METHOD: trust
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-
-      - name: Install dependencies
-        env:
-          PYPI_USERNAME: ${{ secrets.DG_TWINE_USERNAME }}
-          PYPI_PASSWORD: ${{ secrets.DG_TWINE_PASSWORD }}
-        run: |
-          python -m pip install --upgrade pip
-          pip install wheel pipenv
-          pipenv install --dev --system
-
-      - name: Run PyTest
-        run: pytest --cov=driftbase/ --disable-warnings tests/
+    uses: ./.github/workflows/test.yaml
+    secrets: inherit
 
   publish:
     runs-on: ubuntu-latest
@@ -71,7 +43,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
@@ -79,7 +51,7 @@ jobs:
           pip install wheel pipenv
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.DG_AWS_GITHUB_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.DG_AWS_GITHUB_SECRET_ACCESS_KEY }}
@@ -94,6 +66,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build and push image
+        id: publish
         env:
           DOCKER_BUILDKIT: 1
           PYPI_USERNAME: ${{ secrets.DG_TWINE_USERNAME }}
@@ -102,3 +75,10 @@ jobs:
           echo "PYPI_USERNAME=${PYPI_USERNAME}" >.env
           echo "PYPI_PASSWORD=${PYPI_PASSWORD}" >>.env
           make build push REGISTRY=${{ steps.login-ecr.outputs.registry }} REF=${{ github.ref }} VERSION=${{ steps.gitversion.outputs.semVer }}
+
+      - name: Send build notification to Slack
+        uses: directivegames/ga-slack-build-notify@v1-beta
+        with:
+          version: ${{ steps.gitversion.outputs.semVer }}
+          result: ${{ steps.publish.conclusion }}
+          webhook_url: ${{ secrets.DG_SLACK_BUILDS_WORKFLOW_URL }}
