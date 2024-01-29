@@ -32,6 +32,7 @@
         "driftbase.api.matchmakers.flexmatch",
         "driftbase.api.lobbies",
         "driftbase.api.match_placements",
+        "driftbase.api.sandbox",
 
         "drift.core.apps.provision",
         "drift.core.apps.healthcheck",

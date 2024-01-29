@@ -6,7 +6,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-TIER_DEFAULTS = {
+FLEXMATCH_DEFAULTS = {
     "aws_gamelift_role": "",
     "valid_regions": ["eu-west-1"],
     "max_rejoin_time_seconds": 2 * 60,
