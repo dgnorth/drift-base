@@ -8,6 +8,8 @@ on:
       - 'release/**'
       - 'hotfix/**'
       - 'support/**'
+    tags:
+      - '*'
   pull_request:
   workflow_dispatch:
 
