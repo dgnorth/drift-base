@@ -21,18 +21,19 @@ jobs:
     needs: test
     steps:
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v0.9.15
+        uses: gittools/actions/gitversion/setup@v0
         with:
           versionSpec: '5.x'
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
+          cache: 'pipenv'
           fetch-depth: 0
 
       - name: Determine version
         id: gitversion
-        uses: gittools/actions/gitversion/execute@v0.9.15
+        uses: gittools/actions/gitversion/execute@v0
         with:
           useConfigFile: true
 
@@ -63,7 +64,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push image
         id: publish
