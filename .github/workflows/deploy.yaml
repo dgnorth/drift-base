@@ -75,11 +75,3 @@ jobs:
           echo "PYPI_USERNAME=${PYPI_USERNAME}" >.env
           echo "PYPI_PASSWORD=${PYPI_PASSWORD}" >>.env
           make build push REGISTRY=${{ steps.login-ecr.outputs.registry }} REF=${{ github.ref }} VERSION=${{ steps.gitversion.outputs.semVer }}
-
-      - name: Send build notification to Slack
-        if: always()
-        uses: directivegames/ga-slack-build-notify@v1-beta
-        with:
-          version: ${{ steps.gitversion.outputs.semVer }}
-          result: ${{ steps.publish.conclusion }}
-          webhook_url: ${{ secrets.DG_SLACK_BUILDS_WORKFLOW_URL }}
