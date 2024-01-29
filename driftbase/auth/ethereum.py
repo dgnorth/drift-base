@@ -106,7 +106,7 @@ def _run_ethereum_message_validation(signer, message, signature, timestamp_leewa
         # Message is not JSON, it's probably EIP-4361
         try:
             siwe_message: siwe.SiweMessage = siwe.SiweMessage(message=message)
-            siwe_message.verify(signature)
+            siwe_message.verify(signature, timestamp=utcnow())
             recovered = signer.lower()
         except ValueError:
             raise UnauthorizedException("Invalid message format")

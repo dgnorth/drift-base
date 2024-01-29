@@ -19,6 +19,7 @@ eth-account = "*"
 sqlalchemy = "==1.4.47"
 # required until we support flask-sqlalchemy 3.0
 flask-marshmallow = "~=0.14.0"
+siwe = "*"
 
 [dev-packages]
 pytest = "*"

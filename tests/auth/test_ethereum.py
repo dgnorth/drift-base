@@ -168,7 +168,7 @@ class TestEthereumEIP4361RunAuthentication(unittest.TestCase):
         self.address = '0xa0940d9ca3974455c5b6920e49b20eb464fc982e'
         self.message = "localhost wants you to sign in with your Ethereum account:\n0xa0940d9CA3974455C5B6920E49b20EB464Fc982e\n\nI accept the dApp's Terms of Service: https://themachinesarena.com/terms-and-conditions\n\nURI: http://localhost:3000\nVersion: 1\nChain ID: 2020\nNonce: 12345678\nIssued At: 2024-01-27T09:11:40.366Z\nExpiration Time: 2024-01-28T09:11:40.365Z"
         self.signature = '0x03227ee89a406ec44bdfb21cf77550a0e40ec9da69f77d130e6b8b7116cbf21f35b13c9884e62362fb90c6d97e8361f7bafd091d44f7b16079e3476740dee5331c'
-        self.timestamp = datetime.datetime.fromisoformat('2024-01-27T09:11:40.366')
+        self.timestamp = datetime.datetime.fromisoformat('2024-01-27T09:11:40.366Z')
 
     def test_authenticates_when_signature_matches(self):
         with mock.patch('driftbase.auth.ethereum.utcnow') as now:
