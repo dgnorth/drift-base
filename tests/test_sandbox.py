@@ -37,7 +37,7 @@ class SandboxTest(BaseCloudkitTest):
         return next(location_id_gen)
 
     def test_access(self):
-        self.auth()
+        self.auth_service()
         self.assertIn("sandbox", self.endpoints)
         self.get(self.endpoints["sandbox"], expected_status_code=http_client.OK)
         self.logout()
@@ -51,9 +51,12 @@ class SandboxTest(BaseCloudkitTest):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}", expected_status_code=http_client.CREATED).json()
         self.assertIn(placement_id, response["placement_id"])
         self.assertTrue(response["placement_id"].endswith(placement_id))
-        with self.as_bearer_token_user(EVENTS_ROLE):
-            event = MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id, event_type="PlacementFulfilled")
-            self.put(self.endpoints["flexmatch_queue"], data=json.loads(event), expected_status_code=http_client.OK)
+        event = json.loads(MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id,
+                                                 event_type="PlacementFulfilled"))
+        with patch.object(flexmatch, "_get_flexmatch_config_value",
+                          return_value=f"arn:aws:iam::{event.get('account')}:role/dg-drift-flexmatch"):
+            with self.as_bearer_token_user(EVENTS_ROLE):
+                self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
         notification, _ = self.get_player_notification("sandbox", "PlayerSessionReserved")
         data = notification['data']
         self.assertIn("game_session", data)
@@ -101,17 +104,20 @@ class SandboxTest(BaseCloudkitTest):
             time.sleep((thread_flag_result["started"] - datetime.datetime.utcnow()).seconds)
 
         # fulfill the placement
-        time.sleep(0.2) # entering the ctxmgr to quickly after thread starts may trample the auth header of the thread
+        time.sleep(0.2) # entering the ctxmgr too quickly after thread starts may trample the auth header of the thread
         with self.as_bearer_token_user(EVENTS_ROLE):
             self.assertTrue(blocked_thread.is_alive())
-            # patch the db-dipping call so that when thread unblocks, it won't recurse endlessly
-            with patch.object(sandbox, "get_running_game_session",
-                              return_value="arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663"):
-                event = MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id, event_type="PlacementFulfilled")
-                self.put(self.endpoints["flexmatch_queue"], data=json.loads(event), expected_status_code=http_client.OK)
-                # yield to thread before un-patching
-                while thread_flag_result["ended"] is False:
-                    time.sleep(0.1)
+            event = json.loads(MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id,
+                                                     event_type="PlacementFulfilled"))
+            with patch.object(flexmatch, "_get_flexmatch_config_value",
+                              return_value=f"arn:aws:iam::{event.get('account')}:role/dg-drift-flexmatch"):
+                # patch the db-dipping call so that when thread unblocks, it won't recurse endlessly
+                with patch.object(sandbox, "get_running_game_session",
+                                  return_value="arn:aws:gamelift:eu-west-1::gamesession/fleet-938edf52-462b-465c-8e42-9856d9cc74b0/1941b6ae-dd29-4605-b0df-8c5ac8d37663"):
+                    self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+                    # yield to thread before un-patching
+                    while thread_flag_result["ended"] is False:
+                        time.sleep(0.1)
         blocked_thread.join()
         self.assertFalse(blocked_thread.is_alive())
         self.assertIsNotNone(thread_flag_result["result"])
@@ -120,27 +126,64 @@ class SandboxTest(BaseCloudkitTest):
         self.assertIn("game_session", data)
         self.assertIn("connection_info", data)
 
-    def test_failed_placement_posts_message(self):
+    def test_failed_placement_posts_message_and_nukes_cache(self):
         username = self.make_player()
         location_id = self.location_id()
         placement_id = f"SB-Experience-{location_id}"
+        event = json.loads(MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id,
+                                                 event_type="PlacementFailed"))
+        with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
+            response = self.put(f"{self.endpoints['sandbox']}/{location_id}",
+                                expected_status_code=http_client.CREATED).json()
+        self.assertIn(placement_id, response["placement_id"])
+        self.assertTrue(response["placement_id"].endswith(placement_id))
+        with patch.object(flexmatch, "_get_flexmatch_config_value",
+                          return_value=f"arn:aws:iam::{event.get('account')}:role/dg-drift-flexmatch"):
+            with self.as_bearer_token_user(EVENTS_ROLE):
+                self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+        # Re-auth
+        self.auth(username)
+        notification, _ = self.get_player_notification("sandbox", "SessionCreationFailed")
+        self.assertIsNotNone(notification)
+        # Check if still cached
+        self.auth_service()
+        placements = self.get(self.endpoints["sandbox"], expected_status_code=http_client.OK).json()
+        self.assertIn("placements", placements)
+        for placement in placements["placements"]:
+            if placement.endswith(placement_id):
+                self.fail(
+                    f"Placement {placement_id} was not cleared from redis cached after failure message")
+
+    def test_events_from_other_accounts_are_ignored(self):
+        _ = self.make_player()
+        location_id = self.location_id()
+        placement_id = f"SB-Experience-{location_id}"
+        wrong_account = "123456789012"
+        event = json.loads(MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id,
+                                                 event_type="PlacementFailed"))
         with patch.object(flexmatch, "start_game_session_placement", return_value={"placement_id": placement_id}):
             response = self.put(f"{self.endpoints['sandbox']}/{location_id}",
                                 expected_status_code=http_client.CREATED).json()
         self.assertIn(placement_id, response["placement_id"])
         self.assertTrue(response["placement_id"].endswith(placement_id))
         with self.as_bearer_token_user(EVENTS_ROLE):
-            event = MOCK_GAMELIFT_QUEUE_EVENT % dict(placement_id=placement_id, player_id=self.player_id, event_type="PlacementFailed")
-            self.put(self.endpoints["flexmatch_queue"], data=json.loads(event), expected_status_code=http_client.OK)
-        # Re-auth
-        self.auth(username)
-        notification, _ = self.get_player_notification("sandbox", "SessionCreationFailed")
-        self.assertIsNotNone(notification)
+            with patch.object(sandbox, "get_tenant_config_value",
+                          return_value=f"arn:aws:iam::{wrong_account}:role/dg-drift-flexmatch"):
+                self.put(self.endpoints["flexmatch_queue"], data=event, expected_status_code=http_client.OK)
+        self.auth_service()
+        placements = self.get(self.endpoints["sandbox"], expected_status_code=http_client.OK).json()
+        self.assertIn("placements", placements)
+        for placement in placements["placements"]:
+            if placement.endswith(placement_id):
+                break
+        else:
+            self.fail(f"Placement {placement_id} was wrongly nuked from cache after failure message from wrong account")
 
 
 MOCK_GAMELIFT_QUEUE_EVENT = """{
    "version": "0",
    "detail-type": "GameLift Queue Placement Event",
+   "account": "509899862212",
    "resources": [
       "arn:aws:gamelift:eu-west-1:509899862212:gamesessionqueue/default"
    ],

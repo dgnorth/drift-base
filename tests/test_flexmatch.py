@@ -1,6 +1,8 @@
 import http.client as http_client
 import time
 
+import mock
+
 from driftbase.utils.test_utils import BaseCloudkitTest
 from unittest.mock import patch
 from driftbase import flexmatch
@@ -115,6 +117,24 @@ class TestFlexMatchTicketAPI(BaseCloudkitTest):
 
 
 class _BaseFlexmatchTest(BaseCloudkitTest):
+    account = "123456789012"
+    aws_role = f"arn:aws:iam::{account}:role/dg-drift-flexmatch"
+    patcher = None
+    from driftbase.flexmatch import _get_flexmatch_config_value as original_get_flexmatch_config_value
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        def _flexmatch_config_value(key):
+            return cls.aws_role if key == "aws_gamelift_role" else cls.original_get_flexmatch_config_value(key)
+
+        cls.patcher = mock.patch("driftbase.flexmatch._get_flexmatch_config_value", side_effect=_flexmatch_config_value)
+        cls.patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.patcher.stop()
+        super().tearDownClass()
+
     def _create_party(self, party_size=2):
         if party_size < 2:
             raise RuntimeError(f"Cant have a party of {party_size}")
@@ -180,14 +200,13 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
         template.update(kwargs)
         return template
 
-    @staticmethod
-    def _get_event_data(event_details):
+    def _get_event_data(self, event_details):
         data = {
             "version": "0",
             "id": str(uuid.uuid4()),
             "detail-type": "GameLift Matchmaking Event",
             "source": "aws.gamelift",
-            "account": "123456789012",
+            "account": self.account,
             "time": "2021-05-27T15:19:34Z",
             "region": "eu-west-1",
             "resources": [
@@ -594,6 +613,7 @@ class FlexMatchTest(_BaseFlexmatchTest):
 
 
 class FlexMatchEventTest(_BaseFlexmatchTest):
+
     def test_searching_event(self):
         user_name, ticket_url, ticket = self._initiate_matchmaking()
         ticket_id, player_info = ticket["ticket_id"], {"playerId": str(self.player_id)}
