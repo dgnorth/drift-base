@@ -5,9 +5,8 @@ import http.client as http_client
 from flask import url_for, g
 from flask.views import MethodView
 from drift.blueprint import Blueprint
-from drift.core.extensions.jwt import current_user
+from drift.core.extensions.jwt import current_user, requires_roles
 from drift.core.extensions.urlregistry import Endpoints
-
 from driftbase import sandbox
 
 log = logging.getLogger(__name__)
@@ -26,11 +25,15 @@ def drift_init_extension(app, **kwargs):
 class SandboxAPI(MethodView):
 
     class SandboxGetResponse(ma.Schema):
-        pass
+        placements = ma.fields.List(ma.fields.String())
 
+    @requires_roles("service")
     @bp.response(http_client.OK, SandboxGetResponse)
     def get(self):
-        return {}  #TODO: return list of placements
+        # Quick hack to aid in testing and for admins to sniff around.
+        key_pattern = g.redis.make_key(f"*-SB-Experience-*")
+        placements = g.redis.conn.keys(key_pattern)
+        return dict(placements=placements)
 
 
 @bp.route('/<int:location_id>', endpoint='placement')
