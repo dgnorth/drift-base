@@ -121,6 +121,7 @@ class _BaseFlexmatchTest(BaseCloudkitTest):
     aws_role = f"arn:aws:iam::{account}:role/dg-drift-flexmatch"
     patcher = None
     from driftbase.flexmatch import _get_flexmatch_config_value as original_get_flexmatch_config_value
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

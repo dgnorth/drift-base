@@ -37,8 +37,10 @@ class SandboxTest(BaseCloudkitTest):
         return next(location_id_gen)
 
     def test_access(self):
-        self.auth_service()
+        self.auth()
         self.assertIn("sandbox", self.endpoints)
+        self.get(self.endpoints["sandbox"], expected_status_code=http_client.FORBIDDEN)
+        self.auth_service()
         self.get(self.endpoints["sandbox"], expected_status_code=http_client.OK)
         self.logout()
         self.get(self.endpoints["sandbox"], expected_status_code=http_client.UNAUTHORIZED)
