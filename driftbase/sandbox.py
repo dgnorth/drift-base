@@ -13,6 +13,7 @@ from driftbase.models.db import Match, Server, CorePlayer
 from driftbase.config import get_server_heartbeat_config
 from driftbase.utils.redis_utils import JsonLock
 from driftbase.messages import post_message
+from drift.core.extensions.driftconfig import get_tenant_config_value
 
 log = logging.getLogger(__name__)
 
@@ -61,13 +62,13 @@ def handle_player_session_request(location_id: int, player_id: int, queue=t.Unio
             log.info(f"No game session and no placement for location '{location_id}'. Creating it...")
             return _create_placement(location_id, player_id, queue)
         elif placement["status"] == "completed": # recurse, we should now have a match entry with game_session_arn
-            log.info(f"Placement completed while we waited. Recursing in 1 second to add player session...")
             sleep_time = 0.5
+            log.info(f"Placement completed while we waited. Recursing in {sleep_time} second to add player session...")
             time.sleep(sleep_time)
             if recursionlevel > MAX_RECURSION_LEVEL:
                 log.error(f"Server hasn't registered a match on this experience yet. "
                           f"It's been {sleep_time*MAX_RECURSION_LEVEL} seconds since it reported ready to gamelift. "
-                          f"Check placement {placement['placement_id']} I Giving up")
+                          f"Check placement {placement['placement_id']} I'm Giving up.")
                 abort(http_client.SERVICE_UNAVAILABLE, message="Too many recursions. Giving up.")
             return handle_player_session_request(location_id, player_id, queue, recursionlevel+1)
         else:
@@ -184,7 +185,11 @@ def _ensure_player_session(game_session_arn: str, player_id: int) -> str:
 
 
 def process_placement_event(queue_name: str, message: dict) -> None:
+    if not flexmatch.check_event_tenant_account(message):
+        log.info(f"sandbox::process_placement_event: ignoring event for another tenant'{message}'")
+        return
     log.info(f"sandbox::process_placement_event received event in queue '{queue_name}': '{message}'")
+
     if message.get("detail-type", None) != "GameLift Queue Placement Event":
         log.error("Event is not a GameLift Queue Placement Event. Ignoring")
         return

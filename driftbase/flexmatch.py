@@ -254,6 +254,9 @@ def handle_match_event(queue_name, event_data):
 
 
 def process_flexmatch_event(flexmatch_event):
+    if not check_event_tenant_account(flexmatch_event):
+        log.info(f"Event {flexmatch_event} is not for us. Ignoring event.")
+        return
     event = _get_event_details(flexmatch_event)
     event_type = event.get("type", None)
     if event_type is None:
@@ -328,6 +331,23 @@ def create_player_session(**kwargs):
         raise GameliftClientException("Invalid parameters to request", str(e))
     except ClientError as e:
         raise GameliftClientException("Failed to create player session", str(e))
+
+
+def check_event_tenant_account(event: dict) -> bool:
+    # Figure out if this event is meant for this tenant. Look at the account in the event and compare to the account
+    # we use to make gamelift/flexmatch requests
+    event_account = event.get("account", "")
+    if not event_account:
+        log.error(f"Malformed event; no account given. Ignoring event.")
+        return False
+    aws_role = _get_flexmatch_config_value("aws_gamelift_role")
+    if not aws_role:
+        log.error("No AWS account found for flexmatch on this tenant. This shouldn't be happening and I'm bailing.")
+        return False
+    aws_account = aws_role.split("::")[1].split(":")[0]  # from e.g. "arn:aws:iam::753166028880:role/dg-drift-flexmatch"
+    if aws_account != event_account:
+        return False
+    return True
 
 
 # Helpers
