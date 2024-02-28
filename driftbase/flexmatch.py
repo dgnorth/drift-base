@@ -715,7 +715,7 @@ class _LockedTicket(object):
     Context manager for synchronizing creation and modification of matchmaking tickets.
     """
     MAX_LOCK_WAIT_TIME_SECONDS = 30
-    TICKET_TTL_SECONDS = 10 * 60
+    TICKET_TTL_SECONDS = 11 * 60
     PLACEMENT_TIMEOUT = 5 * 60
     MAX_REJOIN_TIME = None
 
