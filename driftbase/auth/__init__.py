@@ -13,6 +13,7 @@ AUTH_MODULES = {
     'epic': 'driftbase.auth.epic',
     'eos': 'driftbase.auth.eos',
     'ethereum': 'driftbase.auth.ethereum',
+    'cognito': 'driftbase.auth.cognito',
 }
 
 LOCAL_AUTH = [
