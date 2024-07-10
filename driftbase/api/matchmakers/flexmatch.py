@@ -137,7 +137,7 @@ class FlexMatchTicketsAPI(MethodView):
         if info:
             unban_date = info["unban_date"]
             log.info(f"Cannot start matchmaking for banned player {player_id}. Expires at: {unban_date}")
-            return abort(http_client.FORBIDDEN, description=f"Matchmaking ban expires at: {unban_date.isoformat()}")
+            return abort(http_client.FORBIDDEN, description=f"type=unban_date date={unban_date.isoformat()}")
 
         try:
             ticket = flexmatch.upsert_flexmatch_ticket(player_id, matchmaker, args.get("extras", {}))
