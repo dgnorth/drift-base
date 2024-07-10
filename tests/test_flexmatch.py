@@ -386,8 +386,8 @@ class FlexMatchTest(_BaseFlexmatchTest):
             stack.enter_context(patch.object(flexmatch, "_get_flexmatch_config_value", lambda config_key: config[config_key]))
             stack.enter_context(patch.object(flexmatch, 'GameLiftRegionClient', MockGameLiftClient))
 
-            def _on_match_ban_event(match_type, match_id):
-                event_data = {"event": "match_player_banned", "match_id": match_id, "match_type": match_type, "player_id": self.player_id}
+            def _on_match_ban_event(match_type, match_id, player_id = self.player_id):
+                event_data = {"event": "match_player_banned", "match_id": match_id, "match_type": match_type, "player_id": player_id}
                 flexmatch.handle_match_event("match", event_data)
 
             endpoint = self.endpoints["flexmatch_tickets"]
@@ -425,6 +425,16 @@ class FlexMatchTest(_BaseFlexmatchTest):
             self.assertIsNotNone(ban_info)
             self.post(endpoint, data={"matchmaker": "DG-QuickPlay"}, expected_status_code=http_client.CREATED)
             self.post(endpoint, data={"matchmaker": "DG-Ranked"}, expected_status_code=http_client.FORBIDDEN)
+
+            # Cannot start matchmaker if party member is banned.
+            member, host = self._create_party()
+            _on_match_ban_event("EMatchType::Ranked", 4, member["id"])
+            self.post(endpoint, data={"matchmaker": "DG-Ranked"}, expected_status_code=http_client.FORBIDDEN)
+            self.post(endpoint, data={"matchmaker": "DG-QuickPlay"}, expected_status_code=http_client.CREATED)
+            _on_match_ban_event("EMatchType::Ranked", 5, host["id"])
+            self.post(endpoint, data={"matchmaker": "DG-Ranked"}, expected_status_code=http_client.FORBIDDEN)
+            self.post(endpoint, data={"matchmaker": "DG-QuickPlay"}, expected_status_code=http_client.CREATED)
+
 
 
     def test_delete_ticket_clears_cached_ticket_on_permanent_error(self):

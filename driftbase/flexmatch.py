@@ -10,6 +10,7 @@ from drift.core.extensions.driftconfig import get_tenant_config_value
 from aws_assume_role_lib import assume_role
 from driftbase.parties import get_player_party, get_party_members
 from driftbase.messages import post_message
+from driftbase.models.db import CorePlayer
 from driftbase.utils.redis_utils import JsonLock
 from datetime import datetime, date, timezone, timedelta
 
@@ -93,7 +94,7 @@ def upsert_flexmatch_ticket(player_id, matchmaking_configuration, extra_matchmak
             # otherwise, we issue a new ticket
 
         # Generate a list of players relevant to the request; this is the list of online players in the party if the player belongs to one, otherwise the list is just the player
-        member_ids = _get_player_party_members(player_id)
+        member_ids = _get_player_party_member_ids(player_id)
         gamelift_client = GameLiftRegionClient(AWS_HOME_REGION, _get_tenant_name())
         try:
             log.info(f"Issuing a new {matchmaking_configuration} matchmaking ticket for playerIds {member_ids} on behalf of calling player {player_id}")
@@ -141,11 +142,11 @@ def cancel_active_ticket(player_id, ticket_id):
     with _LockedTicket(_get_player_ticket_key(player_id)) as ticket_lock:
         if ticket_lock.ticket and ticket_id == ticket_lock.ticket["TicketId"]:
             try:
-                return _cancel_locked_ticket(ticket_lock.ticket, _get_player_party_members(player_id))
+                return _cancel_locked_ticket(ticket_lock.ticket, _get_player_party_member_ids(player_id))
             except GameliftClientException:
                 ticket_lock.ticket = None  # Delete the ticket locally if there is an unrecoverable error
                 log.warning(f"Clearing ticket {ticket_id} from cache because of unrecoverable error during cancellation attempt.")
-                _post_matchmaking_event_to_members(_get_player_party_members(player_id), "MatchmakingCancelled")
+                _post_matchmaking_event_to_members(_get_player_party_member_ids(player_id), "MatchmakingCancelled")
                 raise
     return None
 
@@ -224,7 +225,7 @@ def handle_party_event(queue_name, event_data):
         with _LockedTicket(_make_player_ticket_key(player_id)) as ticket_lock:
             if ticket_lock.ticket:
                 log.info(f"handle_party_event:{event_name}: Cancelling personal ticket {ticket_lock.ticket['TicketId']} for player {player_id}")
-                _cancel_locked_ticket(ticket_lock.ticket, _get_player_party_members(player_id))
+                _cancel_locked_ticket(ticket_lock.ticket, _get_player_party_member_ids(player_id))
 
         # Party ticket
         with _LockedTicket(_make_party_ticket_key(party_id)) as ticket_lock:
@@ -391,13 +392,20 @@ def _get_player_ticket_key(player_id):
         return _make_party_ticket_key(player_party_id)
     return _make_player_ticket_key(player_id)
 
-def _get_player_party_members(player_id):
+def _get_player_party_member_ids(player_id):
     """ Return the full list of players who share a party with 'player_id', including 'player_id'. If 'player_id' isn't
     a party member, the returned list will contain only 'player_id'"""
     party_id = get_player_party(player_id)
     if party_id:
         return get_party_members(party_id)
     return [player_id]
+
+def get_player_party_and_members(player_id) -> (int, list):
+    """ Return the party id and full list of players who share a party with 'player_id', including 'player_id'. If 'player_id' isn't
+        a party member, the returned list will contain only 'player_id'"""
+    party_id = get_player_party(player_id)
+    party_member_ids = _get_player_party_member_ids(player_id) if party_id else [player_id]
+    return party_id, g.db.query(CorePlayer.player_id, CorePlayer.player_name).filter(CorePlayer.player_id.in_(party_member_ids)).all()
 
 def _get_player_attributes(player_id, extra_player_data):
     ret = extra_player_data.get(player_id, {})
