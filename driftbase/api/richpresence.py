@@ -44,13 +44,8 @@ class RichPresenceAPI(MethodView):
         Retrieve rich-presence information for a specific player
         """
 
-        log.info(f"GetRichPrescene called with '{player_id}'")
-
         try:
-            response = RichPresenceService(g.db, g.redis, query_current_user()).get_richpresence(player_id)
-            log.info(f"GetRichPrescene: result={str(response)}")
-
-            return response
+            return RichPresenceService(g.db, g.redis, query_current_user()).get_richpresence(player_id)
         except DriftBaseException as e:
             log.warning(f"GetRichPrescene DriftBaseException: {e}")
             abort(e.error_code(), message=e.msg)
